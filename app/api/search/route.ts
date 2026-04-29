@@ -99,6 +99,7 @@ export async function GET(req: NextRequest) {
           channelName,
           channelUrl: `https://www.youtube.com/channel/${channelId}`,
           avgViews,
+          description,
           subscribers: (metadata as any)?.subscriber_count || '',
           email,
           website,

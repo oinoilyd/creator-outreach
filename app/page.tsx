@@ -41,6 +41,7 @@ function CreatorTable({
   onRemoveFavorite,
   isFavTab,
   sortOrder,
+  loading,
 }: {
   creators: Creator[]
   favorites: Set<string>
@@ -48,13 +49,14 @@ function CreatorTable({
   onRemoveFavorite?: (id: string) => void
   isFavTab: boolean
   sortOrder: 'high' | 'low'
+  loading?: boolean
 }) {
   const sorted = useMemo(() => {
     if (sortOrder === 'high') return [...creators].sort((a, b) => b.avgViews - a.avgViews)
     return [...creators].sort((a, b) => a.avgViews - b.avgViews)
   }, [creators, sortOrder])
 
-  if (sorted.length === 0) return <p className="text-gray-500 text-sm mt-4">{isFavTab ? 'No favorites yet — star creators from the Results tab.' : 'No results.'}</p>
+  if (sorted.length === 0 && !loading) return <p className="text-gray-500 text-sm mt-4">{isFavTab ? 'No favorites yet — star creators from the Results tab.' : ''}</p>
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-800">
@@ -193,6 +195,7 @@ export default function Home() {
             website: c.website || '',
             instagram: c.instagram || '',
             tiktok: c.tiktok || '',
+            description: (c as any).description || '',
           })
           const r = await fetch(`/api/enrich?${params}`)
           const extra = await r.json()
@@ -284,9 +287,15 @@ export default function Home() {
         <div className="flex items-center gap-3 mb-4">
           <button
             onClick={() => setSortOrder(s => s === 'high' ? 'low' : 'high')}
-            className="text-sm px-4 py-1.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+            className="text-sm px-4 py-1.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-2 border border-gray-700"
           >
-            Views {sortOrder === 'high' ? 'High → Low ↓' : 'Low → High ↑'}
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {sortOrder === 'high'
+                ? <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9M3 12h5m10 4l-4-4m0 0l-4 4m4-4v12" />
+                : <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9M3 12h5m10-8l-4 4m0 0l-4-4m4 4V4" />
+              }
+            </svg>
+            Avg Views: {sortOrder === 'high' ? 'High → Low' : 'Low → High'}
           </button>
         </div>
 
@@ -301,6 +310,7 @@ export default function Home() {
           onRemoveFavorite={removeFavorite}
           isFavTab={activeTab === 'favorites'}
           sortOrder={sortOrder}
+          loading={loading}
         />
       </div>
     </main>
