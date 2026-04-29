@@ -71,18 +71,27 @@ function parseRelativeDays(text: string): number {
 
 function buildOutreachEmail(c: Creator): string {
   const firstName = c.channelName.split(/[\s,|–-]/)[0]
-  const niche = c.description.slice(0, 100).replace(/\n/g, ' ').trim()
-  const contentType = niche ? `your ${niche.split(' ').slice(0, 4).join(' ')} content` : 'your content'
+
+  // Build a content reference from video titles first, fall back to description
+  let contentRef = 'your content'
+  if (c.videoTitles && c.videoTitles.length > 0) {
+    contentRef = `"${c.videoTitles[0]}"`
+  } else {
+    const niche = c.description.replace(/\n/g, ' ').trim().slice(0, 120)
+    const clean = niche.replace(/https?:\/\/\S+/g, '').trim()
+    if (clean.length > 10) contentRef = `your ${clean.split(' ').slice(0, 5).join(' ')} content`
+  }
+
   const subject = `Your YouTube channel`
   const body = `Hey ${firstName},
 
-Came across your channel — really like what you're doing with ${contentType}.
+Came across your channel and watched ${contentRef} — good stuff.
 
-I'm Ryan Gaynor. I work with YouTube creators on the full picture — video editing, channel growth, content strategy. Basically helping creators like you get more out of what they're already putting out.
+I'm Ryan Gaynor. I work with YouTube creators on the full picture — editing, growth strategy, content direction. Basically helping people like you get more out of what you're already putting out.
 
-Thought it could be worth a quick chat to see if there's anything I could help with on your end.
+Worth a quick chat to see if there's anything I could help with?
 
-Either way, feel free to connect on LinkedIn: https://www.linkedin.com/in/ryan-gaynor-6bb934318/
+Feel free to connect on LinkedIn too: https://www.linkedin.com/in/ryan-gaynor-6bb934318/
 
 Ryan`
   return `mailto:${c.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
@@ -174,6 +183,7 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
             <th className="px-4 py-3 w-8"></th>
             <Th col="channelName" label="Channel" />
             <Th col="avgViews" label="Avg Views" />
+            <th className="text-left px-4 py-3 whitespace-nowrap text-gray-300">Subscribers</th>
             <th className="text-left px-4 py-3 whitespace-nowrap text-gray-300">Last Posted</th>
             <Th col="email" label="Email" />
             <Th col="linkedin" label="LinkedIn" />
@@ -181,7 +191,6 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
             <Th col="instagram" label="Instagram" />
             <Th col="twitter" label="Twitter/X" />
             <Th col="tiktok" label="TikTok" />
-            {!isFavTab && <th className="text-left px-4 py-3">Found Via</th>}
             {isFavTab && <th className="px-4 py-3 w-8"></th>}
           </tr>
         </thead>
@@ -195,6 +204,7 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               <td className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
+              <td className="px-4 py-3 text-gray-300">{c.subscribers ? Number(c.subscribers).toLocaleString() : '—'}</td>
               <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                 {c.videoDates?.[0] && <div>{c.videoDates[0]}</div>}
                 {c.videoDates?.[1] && <div className="text-gray-600">{c.videoDates[1]}</div>}
@@ -211,13 +221,6 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
               <td className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
               <td className="px-4 py-3">{c.twitter ? <a href={c.twitter} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
               <td className="px-4 py-3">{c.tiktok ? <a href={c.tiktok} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-              {!isFavTab && (
-                <td className="px-4 py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full ${c.matchedVia === 'related' ? 'bg-gray-700 text-gray-300' : c.matchedVia === 'bio' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}`}>
-                    {c.matchedVia || 'name'}
-                  </span>
-                </td>
-              )}
               {isFavTab && (
                 <td className="px-4 py-3">
                   <button onClick={() => onRemoveFavorite?.(c.channelId)} className="text-gray-600 hover:text-red-400 transition-colors"><TrashIcon /></button>
@@ -315,7 +318,7 @@ export default function Home() {
       setEnrichProgress({ current: 0, total: enriched.length })
       setStatus(`Found ${enriched.length} creators. Enriching contact info...`)
 
-      const BATCH = 5
+      const BATCH = 10
       for (let i = 0; i < enriched.length; i += BATCH) {
         if (version !== searchVersion.current) return
         const batchIndices = Array.from({ length: Math.min(BATCH, enriched.length - i) }, (_, k) => i + k)
