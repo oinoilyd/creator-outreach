@@ -14,19 +14,60 @@ export async function GET(req: NextRequest) {
 
   try {
     const yt = await Innertube.create({ retrieve_player: false })
-    const results = await yt.search(keyword, { type: 'channel' })
+
+    // collect channel IDs from both channel search AND video search
+    const seenIds = new Set<string>()
+    const channelQueue: string[] = []
+
+    // 1. channel search
+    try {
+      const channelResults = await yt.search(keyword, { type: 'channel' })
+      for (const item of (channelResults as any).channels || []) {
+        if (item?.id && !seenIds.has(item.id)) {
+          seenIds.add(item.id)
+          channelQueue.push(item.id)
+        }
+      }
+    } catch { /* channel search failed */ }
+
+    // 2. video search — extract channels from video results
+    try {
+      const videoResults = await yt.search(keyword, { type: 'video' })
+      const videos = (videoResults as any).videos || (videoResults as any).results || []
+      for (const v of videos) {
+        // youtubei.js exposes author differently depending on result type
+        const cid =
+          v?.author?.id ||
+          v?.channel?.id ||
+          v?.endpoint?.payload?.browseId ||
+          v?.short_view_count?.text // fallback check
+
+        // also try getting channel id from the video's owner
+        const ownerChannelId =
+          v?.owner?.endpoint?.payload?.browseId ||
+          v?.metadata?.channel_id
+
+        const id = cid && cid.startsWith('UC') ? cid :
+                   ownerChannelId && ownerChannelId.startsWith('UC') ? ownerChannelId : null
+
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id)
+          channelQueue.push(id)
+        }
+      }
+    } catch { /* video search failed */ }
+
     const channels = []
 
-    for (const item of (results as any).channels.slice(0, maxResults * 3)) {
+    for (const channelId of channelQueue) {
+      if (channels.length >= maxResults) break
       try {
-        const channelId = item.id
-        if (!channelId) continue
-
         const channel = await yt.getChannel(channelId)
         const videos = await channel.getVideos()
         const videoItems = (videos as any).videos?.slice(0, 10) || []
         if (videoItems.length === 0) continue
 
+        // calculate avg views
         let totalViews = 0
         let count = 0
         for (const v of videoItems) {
@@ -41,27 +82,24 @@ export async function GET(req: NextRequest) {
         const metadata = channel.metadata
         const channelName = metadata?.title || 'Unknown'
         const description = metadata?.description || ''
-        const email = extractEmail(description)
-        const website = extractWebsite(description)
-        const socials = extractSocials(description)
+        let email = extractEmail(description)
+        let website = extractWebsite(description)
+        let socials = extractSocials(description)
 
-        // try About page for extra links
-        let aboutEmail = email
-        let aboutWebsite = website
-        let aboutSocials = { ...socials }
+        // About page for official links + business email
         try {
           const about = await (channel as any).getAbout()
           const links: any[] = about?.primary_links || about?.links || []
           for (const link of links) {
             const url: string = link?.url || link?.endpoint?.payload?.url || ''
             if (!url) continue
-            if (!aboutSocials.instagram && url.includes('instagram.com')) aboutSocials.instagram = url
-            if (!aboutSocials.twitter && (url.includes('twitter.com') || url.includes('x.com'))) aboutSocials.twitter = url
-            if (!aboutSocials.tiktok && url.includes('tiktok.com')) aboutSocials.tiktok = url
-            if (!aboutSocials.linkedin && url.includes('linkedin.com')) aboutSocials.linkedin = url
-            if (!aboutWebsite && !url.match(/instagram|twitter|tiktok|linkedin|youtube/i)) aboutWebsite = url
+            if (!socials.instagram && url.includes('instagram.com')) socials.instagram = url
+            if (!socials.twitter && (url.includes('twitter.com') || url.includes('x.com'))) socials.twitter = url
+            if (!socials.tiktok && url.includes('tiktok.com')) socials.tiktok = url
+            if (!socials.linkedin && url.includes('linkedin.com')) socials.linkedin = url
+            if (!website && !url.match(/instagram|twitter|tiktok|linkedin|youtube/i)) website = url
           }
-          if (!aboutEmail && about?.business_email) aboutEmail = about.business_email
+          if (!email && about?.business_email) email = about.business_email
         } catch { /* no about page */ }
 
         const nameScore = scoreBio(channelName.toLowerCase(), terms)
@@ -74,14 +112,12 @@ export async function GET(req: NextRequest) {
           channelUrl: `https://www.youtube.com/channel/${channelId}`,
           avgViews,
           subscribers: (metadata as any)?.subscriber_count || '',
-          email: aboutEmail,
-          website: aboutWebsite,
+          email,
+          website,
           relevanceScore: nameScore + bioScore,
           matchedVia,
-          ...aboutSocials,
+          ...socials,
         })
-
-        if (channels.length >= maxResults) break
       } catch { continue }
     }
 
