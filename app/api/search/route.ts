@@ -14,47 +14,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const yt = await Innertube.create({ retrieve_player: false })
-
-    // run two searches: exact keyword + broader related search
-    const [results1, results2] = await Promise.allSettled([
-      yt.search(keyword, { type: 'channel' }),
-      yt.search(keyword, { type: 'video' }),
-    ])
-
-    const channelIds = new Set<string>()
-    const channelQueue: string[] = []
-
-    if (results1.status === 'fulfilled') {
-      for (const item of results1.value.channels || []) {
-        if (item.id && !channelIds.has(item.id)) {
-          channelIds.add(item.id)
-          channelQueue.push(item.id)
-        }
-      }
-    }
-
-    // pull unique channels from video results too
-    if (results2.status === 'fulfilled') {
-      for (const item of (results2.value as any).videos || []) {
-        const cid = item?.author?.id || item?.channel_id
-        if (cid && !channelIds.has(cid)) {
-          channelIds.add(cid)
-          channelQueue.push(cid)
-        }
-      }
-    }
-
+    const results = await yt.search(keyword, { type: 'channel' })
     const channels = []
 
-    for (const channelId of channelQueue) {
-      if (channels.length >= maxResults) break
+    for (const item of (results as any).channels.slice(0, maxResults * 3)) {
       try {
+        const channelId = item.id
+        if (!channelId) continue
+
         const channel = await yt.getChannel(channelId)
         const videos = await channel.getVideos()
-        const videoItems = videos.videos?.slice(0, 10) || []
+        const videoItems = (videos as any).videos?.slice(0, 10) || []
         if (videoItems.length === 0) continue
 
-        // avg views filter — extended to 200k
         let totalViews = 0
         let count = 0
         for (const v of videoItems) {
@@ -69,38 +41,31 @@ export async function GET(req: NextRequest) {
         const metadata = channel.metadata
         const channelName = metadata?.title || 'Unknown'
         const description = metadata?.description || ''
+        const email = extractEmail(description)
+        const website = extractWebsite(description)
+        const socials = extractSocials(description)
 
-        // pull from About page for business email + social links
-        let email = extractEmail(description)
-        let website = extractWebsite(description)
-        let socials = extractSocials(description)
-
+        // try About page for extra links
+        let aboutEmail = email
+        let aboutWebsite = website
+        let aboutSocials = { ...socials }
         try {
           const about = await (channel as any).getAbout()
           const links: any[] = about?.primary_links || about?.links || []
-
           for (const link of links) {
             const url: string = link?.url || link?.endpoint?.payload?.url || ''
-            const title: string = (link?.title?.text || link?.title || '').toLowerCase()
             if (!url) continue
-            if (!socials.instagram && (url.includes('instagram.com') || title.includes('instagram'))) socials.instagram = url
-            if (!socials.twitter && (url.includes('twitter.com') || url.includes('x.com') || title.includes('twitter'))) socials.twitter = url
-            if (!socials.tiktok && (url.includes('tiktok.com') || title.includes('tiktok'))) socials.tiktok = url
-            if (!socials.linkedin && (url.includes('linkedin.com') || title.includes('linkedin'))) socials.linkedin = url
-            if (!website && !url.match(/instagram|twitter|tiktok|linkedin|youtube/i)) website = url
+            if (!aboutSocials.instagram && url.includes('instagram.com')) aboutSocials.instagram = url
+            if (!aboutSocials.twitter && (url.includes('twitter.com') || url.includes('x.com'))) aboutSocials.twitter = url
+            if (!aboutSocials.tiktok && url.includes('tiktok.com')) aboutSocials.tiktok = url
+            if (!aboutSocials.linkedin && url.includes('linkedin.com')) aboutSocials.linkedin = url
+            if (!aboutWebsite && !url.match(/instagram|twitter|tiktok|linkedin|youtube/i)) aboutWebsite = url
           }
+          if (!aboutEmail && about?.business_email) aboutEmail = about.business_email
+        } catch { /* no about page */ }
 
-          if (!email) {
-            const bizEmail = about?.business_email || about?.contact_links?.find((l: any) => l?.type === 'email')?.value
-            if (bizEmail) email = bizEmail
-          }
-        } catch {
-          // getAbout failed, use description data only
-        }
-
-        // score relevance — but include ALL channels that passed view filter
-        const bioScore = scoreBio(description, terms)
         const nameScore = scoreBio(channelName.toLowerCase(), terms)
+        const bioScore = scoreBio(description.toLowerCase(), terms)
         const matchedVia = nameScore > 0 ? 'name' : bioScore > 0 ? 'bio' : 'related'
 
         channels.push({
@@ -109,20 +74,18 @@ export async function GET(req: NextRequest) {
           channelUrl: `https://www.youtube.com/channel/${channelId}`,
           avgViews,
           subscribers: (metadata as any)?.subscriber_count || '',
-          email,
-          website,
+          email: aboutEmail,
+          website: aboutWebsite,
           relevanceScore: nameScore + bioScore,
           matchedVia,
-          ...socials,
+          ...aboutSocials,
         })
-      } catch {
-        continue
-      }
+
+        if (channels.length >= maxResults) break
+      } catch { continue }
     }
 
-    // sort: exact matches first, then bio matches, then related
     channels.sort((a, b) => b.relevanceScore - a.relevanceScore)
-
     return NextResponse.json({ channels })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
