@@ -22,26 +22,21 @@ interface Creator {
 
 function buildOutreachEmail(c: Creator): string {
   const firstName = c.channelName.split(/[\s,|–-]/)[0]
-  const topic = c.videoTitles[0] || c.description.slice(0, 80)
-  const videoRef = c.videoTitles[0] ? `I came across your video "${c.videoTitles[0]}" and it immediately stood out to me.` : `I came across your channel and your content really caught my attention.`
-  const niche = c.description.slice(0, 120).replace(/\n/g, ' ').trim()
+  const niche = c.description.slice(0, 100).replace(/\n/g, ' ').trim()
+  const contentType = niche ? `your ${niche.split(' ').slice(0, 4).join(' ')} content` : 'your content'
 
-  const subject = `Quick question about growing ${c.channelName} on YouTube`
-  const body = `Hi ${firstName},
+  const subject = `Your YouTube channel`
+  const body = `Hey ${firstName},
 
-${videoRef}
+Came across your channel — really like what you're doing with ${contentType}.
 
-I'm Ryan Gaynor — I help YouTube creators like you turn great content into channels that actually grow. Whether it's tightening edits, improving retention, or building a consistent publishing system, I work directly with creators to make their videos perform better.
+I'm Ryan Gaynor. I work with YouTube creators on the full picture — video editing, channel growth, content strategy. Basically helping creators like you get more out of what they're already putting out.
 
-Based on what I've seen from your channel${niche ? ` — ${niche.slice(0, 80)}... —` : ','} I think there's a real opportunity to get your content in front of a much bigger audience.
+Thought it could be worth a quick chat to see if there's anything I could help with on your end.
 
-I'd love to offer you a free 15-minute channel audit with no strings attached. I'll walk through exactly what I'd do to grow your channel and you can decide if it's worth exploring further.
+Either way, feel free to connect on LinkedIn: https://www.linkedin.com/in/ryan-gaynor-6bb934318/
 
-Would you be open to a quick call this week?
-
-Best,
-Ryan Gaynor
-YouTube Growth & Editing Services`
+Ryan`
 
   return `mailto:${c.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
