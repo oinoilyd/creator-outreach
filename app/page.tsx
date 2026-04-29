@@ -57,6 +57,18 @@ function pickRandom(arr: string[], n: number): string[] {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
 }
 
+function parseRelativeDays(text: string): number {
+  if (!text) return Infinity
+  const t = text.toLowerCase()
+  const n = parseInt(t) || 1
+  if (t.includes('second') || t.includes('minute') || t.includes('hour') || t.includes('just now') || t.includes('today')) return 0
+  if (t.includes('day')) return n
+  if (t.includes('week')) return n * 7
+  if (t.includes('month')) return n * 30
+  if (t.includes('year')) return n * 365
+  return Infinity
+}
+
 function buildOutreachEmail(c: Creator): string {
   const firstName = c.channelName.split(/[\s,|–-]/)[0]
   const niche = c.description.slice(0, 100).replace(/\n/g, ' ').trim()
@@ -224,6 +236,7 @@ export default function Home() {
   const maxResults = 50
   const [minViews, setMinViews] = useState(0)
   const [maxViews, setMaxViews] = useState(200000)
+  const [maxAgeDays, setMaxAgeDays] = useState<number>(Infinity)
   const [showFilter, setShowFilter] = useState(false)
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
@@ -352,7 +365,10 @@ export default function Home() {
     a.click()
   }
 
-  const currentList = activeTab === 'favorites' ? favorites : creators
+  const baseList = activeTab === 'favorites' ? favorites : creators
+  const currentList = maxAgeDays === Infinity
+    ? baseList
+    : baseList.filter(c => parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
   return (
@@ -390,26 +406,43 @@ export default function Home() {
           )}
         </div>
 
-        {/* View range filter — hidden by default */}
+        {/* Filter panel — hidden by default */}
         {showFilter && (
-          <div className="flex items-center gap-3 mb-3 flex-wrap p-3 bg-gray-900 rounded-lg border border-gray-700">
-            <span className="text-xs text-gray-400">Avg views:</span>
-            <input type="number" min={0} value={minViews}
-              onChange={e => setMinViews(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
-              placeholder="Min" />
-            <span className="text-gray-600 text-xs">to</span>
-            <input type="number" min={0} value={maxViews}
-              onChange={e => setMaxViews(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
-              placeholder="Max" />
-            <span className="text-gray-600 text-xs">|</span>
-            {VIEW_PRESETS.map(p => (
-              <button key={p.label} onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
-                className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}>
-                {p.label}
-              </button>
-            ))}
+          <div className="flex flex-col gap-3 mb-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs text-gray-400 w-20 shrink-0">Avg views:</span>
+              <input type="number" min={0} value={minViews}
+                onChange={e => setMinViews(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+                placeholder="Min" />
+              <span className="text-gray-600 text-xs">to</span>
+              <input type="number" min={0} value={maxViews}
+                onChange={e => setMaxViews(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+                placeholder="Max" />
+              <span className="text-gray-600 text-xs">|</span>
+              {VIEW_PRESETS.map(p => (
+                <button key={p.label} onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 flex-wrap border-t border-gray-800 pt-3">
+              <span className="text-xs text-gray-400 w-20 shrink-0">Last posted:</span>
+              {[
+                { label: 'Last 7 days', days: 7 },
+                { label: 'Last 30 days', days: 30 },
+                { label: 'Last 90 days', days: 90 },
+                { label: 'Last 6 months', days: 180 },
+                { label: 'Any time', days: Infinity },
+              ].map(p => (
+                <button key={p.label} onClick={() => setMaxAgeDays(p.days)}
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${maxAgeDays === p.days ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
