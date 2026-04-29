@@ -105,8 +105,7 @@ async function searchQuery(yt: any, query: string, retry = true): Promise<VideoH
       const id = item?.id || item?.author?.id
       if (!id || seenInQuery.has(id)) continue
       seenInQuery.add(id)
-      const subs = String(item?.subscriber_count ?? item?.subscriberCount ?? item?.author?.subscriber_count ?? '')
-      hits.push({ channelId: id, channelName: item?.author?.name || item?.name || '', viewCount: NaN, title: '', date: '', subscribers: subs })
+      hits.push({ channelId: id, channelName: item?.author?.name || item?.name || '', viewCount: NaN, title: '', date: '', subscribers: '' })
     }
   } catch { /* continue */ }
 

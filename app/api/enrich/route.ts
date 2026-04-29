@@ -66,14 +66,28 @@ function deepCollect(obj: any, key: string, results: any[] = [], depth = 0): any
   return results
 }
 
-// SOURCE 1: YouTube channel About page — extract description, links, and business email
-async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], socials: Record<string, string> }> {
+// SOURCE 1: YouTube channel About page — extract description, links, business email, and subscriber count
+async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], socials: Record<string, string>, subscribers: string }> {
   const socials: Record<string, string> = {}
   const emails: string[] = []
+  let subscribers = ''
   try {
     const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/about`)
     const data = extractYtInitialData(html)
-    if (!data) return { emails, socials }
+    if (!data) return { emails, socials, subscribers }
+
+    // extract subscriber count — try raw number first, then formatted text
+    const subCounts: any[] = deepCollect(data, 'subscriberCount')
+    for (const s of subCounts) {
+      if (typeof s === 'number' && s > 0) { subscribers = String(s); break }
+    }
+    if (!subscribers) {
+      const subTexts: any[] = deepCollect(data, 'subscriberCountText')
+      for (const t of subTexts) {
+        const text: string = typeof t === 'string' ? t : (t?.simpleText || t?.runs?.[0]?.text || '')
+        if (text && /\d/.test(text)) { subscribers = text.replace(/subscribers?/i, '').trim(); break }
+      }
+    }
 
     // grab all description text blobs
     const simpleTexts: string[] = deepCollect(data, 'simpleText')
@@ -106,7 +120,7 @@ async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], 
       if (typeof d === 'string') emails.push(...extractEmails(d))
     }
   } catch { /* failed */ }
-  return { emails, socials }
+  return { emails, socials, subscribers }
 }
 
 // SOURCE 2: scrape website — main page + contact/about subpages
@@ -209,7 +223,7 @@ export async function GET(req: NextRequest) {
     fromDDGLinkedIn(name),
   ])
 
-  const yt = ytResult.status === 'fulfilled' ? ytResult.value : { emails: [], socials: {} }
+  const yt = ytResult.status === 'fulfilled' ? ytResult.value : { emails: [], socials: {}, subscribers: '' }
   const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [], socials: {} }
   const ig = igEmails.status === 'fulfilled' ? igEmails.value : []
   const tt = ttEmails.status === 'fulfilled' ? ttEmails.value : []
@@ -227,5 +241,5 @@ export async function GET(req: NextRequest) {
     website: yt.socials.website || web.socials.website || website || '',
   }
 
-  return NextResponse.json({ email, ...socials })
+  return NextResponse.json({ email, subscribers: yt.subscribers, ...socials })
 }
