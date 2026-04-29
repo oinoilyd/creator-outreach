@@ -377,9 +377,9 @@ export default function Home() {
   }
 
   const baseList = activeTab === 'favorites' ? favorites : creators
-  const currentList = maxAgeDays === Infinity
-    ? baseList
-    : baseList.filter(c => parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
+  const currentList = baseList
+    .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
+    .filter(c => maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
   return (
