@@ -224,6 +224,7 @@ export default function Home() {
   const [favorites, setFavorites] = useState<Creator[]>([])
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(true)
 
   useEffect(() => {
     setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))
@@ -345,28 +346,40 @@ export default function Home() {
         {/* Suggestions bar */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">Suggested searches</span>
             <button
-              onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))}
-              className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 border border-gray-700 rounded px-2 py-0.5 hover:border-gray-500 transition-colors"
+              onClick={() => setShowSuggestions(v => !v)}
+              className="text-xs text-gray-500 hover:text-gray-300 uppercase tracking-wide flex items-center gap-1 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 transition-transform ${showSuggestions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
-              Refresh
+              Suggested searches
             </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {suggestions.map(s => (
+            {showSuggestions && (
               <button
-                key={s}
-                onClick={() => { setKeyword(s); runSearch(s) }}
-                className="text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
+                onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))}
+                className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 border border-gray-700 rounded px-2 py-0.5 hover:border-gray-500 transition-colors"
               >
-                {s}
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
               </button>
-            ))}
+            )}
           </div>
+          {showSuggestions && (
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map(s => (
+                <button
+                  key={s}
+                  onClick={() => { setKeyword(s); runSearch(s) }}
+                  className="text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
