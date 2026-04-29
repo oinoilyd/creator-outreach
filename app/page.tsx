@@ -16,6 +16,34 @@ interface Creator {
   tiktok: string
   company: string
   matchedVia: string
+  videoTitles: string[]
+  description: string
+}
+
+function buildOutreachEmail(c: Creator): string {
+  const firstName = c.channelName.split(/[\s,|–-]/)[0]
+  const topic = c.videoTitles[0] || c.description.slice(0, 80)
+  const videoRef = c.videoTitles[0] ? `I came across your video "${c.videoTitles[0]}" and it immediately stood out to me.` : `I came across your channel and your content really caught my attention.`
+  const niche = c.description.slice(0, 120).replace(/\n/g, ' ').trim()
+
+  const subject = `Quick question about growing ${c.channelName} on YouTube`
+  const body = `Hi ${firstName},
+
+${videoRef}
+
+I'm Ryan Gaynor — I help YouTube creators like you turn great content into channels that actually grow. Whether it's tightening edits, improving retention, or building a consistent publishing system, I work directly with creators to make their videos perform better.
+
+Based on what I've seen from your channel${niche ? ` — ${niche.slice(0, 80)}... —` : ','} I think there's a real opportunity to get your content in front of a much bigger audience.
+
+I'd love to offer you a free 15-minute channel audit with no strings attached. I'll walk through exactly what I'd do to grow your channel and you can decide if it's worth exploring further.
+
+Would you be open to a quick call this week?
+
+Best,
+Ryan Gaynor
+YouTube Growth & Editing Services`
+
+  return `mailto:${c.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
 function StarIcon({ filled }: { filled: boolean }) {
@@ -91,7 +119,11 @@ function CreatorTable({
                 <a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a>
               </td>
               <td className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
-              <td className="px-4 py-3 text-xs">{c.email || '—'}</td>
+              <td className="px-4 py-3 text-xs">
+                {c.email
+                  ? <a href={buildOutreachEmail(c)} className="text-green-400 hover:underline">{c.email}</a>
+                  : '—'}
+              </td>
               <td className="px-4 py-3">
                 {c.website ? <a href={c.website} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
               </td>

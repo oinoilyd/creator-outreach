@@ -82,17 +82,23 @@ function scoreBio(text: string, terms: string[]): number {
   return score
 }
 
-function extractAvgViews(videos: any): number {
+function extractVideoData(videos: any): { avgViews: number, videoTitles: string[] } {
   const richItems: any[] = videos?.current_tab?.content?.contents || []
   const videoItems = richItems.map((item: any) => item?.content).filter(Boolean).slice(0, 10)
-  if (videoItems.length === 0) return -1
+  if (videoItems.length === 0) return { avgViews: -1, videoTitles: [] }
   let total = 0, count = 0
+  const videoTitles: string[] = []
   for (const v of videoItems) {
     const text: string = v?.view_count?.text || v?.short_view_count?.text || ''
     const num = parseInt(text.replace(/[^0-9]/g, ''))
     if (!isNaN(num) && num >= 0) { total += num; count++ }
+    const title: string = v?.title?.text || v?.title?.runs?.[0]?.text || ''
+    if (title) videoTitles.push(title)
   }
-  return count > 0 ? Math.round(total / count) : -1
+  return {
+    avgViews: count > 0 ? Math.round(total / count) : -1,
+    videoTitles: videoTitles.slice(0, 3),
+  }
 }
 
 function extractAboutData(about: any): { email: string, socials: Record<string, string> } {
@@ -175,7 +181,7 @@ export async function GET(req: NextRequest) {
       try {
         const channel = await yt.getChannel(channelId)
         const videosPage = await channel.getVideos()
-        const avgViews = extractAvgViews(videosPage)
+        const { avgViews, videoTitles } = extractVideoData(videosPage)
         if (avgViews === -1 || avgViews > 200000) continue
 
         let email = ''
@@ -202,6 +208,7 @@ export async function GET(req: NextRequest) {
           channelUrl: `https://www.youtube.com/channel/${channelId}`,
           avgViews,
           description,
+          videoTitles,
           subscribers: (meta as any)?.subscriber_count || '',
           email,
           relevanceScore: nameScore + bioScore,
