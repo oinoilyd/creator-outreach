@@ -153,6 +153,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const keyword = searchParams.get('keyword')
   const maxResults = parseInt(searchParams.get('maxResults') || '50')
+  const minViews = parseInt(searchParams.get('minViews') || '0')
+  const maxViews = parseInt(searchParams.get('maxViews') || '200000')
 
   if (!keyword) return NextResponse.json({ error: 'keyword is required' }, { status: 400 })
 
@@ -182,7 +184,7 @@ export async function GET(req: NextRequest) {
         const channel = await yt.getChannel(channelId)
         const videosPage = await channel.getVideos()
         const { avgViews, videoTitles } = extractVideoData(videosPage)
-        if (avgViews === -1 || avgViews > 200000) continue
+        if (avgViews === -1 || avgViews < minViews || avgViews > maxViews) continue
 
         let email = ''
         const socials: Record<string, string> = { instagram: '', twitter: '', tiktok: '', linkedin: '', website: '' }

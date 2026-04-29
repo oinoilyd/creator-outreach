@@ -215,6 +215,8 @@ function CreatorTable({
 export default function Home() {
   const [keyword, setKeyword] = useState('')
   const maxResults = 50
+  const [minViews, setMinViews] = useState(0)
+  const [maxViews, setMaxViews] = useState(200000)
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -262,7 +264,7 @@ export default function Home() {
     setActiveTab('results')
     setStatus('Searching YouTube...')
     try {
-      const res = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}`)
+      const res = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}`)
       const data = await res.json()
       if (data.error) { setStatus(`Error: ${data.error}`); return }
       setCreators(data.channels)
@@ -341,6 +343,45 @@ export default function Home() {
               Export Excel
             </button>
           )}
+        </div>
+
+        {/* View range filter */}
+        <div className="flex items-center gap-3 mb-5 flex-wrap">
+          <span className="text-sm text-gray-400">Avg views range:</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              value={minViews}
+              onChange={e => setMinViews(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-32 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              placeholder="Min"
+            />
+            <span className="text-gray-500">—</span>
+            <input
+              type="number"
+              min={0}
+              value={maxViews}
+              onChange={e => setMaxViews(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-32 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+              placeholder="Max"
+            />
+          </div>
+          {[
+            { label: '0 – 10K', min: 0, max: 10000 },
+            { label: '10K – 50K', min: 10000, max: 50000 },
+            { label: '50K – 200K', min: 50000, max: 200000 },
+            { label: '0 – 200K', min: 0, max: 200000 },
+            { label: '0 – 500K', min: 0, max: 500000 },
+          ].map(p => (
+            <button
+              key={p.label}
+              onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
+              className={`text-xs px-3 py-1.5 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
 
         {/* Suggestions bar */}
