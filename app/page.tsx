@@ -293,7 +293,7 @@ export default function Home() {
   const [favorites, setFavorites] = useState<Creator[]>([])
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(true)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [emailOnly, setEmailOnly] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
