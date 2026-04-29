@@ -439,32 +439,28 @@ export default function Home() {
           <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 rounded font-semibold">
             {loading ? 'Searching...' : 'Search'}
           </button>
-          <button
-            onClick={() => setEmailOnly(v => !v)}
-            className={`px-3 py-2 text-xs rounded border transition-colors whitespace-nowrap ${emailOnly ? 'bg-green-700 border-green-600 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
-          >
-            Email only
-          </button>
-          {currentList.length > 0 && (
-            <div className="relative">
-              <button onClick={() => setShowExport(v => !v)} className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-xs font-medium flex items-center gap-1">
-                Export
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showExport && (
-                <div className="absolute right-0 mt-1 w-44 bg-gray-800 border border-gray-700 rounded shadow-lg z-10">
-                  <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2">
-                    <span>📊</span> Excel (.xlsx)
-                  </button>
-                  <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2">
-                    <span>📄</span> CSV (Google Sheets)
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="relative">
+            <button
+              onClick={() => setShowExport(v => !v)}
+              disabled={currentList.length === 0}
+              className="bg-green-700 hover:bg-green-600 disabled:opacity-30 disabled:cursor-not-allowed px-4 py-2 rounded font-semibold text-sm flex items-center gap-1.5"
+            >
+              Export
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showExport && (
+              <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-lg z-10">
+                <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                  📊 Excel (.xlsx)
+                </button>
+                <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                  📄 CSV (Google Sheets)
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Filter panel — hidden by default */}
@@ -503,6 +499,15 @@ export default function Home() {
                   {p.label}
                 </button>
               ))}
+            </div>
+            <div className="flex items-center gap-3 flex-wrap border-t border-gray-800 pt-3">
+              <span className="text-xs text-gray-400 w-20 shrink-0">Show only:</span>
+              <button
+                onClick={() => setEmailOnly(v => !v)}
+                className={`text-xs px-3 py-1 rounded border transition-colors ${emailOnly ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+              >
+                Has email
+              </button>
             </div>
           </div>
         )}
