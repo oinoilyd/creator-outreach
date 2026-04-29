@@ -24,6 +24,54 @@ interface Creator {
 
 type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
 type SortDir = 'asc' | 'desc'
+type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok'
+
+interface ColConfig {
+  id: ColId
+  label: string
+  visible: boolean
+}
+
+const DEFAULT_COLS: ColConfig[] = [
+  { id: 'avgViews',    label: 'Avg Views',   visible: true },
+  { id: 'subscribers', label: 'Subscribers', visible: true },
+  { id: 'lastPosted',  label: 'Last Posted', visible: true },
+  { id: 'email',       label: 'Email',       visible: true },
+  { id: 'linkedin',    label: 'LinkedIn',    visible: true },
+  { id: 'website',     label: 'Website',     visible: true },
+  { id: 'instagram',   label: 'Instagram',   visible: true },
+  { id: 'twitter',     label: 'Twitter/X',   visible: true },
+  { id: 'tiktok',      label: 'TikTok',      visible: true },
+]
+
+const COL_SORT: Partial<Record<ColId, SortCol>> = {
+  avgViews: 'avgViews', subscribers: 'subscribers', lastPosted: 'lastPosted',
+  email: 'email', linkedin: 'linkedin', website: 'website',
+  instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
+}
+
+function renderCell(id: ColId, c: Creator): React.ReactNode {
+  switch (id) {
+    case 'avgViews':    return <td key={id} className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
+    case 'subscribers': return <td key={id} className="px-4 py-3 text-gray-300">{formatSubscribers(c.subscribers)}</td>
+    case 'lastPosted':  return (
+      <td key={id} className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+        {c.videoDates?.[0] ? <><div>{c.videoDates[0]}</div>{c.videoDates[1] && <div className="text-gray-600">{c.videoDates[1]}</div>}</> : <span className="text-gray-700">—</span>}
+      </td>
+    )
+    case 'email': return (
+      <td key={id} className="px-4 py-3 text-xs">
+        {c.email ? <a href={buildOutreachEmail(c)} className="text-green-400 hover:underline">{c.email}</a>
+          : c.enriching ? <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span> : '—'}
+      </td>
+    )
+    case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'website':   return <td key={id} className="px-4 py-3">{c.website   ? <a href={c.website}   target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'instagram': return <td key={id} className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+  }
+}
 
 const ALL_OCCUPATIONS = [
   'fitness coach', 'personal trainer', 'nutritionist', 'life coach', 'business coach',
@@ -169,12 +217,14 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortC
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite, isFavTab, loading, sortCol, sortDir, onSort }: {
+function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite, isFavTab, loading, sortCol, sortDir, onSort, colConfig }: {
   creators: Creator[], favorites: Set<string>, onToggleFavorite: (c: Creator) => void
   onRemoveFavorite?: (id: string) => void, isFavTab: boolean, loading?: boolean
   sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
+  colConfig: ColConfig[]
 }) {
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir), [creators, sortCol, sortDir])
+  const visibleCols = colConfig.filter(c => c.visible)
 
   if (sorted.length === 0 && !loading) {
     return <p className="text-gray-500 text-sm mt-4">{isFavTab ? 'No favorites yet — star creators from the Results tab.' : ''}</p>
@@ -193,15 +243,12 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
           <tr>
             <th className="px-4 py-3 w-8"></th>
             <Th col="channelName" label="Channel" />
-            <Th col="avgViews" label="Avg Views" />
-            <Th col="subscribers" label="Subscribers" />
-            <Th col="lastPosted" label="Last Posted" />
-            <Th col="email" label="Email" />
-            <Th col="linkedin" label="LinkedIn" />
-            <Th col="website" label="Website" />
-            <Th col="instagram" label="Instagram" />
-            <Th col="twitter" label="Twitter/X" />
-            <Th col="tiktok" label="TikTok" />
+            {visibleCols.map(col => {
+              const sc = COL_SORT[col.id]
+              return sc
+                ? <Th key={col.id} col={sc} label={col.label} />
+                : <th key={col.id} className="text-left px-4 py-3 whitespace-nowrap">{col.label}</th>
+            })}
             {isFavTab && <th className="px-4 py-3 w-8"></th>}
           </tr>
         </thead>
@@ -214,24 +261,7 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
                 </button>
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-              <td className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
-              <td className="px-4 py-3 text-gray-300">{formatSubscribers(c.subscribers)}</td>
-              <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                {c.videoDates?.[0] && <div>{c.videoDates[0]}</div>}
-                {c.videoDates?.[1] && <div className="text-gray-600">{c.videoDates[1]}</div>}
-                {!c.videoDates?.length && <span className="text-gray-700">—</span>}
-              </td>
-              <td className="px-4 py-3 text-xs">
-                {c.email
-                  ? <a href={buildOutreachEmail(c)} className="text-green-400 hover:underline">{c.email}</a>
-                  : c.enriching ? <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span>
-                  : '—'}
-              </td>
-              <td className="px-4 py-3">{c.linkedin ? <a href={c.linkedin} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-              <td className="px-4 py-3">{c.website ? <a href={c.website} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-              <td className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-              <td className="px-4 py-3">{c.twitter ? <a href={c.twitter} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-              <td className="px-4 py-3">{c.tiktok ? <a href={c.tiktok} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+              {visibleCols.map(col => renderCell(col.id, c))}
               {isFavTab && (
                 <td className="px-4 py-3">
                   <button onClick={() => onRemoveFavorite?.(c.channelId)} className="text-gray-600 hover:text-red-400 transition-colors"><TrashIcon /></button>
@@ -266,6 +296,9 @@ export default function Home() {
   const [showSuggestions, setShowSuggestions] = useState(true)
   const [emailOnly, setEmailOnly] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
+  const [showCustomize, setShowCustomize] = useState(false)
+  const [draftCols, setDraftCols] = useState<ColConfig[]>(DEFAULT_COLS)
 
   // search version ref — prevents stale searches from overwriting newer ones
   const searchVersion = useRef(0)
@@ -567,21 +600,90 @@ export default function Home() {
           )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-4 border-b border-gray-800">
-          <button onClick={() => setActiveTab('results')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'results' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-            Results {creators.length > 0 && <span className="ml-1 text-xs text-gray-400">({creators.length})</span>}
-          </button>
-          <button onClick={() => setActiveTab('favorites')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'favorites' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-            Favorites {favorites.length > 0 && <span className="ml-1 text-xs text-yellow-400">({favorites.length})</span>}
+        {/* Tabs + Customize */}
+        <div className="flex items-center mb-4 border-b border-gray-800">
+          <div className="flex gap-1">
+            <button onClick={() => setActiveTab('results')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'results' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+              Results {creators.length > 0 && <span className="ml-1 text-xs text-gray-400">({creators.length})</span>}
+            </button>
+            <button onClick={() => setActiveTab('favorites')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'favorites' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+              Favorites {favorites.length > 0 && <span className="ml-1 text-xs text-yellow-400">({favorites.length})</span>}
+            </button>
+          </div>
+          <button
+            onClick={() => { setDraftCols(colConfig); setShowCustomize(true) }}
+            className="ml-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors mb-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Customize
           </button>
         </div>
+
+        {/* Customize drawer */}
+        {showCustomize && (
+          <div className="fixed inset-0 z-50 flex">
+            <div className="flex-1 bg-black/50" onClick={() => setShowCustomize(false)} />
+            <div className="w-80 bg-gray-900 border-l border-gray-700 flex flex-col h-full">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+                <h2 className="font-semibold text-white">Customize Columns</h2>
+                <button onClick={() => setShowCustomize(false)} className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 px-5 pt-3 pb-1">Channel is always shown first.</p>
+              <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
+                {draftCols.map((col, idx) => (
+                  <div key={col.id} className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-800 group">
+                    <input
+                      type="checkbox" checked={col.visible}
+                      onChange={() => setDraftCols(d => d.map((c, i) => i === idx ? { ...c, visible: !c.visible } : c))}
+                      className="w-4 h-4 rounded accent-blue-500"
+                    />
+                    <span className="flex-1 text-sm text-gray-200">{col.label}</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        disabled={idx === 0}
+                        onClick={() => setDraftCols(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })}
+                        className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                      >↑</button>
+                      <button
+                        disabled={idx === draftCols.length - 1}
+                        onClick={() => setDraftCols(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })}
+                        className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                      >↓</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-4 border-t border-gray-800 flex gap-3">
+                <button
+                  onClick={() => setDraftCols(DEFAULT_COLS)}
+                  className="flex-1 px-4 py-2 text-sm text-gray-400 border border-gray-700 rounded hover:border-gray-500 hover:text-white transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => { setColConfig(draftCols); setShowCustomize(false) }}
+                  className="flex-1 px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <CreatorTable
           creators={currentList} favorites={favIds}
           onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
           isFavTab={activeTab === 'favorites'} loading={loading}
           sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
+          colConfig={colConfig}
         />
       </div>
     </main>
