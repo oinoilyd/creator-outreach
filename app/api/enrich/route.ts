@@ -123,6 +123,22 @@ async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], 
   return { emails, socials, subscribers }
 }
 
+// SOURCE 1b: scrape channel /videos page for accurate recent post dates
+async function fromYouTubeVideos(channelId: string): Promise<string[]> {
+  try {
+    const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/videos`, 8000)
+    const data = extractYtInitialData(html)
+    if (!data) return []
+    const dates: string[] = []
+    const publishedTexts: any[] = deepCollect(data, 'publishedTimeText')
+    for (const t of publishedTexts) {
+      const text: string = typeof t === 'string' ? t : (t?.simpleText || t?.runs?.[0]?.text || '')
+      if (text && dates.length < 2) dates.push(text)
+    }
+    return dates
+  } catch { return [] }
+}
+
 // SOURCE 2: scrape website — main page + contact/about subpages
 async function fromWebsite(url: string): Promise<{ emails: string[], socials: Record<string, string> }> {
   const socials: Record<string, string> = {}
@@ -214,8 +230,9 @@ export async function GET(req: NextRequest) {
   const descEmails = extractEmails(description)
 
   // run all sources in parallel
-  const [ytResult, webResult, igEmails, ttEmails, ddgEmails, ddgLinkedIn] = await Promise.allSettled([
+  const [ytResult, ytVideosResult, webResult, igEmails, ttEmails, ddgEmails, ddgLinkedIn] = await Promise.allSettled([
     fromYouTubeAbout(channelId),
+    fromYouTubeVideos(channelId),
     fromWebsite(website),
     fromInstagram(instagram),
     fromTikTok(tiktok),
@@ -224,6 +241,7 @@ export async function GET(req: NextRequest) {
   ])
 
   const yt = ytResult.status === 'fulfilled' ? ytResult.value : { emails: [], socials: {}, subscribers: '' }
+  const videoDates = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : []
   const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [], socials: {} }
   const ig = igEmails.status === 'fulfilled' ? igEmails.value : []
   const tt = ttEmails.status === 'fulfilled' ? ttEmails.value : []
@@ -241,5 +259,5 @@ export async function GET(req: NextRequest) {
     website: yt.socials.website || web.socials.website || website || '',
   }
 
-  return NextResponse.json({ email, subscribers: yt.subscribers, ...socials })
+  return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, ...socials })
 }

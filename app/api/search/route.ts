@@ -41,15 +41,18 @@ const GENERIC_ROLES = ['coach', 'expert', 'content creator', 'consultant', 'educ
 
 function expandTopic(keyword: string): string[] {
   const lower = keyword.toLowerCase().trim()
-  if (TOPIC_MAP[lower]) return TOPIC_MAP[lower]
+  // broad variants always included so the raw topic surfaces general channels
+  const broad = [lower, `${lower} YouTube`, `${lower} channel`, `${lower} tips`]
+
+  if (TOPIC_MAP[lower]) return [...broad, ...TOPIC_MAP[lower]]
+
   for (const [key, roles] of Object.entries(TOPIC_MAP)) {
-    if (lower.includes(key) || key.includes(lower)) return roles
+    if (lower.includes(key) || key.includes(lower)) return [...broad, ...roles]
   }
-  // for specific terms (2+ words), search as-is + a few variants
+
   if (lower.includes(' ')) {
-    return [keyword, `${keyword} channel`, `${keyword} tips`, `${keyword} advice`]
+    return [keyword, `${keyword} channel`, `${keyword} YouTube`, `${keyword} tips`, `${keyword} advice`]
   }
-  // for single generic terms, expand with roles
   return [keyword, ...GENERIC_ROLES.map(r => `${keyword} ${r}`)]
 }
 

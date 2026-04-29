@@ -382,6 +382,7 @@ export default function Home() {
               ...c, enriching: false,
               email: c.email || extra.email || '',
               subscribers: c.subscribers || extra.subscribers || '',
+              videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
               linkedin: c.linkedin || extra.linkedin || '',
               instagram: c.instagram || extra.instagram || '',
               twitter: c.twitter || extra.twitter || '',
