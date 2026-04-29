@@ -1,56 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Innertube } from 'youtubei.js'
 
-// Topic → related professions/roles to search
 const TOPIC_MAP: Record<string, string[]> = {
-  basketball: ['basketball player', 'basketball coach', 'basketball trainer', 'basketball analyst', 'NBA agent', 'basketball recruiter', 'basketball content creator'],
-  football: ['football player', 'football coach', 'NFL agent', 'football analyst', 'football recruiter', 'football trainer', 'football content creator'],
-  soccer: ['soccer player', 'soccer coach', 'soccer agent', 'football analyst', 'soccer trainer', 'soccer scout', 'soccer content creator'],
-  baseball: ['baseball player', 'baseball coach', 'MLB agent', 'baseball analyst', 'baseball trainer', 'baseball scout'],
-  golf: ['golf coach', 'golf instructor', 'golf professional', 'golf analyst', 'golf content creator', 'golf agent'],
-  tennis: ['tennis coach', 'tennis player', 'tennis instructor', 'tennis analyst', 'tennis content creator'],
-  sports: ['sports agent', 'sports coach', 'sports analyst', 'sports trainer', 'sports recruiter', 'sports content creator', 'sports marketer'],
-  banking: ['investment banker', 'financial advisor', 'bank executive', 'private banker', 'finance professional', 'wealth manager', 'credit analyst'],
-  finance: ['financial advisor', 'investment banker', 'hedge fund manager', 'portfolio manager', 'financial planner', 'CFO', 'finance content creator'],
-  investing: ['stock investor', 'real estate investor', 'venture capitalist', 'angel investor', 'investment advisor', 'portfolio manager'],
-  crypto: ['crypto trader', 'blockchain developer', 'crypto investor', 'DeFi developer', 'crypto analyst', 'web3 founder'],
-  realestate: ['real estate agent', 'real estate investor', 'real estate developer', 'property manager', 'real estate broker', 'mortgage broker'],
-  'real estate': ['real estate agent', 'real estate investor', 'real estate developer', 'property manager', 'real estate broker'],
-  fitness: ['fitness coach', 'personal trainer', 'fitness influencer', 'gym owner', 'nutritionist', 'strength coach', 'fitness content creator'],
-  health: ['health coach', 'nutritionist', 'wellness coach', 'dietitian', 'physical therapist', 'health content creator', 'functional medicine'],
-  nutrition: ['nutritionist', 'dietitian', 'nutrition coach', 'meal prep coach', 'sports nutritionist', 'wellness coach'],
-  tech: ['software engineer', 'tech founder', 'startup CEO', 'developer advocate', 'tech investor', 'product manager', 'tech content creator'],
-  startup: ['startup founder', 'startup CEO', 'venture capitalist', 'startup advisor', 'entrepreneur', 'startup content creator'],
-  marketing: ['marketing consultant', 'digital marketer', 'social media marketer', 'SEO expert', 'brand strategist', 'marketing content creator'],
-  music: ['music producer', 'music artist', 'music manager', 'music agent', 'A&R executive', 'music content creator', 'music educator'],
-  film: ['film director', 'film producer', 'casting agent', 'screenwriter', 'film content creator', 'cinematographer'],
-  fashion: ['fashion designer', 'fashion stylist', 'fashion content creator', 'fashion buyer', 'fashion influencer', 'brand consultant'],
-  food: ['chef', 'food blogger', 'restaurant owner', 'food content creator', 'nutritionist', 'food entrepreneur'],
-  travel: ['travel content creator', 'travel agent', 'travel blogger', 'tour operator', 'travel influencer', 'digital nomad'],
-  education: ['educator', 'tutor', 'education content creator', 'school principal', 'curriculum designer', 'edtech founder'],
-  law: ['lawyer', 'attorney', 'legal advisor', 'law firm partner', 'paralegal', 'legal content creator', 'judge'],
-  medicine: ['doctor', 'physician', 'surgeon', 'medical content creator', 'healthcare professional', 'nurse practitioner'],
-  hr: ['HR director', 'recruiter', 'talent acquisition', 'HR consultant', 'people operations', 'executive recruiter'],
-  recruiting: ['recruiter', 'executive recruiter', 'talent acquisition', 'headhunter', 'HR professional', 'staffing agency'],
+  basketball: ['basketball coach', 'basketball trainer', 'basketball analyst', 'NBA agent', 'basketball recruiter', 'basketball player YouTube', 'basketball content creator', 'basketball skills trainer', 'youth basketball coach'],
+  football: ['football coach', 'NFL agent', 'football analyst', 'football recruiter', 'football trainer', 'football content creator', 'quarterback coach', 'football recruiting'],
+  soccer: ['soccer coach', 'soccer agent', 'soccer trainer', 'soccer scout', 'soccer content creator', 'football coach Europe', 'soccer skills', 'youth soccer coach'],
+  baseball: ['baseball coach', 'MLB agent', 'baseball analyst', 'baseball trainer', 'baseball scout', 'baseball content creator', 'pitching coach'],
+  golf: ['golf coach', 'golf instructor', 'golf professional', 'golf analyst', 'golf content creator', 'golf swing coach', 'PGA instructor'],
+  tennis: ['tennis coach', 'tennis instructor', 'tennis analyst', 'tennis content creator', 'tennis player YouTube'],
+  sports: ['sports agent', 'sports coach', 'sports analyst', 'sports trainer', 'sports recruiter', 'sports content creator', 'sports marketer', 'athletic trainer', 'sports performance coach', 'sports management', 'youth sports coach', 'college recruiting coach'],
+  banking: ['investment banker', 'bank executive', 'private banker', 'wealth manager', 'credit analyst', 'commercial banker', 'retail banking'],
+  finance: ['financial advisor', 'investment banker', 'hedge fund manager', 'portfolio manager', 'financial planner', 'CFO', 'finance content creator', 'personal finance YouTube', 'stock market educator', 'financial independence', 'money coach'],
+  investing: ['stock investor', 'real estate investor', 'venture capitalist', 'angel investor', 'investment advisor', 'portfolio manager', 'value investor', 'dividend investor', 'options trader'],
+  crypto: ['crypto trader', 'blockchain developer', 'crypto investor', 'DeFi developer', 'crypto analyst', 'web3 founder', 'NFT creator', 'Bitcoin educator'],
+  realestate: ['real estate agent', 'real estate investor', 'real estate developer', 'property manager', 'real estate broker', 'mortgage broker', 'house flipper', 'real estate wholesaler'],
+  'real estate': ['real estate agent', 'real estate investor', 'real estate developer', 'property manager', 'real estate broker', 'mortgage broker', 'house flipper'],
+  fitness: ['fitness coach', 'personal trainer', 'gym owner', 'strength coach', 'fitness content creator', 'bodybuilder YouTube', 'weight loss coach', 'calisthenics coach', 'powerlifting coach', 'online fitness coach'],
+  health: ['health coach', 'nutritionist', 'wellness coach', 'dietitian', 'physical therapist', 'health content creator', 'functional medicine', 'holistic health', 'longevity coach'],
+  nutrition: ['nutritionist', 'dietitian', 'nutrition coach', 'meal prep coach', 'sports nutritionist', 'wellness coach', 'food as medicine'],
+  tech: ['software engineer YouTube', 'tech founder', 'startup CEO', 'developer advocate', 'tech content creator', 'coding educator', 'AI founder', 'SaaS founder', 'tech entrepreneur'],
+  startup: ['startup founder', 'startup CEO', 'venture capitalist', 'startup advisor', 'entrepreneur YouTube', 'bootstrapped founder', 'SaaS founder', 'startup content creator'],
+  business: ['entrepreneur YouTube', 'business coach', 'small business owner', 'CEO YouTube', 'business content creator', 'e-commerce entrepreneur', 'online business', 'side hustle', 'business strategy'],
+  marketing: ['marketing consultant', 'digital marketer', 'social media marketer', 'SEO expert', 'brand strategist', 'marketing content creator', 'growth hacker', 'email marketer', 'paid ads expert'],
+  music: ['music producer', 'music artist', 'music manager', 'A&R executive', 'music content creator', 'music educator', 'independent artist YouTube', 'music business'],
+  film: ['film director', 'film producer', 'casting agent', 'screenwriter', 'film content creator', 'cinematographer', 'filmmaker YouTube'],
+  fashion: ['fashion designer', 'fashion stylist', 'fashion content creator', 'fashion buyer', 'fashion influencer', 'brand consultant', 'streetwear entrepreneur'],
+  food: ['chef YouTube', 'food blogger', 'restaurant owner', 'food content creator', 'food entrepreneur', 'recipe creator', 'meal prep'],
+  travel: ['travel content creator', 'travel blogger', 'tour operator', 'travel influencer', 'digital nomad YouTube', 'travel vlogger'],
+  education: ['educator YouTube', 'online tutor', 'education content creator', 'edtech founder', 'curriculum designer', 'teacher YouTube'],
+  law: ['lawyer YouTube', 'attorney content creator', 'legal advisor', 'law firm partner', 'legal content creator', 'law educator'],
+  medicine: ['doctor YouTube', 'physician content creator', 'medical educator', 'healthcare professional', 'nurse practitioner YouTube', 'surgeon YouTube'],
+  hr: ['HR director', 'recruiter YouTube', 'talent acquisition', 'HR consultant', 'people operations', 'executive recruiter'],
+  recruiting: ['recruiter YouTube', 'executive recruiter', 'talent acquisition', 'headhunter', 'HR professional', 'career coach'],
+  mindset: ['mindset coach', 'life coach', 'motivational speaker YouTube', 'self improvement', 'personal development', 'productivity coach', 'mental performance coach'],
+  ecommerce: ['ecommerce entrepreneur', 'dropshipping YouTube', 'Amazon FBA seller', 'Shopify entrepreneur', 'online store owner', 'product entrepreneur'],
+  sales: ['sales trainer', 'sales coach', 'sales content creator', 'B2B sales', 'closing coach', 'sales strategy'],
 }
 
-// Generic profession suffixes for topics not in the map
-const GENERIC_ROLES = ['coach', 'professional', 'expert', 'analyst', 'content creator', 'consultant', 'educator', 'entrepreneur']
+const GENERIC_ROLES = ['coach', 'professional', 'expert', 'analyst', 'content creator', 'consultant', 'educator', 'entrepreneur', 'YouTube']
 
 function expandTopic(keyword: string): string[] {
   const lower = keyword.toLowerCase().trim()
-
-  // check exact match
   if (TOPIC_MAP[lower]) return TOPIC_MAP[lower]
-
-  // check partial match (e.g. "real estate investing" → "real estate")
   for (const [key, roles] of Object.entries(TOPIC_MAP)) {
     if (lower.includes(key) || key.includes(lower)) return roles
   }
-
-  // generic expansion — topic + each role
   return [keyword, ...GENERIC_ROLES.map(r => `${keyword} ${r}`)]
 }
+
+// Broader fallback queries when primary search is thin
+function fallbackQueries(keyword: string): string[] {
+  return [keyword, `${keyword} YouTube`, `${keyword} channel`, `${keyword} creator`, `${keyword} vlog`]
+}
+
+const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 function decodeYtRedirect(url: string): string {
   try {
@@ -144,10 +147,9 @@ function extractAboutData(about: any): { email: string, socials: Record<string, 
   return { email, socials, subscribers }
 }
 
-async function searchYouTube(yt: any, query: string, seenIds: Set<string>): Promise<string[]> {
+async function searchYouTube(yt: any, query: string, seenIds: Set<string>, retry = true): Promise<string[]> {
   const ids: string[] = []
   try {
-    // channel search for this query
     const chRes = await yt.search(query, { type: 'channel' })
     for (const item of (chRes as any).channels || []) {
       const id = item?.id || item?.author?.id
@@ -155,7 +157,6 @@ async function searchYouTube(yt: any, query: string, seenIds: Set<string>): Prom
     }
   } catch { /* continue */ }
   try {
-    // video search — surfaces smaller channels
     const vRes = await yt.search(query, { type: 'video' })
     const vids = (vRes as any).videos || (vRes as any).results || []
     for (const v of vids) {
@@ -163,13 +164,33 @@ async function searchYouTube(yt: any, query: string, seenIds: Set<string>): Prom
       if (id && id.startsWith('UC') && !seenIds.has(id)) { seenIds.add(id); ids.push(id) }
     }
   } catch { /* continue */ }
+  // retry once on empty result
+  if (ids.length === 0 && retry) {
+    await delay(600)
+    return searchYouTube(yt, query, seenIds, false)
+  }
   return ids
+}
+
+// Run queries in staggered batches of 3 to avoid rate limiting
+async function runQueriesBatched(yt: any, queries: string[], seenIds: Set<string>): Promise<string[]> {
+  const allIds: string[] = []
+  const BATCH = 3
+  for (let i = 0; i < queries.length; i += BATCH) {
+    const batch = queries.slice(i, i + BATCH)
+    const results = await Promise.allSettled(batch.map(q => searchYouTube(yt, q, seenIds)))
+    for (const r of results) {
+      if (r.status === 'fulfilled') allIds.push(...r.value)
+    }
+    if (i + BATCH < queries.length) await delay(250)
+  }
+  return allIds
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const keyword = searchParams.get('keyword')
-  const maxResults = parseInt(searchParams.get('maxResults') || '50')
+  const maxResults = parseInt(searchParams.get('maxResults') || '100')
   const minViews = parseInt(searchParams.get('minViews') || '0')
   const maxViews = parseInt(searchParams.get('maxViews') || '200000')
 
@@ -182,48 +203,34 @@ export async function GET(req: NextRequest) {
     const yt = await Innertube.create({ retrieve_player: false })
     const seenIds = new Set<string>()
 
-    // run all query variants in parallel
-    const queryResults = await Promise.allSettled(
-      queries.map(q => searchYouTube(yt, q, seenIds))
-    )
+    // staggered batched queries — reduces rate limiting vs firing all at once
+    let channelQueue = await runQueriesBatched(yt, queries, seenIds)
 
-    // flatten all channel IDs in order
-    const channelQueue: string[] = []
-    for (const r of queryResults) {
-      if (r.status === 'fulfilled') channelQueue.push(...r.value)
+    // if thin results, try broader fallback queries
+    if (channelQueue.length < 15) {
+      const extra = await runQueriesBatched(yt, fallbackQueries(keyword), seenIds)
+      channelQueue.push(...extra)
     }
 
     const channels: any[] = []
+    const CHAN_BATCH = 4  // process 4 channels in parallel — faster than sequential
 
-    for (const channelId of channelQueue) {
-      if (channels.length >= maxResults) break
-      try {
+    for (let i = 0; i < channelQueue.length && channels.length < maxResults; i += CHAN_BATCH) {
+      const batch = channelQueue.slice(i, i + CHAN_BATCH)
+      const results = await Promise.allSettled(batch.map(async (channelId) => {
         const channel = await yt.getChannel(channelId)
         const videosPage = await channel.getVideos()
         const { avgViews, videoTitles, videoDates } = extractVideoData(videosPage)
-        if (avgViews === -1 || avgViews < minViews || avgViews > maxViews) continue
-
-        let email = ''
-        let subscribers = ''
-        const socials: Record<string, string> = { instagram: '', twitter: '', tiktok: '', linkedin: '', website: '' }
-        try {
-          const about = await channel.getAbout()
-          const extracted = extractAboutData(about)
-          email = extracted.email
-          subscribers = extracted.subscribers
-          Object.assign(socials, extracted.socials)
-        } catch { /* no about page */ }
+        if (avgViews === -1 || avgViews < minViews || avgViews > maxViews) return null
 
         const meta = channel.metadata
         const channelName = meta?.title || 'Unknown'
         const description: string = meta?.description || ''
-        if (!email) email = extractEmail(description)
-
+        const email = extractEmail(description)
         const nameScore = scoreBio(channelName.toLowerCase(), terms)
         const bioScore = scoreBio(description.toLowerCase(), terms)
-        const matchedVia = nameScore > 0 ? 'name' : bioScore > 0 ? 'bio' : 'related'
 
-        channels.push({
+        return {
           channelId,
           channelName,
           channelUrl: `https://www.youtube.com/channel/${channelId}`,
@@ -231,13 +238,19 @@ export async function GET(req: NextRequest) {
           description,
           videoTitles,
           videoDates,
-          subscribers,
+          subscribers: '',
           email,
           relevanceScore: nameScore + bioScore,
-          matchedVia,
-          ...socials,
-        })
-      } catch { continue }
+          matchedVia: nameScore > 0 ? 'name' : bioScore > 0 ? 'bio' : 'related',
+          instagram: '', twitter: '', tiktok: '', linkedin: '', website: '',
+        }
+      }))
+
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value !== null && channels.length < maxResults) {
+          channels.push(r.value)
+        }
+      }
     }
 
     channels.sort((a, b) => b.relevanceScore - a.relevanceScore)

@@ -277,7 +277,7 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
 
 export default function Home() {
   const [keyword, setKeyword] = useState('')
-  const maxResults = 50
+  const maxResults = 100
   const [minViews, setMinViews] = useState(0)
   const [maxViews, setMaxViews] = useState(200000)
   const [maxAgeDays, setMaxAgeDays] = useState<number>(Infinity)
