@@ -47,12 +47,11 @@ function CreatorTable({
   onToggleFavorite: (c: Creator) => void
   onRemoveFavorite?: (id: string) => void
   isFavTab: boolean
-  sortOrder: 'relevance' | 'high' | 'low'
+  sortOrder: 'high' | 'low'
 }) {
   const sorted = useMemo(() => {
     if (sortOrder === 'high') return [...creators].sort((a, b) => b.avgViews - a.avgViews)
-    if (sortOrder === 'low') return [...creators].sort((a, b) => a.avgViews - b.avgViews)
-    return creators
+    return [...creators].sort((a, b) => a.avgViews - b.avgViews)
   }, [creators, sortOrder])
 
   if (sorted.length === 0) return <p className="text-gray-500 text-sm mt-4">{isFavTab ? 'No favorites yet — star creators from the Results tab.' : 'No results.'}</p>
@@ -136,7 +135,7 @@ export default function Home() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
-  const [sortOrder, setSortOrder] = useState<'relevance' | 'high' | 'low'>('relevance')
+  const [sortOrder, setSortOrder] = useState<'high' | 'low'>('high')
   const [activeTab, setActiveTab] = useState<'results' | 'favorites'>('results')
   const [favorites, setFavorites] = useState<Creator[]>([])
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
@@ -281,18 +280,14 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Sort controls */}
+        {/* Sort toggle */}
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-sm text-gray-400">Sort:</span>
-          {(['relevance', 'high', 'low'] as const).map(o => (
-            <button
-              key={o}
-              onClick={() => setSortOrder(o)}
-              className={`text-sm px-3 py-1 rounded ${sortOrder === o ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
-            >
-              {o === 'relevance' ? 'Relevance' : o === 'high' ? 'Views High→Low' : 'Views Low→High'}
-            </button>
-          ))}
+          <button
+            onClick={() => setSortOrder(s => s === 'high' ? 'low' : 'high')}
+            className="text-sm px-4 py-1.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+          >
+            Views {sortOrder === 'high' ? 'High → Low ↓' : 'Low → High ↑'}
+          </button>
         </div>
 
         {status && activeTab === 'results' && (
