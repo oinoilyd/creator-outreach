@@ -132,7 +132,7 @@ function CreatorTable({
 
 export default function Home() {
   const [keyword, setKeyword] = useState('')
-  const [maxResults, setMaxResults] = useState(20)
+  const maxResults = 50
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -248,15 +248,6 @@ export default function Home() {
             onChange={e => setKeyword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
           />
-          <select
-            className="bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white focus:outline-none"
-            value={maxResults}
-            onChange={e => setMaxResults(parseInt(e.target.value))}
-          >
-            <option value={10}>10 results</option>
-            <option value={20}>20 results</option>
-            <option value={50}>50 results</option>
-          </select>
           <button
             onClick={handleSearch}
             disabled={loading}
