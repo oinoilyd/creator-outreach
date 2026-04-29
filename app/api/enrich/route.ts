@@ -203,17 +203,44 @@ async function fromDDGEmail(name: string, website: string): Promise<string[]> {
   return emails
 }
 
-// SOURCE 6: DuckDuckGo — find LinkedIn profile URL
+function decodeDDGUrl(href: string): string {
+  try {
+    if (href.includes('uddg=')) {
+      const encoded = href.split('uddg=')[1]?.split('&')[0]
+      if (encoded) return decodeURIComponent(encoded)
+    }
+  } catch { /* ignore */ }
+  return href
+}
+
+function extractLinkedInUrl(text: string): string {
+  const m = text.match(/https?:\/\/(www\.)?linkedin\.com\/in\/[\w%-]+\/?/i)
+  return m ? m[0] : ''
+}
+
+// SOURCE 6: DuckDuckGo — find LinkedIn profile URL (multiple strategies)
 async function fromDDGLinkedIn(name: string): Promise<string> {
   if (!name) return ''
-  try {
-    const q = encodeURIComponent(`"${name}" site:linkedin.com/in`)
-    const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${q}`)
-    const $ = cheerio.load(html)
-    const links = $('a[href]').map((_, el) => $(el).attr('href') || '').get()
-    const li = links.find(l => l.includes('linkedin.com/in'))
-    if (li) return li.startsWith('http') ? li : `https://${li}`
-  } catch { /* failed */ }
+  const queries = [
+    `"${name}" site:linkedin.com/in`,
+    `${name} LinkedIn`,
+    `"${name}" linkedin.com`,
+  ]
+  for (const q of queries) {
+    try {
+      const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, 7000)
+      // try extracting from raw HTML text first (catches encoded URLs in page source)
+      const fromText = extractLinkedInUrl(html)
+      if (fromText) return fromText
+      // parse links and decode DDG redirects
+      const $ = cheerio.load(html)
+      const found = $('a[href]').toArray().map(el => {
+        const href = $(el).attr('href') || ''
+        return decodeDDGUrl(href)
+      }).find(u => u.includes('linkedin.com/in'))
+      if (found) return found.startsWith('http') ? found : `https://${found}`
+    } catch { /* try next query */ }
+  }
   return ''
 }
 
