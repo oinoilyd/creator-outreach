@@ -123,17 +123,27 @@ async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], 
   return { emails, socials, subscribers }
 }
 
-// SOURCE 1b: scrape channel /videos page for accurate recent post dates
+// SOURCE 1b: YouTube RSS feed — accurate publish dates for the 2 most recent videos
 async function fromYouTubeVideos(channelId: string): Promise<string[]> {
   try {
-    const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/videos`, 8000)
-    const data = extractYtInitialData(html)
-    if (!data) return []
+    const xml = await fetchHtml(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, 8000)
+    // Match only <entry> blocks — skips the feed-level <published> (channel creation date)
+    const entries = [...xml.matchAll(/<entry[\s\S]*?<\/entry>/g)]
     const dates: string[] = []
-    const publishedTexts: any[] = deepCollect(data, 'publishedTimeText')
-    for (const t of publishedTexts) {
-      const text: string = typeof t === 'string' ? t : (t?.simpleText || t?.runs?.[0]?.text || '')
-      if (text && dates.length < 2) dates.push(text)
+    for (const entry of entries) {
+      if (dates.length >= 2) break
+      const m = entry[0].match(/<published>([^<]+)<\/published>/)
+      if (!m) continue
+      const d = new Date(m[1])
+      if (isNaN(d.getTime())) continue
+      const days = Math.floor((Date.now() - d.getTime()) / 86400000)
+      let label: string
+      if (days === 0) label = 'today'
+      else if (days < 30) label = `${days} day${days === 1 ? '' : 's'} ago`
+      else if (days < 60) label = '1 month ago'
+      else if (days < 365) label = `${Math.floor(days / 30)} months ago`
+      else label = `${Math.floor(days / 365)} year${Math.floor(days / 365) === 1 ? '' : 's'} ago`
+      dates.push(label)
     }
     return dates
   } catch { return [] }
