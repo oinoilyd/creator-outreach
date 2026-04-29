@@ -162,8 +162,8 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
             <Th col="channelName" label="Channel" />
             <Th col="avgViews" label="Avg Views" />
             <Th col="email" label="Email" />
-            <Th col="website" label="Website" />
             <Th col="linkedin" label="LinkedIn" />
+            <Th col="website" label="Website" />
             <Th col="instagram" label="Instagram" />
             <Th col="twitter" label="Twitter/X" />
             <Th col="tiktok" label="TikTok" />
@@ -187,8 +187,8 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
                   : c.enriching ? <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span>
                   : '—'}
               </td>
+              <td className="px-4 py-3">{c.linkedin ? <a href={c.linkedin} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
               <td className="px-4 py-3">{c.website ? <a href={c.website} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-              <td className="px-4 py-3">{c.linkedin ? <a href={c.linkedin} target="_blank" className="text-blue-400 hover:underline">link</a> : c.enriching ? <Spinner /> : '—'}</td>
               <td className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
               <td className="px-4 py-3">{c.twitter ? <a href={c.twitter} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
               <td className="px-4 py-3">{c.tiktok ? <a href={c.tiktok} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
