@@ -15,6 +15,7 @@ interface Creator {
   instagram: string
   tiktok: string
   company: string
+  matchedVia: string
 }
 
 export default function Home() {
@@ -142,6 +143,7 @@ export default function Home() {
                   <th className="text-left px-4 py-3">Instagram</th>
                   <th className="text-left px-4 py-3">Twitter/X</th>
                   <th className="text-left px-4 py-3">TikTok</th>
+                  <th className="text-left px-4 py-3">Found Via</th>
                 </tr>
               </thead>
               <tbody>
@@ -168,6 +170,15 @@ export default function Home() {
                     </td>
                     <td className="px-4 py-3">
                       {c.tiktok ? <a href={c.tiktok} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        c.matchedVia === 'transcript' ? 'bg-purple-900 text-purple-300' :
+                        c.matchedVia === 'bio' ? 'bg-yellow-900 text-yellow-300' :
+                        'bg-green-900 text-green-300'
+                      }`}>
+                        {c.matchedVia || 'name'}
+                      </span>
                     </td>
                   </tr>
                 ))}
