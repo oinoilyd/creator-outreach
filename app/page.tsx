@@ -182,7 +182,8 @@ export default function Home() {
       if (data.error) { setStatus(`Error: ${data.error}`); return }
 
       setCreators(data.channels)
-      setStatus(`Found ${data.channels.length} creators. Enriching contact info...`)
+      const queryList = (data.expandedQueries as string[] || []).join(', ')
+      setStatus(`Searched: ${queryList} — Found ${data.channels.length} creators. Enriching contact info...`)
 
       const enriched = [...data.channels]
       for (let i = 0; i < enriched.length; i++) {
