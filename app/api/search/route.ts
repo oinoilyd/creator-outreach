@@ -117,11 +117,12 @@ function extractVideoData(videos: any): { avgViews: number, videoTitles: string[
   }
 }
 
-function extractAboutData(about: any): { email: string, socials: Record<string, string> } {
+function extractAboutData(about: any): { email: string, socials: Record<string, string>, subscribers: string } {
   const socials: Record<string, string> = {}
   let email = ''
   const meta = about?.metadata
-  if (!meta) return { email, socials }
+  if (!meta) return { email, socials, subscribers: '' }
+  const subscribers: string = String(meta.subscribers_count ?? meta.subscriber_count ?? '')
   const desc: string = meta.description || ''
   email = extractEmail(desc)
   const links: any[] = meta.links || []
@@ -140,7 +141,7 @@ function extractAboutData(about: any): { email: string, socials: Record<string, 
   if (!socials.twitter) socials.twitter = extractSocialUrl(desc, 'twitter.com') || extractSocialUrl(desc, 'x.com')
   if (!socials.tiktok) socials.tiktok = extractSocialUrl(desc, 'tiktok.com')
   if (!socials.linkedin) socials.linkedin = extractSocialUrl(desc, 'linkedin.com')
-  return { email, socials }
+  return { email, socials, subscribers }
 }
 
 async function searchYouTube(yt: any, query: string, seenIds: Set<string>): Promise<string[]> {
@@ -203,11 +204,13 @@ export async function GET(req: NextRequest) {
         if (avgViews === -1 || avgViews < minViews || avgViews > maxViews) continue
 
         let email = ''
+        let subscribers = ''
         const socials: Record<string, string> = { instagram: '', twitter: '', tiktok: '', linkedin: '', website: '' }
         try {
           const about = await channel.getAbout()
           const extracted = extractAboutData(about)
           email = extracted.email
+          subscribers = extracted.subscribers
           Object.assign(socials, extracted.socials)
         } catch { /* no about page */ }
 
@@ -228,7 +231,7 @@ export async function GET(req: NextRequest) {
           description,
           videoTitles,
           videoDates,
-          subscribers: (meta as any)?.subscriber_count || '',
+          subscribers,
           email,
           relevanceScore: nameScore + bioScore,
           matchedVia,
