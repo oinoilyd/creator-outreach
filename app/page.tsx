@@ -17,6 +17,7 @@ interface Creator {
   company: string
   matchedVia: string
   videoTitles: string[]
+  videoDates: string[]
   description: string
   enriching?: boolean
 }
@@ -161,6 +162,7 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
             <th className="px-4 py-3 w-8"></th>
             <Th col="channelName" label="Channel" />
             <Th col="avgViews" label="Avg Views" />
+            <th className="text-left px-4 py-3 whitespace-nowrap text-gray-300">Last Posted</th>
             <Th col="email" label="Email" />
             <Th col="linkedin" label="LinkedIn" />
             <Th col="website" label="Website" />
@@ -181,6 +183,11 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               <td className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
+              <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                {c.videoDates?.[0] && <div>{c.videoDates[0]}</div>}
+                {c.videoDates?.[1] && <div className="text-gray-600">{c.videoDates[1]}</div>}
+                {!c.videoDates?.length && <span className="text-gray-700">—</span>}
+              </td>
               <td className="px-4 py-3 text-xs">
                 {c.email
                   ? <a href={buildOutreachEmail(c)} className="text-green-400 hover:underline">{c.email}</a>

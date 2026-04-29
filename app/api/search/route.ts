@@ -82,22 +82,26 @@ function scoreBio(text: string, terms: string[]): number {
   return score
 }
 
-function extractVideoData(videos: any): { avgViews: number, videoTitles: string[] } {
+function extractVideoData(videos: any): { avgViews: number, videoTitles: string[], videoDates: string[] } {
   const richItems: any[] = videos?.current_tab?.content?.contents || []
   const videoItems = richItems.map((item: any) => item?.content).filter(Boolean).slice(0, 10)
-  if (videoItems.length === 0) return { avgViews: -1, videoTitles: [] }
+  if (videoItems.length === 0) return { avgViews: -1, videoTitles: [], videoDates: [] }
   let total = 0, count = 0
   const videoTitles: string[] = []
+  const videoDates: string[] = []
   for (const v of videoItems) {
     const text: string = v?.view_count?.text || v?.short_view_count?.text || ''
     const num = parseInt(text.replace(/[^0-9]/g, ''))
     if (!isNaN(num) && num >= 0) { total += num; count++ }
     const title: string = v?.title?.text || v?.title?.runs?.[0]?.text || ''
     if (title) videoTitles.push(title)
+    const date: string = v?.published_time_text?.text || v?.published?.text || ''
+    if (date) videoDates.push(date)
   }
   return {
     avgViews: count > 0 ? Math.round(total / count) : -1,
     videoTitles: videoTitles.slice(0, 3),
+    videoDates: videoDates.slice(0, 2),
   }
 }
 
@@ -183,7 +187,7 @@ export async function GET(req: NextRequest) {
       try {
         const channel = await yt.getChannel(channelId)
         const videosPage = await channel.getVideos()
-        const { avgViews, videoTitles } = extractVideoData(videosPage)
+        const { avgViews, videoTitles, videoDates } = extractVideoData(videosPage)
         if (avgViews === -1 || avgViews < minViews || avgViews > maxViews) continue
 
         let email = ''
@@ -211,6 +215,7 @@ export async function GET(req: NextRequest) {
           avgViews,
           description,
           videoTitles,
+          videoDates,
           subscribers: (meta as any)?.subscriber_count || '',
           email,
           relevanceScore: nameScore + bioScore,

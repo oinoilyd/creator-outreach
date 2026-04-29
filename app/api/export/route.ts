@@ -8,6 +8,8 @@ export async function POST(req: NextRequest) {
     'Channel Name': c.channelName,
     'YouTube URL': c.channelUrl,
     'Avg Views': c.avgViews,
+    'Last Posted': c.videoDates?.[0] || '',
+    'Prev Posted': c.videoDates?.[1] || '',
     'Subscribers': c.subscribers,
     'Email': c.email || '',
     'Website': c.website || '',
