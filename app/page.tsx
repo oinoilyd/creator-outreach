@@ -22,7 +22,7 @@ interface Creator {
   enriching?: boolean
 }
 
-type SortCol = 'channelName' | 'avgViews' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
+type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
 type SortDir = 'asc' | 'desc'
 
 const ALL_OCCUPATIONS = [
@@ -115,6 +115,8 @@ function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
     let cmp = 0
     if (col === 'avgViews') cmp = a.avgViews - b.avgViews
     else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
+    else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
+    else if (col === 'lastPosted') cmp = parseRelativeDays(b.videoDates?.[0] || '') - parseRelativeDays(a.videoDates?.[0] || '')
     else if (col === 'website') cmp = (b.website ? 1 : 0) - (a.website ? 1 : 0)
     else if (col === 'linkedin') {
       const pri = contactPriority(b) - contactPriority(a)
@@ -183,8 +185,8 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
             <th className="px-4 py-3 w-8"></th>
             <Th col="channelName" label="Channel" />
             <Th col="avgViews" label="Avg Views" />
-            <th className="text-left px-4 py-3 whitespace-nowrap text-gray-300">Subscribers</th>
-            <th className="text-left px-4 py-3 whitespace-nowrap text-gray-300">Last Posted</th>
+            <Th col="subscribers" label="Subscribers" />
+            <Th col="lastPosted" label="Last Posted" />
             <Th col="email" label="Email" />
             <Th col="linkedin" label="LinkedIn" />
             <Th col="website" label="Website" />
