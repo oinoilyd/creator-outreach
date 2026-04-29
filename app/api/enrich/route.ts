@@ -38,7 +38,7 @@ async function scrapeYouTubeChannel(channelId: string): Promise<Record<string, s
     const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/about`)
 
     // extract ytInitialData JSON blob
-    const match = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s)
+    const match = html.match(/var ytInitialData\s*=\s*(\{[\s\S]+?\});\s*<\/script>/)
     if (!match) return result
 
     const data = JSON.parse(match[1])
