@@ -315,31 +315,37 @@ export default function Home() {
       setEnrichProgress({ current: 0, total: enriched.length })
       setStatus(`Found ${enriched.length} creators. Enriching contact info...`)
 
-      for (let i = 0; i < enriched.length; i++) {
-        if (version !== searchVersion.current) return  // newer search started, stop this one
-        const c = enriched[i]
-        setEnrichProgress({ current: i + 1, total: enriched.length })
-        try {
-          const params = new URLSearchParams({
-            name: c.channelName, channelId: c.channelId,
-            website: c.website || '', instagram: c.instagram || '',
-            tiktok: c.tiktok || '', description: c.description || '',
-          })
-          const r = await fetch(`/api/enrich?${params}`)
-          const extra = await r.json()
-          enriched[i] = {
-            ...c, enriching: false,
-            email: c.email || extra.email || '',
-            linkedin: c.linkedin || extra.linkedin || '',
-            instagram: c.instagram || extra.instagram || '',
-            twitter: c.twitter || extra.twitter || '',
-            tiktok: c.tiktok || extra.tiktok || '',
-            website: c.website || extra.website || '',
+      const BATCH = 5
+      for (let i = 0; i < enriched.length; i += BATCH) {
+        if (version !== searchVersion.current) return
+        const batchIndices = Array.from({ length: Math.min(BATCH, enriched.length - i) }, (_, k) => i + k)
+        await Promise.all(batchIndices.map(async (idx) => {
+          const c = enriched[idx]
+          try {
+            const params = new URLSearchParams({
+              name: c.channelName, channelId: c.channelId,
+              website: c.website || '', instagram: c.instagram || '',
+              tiktok: c.tiktok || '', description: c.description || '',
+            })
+            const r = await fetch(`/api/enrich?${params}`)
+            const extra = await r.json()
+            enriched[idx] = {
+              ...c, enriching: false,
+              email: c.email || extra.email || '',
+              linkedin: c.linkedin || extra.linkedin || '',
+              instagram: c.instagram || extra.instagram || '',
+              twitter: c.twitter || extra.twitter || '',
+              tiktok: c.tiktok || extra.tiktok || '',
+              website: c.website || extra.website || '',
+            }
+          } catch {
+            enriched[idx] = { ...c, enriching: false }
           }
-        } catch {
-          enriched[i] = { ...c, enriching: false }
+        }))
+        if (version === searchVersion.current) {
+          setEnrichProgress({ current: Math.min(i + BATCH, enriched.length), total: enriched.length })
+          setCreators([...enriched])
         }
-        if (version === searchVersion.current) setCreators([...enriched])
       }
       if (version === searchVersion.current) setStatus(`Done — ${enriched.length} creators found.`)
     } catch (err: any) {

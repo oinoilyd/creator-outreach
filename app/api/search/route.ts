@@ -82,6 +82,18 @@ function scoreBio(text: string, terms: string[]): number {
   return score
 }
 
+function parseViewCount(text: string): number {
+  if (!text) return NaN
+  const t = text.replace(/,/g, '').toLowerCase()
+  const m = t.match(/[\d.]+/)
+  if (!m) return NaN
+  const n = parseFloat(m[0])
+  if (t.includes('b')) return Math.round(n * 1_000_000_000)
+  if (t.includes('m')) return Math.round(n * 1_000_000)
+  if (t.includes('k')) return Math.round(n * 1_000)
+  return Math.round(n)
+}
+
 function extractVideoData(videos: any): { avgViews: number, videoTitles: string[], videoDates: string[] } {
   const richItems: any[] = videos?.current_tab?.content?.contents || []
   const videoItems = richItems.map((item: any) => item?.content).filter(Boolean).slice(0, 10)
@@ -91,7 +103,7 @@ function extractVideoData(videos: any): { avgViews: number, videoTitles: string[
   const videoDates: string[] = []
   for (const v of videoItems) {
     const text: string = v?.view_count?.text || v?.short_view_count?.text || ''
-    const num = parseInt(text.replace(/[^0-9]/g, ''))
+    const num = parseViewCount(text)
     if (!isNaN(num) && num >= 0) { total += num; count++ }
     const title: string = v?.title?.text || v?.title?.runs?.[0]?.text || ''
     if (title) videoTitles.push(title)
