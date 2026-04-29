@@ -57,6 +57,15 @@ function pickRandom(arr: string[], n: number): string[] {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
 }
 
+function formatSubscribers(s: string): string {
+  if (!s) return '—'
+  const n = Number(s)
+  if (isNaN(n)) return s  // already a formatted string, show as-is
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`
+  return n.toLocaleString()
+}
+
 function parseRelativeDays(text: string): number {
   if (!text) return Infinity
   const t = text.toLowerCase()
@@ -206,7 +215,7 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               <td className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
-              <td className="px-4 py-3 text-gray-300">{c.subscribers ? Number(c.subscribers).toLocaleString() : '—'}</td>
+              <td className="px-4 py-3 text-gray-300">{formatSubscribers(c.subscribers)}</td>
               <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                 {c.videoDates?.[0] && <div>{c.videoDates[0]}</div>}
                 {c.videoDates?.[1] && <div className="text-gray-600">{c.videoDates[1]}</div>}
@@ -255,6 +264,8 @@ export default function Home() {
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(true)
+  const [emailOnly, setEmailOnly] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
   // search version ref — prevents stale searches from overwriting newer ones
   const searchVersion = useRef(0)
@@ -362,7 +373,8 @@ export default function Home() {
 
   async function handleSearch() { await runSearch(keyword) }
 
-  async function handleExport(list: Creator[]) {
+  async function handleExportExcel(list: Creator[]) {
+    setShowExport(false)
     const res = await fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -376,10 +388,27 @@ export default function Home() {
     a.click()
   }
 
+  function handleExportCSV(list: Creator[]) {
+    setShowExport(false)
+    const headers = ['Channel Name', 'YouTube URL', 'Avg Views', 'Subscribers', 'Last Posted', 'Email', 'LinkedIn', 'Website', 'Instagram', 'Twitter/X', 'TikTok']
+    const rows = list.map(c => [
+      c.channelName, c.channelUrl, c.avgViews, formatSubscribers(c.subscribers),
+      c.videoDates?.[0] || '', c.email, c.linkedin, c.website, c.instagram, c.twitter, c.tiktok,
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = activeTab === 'favorites' ? 'favorites.csv' : 'creators.csv'
+    a.click()
+  }
+
   const baseList = activeTab === 'favorites' ? favorites : creators
   const currentList = baseList
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
     .filter(c => maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
+    .filter(c => !emailOnly || !!c.email)
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
   return (
@@ -410,10 +439,31 @@ export default function Home() {
           <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 rounded font-semibold">
             {loading ? 'Searching...' : 'Search'}
           </button>
+          <button
+            onClick={() => setEmailOnly(v => !v)}
+            className={`px-3 py-2 text-xs rounded border transition-colors whitespace-nowrap ${emailOnly ? 'bg-green-700 border-green-600 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+          >
+            Email only
+          </button>
           {currentList.length > 0 && (
-            <button onClick={() => handleExport(currentList)} className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded font-semibold">
-              Export Excel
-            </button>
+            <div className="relative">
+              <button onClick={() => setShowExport(v => !v)} className="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-xs font-medium flex items-center gap-1">
+                Export
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showExport && (
+                <div className="absolute right-0 mt-1 w-44 bg-gray-800 border border-gray-700 rounded shadow-lg z-10">
+                  <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2">
+                    <span>📊</span> Excel (.xlsx)
+                  </button>
+                  <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2">
+                    <span>📄</span> CSV (Google Sheets)
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
