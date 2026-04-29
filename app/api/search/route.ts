@@ -15,11 +15,10 @@ export async function GET(req: NextRequest) {
   try {
     const yt = await Innertube.create({ retrieve_player: false })
 
-    // collect channel IDs from both channel search AND video search
     const seenIds = new Set<string>()
     const channelQueue: string[] = []
 
-    // 1. channel search
+    // channel search
     try {
       const channelResults = await yt.search(keyword, { type: 'channel' })
       for (const item of (channelResults as any).channels || []) {
@@ -30,27 +29,13 @@ export async function GET(req: NextRequest) {
       }
     } catch { /* channel search failed */ }
 
-    // 2. video search — extract channels from video results
+    // video search — pulls smaller channels that don't show up in channel search
     try {
       const videoResults = await yt.search(keyword, { type: 'video' })
       const videos = (videoResults as any).videos || (videoResults as any).results || []
       for (const v of videos) {
-        // youtubei.js exposes author differently depending on result type
-        const cid =
-          v?.author?.id ||
-          v?.channel?.id ||
-          v?.endpoint?.payload?.browseId ||
-          v?.short_view_count?.text // fallback check
-
-        // also try getting channel id from the video's owner
-        const ownerChannelId =
-          v?.owner?.endpoint?.payload?.browseId ||
-          v?.metadata?.channel_id
-
-        const id = cid && cid.startsWith('UC') ? cid :
-                   ownerChannelId && ownerChannelId.startsWith('UC') ? ownerChannelId : null
-
-        if (id && !seenIds.has(id)) {
+        const id = v?.author?.id || v?.channel?.id
+        if (id && id.startsWith('UC') && !seenIds.has(id)) {
           seenIds.add(id)
           channelQueue.push(id)
         }
@@ -67,7 +52,6 @@ export async function GET(req: NextRequest) {
         const videoItems = (videos as any).videos?.slice(0, 10) || []
         if (videoItems.length === 0) continue
 
-        // calculate avg views
         let totalViews = 0
         let count = 0
         for (const v of videoItems) {
@@ -82,16 +66,19 @@ export async function GET(req: NextRequest) {
         const metadata = channel.metadata
         const channelName = metadata?.title || 'Unknown'
         const description = metadata?.description || ''
+
         let email = extractEmail(description)
         let website = extractWebsite(description)
         let socials = extractSocials(description)
 
-        // About page for official links + business email
+        // About page — decode YouTube redirect URLs to get real social links
         try {
           const about = await (channel as any).getAbout()
           const links: any[] = about?.primary_links || about?.links || []
+
           for (const link of links) {
-            const url: string = link?.url || link?.endpoint?.payload?.url || ''
+            const rawUrl: string = link?.url || link?.endpoint?.payload?.url || ''
+            const url = decodeYouTubeRedirect(rawUrl)
             if (!url) continue
             if (!socials.instagram && url.includes('instagram.com')) socials.instagram = url
             if (!socials.twitter && (url.includes('twitter.com') || url.includes('x.com'))) socials.twitter = url
@@ -99,6 +86,7 @@ export async function GET(req: NextRequest) {
             if (!socials.linkedin && url.includes('linkedin.com')) socials.linkedin = url
             if (!website && !url.match(/instagram|twitter|tiktok|linkedin|youtube/i)) website = url
           }
+
           if (!email && about?.business_email) email = about.business_email
         } catch { /* no about page */ }
 
@@ -125,6 +113,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ channels })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// YouTube wraps external links in redirect URLs — decode to get the real URL
+function decodeYouTubeRedirect(url: string): string {
+  try {
+    if (url.includes('youtube.com/redirect')) {
+      const parsed = new URL(url)
+      const q = parsed.searchParams.get('q')
+      return q ? decodeURIComponent(q) : url
+    }
+    return url
+  } catch {
+    return url
   }
 }
 

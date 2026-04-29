@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 interface Creator {
   channelId: string
@@ -24,6 +24,13 @@ export default function Home() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
+  const [sortOrder, setSortOrder] = useState<'relevance' | 'high' | 'low'>('relevance')
+
+  const sorted = useMemo(() => {
+    if (sortOrder === 'high') return [...creators].sort((a, b) => b.avgViews - a.avgViews)
+    if (sortOrder === 'low') return [...creators].sort((a, b) => a.avgViews - b.avgViews)
+    return creators
+  }, [creators, sortOrder])
 
   async function handleSearch() {
     if (!keyword.trim()) return
@@ -48,7 +55,12 @@ export default function Home() {
         const c = enriched[i]
         setStatus(`Enriching ${i + 1} of ${enriched.length}: ${c.channelName}`)
         try {
-          const params = new URLSearchParams({ name: c.channelName, website: c.website || '' })
+          const params = new URLSearchParams({
+            name: c.channelName,
+            website: c.website || '',
+            instagram: c.instagram || '',
+            tiktok: c.tiktok || '',
+          })
           const r = await fetch(`/api/enrich?${params}`)
           const extra = await r.json()
           enriched[i] = {
@@ -57,6 +69,7 @@ export default function Home() {
             linkedin: c.linkedin || extra.linkedin || '',
             instagram: c.instagram || extra.instagram || '',
             twitter: c.twitter || extra.twitter || '',
+            tiktok: c.tiktok || extra.tiktok || '',
           }
           setCreators([...enriched])
         } catch {
@@ -76,7 +89,7 @@ export default function Home() {
     const res = await fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channels: creators }),
+      body: JSON.stringify({ channels: sorted }),
     })
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
@@ -90,12 +103,12 @@ export default function Home() {
     <main className="min-h-screen bg-gray-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-2">Creator Outreach</h1>
-        <p className="text-gray-400 mb-8">Find YouTube creators with 0–100k avg views and their contact info</p>
+        <p className="text-gray-400 mb-8">Find YouTube creators with 0–200k avg views and their contact info</p>
 
-        <div className="flex gap-4 mb-6">
+        <div className="flex gap-4 mb-6 flex-wrap">
           <input
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            placeholder="Enter niche or keyword (e.g. fitness coach, personal finance)"
+            className="flex-1 min-w-64 bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            placeholder="Enter niche or keyword (e.g. fitness coach, sports, personal finance)"
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -126,11 +139,36 @@ export default function Home() {
           )}
         </div>
 
+        {creators.length > 0 && (
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-sm text-gray-400">Sort by avg views:</span>
+            <button
+              onClick={() => setSortOrder('relevance')}
+              className={`text-sm px-3 py-1 rounded ${sortOrder === 'relevance' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              Relevance
+            </button>
+            <button
+              onClick={() => setSortOrder('high')}
+              className={`text-sm px-3 py-1 rounded ${sortOrder === 'high' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              High → Low
+            </button>
+            <button
+              onClick={() => setSortOrder('low')}
+              className={`text-sm px-3 py-1 rounded ${sortOrder === 'low' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              Low → High
+            </button>
+            <span className="text-sm text-gray-500 ml-auto">{creators.length} creators</span>
+          </div>
+        )}
+
         {status && (
           <p className="text-sm text-gray-400 mb-4">{status}</p>
         )}
 
-        {creators.length > 0 && (
+        {sorted.length > 0 && (
           <div className="overflow-x-auto rounded-lg border border-gray-800">
             <table className="w-full text-sm">
               <thead className="bg-gray-800 text-gray-300">
@@ -147,7 +185,7 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {creators.map((c, i) => (
+                {sorted.map((c, i) => (
                   <tr key={c.channelId} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
                     <td className="px-4 py-3">
                       <a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline">
@@ -155,7 +193,7 @@ export default function Home() {
                       </a>
                     </td>
                     <td className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
-                    <td className="px-4 py-3">{c.email || '—'}</td>
+                    <td className="px-4 py-3 text-xs">{c.email || '—'}</td>
                     <td className="px-4 py-3">
                       {c.website ? <a href={c.website} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
                     </td>
@@ -173,7 +211,7 @@ export default function Home() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full ${
-                        c.matchedVia === 'transcript' ? 'bg-purple-900 text-purple-300' :
+                        c.matchedVia === 'related' ? 'bg-gray-700 text-gray-300' :
                         c.matchedVia === 'bio' ? 'bg-yellow-900 text-yellow-300' :
                         'bg-green-900 text-green-300'
                       }`}>
