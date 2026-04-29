@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 
 interface Creator {
   channelId: string
@@ -18,6 +18,7 @@ interface Creator {
   matchedVia: string
   videoTitles: string[]
   description: string
+  enriching?: boolean
 }
 
 type SortCol = 'channelName' | 'avgViews' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
@@ -43,19 +44,16 @@ const ALL_OCCUPATIONS = [
   'divorce lawyer', 'immigration attorney', 'estate planner', 'financial planner', 'wealth manager',
 ]
 
-function pickRandom(arr: string[], n: number): string[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, n)
-}
+const VIEW_PRESETS = [
+  { label: '0 – 10K', min: 0, max: 10000 },
+  { label: '10K – 50K', min: 10000, max: 50000 },
+  { label: '50K – 200K', min: 50000, max: 200000 },
+  { label: '0 – 200K', min: 0, max: 200000 },
+  { label: '0 – 500K', min: 0, max: 500000 },
+]
 
-function parseSubscribers(s: string): number {
-  if (!s) return 0
-  const n = s.replace(/[^0-9.KkMmBb]/g, '')
-  const num = parseFloat(n)
-  if (s.match(/[Bb]/)) return num * 1e9
-  if (s.match(/[Mm]/)) return num * 1e6
-  if (s.match(/[Kk]/)) return num * 1e3
-  return num || 0
+function pickRandom(arr: string[], n: number): string[] {
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
 }
 
 function buildOutreachEmail(c: Creator): string {
@@ -77,6 +75,37 @@ Ryan`
   return `mailto:${c.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
+// priority: email=3, linkedin only=2, enriching=1, nothing=0
+function contactPriority(c: Creator): number {
+  if (c.email) return 3
+  if (c.linkedin) return 2
+  if (c.enriching) return 1
+  return 0
+}
+
+function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
+  return [...list].sort((a, b) => {
+    if (col === 'email') {
+      const pri = contactPriority(b) - contactPriority(a)
+      if (pri !== 0) return pri
+      return a.channelName.localeCompare(b.channelName)
+    }
+    let cmp = 0
+    if (col === 'avgViews') cmp = a.avgViews - b.avgViews
+    else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
+    else if (col === 'website') cmp = (b.website ? 1 : 0) - (a.website ? 1 : 0)
+    else if (col === 'linkedin') {
+      const pri = contactPriority(b) - contactPriority(a)
+      if (pri !== 0) return pri
+      return a.channelName.localeCompare(b.channelName)
+    }
+    else if (col === 'instagram') cmp = (b.instagram ? 1 : 0) - (a.instagram ? 1 : 0)
+    else if (col === 'twitter') cmp = (b.twitter ? 1 : 0) - (a.twitter ? 1 : 0)
+    else if (col === 'tiktok') cmp = (b.tiktok ? 1 : 0) - (a.tiktok ? 1 : 0)
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
+
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} className="w-5 h-5">
@@ -93,39 +122,24 @@ function TrashIcon() {
   )
 }
 
+function Spinner() {
+  return (
+    <svg className="w-3.5 h-3.5 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+    </svg>
+  )
+}
+
 function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortCol, sortDir: SortDir }) {
   if (col !== sortCol) return <span className="ml-1 text-gray-600">↕</span>
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
-  return [...list].sort((a, b) => {
-    let cmp = 0
-    if (col === 'avgViews') cmp = a.avgViews - b.avgViews
-    else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
-    else if (col === 'email') cmp = (b.email ? 1 : 0) - (a.email ? 1 : 0)
-    else if (col === 'website') cmp = (b.website ? 1 : 0) - (a.website ? 1 : 0)
-    else if (col === 'linkedin') cmp = (b.linkedin ? 1 : 0) - (a.linkedin ? 1 : 0)
-    else if (col === 'instagram') cmp = (b.instagram ? 1 : 0) - (a.instagram ? 1 : 0)
-    else if (col === 'twitter') cmp = (b.twitter ? 1 : 0) - (a.twitter ? 1 : 0)
-    else if (col === 'tiktok') cmp = (b.tiktok ? 1 : 0) - (a.tiktok ? 1 : 0)
-    return dir === 'asc' ? cmp : -cmp
-  })
-}
-
-function CreatorTable({
-  creators, favorites, onToggleFavorite, onRemoveFavorite, isFavTab, loading,
-  sortCol, sortDir, onSort,
-}: {
-  creators: Creator[]
-  favorites: Set<string>
-  onToggleFavorite: (c: Creator) => void
-  onRemoveFavorite?: (id: string) => void
-  isFavTab: boolean
-  loading?: boolean
-  sortCol: SortCol
-  sortDir: SortDir
-  onSort: (col: SortCol) => void
+function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite, isFavTab, loading, sortCol, sortDir, onSort }: {
+  creators: Creator[], favorites: Set<string>, onToggleFavorite: (c: Creator) => void
+  onRemoveFavorite?: (id: string) => void, isFavTab: boolean, loading?: boolean
+  sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
 }) {
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir), [creators, sortCol, sortDir])
 
@@ -134,10 +148,7 @@ function CreatorTable({
   }
 
   const Th = ({ col, label }: { col: SortCol, label: string }) => (
-    <th
-      className="text-left px-4 py-3 cursor-pointer hover:text-white select-none whitespace-nowrap"
-      onClick={() => onSort(col)}
-    >
+    <th className="text-left px-4 py-3 cursor-pointer hover:text-white select-none whitespace-nowrap" onClick={() => onSort(col)}>
       {label}<SortIndicator col={col} sortCol={sortCol} sortDir={sortDir} />
     </th>
   )
@@ -168,28 +179,19 @@ function CreatorTable({
                   <StarIcon filled={favorites.has(c.channelId)} />
                 </button>
               </td>
-              <td className="px-4 py-3">
-                <a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a>
-              </td>
+              <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               <td className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
               <td className="px-4 py-3 text-xs">
-                {c.email ? <a href={buildOutreachEmail(c)} className="text-green-400 hover:underline">{c.email}</a> : '—'}
+                {c.email
+                  ? <a href={buildOutreachEmail(c)} className="text-green-400 hover:underline">{c.email}</a>
+                  : c.enriching ? <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span>
+                  : '—'}
               </td>
-              <td className="px-4 py-3">
-                {c.website ? <a href={c.website} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
-              </td>
-              <td className="px-4 py-3">
-                {c.linkedin ? <a href={c.linkedin} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
-              </td>
-              <td className="px-4 py-3">
-                {c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
-              </td>
-              <td className="px-4 py-3">
-                {c.twitter ? <a href={c.twitter} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
-              </td>
-              <td className="px-4 py-3">
-                {c.tiktok ? <a href={c.tiktok} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}
-              </td>
+              <td className="px-4 py-3">{c.website ? <a href={c.website} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+              <td className="px-4 py-3">{c.linkedin ? <a href={c.linkedin} target="_blank" className="text-blue-400 hover:underline">link</a> : c.enriching ? <Spinner /> : '—'}</td>
+              <td className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+              <td className="px-4 py-3">{c.twitter ? <a href={c.twitter} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+              <td className="px-4 py-3">{c.tiktok ? <a href={c.tiktok} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
               {!isFavTab && (
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-1 rounded-full ${c.matchedVia === 'related' ? 'bg-gray-700 text-gray-300' : c.matchedVia === 'bio' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'}`}>
@@ -199,9 +201,7 @@ function CreatorTable({
               )}
               {isFavTab && (
                 <td className="px-4 py-3">
-                  <button onClick={() => onRemoveFavorite?.(c.channelId)} className="text-gray-600 hover:text-red-400 transition-colors">
-                    <TrashIcon />
-                  </button>
+                  <button onClick={() => onRemoveFavorite?.(c.channelId)} className="text-gray-600 hover:text-red-400 transition-colors"><TrashIcon /></button>
                 </td>
               )}
             </tr>
@@ -217,16 +217,23 @@ export default function Home() {
   const maxResults = 50
   const [minViews, setMinViews] = useState(0)
   const [maxViews, setMaxViews] = useState(200000)
+  const [showFilter, setShowFilter] = useState(false)
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
+  const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 })
+  const [elapsed, setElapsed] = useState(0)
   const [status, setStatus] = useState('')
-  const [sortCol, setSortCol] = useState<SortCol>('avgViews')
+  const [sortCol, setSortCol] = useState<SortCol>('email')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [activeTab, setActiveTab] = useState<'results' | 'favorites'>('results')
   const [favorites, setFavorites] = useState<Creator[]>([])
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(true)
+
+  // search version ref — prevents stale searches from overwriting newer ones
+  const searchVersion = useRef(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))
@@ -236,6 +243,17 @@ export default function Home() {
       setFavIds(new Set(stored.map((c: Creator) => c.channelId)))
     } catch { /* no stored favorites */ }
   }, [])
+
+  // elapsed timer while loading
+  useEffect(() => {
+    if (loading) {
+      setElapsed(0)
+      timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [loading])
 
   function handleSort(col: SortCol) {
     if (col === sortCol) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -259,21 +277,28 @@ export default function Home() {
 
   const runSearch = useCallback(async (kw: string) => {
     if (!kw.trim()) return
+    const version = ++searchVersion.current
     setLoading(true)
     setCreators([])
+    setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
     setStatus('Searching YouTube...')
+
     try {
       const res = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}`)
       const data = await res.json()
+      if (version !== searchVersion.current) return  // superseded by newer search
       if (data.error) { setStatus(`Error: ${data.error}`); return }
-      setCreators(data.channels)
-      const queryList = (data.expandedQueries as string[] || []).join(', ')
-      setStatus(`Searched: ${queryList} — Found ${data.channels.length} creators. Enriching contact info...`)
-      const enriched = [...data.channels]
+
+      const enriched = (data.channels as Creator[]).map(c => ({ ...c, enriching: true }))
+      setCreators([...enriched])
+      setEnrichProgress({ current: 0, total: enriched.length })
+      setStatus(`Found ${enriched.length} creators. Enriching contact info...`)
+
       for (let i = 0; i < enriched.length; i++) {
+        if (version !== searchVersion.current) return  // newer search started, stop this one
         const c = enriched[i]
-        setStatus(`Enriching ${i + 1} of ${enriched.length}: ${c.channelName}`)
+        setEnrichProgress({ current: i + 1, total: enriched.length })
         try {
           const params = new URLSearchParams({
             name: c.channelName, channelId: c.channelId,
@@ -283,7 +308,7 @@ export default function Home() {
           const r = await fetch(`/api/enrich?${params}`)
           const extra = await r.json()
           enriched[i] = {
-            ...c,
+            ...c, enriching: false,
             email: c.email || extra.email || '',
             linkedin: c.linkedin || extra.linkedin || '',
             instagram: c.instagram || extra.instagram || '',
@@ -291,16 +316,18 @@ export default function Home() {
             tiktok: c.tiktok || extra.tiktok || '',
             website: c.website || extra.website || '',
           }
-          setCreators([...enriched])
-        } catch { continue }
+        } catch {
+          enriched[i] = { ...c, enriching: false }
+        }
+        if (version === searchVersion.current) setCreators([...enriched])
       }
-      setStatus(`Done — ${enriched.length} creators found.`)
+      if (version === searchVersion.current) setStatus(`Done — ${enriched.length} creators found.`)
     } catch (err: any) {
-      setStatus(`Error: ${err.message}`)
+      if (version === searchVersion.current) setStatus(`Error: ${err.message}`)
     } finally {
-      setLoading(false)
+      if (version === searchVersion.current) setLoading(false)
     }
-  }, [maxResults])
+  }, [minViews, maxViews, maxResults])
 
   async function handleSearch() { await runSearch(keyword) }
 
@@ -319,15 +346,16 @@ export default function Home() {
   }
 
   const currentList = activeTab === 'favorites' ? favorites : creators
+  const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-2">Creator Outreach</h1>
-        <p className="text-gray-400 mb-6">Find YouTube creators with 0–200k avg views and their contact info</p>
+        <p className="text-gray-400 mb-6">Find YouTube creators and their contact info</p>
 
         {/* Search bar */}
-        <div className="flex gap-4 mb-4 flex-wrap">
+        <div className="flex gap-3 mb-2 flex-wrap">
           <input
             className="flex-1 min-w-64 bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
             placeholder="Search by topic or occupation (e.g. basketball, banking, fitness)"
@@ -335,6 +363,16 @@ export default function Home() {
             onChange={e => setKeyword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
           />
+          {/* Filter icon */}
+          <button
+            onClick={() => setShowFilter(v => !v)}
+            title="View range filter"
+            className={`px-3 py-2 rounded border transition-colors ${showFilter ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+            </svg>
+          </button>
           <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 rounded font-semibold">
             {loading ? 'Searching...' : 'Search'}
           </button>
@@ -345,62 +383,65 @@ export default function Home() {
           )}
         </div>
 
-        {/* View range filter */}
-        <div className="flex items-center gap-3 mb-5 flex-wrap">
-          <span className="text-sm text-gray-400">Avg views range:</span>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              value={minViews}
+        {/* View range filter — hidden by default */}
+        {showFilter && (
+          <div className="flex items-center gap-3 mb-3 flex-wrap p-3 bg-gray-900 rounded-lg border border-gray-700">
+            <span className="text-xs text-gray-400">Avg views:</span>
+            <input type="number" min={0} value={minViews}
               onChange={e => setMinViews(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-32 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              placeholder="Min"
-            />
-            <span className="text-gray-500">—</span>
-            <input
-              type="number"
-              min={0}
-              value={maxViews}
+              className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+              placeholder="Min" />
+            <span className="text-gray-600 text-xs">to</span>
+            <input type="number" min={0} value={maxViews}
               onChange={e => setMaxViews(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-32 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              placeholder="Max"
-            />
+              className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+              placeholder="Max" />
+            <span className="text-gray-600 text-xs">|</span>
+            {VIEW_PRESETS.map(p => (
+              <button key={p.label} onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
+                className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}>
+                {p.label}
+              </button>
+            ))}
           </div>
-          {[
-            { label: '0 – 10K', min: 0, max: 10000 },
-            { label: '10K – 50K', min: 10000, max: 50000 },
-            { label: '50K – 200K', min: 50000, max: 200000 },
-            { label: '0 – 200K', min: 0, max: 200000 },
-            { label: '0 – 500K', min: 0, max: 500000 },
-          ].map(p => (
-            <button
-              key={p.label}
-              onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
-              className={`text-xs px-3 py-1.5 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        )}
+
+        {/* Loading progress */}
+        {loading && (
+          <div className="mb-4">
+            <div className="flex items-center gap-3 mb-1.5">
+              <Spinner />
+              <span className="text-sm text-gray-300">
+                {enrichProgress.total === 0
+                  ? 'Searching YouTube...'
+                  : `Enriching ${enrichProgress.current} / ${enrichProgress.total} creators`}
+              </span>
+              <span className="text-xs text-gray-500 ml-auto">{elapsed}s elapsed</span>
+            </div>
+            {enrichProgress.total > 0 && (
+              <div className="w-full bg-gray-800 rounded-full h-1.5">
+                <div
+                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loading && status && <p className="text-xs text-gray-500 mb-4">{status}</p>}
 
         {/* Suggestions bar */}
-        <div className="mb-6">
+        <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() => setShowSuggestions(v => !v)}
-              className="text-xs text-gray-500 hover:text-gray-300 uppercase tracking-wide flex items-center gap-1 transition-colors"
-            >
+            <button onClick={() => setShowSuggestions(v => !v)} className="text-xs text-gray-500 hover:text-gray-300 uppercase tracking-wide flex items-center gap-1 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 transition-transform ${showSuggestions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
               Suggested searches
             </button>
             {showSuggestions && (
-              <button
-                onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))}
-                className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 border border-gray-700 rounded px-2 py-0.5 hover:border-gray-500 transition-colors"
-              >
+              <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 border border-gray-700 rounded px-2 py-0.5 hover:border-gray-500 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
@@ -411,11 +452,8 @@ export default function Home() {
           {showSuggestions && (
             <div className="flex flex-wrap gap-2">
               {suggestions.map(s => (
-                <button
-                  key={s}
-                  onClick={() => { setKeyword(s); runSearch(s) }}
-                  className="text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors"
-                >
+                <button key={s} onClick={() => { setKeyword(s); runSearch(s) }}
+                  className="text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors">
                   {s}
                 </button>
               ))}
@@ -433,18 +471,11 @@ export default function Home() {
           </button>
         </div>
 
-        {status && activeTab === 'results' && <p className="text-sm text-gray-400 mb-4">{status}</p>}
-
         <CreatorTable
-          creators={currentList}
-          favorites={favIds}
-          onToggleFavorite={toggleFavorite}
-          onRemoveFavorite={removeFavorite}
-          isFavTab={activeTab === 'favorites'}
-          loading={loading}
-          sortCol={sortCol}
-          sortDir={sortDir}
-          onSort={handleSort}
+          creators={currentList} favorites={favIds}
+          onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
+          isFavTab={activeTab === 'favorites'} loading={loading}
+          sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
         />
       </div>
     </main>
