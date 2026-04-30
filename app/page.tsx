@@ -139,7 +139,7 @@ function buildOutreachEmail(c: Creator): string {
     if (clean.length > 10) contentRef = `your ${clean.split(' ').slice(0, 5).join(' ')} content`
   }
 
-  const subject = `Your YouTube channel`
+  const subject = `loved ${contentRef.startsWith('"') ? contentRef : 'your content'} — quick question`
   const body = `Hey ${firstName},
 
 Came across your channel and watched ${contentRef} — good stuff.
