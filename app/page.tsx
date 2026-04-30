@@ -711,17 +711,18 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
-function ThumbsDownIcon({ active }: { active: boolean }) {
+function DismissIcon({ active }: { active: boolean }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 15h2.25m8.024-9.75c.011.05.028.1.052.148.591 1.2.924 2.55.924 3.977a8.96 8.96 0 01-.999 4.125m.023-8.25c-.076-.365.183-.75.575-.75h.908c.889 0 1.713.518 1.972 1.368.339 1.11.521 2.287.521 3.507 0 1.553-.295 3.036-.831 4.398-.306.774-1.086 1.227-1.918 1.227h-1.94c-.321 0-.624-.015-.91-.044l-5.004-.69c-1.395-.194-2.416-1.4-2.416-2.808V7.85c0-1.087.701-2.027 1.738-2.331l.927-.277C12.33 5.01 13 4.278 13 3.39V3a.75.75 0 011.5 0v.39c0 .93-.406 1.812-1.116 2.423l-.458.384" />
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 9l-6 6M9 9l6 6" />
     </svg>
   )
 }
 
 function DismissedTab({ dismissed, onUndismiss }: { dismissed: Creator[], onUndismiss: (id: string) => void }) {
   if (dismissed.length === 0) {
-    return <p className="text-gray-500 text-sm mt-4">No dismissed creators yet — click the 👎 on any creator to dismiss them.</p>
+    return <p className="text-gray-500 text-sm mt-4">No dismissed creators yet — click the ✕ on any creator to skip them.</p>
   }
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-800">
@@ -816,8 +817,18 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
       <table className="w-full text-sm">
         <thead className="bg-gray-800 text-gray-300">
           <tr>
-            <th className="px-4 py-3 w-8"></th>
-            <th className="px-4 py-3 w-8"></th>
+            <th className="px-2 py-3 text-center w-12" title="Skip — hide this creator from results">
+              <div className="flex flex-col items-center gap-0.5 text-gray-500">
+                <DismissIcon active={false} />
+                <span className="text-[9px] font-semibold tracking-wide uppercase">Skip</span>
+              </div>
+            </th>
+            <th className="px-2 py-3 text-center w-12" title="Add to Outreach list">
+              <div className="flex flex-col items-center gap-0.5 text-gray-500">
+                <PlusCircleIcon added={false} />
+                <span className="text-[9px] font-semibold tracking-wide uppercase">Outreach</span>
+              </div>
+            </th>
             <th className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">Channel</th>
             {visibleCols.map((col, idx) => {
               const sc = COL_SORT[col.id]
@@ -845,20 +856,20 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
         <tbody>
           {sorted.map((c, i) => (
             <tr key={c.channelId} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
-              <td className="px-4 py-3">
+              <td className="px-2 py-3 text-center">
                 <button
                   onClick={() => onDismiss(c)}
-                  title="Dismiss"
-                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
+                  title="Skip — hide this creator from results"
+                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-500 hover:text-red-400'}`}
                 >
-                  <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
+                  <DismissIcon active={dismissedIds.has(c.channelId)} />
                 </button>
               </td>
-              <td className="px-4 py-3">
+              <td className="px-2 py-3 text-center">
                 <button
                   onClick={() => onAddToOutreach(c)}
                   title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
-                  className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-gray-600 hover:text-purple-400'}`}
+                  className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-gray-500 hover:text-purple-400'}`}
                 >
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
@@ -876,16 +887,16 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
               </tr>
               {loadMoreBatch.map((c, i) => (
                 <tr key={`lm-${c.channelId}`} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-3 text-center">
                     <button
                       onClick={() => onDismiss(c)}
-                      title="Dismiss"
-                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
+                      title="Skip — hide this creator from results"
+                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-500 hover:text-red-400'}`}
                     >
-                      <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
+                      <DismissIcon active={dismissedIds.has(c.channelId)} />
                     </button>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-3 text-center">
                     <button
                       onClick={() => onAddToOutreach(c)}
                       title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
