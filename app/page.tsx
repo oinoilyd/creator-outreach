@@ -293,36 +293,75 @@ function PlusCircleIcon({ added }: { added: boolean }) {
   )
 }
 
+function AutoTextarea({ value, onChange, placeholder, className }: {
+  value: string, onChange: (v: string) => void, placeholder?: string, className?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (ref.current) { ref.current.style.height = 'auto'; ref.current.style.height = ref.current.scrollHeight + 'px' }
+  }, [value])
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={ev => onChange(ev.target.value)}
+      placeholder={placeholder}
+      className={`resize-none overflow-hidden w-full bg-transparent focus:outline-none focus:bg-gray-800 rounded px-1 text-xs leading-snug ${className ?? ''}`}
+      style={{ minHeight: '22px' }}
+    />
+  )
+}
+
+const OUTREACH_COL_LABELS = ['Channel', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Open', 'Rejected', '']
+const OUTREACH_COL_DEFAULTS = [160, 42, 190, 230, 160, 96, 170, 210, 58, 68, 36]
+
 function OutreachTab({ entries, onUpdate, onRemove }: {
   entries: OutreachEntry[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onRemove: (id: string) => void
 }) {
+  const [widths, setWidths] = useState<number[]>(OUTREACH_COL_DEFAULTS)
+  const resizing = useRef<{ idx: number; startX: number; startW: number } | null>(null)
+
+  function startResize(e: React.MouseEvent, idx: number) {
+    e.preventDefault()
+    resizing.current = { idx, startX: e.clientX, startW: widths[idx] }
+    const onMove = (ev: MouseEvent) => {
+      if (!resizing.current) return
+      const { idx, startX, startW } = resizing.current
+      setWidths(prev => { const next = [...prev]; next[idx] = Math.max(40, startW + ev.clientX - startX); return next })
+    }
+    const onUp = () => { resizing.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   if (entries.length === 0) {
     return <p className="text-gray-500 text-sm mt-4">No outreach entries yet — click the <span className="text-purple-400">+</span> icon on any creator to add them.</p>
   }
 
-  const cols = [
-    { label: 'Channel', width: 'w-36' },
-    { label: 'YT', width: 'w-10' },
-    { label: 'Email', width: 'w-44' },
-    { label: 'Description', width: 'w-52' },
-    { label: 'Product', width: 'w-36' },
-    { label: 'Reached Out', width: 'w-24' },
-    { label: 'Medium', width: 'w-36' },
-    { label: 'Subject Line', width: 'w-48' },
-    { label: 'Open', width: 'w-16' },
-    { label: 'Rejected', width: 'w-16' },
-    { label: '', width: 'w-8' },
-  ]
-
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-800">
-      <table className="w-full text-sm">
+      <table className="table-fixed text-sm border-collapse" style={{ width: widths.reduce((a, b) => a + b, 0) }}>
         <thead className="bg-gray-800 text-gray-300">
           <tr>
-            {cols.map(c => (
-              <th key={c.label} className={`text-left px-3 py-3 whitespace-nowrap ${c.width}`}>{c.label}</th>
+            {OUTREACH_COL_LABELS.map((label, idx) => (
+              <th
+                key={idx}
+                style={{ width: widths[idx], minWidth: widths[idx] }}
+                className="relative text-left px-3 py-3 select-none font-medium"
+              >
+                <span className="truncate block">{label}</span>
+                {idx < OUTREACH_COL_LABELS.length - 1 && (
+                  <div
+                    onMouseDown={e => startResize(e, idx)}
+                    className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center"
+                  >
+                    <div className="w-px h-4 bg-gray-600 group-hover:bg-blue-400 transition-colors" />
+                  </div>
+                )}
+              </th>
             ))}
           </tr>
         </thead>
@@ -330,70 +369,55 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
           {entries.map((e, i) => (
             <tr key={e.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
               {/* Channel Name */}
-              <td className="px-3 py-2">
-                <input
-                  className="w-full bg-transparent text-blue-400 hover:underline focus:outline-none focus:bg-gray-800 rounded px-1 text-sm"
-                  value={e.channelName}
-                  onChange={ev => onUpdate(e.id, 'channelName', ev.target.value)}
-                />
+              <td className="px-3 py-2 align-top" style={{ width: widths[0] }}>
+                <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-400 font-medium" />
               </td>
               {/* YT link */}
-              <td className="px-3 py-2">
-                <a href={e.channelUrl} target="_blank" className="text-gray-400 hover:text-white">
+              <td className="px-3 py-2 align-top" style={{ width: widths[1] }}>
+                <a href={e.channelUrl} target="_blank" className="text-gray-400 hover:text-white mt-0.5 block">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-red-500">
                     <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 3.993L9 16z"/>
                   </svg>
                 </a>
               </td>
-              {/* Email */}
-              <td className="px-3 py-2">
-                {e.email ? (
-                  <a
-                    href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator)}
-                    className="text-green-400 hover:underline text-xs break-all"
-                  >{e.email}</a>
-                ) : (
-                  <input
-                    className="w-full bg-transparent text-gray-400 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+              {/* Email — editable but opens mailto template when clicked */}
+              <td className="px-3 py-2 align-top" style={{ width: widths[2] }}>
+                <div className="flex flex-col gap-1">
+                  {e.email && (
+                    <a
+                      href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator)}
+                      className="text-green-400 hover:underline text-xs break-all"
+                    >{e.email}</a>
+                  )}
+                  <AutoTextarea
                     value={e.email}
-                    onChange={ev => onUpdate(e.id, 'email', ev.target.value)}
-                    placeholder="—"
+                    onChange={v => onUpdate(e.id, 'email', v)}
+                    placeholder="Add email..."
+                    className={e.email ? 'text-gray-600 text-xs' : 'text-gray-400'}
                   />
-                )}
+                </div>
               </td>
               {/* Description */}
-              <td className="px-3 py-2">
-                <textarea
-                  className="w-full bg-transparent text-gray-400 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs resize-none leading-snug"
-                  rows={2}
-                  value={e.description}
-                  onChange={ev => onUpdate(e.id, 'description', ev.target.value)}
-                  placeholder="—"
-                />
+              <td className="px-3 py-2 align-top" style={{ width: widths[3] }}>
+                <AutoTextarea value={e.description} onChange={v => onUpdate(e.id, 'description', v)} placeholder="—" className="text-gray-400" />
               </td>
               {/* Product */}
-              <td className="px-3 py-2">
-                <textarea
-                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs resize-none leading-snug"
-                  rows={2}
-                  value={e.product}
-                  onChange={ev => onUpdate(e.id, 'product', ev.target.value)}
-                  placeholder="Add product..."
-                />
+              <td className="px-3 py-2 align-top" style={{ width: widths[4] }}>
+                <AutoTextarea value={e.product} onChange={v => onUpdate(e.id, 'product', v)} placeholder="Add product..." className="text-gray-200" />
               </td>
               {/* Reached Out */}
-              <td className="px-3 py-2 text-center">
+              <td className="px-3 py-2 align-top text-center" style={{ width: widths[5] }}>
                 <input type="checkbox" checked={e.reachedOut}
                   onChange={ev => onUpdate(e.id, 'reachedOut', ev.target.checked)}
-                  className="w-4 h-4 rounded accent-purple-500 cursor-pointer" />
+                  className="w-4 h-4 rounded accent-purple-500 cursor-pointer mt-0.5" />
               </td>
               {/* Medium */}
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-1">
+              <td className="px-3 py-2 align-top" style={{ width: widths[6] }}>
+                <div className="flex flex-col gap-1">
                   <select
                     value={e.medium}
                     onChange={ev => onUpdate(e.id, 'medium', ev.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
+                    className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 w-full"
                   >
                     <option value="">—</option>
                     <option value="Email">Email</option>
@@ -401,39 +425,28 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
                     <option value="Other">Other</option>
                   </select>
                   {e.medium === 'Other' && (
-                    <input
-                      className="w-20 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
-                      value={e.mediumOther}
-                      onChange={ev => onUpdate(e.id, 'mediumOther', ev.target.value)}
-                      placeholder="specify..."
-                    />
+                    <AutoTextarea value={e.mediumOther} onChange={v => onUpdate(e.id, 'mediumOther', v)} placeholder="specify..." className="text-gray-200" />
                   )}
                 </div>
               </td>
               {/* Subject Line */}
-              <td className="px-3 py-2">
-                <textarea
-                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs resize-none leading-snug"
-                  rows={2}
-                  value={e.headerUsed}
-                  onChange={ev => onUpdate(e.id, 'headerUsed', ev.target.value)}
-                  placeholder="Subject line used..."
-                />
+              <td className="px-3 py-2 align-top" style={{ width: widths[7] }}>
+                <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-gray-200" />
               </td>
               {/* Open */}
-              <td className="px-3 py-2 text-center">
+              <td className="px-3 py-2 align-top text-center" style={{ width: widths[8] }}>
                 <input type="checkbox" checked={e.open}
                   onChange={ev => onUpdate(e.id, 'open', ev.target.checked)}
-                  className="w-4 h-4 rounded accent-green-500 cursor-pointer" />
+                  className="w-4 h-4 rounded accent-green-500 cursor-pointer mt-0.5" />
               </td>
               {/* Rejected */}
-              <td className="px-3 py-2 text-center">
+              <td className="px-3 py-2 align-top text-center" style={{ width: widths[9] }}>
                 <input type="checkbox" checked={e.rejected}
                   onChange={ev => onUpdate(e.id, 'rejected', ev.target.checked)}
-                  className="w-4 h-4 rounded accent-red-500 cursor-pointer" />
+                  className="w-4 h-4 rounded accent-red-500 cursor-pointer mt-0.5" />
               </td>
               {/* Remove */}
-              <td className="px-3 py-2">
+              <td className="px-3 py-2 align-top" style={{ width: widths[10] }}>
                 <button onClick={() => onRemove(e.id)} className="text-gray-700 hover:text-red-400 transition-colors">
                   <TrashIcon />
                 </button>
