@@ -349,7 +349,7 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
               <td className="px-3 py-2">
                 {e.email ? (
                   <a
-                    href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as Creator)}
+                    href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator)}
                     className="text-green-400 hover:underline text-xs break-all"
                   >{e.email}</a>
                 ) : (
