@@ -236,7 +236,15 @@ function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
     else if (col === 'avgViews') cmp = a.avgViews - b.avgViews
     else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
     else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
-    else if (col === 'lastPosted') cmp = parseRelativeDays(b.videoDates?.[0] || '') - parseRelativeDays(a.videoDates?.[0] || '')
+    else if (col === 'lastPosted') {
+      const da = parseRelativeDays(a.videoDates?.[0] || '')
+      const db = parseRelativeDays(b.videoDates?.[0] || '')
+      // push missing dates to bottom regardless of sort direction
+      if (da === Infinity && db === Infinity) cmp = 0
+      else if (da === Infinity) return 1
+      else if (db === Infinity) return -1
+      else cmp = da - db
+    }
     else if (col === 'website') cmp = (b.website ? 1 : 0) - (a.website ? 1 : 0)
     else if (col === 'linkedin') {
       const pri = contactPriority(b) - contactPriority(a)
