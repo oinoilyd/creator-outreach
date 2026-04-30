@@ -783,6 +783,41 @@ export default function Home() {
     a.click()
   }
 
+  async function handleExportOutreachExcel() {
+    setShowExport(false)
+    const res = await fetch('/api/export-outreach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: outreach }),
+    })
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'outreach.xlsx'
+    a.click()
+  }
+
+  function handleExportOutreachCSV() {
+    setShowExport(false)
+    const headers = ['Channel Name', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Open', 'Rejected']
+    const rows = outreach.map(e => [
+      e.channelName, e.channelUrl, e.email, e.description, e.product,
+      e.reachedOut ? 'Yes' : 'No',
+      e.medium === 'Other' ? e.mediumOther : e.medium,
+      e.headerUsed,
+      e.open ? 'Yes' : 'No',
+      e.rejected ? 'Yes' : 'No',
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'outreach.csv'
+    a.click()
+  }
+
   const baseList = activeTab === 'favorites' ? favorites : creators
   const currentList = baseList
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
@@ -821,7 +856,7 @@ export default function Home() {
           <div className="relative">
             <button
               onClick={() => setShowExport(v => !v)}
-              disabled={currentList.length === 0}
+              disabled={activeTab === 'outreach' ? outreach.length === 0 : currentList.length === 0}
               className="bg-green-700 hover:bg-green-600 disabled:opacity-30 disabled:cursor-not-allowed px-4 py-2 rounded font-semibold text-sm flex items-center gap-1.5"
             >
               Export
@@ -831,12 +866,21 @@ export default function Home() {
             </button>
             {showExport && (
               <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-lg z-10">
-                <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
-                  📊 Excel (.xlsx)
-                </button>
-                <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
-                  📄 CSV (Google Sheets)
-                </button>
+                {activeTab === 'outreach' ? <>
+                  <button onClick={handleExportOutreachExcel} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                    📊 Excel (.xlsx)
+                  </button>
+                  <button onClick={handleExportOutreachCSV} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                    📄 CSV (Google Sheets)
+                  </button>
+                </> : <>
+                  <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                    📊 Excel (.xlsx)
+                  </button>
+                  <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                    📄 CSV (Google Sheets)
+                  </button>
+                </>}
               </div>
             )}
           </div>
