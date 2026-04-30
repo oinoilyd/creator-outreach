@@ -92,11 +92,15 @@ function computeFitScore(c: Creator): number {
     score += 5
   }
 
-  return Math.min(100, score)
+  // Large team penalty — 750k+ subs means established operation, unlikely to need help
+  if (subs >= 750000) score -= 20
+  else if (subs >= 500000) score -= 10
+
+  return Math.min(100, Math.max(0, score))
 }
 
 function fitScoreMeta(score: number): { label: string; color: string } {
-  if (score >= 75) return { label: 'Strong Fit',   color: 'text-green-400' }
+  if (score >= 70) return { label: 'Strong Fit',   color: 'text-green-400' }
   if (score >= 50) return { label: 'Possible Fit', color: 'text-yellow-400' }
   if (score >= 25) return { label: 'Weak Fit',     color: 'text-orange-400' }
   return              { label: 'Poor Fit',      color: 'text-red-400' }
