@@ -25,7 +25,7 @@ interface Creator {
 type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
 type SortDir = 'asc' | 'desc'
 type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
-type ActiveTab = 'results' | 'favorites' | 'outreach'
+type ActiveTab = 'results' | 'favorites' | 'outreach' | 'dismissed'
 
 interface OutreachEntry {
   id: string
@@ -589,6 +589,46 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
+function ThumbsDownIcon({ active }: { active: boolean }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 15h2.25m8.024-9.75c.011.05.028.1.052.148.591 1.2.924 2.55.924 3.977a8.96 8.96 0 01-.999 4.125m.023-8.25c-.076-.365.183-.75.575-.75h.908c.889 0 1.713.518 1.972 1.368.339 1.11.521 2.287.521 3.507 0 1.553-.295 3.036-.831 4.398-.306.774-1.086 1.227-1.918 1.227h-1.94c-.321 0-.624-.015-.91-.044l-5.004-.69c-1.395-.194-2.416-1.4-2.416-2.808V7.85c0-1.087.701-2.027 1.738-2.331l.927-.277C12.33 5.01 13 4.278 13 3.39V3a.75.75 0 011.5 0v.39c0 .93-.406 1.812-1.116 2.423l-.458.384" />
+    </svg>
+  )
+}
+
+function DismissedTab({ dismissed, onUndismiss }: { dismissed: Creator[], onUndismiss: (id: string) => void }) {
+  if (dismissed.length === 0) {
+    return <p className="text-gray-500 text-sm mt-4">No dismissed creators yet — click the 👎 on any creator to dismiss them.</p>
+  }
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-800">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-800 text-gray-300">
+          <tr>
+            <th className="text-left px-4 py-3">Channel</th>
+            <th className="text-left px-4 py-3">Avg Views</th>
+            <th className="text-left px-4 py-3">Email</th>
+            <th className="px-4 py-3 w-24">Undo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dismissed.map((c, i) => (
+            <tr key={c.channelId} className={`${i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'} opacity-60`}>
+              <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline">{c.channelName}</a></td>
+              <td className="px-4 py-3 text-gray-400">{c.avgViews.toLocaleString()}</td>
+              <td className="px-4 py-3 text-xs text-gray-400">{c.email || '—'}</td>
+              <td className="px-4 py-3">
+                <button onClick={() => onUndismiss(c.channelId)} className="text-xs text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors">Restore</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} className="w-5 h-5">
@@ -619,15 +659,17 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortC
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRemoveFavorite, onAddToOutreach, onReorderCols, isFavTab, loading, sortCol, sortDir, onSort, colConfig }: {
-  creators: Creator[], favorites: Set<string>, outreachIds: Set<string>
+function CreatorTable({ creators, favorites, outreachIds, dismissedIds, onToggleFavorite, onRemoveFavorite, onAddToOutreach, onDismiss, onReorderCols, isFavTab, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch }: {
+  creators: Creator[], favorites: Set<string>, outreachIds: Set<string>, dismissedIds: Set<string>
   onToggleFavorite: (c: Creator) => void
   onRemoveFavorite?: (id: string) => void
   onAddToOutreach: (c: Creator) => void
+  onDismiss: (c: Creator) => void
   onReorderCols: (newConfig: ColConfig[]) => void
   isFavTab: boolean, loading?: boolean
   sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
   colConfig: ColConfig[]
+  loadMoreBatch?: Creator[]
 }) {
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir), [creators, sortCol, sortDir])
   const visibleCols = colConfig.filter(c => c.visible)
@@ -654,6 +696,7 @@ function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRe
       <table className="w-full text-sm">
         <thead className="bg-gray-800 text-gray-300">
           <tr>
+            <th className="px-4 py-3 w-8"></th>
             <th className="px-4 py-3 w-8"></th>
             <th className="px-4 py-3 w-8"></th>
             <th className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">Channel</th>
@@ -698,6 +741,15 @@ function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRe
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
               </td>
+              <td className="px-4 py-3">
+                <button
+                  onClick={() => onDismiss(c)}
+                  title="Dismiss"
+                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
+                >
+                  <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
+                </button>
+              </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               {visibleCols.map(col => renderCell(col.id, c))}
               {isFavTab && (
@@ -707,6 +759,49 @@ function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRe
               )}
             </tr>
           ))}
+          {loadMoreBatch && loadMoreBatch.length > 0 && (
+            <>
+              <tr>
+                <td colSpan={4 + visibleCols.length + (isFavTab ? 1 : 0)} className="px-4 py-2 bg-gray-800/60 border-t-2 border-b border-gray-700">
+                  <span className="text-xs text-gray-400 font-medium tracking-wide">— {loadMoreBatch.length} additional results —</span>
+                </td>
+              </tr>
+              {loadMoreBatch.map((c, i) => (
+                <tr key={`lm-${c.channelId}`} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
+                  <td className="px-4 py-3">
+                    <button onClick={() => onToggleFavorite(c)} className={`transition-colors ${favorites.has(c.channelId) ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400'}`}>
+                      <StarIcon filled={favorites.has(c.channelId)} />
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => onAddToOutreach(c)}
+                      title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
+                      className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-gray-600 hover:text-purple-400'}`}
+                    >
+                      <PlusCircleIcon added={outreachIds.has(c.channelId)} />
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => onDismiss(c)}
+                      title="Dismiss"
+                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
+                    >
+                      <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
+                    </button>
+                  </td>
+                  <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
+                  {visibleCols.map(col => renderCell(col.id, c))}
+                  {isFavTab && (
+                    <td className="px-4 py-3">
+                      <button onClick={() => onRemoveFavorite?.(c.channelId)} className="text-gray-600 hover:text-red-400 transition-colors"><TrashIcon /></button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </>
+          )}
         </tbody>
       </table>
     </div>
@@ -742,6 +837,12 @@ export default function Home() {
   const [outreachColConfig, setOutreachColConfig] = useState<OutreachColConfig[]>(DEFAULT_OUTREACH_COLS)
   const [showOutreachCustomize, setShowOutreachCustomize] = useState(false)
   const [draftOutreachCols, setDraftOutreachCols] = useState<OutreachColConfig[]>(DEFAULT_OUTREACH_COLS)
+  const [dismissed, setDismissed] = useState<Creator[]>([])
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+  const [loadMoreCreators, setLoadMoreCreators] = useState<Creator[]>([])
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [currentKeyword, setCurrentKeyword] = useState('')
+  const seenChannelIds = useRef<Set<string>>(new Set())
 
   // search version ref — prevents stale searches from overwriting newer ones
   const searchVersion = useRef(0)
@@ -771,6 +872,11 @@ export default function Home() {
         setDraftOutreachCols(merged)
       }
     } catch { /* no stored outreach cols */ }
+    try {
+      const storedDismissed = JSON.parse(localStorage.getItem('creator-dismissed') || '[]')
+      setDismissed(storedDismissed)
+      setDismissedIds(new Set(storedDismissed.map((c: Creator) => c.channelId)))
+    } catch { /* no stored dismissed */ }
   }, [])
 
   // elapsed timer while loading
@@ -867,11 +973,31 @@ export default function Home() {
     saveFavorites(favorites.filter(f => f.channelId !== id))
   }
 
+  function saveDismissed(updated: Creator[]) {
+    setDismissed(updated)
+    setDismissedIds(new Set(updated.map(c => c.channelId)))
+    localStorage.setItem('creator-dismissed', JSON.stringify(updated))
+  }
+
+  function dismissCreator(c: Creator) {
+    if (!dismissedIds.has(c.channelId)) saveDismissed([...dismissed, c])
+    // also remove from load-more batch so it disappears immediately
+    setLoadMoreCreators(prev => prev.filter(p => p.channelId !== c.channelId))
+    setCreators(prev => prev.filter(p => p.channelId !== c.channelId))
+  }
+
+  function undismissCreator(id: string) {
+    saveDismissed(dismissed.filter(c => c.channelId !== id))
+  }
+
   const runSearch = useCallback(async (kw: string) => {
     if (!kw.trim()) return
     const version = ++searchVersion.current
     setLoading(true)
     setCreators([])
+    setLoadMoreCreators([])
+    setCurrentKeyword(kw)
+    seenChannelIds.current = new Set()
     setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
     setStatus('Searching YouTube...')
@@ -882,7 +1008,15 @@ export default function Home() {
       if (version !== searchVersion.current) return  // superseded by newer search
       if (data.error) { setStatus(`Error: ${data.error}`); return }
 
-      const enriched = (data.channels as Creator[]).map(c => ({ ...c, enriching: true }))
+      // Track all returned channel IDs so Load More skips them
+      ;(data.channels as Creator[]).forEach((c: Creator) => seenChannelIds.current.add(c.channelId))
+
+      // Filter out dismissed and already-outreached channels from results
+      const visible = (data.channels as Creator[]).filter(
+        (c: Creator) => !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
+      )
+
+      const enriched = visible.map(c => ({ ...c, enriching: true }))
       setCreators([...enriched])
       setEnrichProgress({ current: 0, total: enriched.length })
       setStatus(`Found ${enriched.length} creators. Enriching contact info...`)
@@ -928,9 +1062,80 @@ export default function Home() {
     } finally {
       if (version === searchVersion.current) setLoading(false)
     }
-  }, [minViews, maxViews, maxResults])
+  }, [minViews, maxViews, maxResults, dismissedIds, outreachIds])
 
   async function handleSearch() { await runSearch(keyword) }
+
+  const handleLoadMore = useCallback(async () => {
+    if (!currentKeyword || loadingMore || loading) return
+    setLoadingMore(true)
+    try {
+      const res = await fetch(`/api/search?keyword=${encodeURIComponent(currentKeyword)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}`)
+      const data = await res.json()
+      if (data.error) return
+
+      // Filter: skip already seen, dismissed, outreached
+      const fresh = (data.channels as Creator[]).filter(
+        c => !seenChannelIds.current.has(c.channelId)
+          && !dismissedIds.has(c.channelId)
+          && !outreachIds.has(c.channelId)
+      )
+      // Track all returned channels as seen (for future Load More calls)
+      ;(data.channels as Creator[]).forEach(c => seenChannelIds.current.add(c.channelId))
+
+      if (fresh.length === 0) return
+
+      // Show batch immediately with enriching spinners, pre-sorted email-first
+      const batch = fresh.map(c => ({ ...c, enriching: true }))
+      const preSorted = [...batch].sort((a, b) => {
+        const ae = a.email ? 1 : 0, be = b.email ? 1 : 0
+        return be - ae
+      })
+      setLoadMoreCreators(prev => [...prev, ...preSorted])
+
+      // Enrich in parallel batches
+      const enriched = [...batch]
+      const BATCH = 10
+      for (let i = 0; i < enriched.length; i += BATCH) {
+        const idxs = Array.from({ length: Math.min(BATCH, enriched.length - i) }, (_, k) => i + k)
+        await Promise.all(idxs.map(async (idx) => {
+          const c = enriched[idx]
+          try {
+            const params = new URLSearchParams({
+              name: c.channelName, channelId: c.channelId,
+              website: c.website || '', instagram: c.instagram || '',
+              tiktok: c.tiktok || '', description: c.description || '',
+            })
+            const r = await fetch(`/api/enrich?${params}`)
+            const extra = await r.json()
+            enriched[idx] = {
+              ...c, enriching: false,
+              email: c.email || extra.email || '',
+              subscribers: c.subscribers || extra.subscribers || '',
+              videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
+              avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : c.avgViews,
+              linkedin: c.linkedin || extra.linkedin || '',
+              instagram: c.instagram || extra.instagram || '',
+              twitter: c.twitter || extra.twitter || '',
+              tiktok: c.tiktok || extra.tiktok || '',
+              website: c.website || extra.website || '',
+            }
+          } catch { enriched[idx] = { ...c, enriching: false } }
+        }))
+        // Re-sort after each enrichment batch: email-havers first, then fitScore desc
+        const reSorted = [...enriched].sort((a, b) => {
+          const ae = a.email ? 1 : 0, be = b.email ? 1 : 0
+          if (ae !== be) return be - ae
+          return computeFitScore(b) - computeFitScore(a)
+        })
+        setLoadMoreCreators(prev => {
+          const keep = prev.slice(0, prev.length - batch.length)
+          return [...keep, ...reSorted]
+        })
+      }
+    } catch { /* ignore */ }
+    finally { setLoadingMore(false) }
+  }, [currentKeyword, loadingMore, loading, minViews, maxViews, maxResults, dismissedIds, outreachIds])
 
   async function handleExportExcel(list: Creator[]) {
     setShowExport(false)
@@ -1035,7 +1240,7 @@ export default function Home() {
           <div className="relative">
             <button
               onClick={() => setShowExport(v => !v)}
-              disabled={activeTab === 'outreach' ? outreach.length === 0 : currentList.length === 0}
+              disabled={activeTab === 'outreach' ? outreach.length === 0 : activeTab === 'dismissed' ? true : currentList.length === 0}
               className="bg-green-700 hover:bg-green-600 disabled:opacity-30 disabled:cursor-not-allowed px-4 py-2 rounded font-semibold text-sm flex items-center gap-1.5"
             >
               Export
@@ -1181,10 +1386,13 @@ export default function Home() {
             <button onClick={() => setActiveTab('outreach')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'outreach' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
               Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}
             </button>
+            <button onClick={() => setActiveTab('dismissed')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'dismissed' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+              Dismissed {dismissed.length > 0 && <span className="ml-1 text-xs text-red-400">({dismissed.length})</span>}
+            </button>
           </div>
           <button
             onClick={() => { setDraftCols(colConfig); setShowCustomize(true) }}
-            className={`ml-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' ? 'invisible' : ''}`}
+            className={`ml-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' || activeTab === 'dismissed' ? 'invisible' : ''}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1297,16 +1505,41 @@ export default function Home() {
             onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
             onReorderCols={reorderOutreachCols}
           />
+        ) : activeTab === 'dismissed' ? (
+          <DismissedTab dismissed={dismissed} onUndismiss={undismissCreator} />
         ) : (
-          <CreatorTable
-            creators={currentList} favorites={favIds} outreachIds={outreachIds}
-            onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
-            onAddToOutreach={addToOutreach}
-            onReorderCols={reorderResultCols}
-            isFavTab={activeTab === 'favorites'} loading={loading}
-            sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
-            colConfig={colConfig}
-          />
+          <>
+            <CreatorTable
+              creators={currentList} favorites={favIds} outreachIds={outreachIds}
+              dismissedIds={dismissedIds}
+              onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
+              onAddToOutreach={addToOutreach}
+              onDismiss={dismissCreator}
+              onReorderCols={reorderResultCols}
+              isFavTab={activeTab === 'favorites'} loading={loading}
+              sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
+              colConfig={colConfig}
+              loadMoreBatch={activeTab === 'results' ? loadMoreCreators : undefined}
+            />
+            {activeTab === 'results' && (
+              <div className="mt-5 flex flex-col items-center gap-2">
+                {loadingMore ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <Spinner />
+                    <span>Loading more creators...</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={!currentKeyword || loading}
+                    className="px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Load More Creators
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </main>
