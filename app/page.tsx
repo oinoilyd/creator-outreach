@@ -25,7 +25,7 @@ interface Creator {
 type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
 type SortDir = 'asc' | 'desc'
 type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
-type ActiveTab = 'results' | 'favorites' | 'outreach' | 'dismissed'
+type ActiveTab = 'results' | 'outreach' | 'dismissed'
 
 interface OutreachEntry {
   id: string
@@ -171,6 +171,56 @@ function computeFitScore(c: Creator): number {
   return Math.min(100, Math.max(0, score))
 }
 
+function computeFitScoreBreakdown(c: Creator): Array<{ label: string; pts: number; max: number; note: string }> {
+  const items: Array<{ label: string; pts: number; max: number; note: string }> = []
+  const days = parseRelativeDays(c.videoDates?.[0] || '')
+  let rPts = 0, rNote = ''
+  if (days === Infinity) { rPts = 10; rNote = 'No post date found' }
+  else if (days <= 7)  { rPts = 30; rNote = c.videoDates?.[0] || '' }
+  else if (days <= 30) { rPts = 22; rNote = c.videoDates?.[0] || '' }
+  else if (days <= 60) { rPts = 14; rNote = c.videoDates?.[0] || '' }
+  else if (days <= 90) { rPts = 7;  rNote = c.videoDates?.[0] || '' }
+  else                 { rPts = 0;  rNote = c.videoDates?.[0] || 'Over 90 days ago' }
+  items.push({ label: 'Recency', pts: rPts, max: 30, note: rNote })
+
+  const v = c.avgViews
+  let vPts = 0, vNote = ''
+  if      (v >= 10000  && v < 50000)  { vPts = 25; vNote = '10K–50K sweet spot' }
+  else if (v >= 1000   && v < 10000)  { vPts = 20; vNote = '1K–10K growing' }
+  else if (v >= 50000  && v < 100000) { vPts = 18; vNote = '50K–100K solid' }
+  else if (v >= 100000 && v < 500000) { vPts = 10; vNote = '100K–500K large' }
+  else if (v >= 500000)               { vPts = 3;  vNote = '500K+ very large' }
+  else if (v > 0)                     { vPts = 5;  vNote = 'Under 1K views' }
+  items.push({ label: 'Avg Views', pts: vPts, max: 25, note: vNote })
+
+  let cPts = 0, cNote = ''
+  if (c.email && c.linkedin) { cPts = 20; cNote = 'Email + LinkedIn' }
+  else if (c.email)          { cPts = 15; cNote = 'Email found' }
+  else if (c.linkedin)       { cPts = 5;  cNote = 'LinkedIn only' }
+  else                       { cPts = 0;  cNote = 'No contact info' }
+  items.push({ label: 'Reachability', pts: cPts, max: 20, note: cNote })
+
+  let relPts = c.matchedVia === 'name' ? 10 : 2
+  let relNote = c.matchedVia === 'name' ? 'Channel name matched' : 'Related content match'
+  if (c.videoTitles?.length > 0) { relPts += 5; relNote += ' + video titles' }
+  items.push({ label: 'Relevance', pts: relPts, max: 15, note: relNote })
+
+  const subs = Number(c.subscribers)
+  let qPts = 5, qNote = 'No subscriber data'
+  if (subs > 0 && !isNaN(subs)) {
+    const ratio = c.avgViews / subs
+    if      (ratio >= 0.10) { qPts = 10; qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
+    else if (ratio >= 0.05) { qPts = 7;  qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
+    else if (ratio >= 0.02) { qPts = 4;  qNote = `${(ratio*100).toFixed(1)}% views/subs ratio` }
+    else                    { qPts = 1;  qNote = `${(ratio*100).toFixed(1)}% views/subs ratio (low)` }
+  }
+  items.push({ label: 'Audience Quality', pts: qPts, max: 10, note: qNote })
+
+  if (subs >= 750000)      items.push({ label: 'Large channel', pts: -20, max: 0, note: '750K+ subs' })
+  else if (subs >= 500000) items.push({ label: 'Large channel', pts: -10, max: 0, note: '500K–750K subs' })
+  return items
+}
+
 function fitScoreMeta(score: number): { label: string; color: string } {
   if (score >= 70) return { label: 'Strong Fit',   color: 'text-green-400' }
   if (score >= 50) return { label: 'Possible Fit', color: 'text-yellow-400' }
@@ -178,17 +228,65 @@ function fitScoreMeta(score: number): { label: string; color: string } {
   return              { label: 'Poor Fit',      color: 'text-red-400' }
 }
 
+function FitScoreCell({ c }: { c: Creator }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLTableCellElement>(null)
+  const score = computeFitScore(c)
+  const { label, color } = fitScoreMeta(score)
+  const items = computeFitScoreBreakdown(c)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  return (
+    <td className="px-4 py-3 whitespace-nowrap relative" ref={ref}>
+      <button onClick={() => setOpen(v => !v)} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer">
+        <span className={`font-bold ${color}`}>{score}</span>
+        <span className={`text-xs ${color} opacity-70`}>{label}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-50 left-0 top-full mt-1 w-72 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-semibold text-gray-200">Fit Score Breakdown</span>
+            <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+          </div>
+          <div className="space-y-1.5">
+            {items.map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className={`w-5 text-right font-mono font-bold ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                  {item.pts > 0 ? '+' : ''}{item.pts}
+                </span>
+                <div className="flex-1">
+                  <span className="text-gray-300">{item.label}</span>
+                  {item.max > 0 && <span className="text-gray-600 ml-1">/ {item.max}</span>}
+                  {item.note && <div className="text-gray-500 text-xs">{item.note}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
+            <span className="text-gray-400">Total</span>
+            <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
+          </div>
+        </div>
+      )}
+    </td>
+  )
+}
+
 function renderCell(id: ColId, c: Creator): React.ReactNode {
   switch (id) {
     case 'fitScore': {
-      const score = computeFitScore(c)
-      const { label, color } = fitScoreMeta(score)
-      return (
-        <td key={id} className="px-4 py-3 whitespace-nowrap">
-          <span className={`font-bold ${color}`}>{score}</span>
-          <span className={`ml-1.5 text-xs ${color} opacity-70`}>{label}</span>
-        </td>
-      )
+      return <FitScoreCell key={id} c={c} />
     }
     case 'avgViews':    return <td key={id} className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
     case 'subscribers': return <td key={id} className="px-4 py-3 text-gray-300">{formatSubscribers(c.subscribers)}</td>
@@ -659,14 +757,12 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortC
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function CreatorTable({ creators, favorites, outreachIds, dismissedIds, onToggleFavorite, onRemoveFavorite, onAddToOutreach, onDismiss, onReorderCols, isFavTab, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch }: {
-  creators: Creator[], favorites: Set<string>, outreachIds: Set<string>, dismissedIds: Set<string>
-  onToggleFavorite: (c: Creator) => void
-  onRemoveFavorite?: (id: string) => void
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch }: {
+  creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
   onReorderCols: (newConfig: ColConfig[]) => void
-  isFavTab: boolean, loading?: boolean
+  loading?: boolean
   sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
   colConfig: ColConfig[]
   loadMoreBatch?: Creator[]
@@ -688,7 +784,7 @@ function CreatorTable({ creators, favorites, outreachIds, dismissedIds, onToggle
   }
 
   if (sorted.length === 0 && !loading) {
-    return <p className="text-gray-500 text-sm mt-4">{isFavTab ? 'No favorites yet — star creators from the Results tab.' : ''}</p>
+    return <p className="text-gray-500 text-sm mt-4"></p>
   }
 
   return (
@@ -696,7 +792,6 @@ function CreatorTable({ creators, favorites, outreachIds, dismissedIds, onToggle
       <table className="w-full text-sm">
         <thead className="bg-gray-800 text-gray-300">
           <tr>
-            <th className="px-4 py-3 w-8"></th>
             <th className="px-4 py-3 w-8"></th>
             <th className="px-4 py-3 w-8"></th>
             <th className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">Channel</th>
@@ -721,15 +816,18 @@ function CreatorTable({ creators, favorites, outreachIds, dismissedIds, onToggle
                 </th>
               )
             })}
-            {isFavTab && <th className="px-4 py-3 w-8"></th>}
           </tr>
         </thead>
         <tbody>
           {sorted.map((c, i) => (
             <tr key={c.channelId} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
               <td className="px-4 py-3">
-                <button onClick={() => onToggleFavorite(c)} className={`transition-colors ${favorites.has(c.channelId) ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400'}`}>
-                  <StarIcon filled={favorites.has(c.channelId)} />
+                <button
+                  onClick={() => onDismiss(c)}
+                  title="Dismiss"
+                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
+                >
+                  <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
                 </button>
               </td>
               <td className="px-4 py-3">
@@ -741,36 +839,26 @@ function CreatorTable({ creators, favorites, outreachIds, dismissedIds, onToggle
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
               </td>
-              <td className="px-4 py-3">
-                <button
-                  onClick={() => onDismiss(c)}
-                  title="Dismiss"
-                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
-                >
-                  <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
-                </button>
-              </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               {visibleCols.map(col => renderCell(col.id, c))}
-              {isFavTab && (
-                <td className="px-4 py-3">
-                  <button onClick={() => onRemoveFavorite?.(c.channelId)} className="text-gray-600 hover:text-red-400 transition-colors"><TrashIcon /></button>
-                </td>
-              )}
             </tr>
           ))}
           {loadMoreBatch && loadMoreBatch.length > 0 && (
             <>
               <tr>
-                <td colSpan={4 + visibleCols.length + (isFavTab ? 1 : 0)} className="px-4 py-2 bg-gray-800/60 border-t-2 border-b border-gray-700">
+                <td colSpan={3 + visibleCols.length} className="px-4 py-2 bg-gray-800/60 border-t-2 border-b border-gray-700">
                   <span className="text-xs text-gray-400 font-medium tracking-wide">— {loadMoreBatch.length} additional results —</span>
                 </td>
               </tr>
               {loadMoreBatch.map((c, i) => (
                 <tr key={`lm-${c.channelId}`} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
                   <td className="px-4 py-3">
-                    <button onClick={() => onToggleFavorite(c)} className={`transition-colors ${favorites.has(c.channelId) ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400'}`}>
-                      <StarIcon filled={favorites.has(c.channelId)} />
+                    <button
+                      onClick={() => onDismiss(c)}
+                      title="Dismiss"
+                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
+                    >
+                      <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
                     </button>
                   </td>
                   <td className="px-4 py-3">
@@ -782,22 +870,8 @@ function CreatorTable({ creators, favorites, outreachIds, dismissedIds, onToggle
                       <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                     </button>
                   </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => onDismiss(c)}
-                      title="Dismiss"
-                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
-                    >
-                      <ThumbsDownIcon active={dismissedIds.has(c.channelId)} />
-                    </button>
-                  </td>
                   <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
                   {visibleCols.map(col => renderCell(col.id, c))}
-                  {isFavTab && (
-                    <td className="px-4 py-3">
-                      <button onClick={() => onRemoveFavorite?.(c.channelId)} className="text-gray-600 hover:text-red-400 transition-colors"><TrashIcon /></button>
-                    </td>
-                  )}
                 </tr>
               ))}
             </>
@@ -823,8 +897,6 @@ export default function Home() {
   const [sortCol, setSortCol] = useState<SortCol>('fitScore')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [activeTab, setActiveTab] = useState<ActiveTab>('results')
-  const [favorites, setFavorites] = useState<Creator[]>([])
-  const [favIds, setFavIds] = useState<Set<string>>(new Set())
   const [outreach, setOutreach] = useState<OutreachEntry[]>([])
   const [outreachIds, setOutreachIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -850,11 +922,6 @@ export default function Home() {
 
   useEffect(() => {
     setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))
-    try {
-      const stored = JSON.parse(localStorage.getItem('creator-favorites') || '[]')
-      setFavorites(stored)
-      setFavIds(new Set(stored.map((c: Creator) => c.channelId)))
-    } catch { /* no stored favorites */ }
     try {
       const storedOutreach = JSON.parse(localStorage.getItem('creator-outreach') || '[]')
       setOutreach(storedOutreach)
@@ -893,17 +960,6 @@ export default function Home() {
   function handleSort(col: SortCol) {
     if (col === sortCol) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortCol(col); setSortDir('desc') }
-  }
-
-  function saveFavorites(updated: Creator[]) {
-    setFavorites(updated)
-    setFavIds(new Set(updated.map(c => c.channelId)))
-    localStorage.setItem('creator-favorites', JSON.stringify(updated))
-  }
-
-  function toggleFavorite(c: Creator) {
-    if (favIds.has(c.channelId)) saveFavorites(favorites.filter(f => f.channelId !== c.channelId))
-    else saveFavorites([...favorites, c])
   }
 
   function saveOutreach(updated: OutreachEntry[]) {
@@ -967,10 +1023,6 @@ export default function Home() {
 
   function removeOutreachEntry(id: string) {
     saveOutreach(outreach.filter(e => e.id !== id))
-  }
-
-  function removeFavorite(id: string) {
-    saveFavorites(favorites.filter(f => f.channelId !== id))
   }
 
   function saveDismissed(updated: Creator[]) {
@@ -1148,7 +1200,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = activeTab === 'favorites' ? 'favorites.xlsx' : 'creators.xlsx'
+    a.download = 'creators.xlsx'
     a.click()
   }
 
@@ -1164,7 +1216,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = activeTab === 'favorites' ? 'favorites.csv' : 'creators.csv'
+    a.download = 'creators.csv'
     a.click()
   }
 
@@ -1202,7 +1254,7 @@ export default function Home() {
     a.click()
   }
 
-  const baseList = activeTab === 'favorites' ? favorites : creators
+  const baseList = creators
   const currentList = baseList
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
     .filter(c => maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
@@ -1380,9 +1432,6 @@ export default function Home() {
             <button onClick={() => setActiveTab('results')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'results' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
               Results {creators.length > 0 && <span className="ml-1 text-xs text-gray-400">({creators.length})</span>}
             </button>
-            <button onClick={() => setActiveTab('favorites')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'favorites' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-              Favorites {favorites.length > 0 && <span className="ml-1 text-xs text-yellow-400">({favorites.length})</span>}
-            </button>
             <button onClick={() => setActiveTab('outreach')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'outreach' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
               Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}
             </button>
@@ -1510,13 +1559,12 @@ export default function Home() {
         ) : (
           <>
             <CreatorTable
-              creators={currentList} favorites={favIds} outreachIds={outreachIds}
+              creators={currentList} outreachIds={outreachIds}
               dismissedIds={dismissedIds}
-              onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
               onAddToOutreach={addToOutreach}
               onDismiss={dismissCreator}
               onReorderCols={reorderResultCols}
-              isFavTab={activeTab === 'favorites'} loading={loading}
+              loading={loading}
               sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
               colConfig={colConfig}
               loadMoreBatch={activeTab === 'results' ? loadMoreCreators : undefined}
