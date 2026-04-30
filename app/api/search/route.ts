@@ -156,6 +156,7 @@ export async function GET(req: NextRequest) {
   const maxResults = parseInt(searchParams.get('maxResults') || '100')
   const minViews = parseInt(searchParams.get('minViews') || '0')
   const maxViews = parseInt(searchParams.get('maxViews') || '200000')
+  const gl = searchParams.get('gl') || ''
 
   if (!keyword) return NextResponse.json({ error: 'keyword is required' }, { status: 400 })
 
@@ -163,7 +164,7 @@ export async function GET(req: NextRequest) {
   const terms = keyword.toLowerCase().split(/\s+/)
 
   try {
-    const yt = await Innertube.create({ retrieve_player: false })
+    const yt = await Innertube.create({ retrieve_player: false, ...(gl ? { location: gl } : {}) })
 
     let hits = await runBatched(yt, queries)
 

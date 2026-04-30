@@ -117,6 +117,30 @@ const DEFAULT_COLS: ColConfig[] = [
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 
+const REGIONS: { code: string; flag: string; label: string }[] = [
+  { code: '',   flag: '🌐', label: 'Global' },
+  { code: 'US', flag: '🇺🇸', label: 'United States' },
+  { code: 'GB', flag: '🇬🇧', label: 'United Kingdom' },
+  { code: 'CA', flag: '🇨🇦', label: 'Canada' },
+  { code: 'AU', flag: '🇦🇺', label: 'Australia' },
+  { code: 'NZ', flag: '🇳🇿', label: 'New Zealand' },
+  { code: 'IE', flag: '🇮🇪', label: 'Ireland' },
+  { code: 'IN', flag: '🇮🇳', label: 'India' },
+  { code: 'PH', flag: '🇵🇭', label: 'Philippines' },
+  { code: 'SG', flag: '🇸🇬', label: 'Singapore' },
+  { code: 'NG', flag: '🇳🇬', label: 'Nigeria' },
+  { code: 'ZA', flag: '🇿🇦', label: 'South Africa' },
+  { code: 'AE', flag: '🇦🇪', label: 'UAE' },
+  { code: 'DE', flag: '🇩🇪', label: 'Germany' },
+  { code: 'FR', flag: '🇫🇷', label: 'France' },
+  { code: 'ES', flag: '🇪🇸', label: 'Spain' },
+  { code: 'BR', flag: '🇧🇷', label: 'Brazil' },
+  { code: 'MX', flag: '🇲🇽', label: 'Mexico' },
+  { code: 'JP', flag: '🇯🇵', label: 'Japan' },
+  { code: 'KR', flag: '🇰🇷', label: 'South Korea' },
+  { code: 'ID', flag: '🇮🇩', label: 'Indonesia' },
+]
+
 const COL_SORT: Partial<Record<ColId, SortCol>> = {
   fitScore: 'fitScore', avgViews: 'avgViews', subscribers: 'subscribers', lastPosted: 'lastPosted',
   email: 'email', linkedin: 'linkedin', website: 'website',
@@ -914,6 +938,7 @@ export default function Home() {
   const [loadMoreCreators, setLoadMoreCreators] = useState<Creator[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [currentKeyword, setCurrentKeyword] = useState('')
+  const [region, setRegion] = useState('')
   const seenChannelIds = useRef<Set<string>>(new Set())
 
   // search version ref — prevents stale searches from overwriting newer ones
@@ -1055,7 +1080,8 @@ export default function Home() {
     setStatus('Searching YouTube...')
 
     try {
-      const res = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}`)
+      const glParam = region ? `&gl=${encodeURIComponent(region)}` : ''
+      const res = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`)
       const data = await res.json()
       if (version !== searchVersion.current) return  // superseded by newer search
       if (data.error) { setStatus(`Error: ${data.error}`); return }
@@ -1114,7 +1140,7 @@ export default function Home() {
     } finally {
       if (version === searchVersion.current) setLoading(false)
     }
-  }, [minViews, maxViews, maxResults, dismissedIds, outreachIds])
+  }, [minViews, maxViews, maxResults, region, dismissedIds, outreachIds])
 
   async function handleSearch() { await runSearch(keyword) }
 
@@ -1122,7 +1148,8 @@ export default function Home() {
     if (!currentKeyword || loadingMore || loading) return
     setLoadingMore(true)
     try {
-      const res = await fetch(`/api/search?keyword=${encodeURIComponent(currentKeyword)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}`)
+      const glParam = region ? `&gl=${encodeURIComponent(region)}` : ''
+      const res = await fetch(`/api/search?keyword=${encodeURIComponent(currentKeyword)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`)
       const data = await res.json()
       if (data.error) return
 
@@ -1187,7 +1214,7 @@ export default function Home() {
       }
     } catch { /* ignore */ }
     finally { setLoadingMore(false) }
-  }, [currentKeyword, loadingMore, loading, minViews, maxViews, maxResults, dismissedIds, outreachIds])
+  }, [currentKeyword, loadingMore, loading, minViews, maxViews, maxResults, region, dismissedIds, outreachIds])
 
   async function handleExportExcel(list: Creator[]) {
     setShowExport(false)
@@ -1279,12 +1306,13 @@ export default function Home() {
           {/* Filter icon */}
           <button
             onClick={() => setShowFilter(v => !v)}
-            title="View range filter"
-            className={`px-3 py-2 rounded border transition-colors ${showFilter ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+            title="Filters"
+            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${showFilter || region ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
             </svg>
+            {region && <span className="text-sm">{REGIONS.find(r => r.code === region)?.flag}</span>}
           </button>
           <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 rounded font-semibold">
             {loading ? 'Searching...' : 'Search'}
@@ -1367,6 +1395,21 @@ export default function Home() {
               >
                 Has email
               </button>
+            </div>
+            <div className="flex items-start gap-3 flex-wrap border-t border-gray-800 pt-3">
+              <span className="text-xs text-gray-400 w-20 shrink-0 mt-1">Region:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {REGIONS.map(r => (
+                  <button
+                    key={r.code}
+                    onClick={() => setRegion(r.code)}
+                    className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${region === r.code ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                  >
+                    <span>{r.flag}</span>
+                    <span>{r.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
