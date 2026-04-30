@@ -39,6 +39,52 @@ const TOPIC_MAP: Record<string, string[]> = {
 
 const GENERIC_ROLES = ['coach', 'expert', 'content creator', 'consultant', 'educator', 'entrepreneur', 'influencer']
 
+// Country name to append to queries for regional biasing
+const REGION_SUFFIX: Record<string, string> = {
+  IN: 'india', GB: 'uk', CA: 'canada', AU: 'australia', NZ: 'new zealand',
+  IE: 'ireland', PH: 'philippines', SG: 'singapore', NG: 'nigeria',
+  ZA: 'south africa', AE: 'uae', DE: 'germany', FR: 'france',
+  ES: 'spain', BR: 'brazil', MX: 'mexico', JP: 'japan', KR: 'korea', ID: 'indonesia',
+}
+
+// Local terminology that beats English terms for specific regions + topics
+const REGION_TOPIC_EXTRAS: Record<string, Record<string, string[]>> = {
+  IN: {
+    finance:    ['share market india', 'personal finance india', 'mutual fund india', 'money management india', 'financial planning hindi', 'paisa invest karo'],
+    investing:  ['share market india', 'stock market india beginner', 'nifty sensex trading', 'mutual fund sip india', 'intraday trading india', 'zerodha trading'],
+    trading:    ['share market trading india', 'intraday trading hindi', 'option trading india', 'sensex nifty analysis', 'forex trading india', 'algo trading india'],
+    economics:  ['indian economy explained', 'budget india analysis', 'rbi monetary policy', 'inflation india hindi', 'gdp india growth', 'economic survey india'],
+    crypto:     ['cryptocurrency india', 'bitcoin india hindi', 'crypto tax india', 'web3 india', 'nft india'],
+    business:   ['startup india', 'business ideas india', 'small business india hindi', 'entrepreneurship india', 'msme india', 'dropshipping india'],
+    realestate: ['real estate india', 'property investment india', 'housing loan india', 'rera india', 'flat purchase india'],
+    'real estate': ['real estate india', 'property investment india', 'housing loan india', 'rera india'],
+    fitness:    ['fitness india', 'gym workout hindi', 'weight loss india', 'bodybuilding india', 'calisthenics india hindi'],
+    health:     ['health tips hindi', 'ayurveda benefits', 'yoga hindi', 'diet plan india', 'home remedy india'],
+    tech:       ['tech india', 'software engineer india', 'coding hindi', 'ai india', 'startup tech india'],
+    marketing:  ['digital marketing india hindi', 'social media marketing india', 'freelancing india', 'youtube growth india'],
+    law:        ['law india hindi', 'legal advice india', 'ipc section explained', 'lawyer india youtube'],
+    education:  ['education india', 'upsc preparation', 'competitive exam india', 'online learning india hindi'],
+    mindset:    ['motivation hindi', 'self improvement india', 'success mindset hindi', 'productivity india'],
+    sales:      ['sales tips india', 'business development india', 'b2b sales india', 'direct selling india'],
+  },
+  NG: {
+    finance:    ['personal finance nigeria', 'investment nigeria', 'money management nigeria', 'how to invest nigeria'],
+    business:   ['business ideas nigeria', 'entrepreneurship nigeria', 'small business nigeria', 'hustle nigeria'],
+    trading:    ['forex trading nigeria', 'crypto nigeria', 'stock market nigeria', 'nse trading'],
+    realestate: ['real estate nigeria', 'property investment nigeria', 'lagos property'],
+  },
+  PH: {
+    finance:    ['personal finance philippines', 'investing philippines', 'stocks pse philippines', 'pag-ibig sss philippines'],
+    business:   ['business ideas philippines', 'online business philippines', 'negosyo philippines'],
+    trading:    ['stock market philippines', 'forex philippines', 'crypto philippines', 'pse trading'],
+  },
+  BR: {
+    finance:    ['finanças pessoais brasil', 'investimentos brasil', 'renda variável brasil', 'tesouro direto'],
+    business:   ['empreendedorismo brasil', 'negócios brasil', 'startup brasil'],
+    trading:    ['day trade brasil', 'bolsa de valores brasil', 'cripto brasil'],
+  },
+}
+
 function expandTopic(keyword: string): string[] {
   const lower = keyword.toLowerCase().trim()
   // broad variants always included so the raw topic surfaces general channels
@@ -56,8 +102,31 @@ function expandTopic(keyword: string): string[] {
   return [keyword, ...GENERIC_ROLES.map(r => `${keyword} ${r}`)]
 }
 
-function fallbackQueries(keyword: string): string[] {
-  return [`${keyword}`, `${keyword} YouTube channel`, `${keyword} tips`, `${keyword} advice`, `how to ${keyword}`]
+function applyRegion(queries: string[], keyword: string, gl: string): string[] {
+  if (!gl) return queries
+  const suffix = REGION_SUFFIX[gl]
+  const lower = keyword.toLowerCase().trim()
+
+  // Region-specific local terminology (highest priority — run first)
+  const extras: string[] = []
+  if (REGION_TOPIC_EXTRAS[gl]) {
+    for (const [key, terms] of Object.entries(REGION_TOPIC_EXTRAS[gl])) {
+      if (lower.includes(key) || key.includes(lower)) extras.push(...terms)
+    }
+  }
+
+  // Append region suffix to all base queries so YouTube understands the geographic intent
+  const suffixed = suffix ? queries.map(q => `${q} ${suffix}`) : queries
+
+  // Order: local extras first → suffixed queries → a few bare originals as fallback
+  return [...extras, ...suffixed, ...queries.slice(0, 3)]
+}
+
+function fallbackQueries(keyword: string, gl = ''): string[] {
+  const base = [`${keyword}`, `${keyword} YouTube channel`, `${keyword} tips`, `${keyword} advice`, `how to ${keyword}`]
+  if (!gl || !REGION_SUFFIX[gl]) return base
+  const suffix = REGION_SUFFIX[gl]
+  return [...base.map(q => `${q} ${suffix}`), ...base.slice(0, 2)]
 }
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -160,7 +229,8 @@ export async function GET(req: NextRequest) {
 
   if (!keyword) return NextResponse.json({ error: 'keyword is required' }, { status: 400 })
 
-  const queries = expandTopic(keyword)
+  const baseQueries = expandTopic(keyword)
+  const queries = applyRegion(baseQueries, keyword, gl)
   const terms = keyword.toLowerCase().split(/\s+/)
 
   try {
@@ -171,9 +241,9 @@ export async function GET(req: NextRequest) {
     // count unique channel IDs with actual view data
     const withViews = new Set(hits.filter(h => !isNaN(h.viewCount)).map(h => h.channelId))
 
-    // fallback if thin — try broader queries
+    // fallback if thin — try broader queries (also region-aware)
     if (withViews.size < 10) {
-      const extra = await runBatched(yt, fallbackQueries(keyword))
+      const extra = await runBatched(yt, fallbackQueries(keyword, gl))
       hits.push(...extra)
     }
 
