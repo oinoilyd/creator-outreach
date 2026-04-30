@@ -310,7 +310,7 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
     { label: 'Product', width: 'w-36' },
     { label: 'Reached Out', width: 'w-24' },
     { label: 'Medium', width: 'w-36' },
-    { label: 'Header Used', width: 'w-48' },
+    { label: 'Subject Line', width: 'w-48' },
     { label: 'Open', width: 'w-16' },
     { label: 'Rejected', width: 'w-16' },
     { label: '', width: 'w-8' },
@@ -347,17 +347,25 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
               </td>
               {/* Email */}
               <td className="px-3 py-2">
-                <input
-                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
-                  value={e.email}
-                  onChange={ev => onUpdate(e.id, 'email', ev.target.value)}
-                  placeholder="—"
-                />
+                {e.email ? (
+                  <a
+                    href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as Creator)}
+                    className="text-green-400 hover:underline text-xs break-all"
+                  >{e.email}</a>
+                ) : (
+                  <input
+                    className="w-full bg-transparent text-gray-400 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                    value={e.email}
+                    onChange={ev => onUpdate(e.id, 'email', ev.target.value)}
+                    placeholder="—"
+                  />
+                )}
               </td>
               {/* Description */}
               <td className="px-3 py-2">
-                <input
-                  className="w-full bg-transparent text-gray-400 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                <textarea
+                  className="w-full bg-transparent text-gray-400 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs resize-none leading-snug"
+                  rows={2}
                   value={e.description}
                   onChange={ev => onUpdate(e.id, 'description', ev.target.value)}
                   placeholder="—"
@@ -365,8 +373,9 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
               </td>
               {/* Product */}
               <td className="px-3 py-2">
-                <input
-                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                <textarea
+                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs resize-none leading-snug"
+                  rows={2}
                   value={e.product}
                   onChange={ev => onUpdate(e.id, 'product', ev.target.value)}
                   placeholder="Add product..."
@@ -401,10 +410,11 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
                   )}
                 </div>
               </td>
-              {/* Header Used */}
+              {/* Subject Line */}
               <td className="px-3 py-2">
-                <input
-                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                <textarea
+                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs resize-none leading-snug"
+                  rows={2}
                   value={e.headerUsed}
                   onChange={ev => onUpdate(e.id, 'headerUsed', ev.target.value)}
                   placeholder="Subject line used..."
@@ -516,7 +526,7 @@ function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRe
               <td className="px-4 py-3">
                 <button
                   onClick={() => onAddToOutreach(c)}
-                  title={outreachIds.has(c.channelId) ? 'Added to Outreach' : 'Add to Outreach'}
+                  title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
                   className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-gray-600 hover:text-purple-400'}`}
                 >
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
@@ -616,7 +626,10 @@ export default function Home() {
   }
 
   function addToOutreach(c: Creator) {
-    if (outreachIds.has(c.channelId)) return
+    if (outreachIds.has(c.channelId)) {
+      removeOutreachEntry(outreach.find(e => e.channelId === c.channelId)?.id || '')
+      return
+    }
     const entry: OutreachEntry = {
       id: `${c.channelId}-${Date.now()}`,
       channelId: c.channelId,
