@@ -156,7 +156,64 @@ async function fromYouTubeVideos(channelId: string): Promise<string[]> {
   return videosResult.status === 'fulfilled' ? videosResult.value : []
 }
 
-// SOURCE 3: scrape website contact pages for email and LinkedIn links
+// SOURCE 3: DuckDuckGo — find LinkedIn profile for a creator by name
+function decodeDDGUrl(raw: string): string {
+  try {
+    const u = new URL('https://duckduckgo.com' + (raw.startsWith('/') ? raw : '/' + raw))
+    const uddg = u.searchParams.get('uddg')
+    if (uddg) return decodeURIComponent(uddg)
+  } catch { /* ignore */ }
+  return raw
+}
+
+function extractLinkedInUrl(links: string[]): string {
+  for (const raw of links) {
+    const decoded = decodeDDGUrl(raw)
+    if (decoded.includes('linkedin.com/in/') || decoded.includes('linkedin.com/company/')) {
+      return decoded.startsWith('http') ? decoded : `https://${decoded}`
+    }
+  }
+  return ''
+}
+
+async function fromDDGLinkedIn(name: string): Promise<string> {
+  if (!name) return ''
+  try {
+    const q = encodeURIComponent(`"${name}" site:linkedin.com/in`)
+    const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${q}`, 7000)
+    const $ = cheerio.load(html)
+    const links = $('a[href]').map((_, el) => $(el).attr('href') || '').get()
+    const result = extractLinkedInUrl(links)
+    if (result) return result
+    // also try /company/ variant
+    const q2 = encodeURIComponent(`"${name}" site:linkedin.com`)
+    const html2 = await fetchHtml(`https://html.duckduckgo.com/html/?q=${q2}`, 5000)
+    const $2 = cheerio.load(html2)
+    const links2 = $2('a[href]').map((_, el) => $2(el).attr('href') || '').get()
+    return extractLinkedInUrl(links2)
+  } catch { /* failed */ }
+  return ''
+}
+
+// SOURCE 4: DuckDuckGo — find email for a creator by name
+async function fromDDGEmail(name: string, website: string): Promise<string[]> {
+  if (!name) return []
+  const allEmails: string[] = []
+  try {
+    const queries = [`"${name}" email`, `"${name}" contact email`]
+    if (website) queries.push(`site:${website.replace(/^https?:\/\//, '')} email`)
+    await Promise.allSettled(queries.map(async (query) => {
+      try {
+        const q = encodeURIComponent(query)
+        const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${q}`, 6000)
+        allEmails.push(...extractEmails(html))
+      } catch { /* failed */ }
+    }))
+  } catch { /* failed */ }
+  return allEmails
+}
+
+// SOURCE 5: scrape website contact pages for email and LinkedIn links
 async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials: Record<string, string> }> {
   const socials: Record<string, string> = {}
   const allEmails: string[] = []
@@ -201,24 +258,29 @@ export async function GET(req: NextRequest) {
   const website = yt.socials.website || websiteParam
   const instagram = yt.socials.instagram || instagramParam
   const tiktok = yt.socials.tiktok || tiktokParam
+  const channelName = searchParams.get('name') || searchParams.get('channelName') || ''
 
-  // Phase 2: RSS feed for dates + website scraping with the URL we just discovered
-  const [ytVideosResult, webResult] = await Promise.allSettled([
+  // Phase 2: RSS + website scraping + DDG LinkedIn/email — all in parallel
+  const [ytVideosResult, webResult, ddgLinkedInResult, ddgEmailResult] = await Promise.allSettled([
     fromYouTubeVideos(channelId),
     fromWebsite(website),
+    fromDDGLinkedIn(channelName),
+    fromDDGEmail(channelName, website),
   ])
 
   const videoDates = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : []
   const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [], socials: {} }
+  const ddgLinkedIn = ddgLinkedInResult.status === 'fulfilled' ? ddgLinkedInResult.value : ''
+  const ddgEmails = ddgEmailResult.status === 'fulfilled' ? ddgEmailResult.value : []
 
-  const allEmails = [...descEmails, ...yt.emails, ...web.emails]
+  const allEmails = [...descEmails, ...yt.emails, ...web.emails, ...ddgEmails]
   const email = bestEmail(allEmails)
 
   const socials = {
     instagram: instagram || web.socials.instagram || '',
     twitter: yt.socials.twitter || web.socials.twitter || '',
     tiktok: tiktok || web.socials.tiktok || '',
-    linkedin: yt.socials.linkedin || web.socials.linkedin || '',
+    linkedin: yt.socials.linkedin || web.socials.linkedin || ddgLinkedIn || '',
     website: website || '',
   }
 
