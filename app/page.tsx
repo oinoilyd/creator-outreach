@@ -41,7 +41,62 @@ interface OutreachEntry {
   headerUsed: string
   status: 'Open' | 'Rejected' | 'Successful' | 'No Response' | ''
   addedAt: number
+  // optional fields
+  notes: string
+  followUpDate: string
+  dateReachedOut: string
+  touchpoints: string
+  responseDate: string
+  subscribers: string
+  avgViews: number
+  fitScore: number
+  linkedin: string
+  contentNiche: string
+  phone: string
+  dealValue: string
+  contractSent: boolean
+  meetingScheduled: string
 }
+
+interface OutreachColDef {
+  id: keyof OutreachEntry
+  label: string
+  defaultVisible: boolean
+  defaultWidth: number
+}
+
+interface OutreachColConfig extends OutreachColDef {
+  visible: boolean
+  width: number
+}
+
+const ALL_OUTREACH_COLS: OutreachColDef[] = [
+  { id: 'channelName',     label: 'Channel',           defaultVisible: true,  defaultWidth: 160 },
+  { id: 'channelUrl',      label: 'YT',                defaultVisible: true,  defaultWidth: 42  },
+  { id: 'email',           label: 'Email',             defaultVisible: true,  defaultWidth: 190 },
+  { id: 'description',     label: 'Description',       defaultVisible: true,  defaultWidth: 230 },
+  { id: 'product',         label: 'Product',           defaultVisible: true,  defaultWidth: 160 },
+  { id: 'reachedOut',      label: 'Reached Out',       defaultVisible: true,  defaultWidth: 96  },
+  { id: 'medium',          label: 'Medium',            defaultVisible: true,  defaultWidth: 170 },
+  { id: 'headerUsed',      label: 'Subject Line',      defaultVisible: true,  defaultWidth: 210 },
+  { id: 'status',          label: 'Status',            defaultVisible: true,  defaultWidth: 130 },
+  { id: 'notes',           label: 'Notes',             defaultVisible: false, defaultWidth: 220 },
+  { id: 'followUpDate',    label: 'Follow Up Date',    defaultVisible: false, defaultWidth: 140 },
+  { id: 'dateReachedOut',  label: 'Date Reached Out',  defaultVisible: false, defaultWidth: 145 },
+  { id: 'touchpoints',     label: '# Touchpoints',     defaultVisible: false, defaultWidth: 110 },
+  { id: 'responseDate',    label: 'Response Date',     defaultVisible: false, defaultWidth: 140 },
+  { id: 'subscribers',     label: 'Subscribers',       defaultVisible: false, defaultWidth: 110 },
+  { id: 'avgViews',        label: 'Avg Views',         defaultVisible: false, defaultWidth: 110 },
+  { id: 'fitScore',        label: 'Fit Score',         defaultVisible: false, defaultWidth: 100 },
+  { id: 'linkedin',        label: 'LinkedIn',          defaultVisible: false, defaultWidth: 100 },
+  { id: 'contentNiche',    label: 'Content Niche',     defaultVisible: false, defaultWidth: 130 },
+  { id: 'phone',           label: 'Phone',             defaultVisible: false, defaultWidth: 130 },
+  { id: 'dealValue',       label: 'Deal Value',        defaultVisible: false, defaultWidth: 110 },
+  { id: 'contractSent',    label: 'Contract Sent',     defaultVisible: false, defaultWidth: 110 },
+  { id: 'meetingScheduled',label: 'Meeting Scheduled', defaultVisible: false, defaultWidth: 150 },
+]
+
+const DEFAULT_OUTREACH_COLS: OutreachColConfig[] = ALL_OUTREACH_COLS.map(c => ({ ...c, visible: c.defaultVisible, width: c.defaultWidth }))
 
 interface ColConfig {
   id: ColId
@@ -50,16 +105,16 @@ interface ColConfig {
 }
 
 const DEFAULT_COLS: ColConfig[] = [
-  { id: 'fitScore',    label: 'Fit Score',   visible: true },
-  { id: 'avgViews',    label: 'Avg Views',   visible: true },
-  { id: 'subscribers', label: 'Subscribers', visible: true },
-  { id: 'lastPosted',  label: 'Last Posted', visible: true },
-  { id: 'email',       label: 'Email',       visible: true },
-  { id: 'linkedin',    label: 'LinkedIn',    visible: true },
-  { id: 'website',     label: 'Website',     visible: true },
-  { id: 'instagram',   label: 'Instagram',   visible: true },
-  { id: 'twitter',     label: 'Twitter/X',   visible: true },
-  { id: 'tiktok',      label: 'TikTok',      visible: true },
+  { id: 'fitScore',    label: 'Fit Score',   visible: true  },
+  { id: 'avgViews',    label: 'Avg Views',   visible: true  },
+  { id: 'subscribers', label: 'Subscribers', visible: true  },
+  { id: 'lastPosted',  label: 'Last Posted', visible: true  },
+  { id: 'email',       label: 'Email',       visible: true  },
+  { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
+  { id: 'website',     label: 'Website',     visible: false },
+  { id: 'instagram',   label: 'Instagram',   visible: false },
+  { id: 'twitter',     label: 'Twitter/X',   visible: false },
+  { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 
 const COL_SORT: Partial<Record<ColId, SortCol>> = {
@@ -325,156 +380,179 @@ function AutoTextarea({ value, onChange, placeholder, className }: {
   )
 }
 
-const OUTREACH_COL_LABELS = ['Channel', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Status', '']
-const OUTREACH_COL_DEFAULTS = [160, 42, 190, 230, 160, 96, 170, 210, 130, 36]
+function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void): React.ReactNode {
+  const id = col.id
+  switch (id) {
+    case 'channelName':
+      return <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-400 font-medium" />
+    case 'channelUrl':
+      return (
+        <a href={e.channelUrl} target="_blank" className="mt-0.5 block">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-red-500">
+            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 3.993L9 16z"/>
+          </svg>
+        </a>
+      )
+    case 'email':
+      return (
+        <div className="flex flex-col gap-1">
+          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator)} className="text-green-400 hover:underline text-xs break-all">{e.email}</a>}
+          <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-gray-600' : 'text-gray-400'} />
+        </div>
+      )
+    case 'description':
+      return <AutoTextarea value={e.description} onChange={v => onUpdate(e.id, 'description', v)} placeholder="—" className="text-gray-400" />
+    case 'product':
+      return <AutoTextarea value={e.product} onChange={v => onUpdate(e.id, 'product', v)} placeholder="Add product..." className="text-gray-200" />
+    case 'reachedOut':
+      return <input type="checkbox" checked={e.reachedOut} onChange={ev => onUpdate(e.id, 'reachedOut', ev.target.checked)} className="w-4 h-4 rounded accent-purple-500 cursor-pointer mt-0.5" />
+    case 'medium':
+      return (
+        <div className="flex flex-col gap-1">
+          <select value={e.medium} onChange={ev => onUpdate(e.id, 'medium', ev.target.value)} className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 w-full">
+            <option value="">—</option>
+            <option value="Email">Email</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="Other">Other</option>
+          </select>
+          {e.medium === 'Other' && <AutoTextarea value={e.mediumOther} onChange={v => onUpdate(e.id, 'mediumOther', v)} placeholder="specify..." className="text-gray-200" />}
+        </div>
+      )
+    case 'headerUsed':
+      return <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-gray-200" />
+    case 'status':
+      return (
+        <select value={e.status} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
+          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-300' : e.status === 'No Response' ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>
+          <option value="">—</option>
+          <option value="Open">Open</option>
+          <option value="No Response">No Response</option>
+          <option value="Successful">Successful</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+      )
+    case 'notes':
+      return <AutoTextarea value={e.notes || ''} onChange={v => onUpdate(e.id, 'notes', v)} placeholder="Notes..." className="text-gray-300" />
+    case 'followUpDate':
+    case 'dateReachedOut':
+    case 'responseDate':
+    case 'meetingScheduled':
+      return <input type="date" value={(e[id] as string) || ''} onChange={ev => onUpdate(e.id, id, ev.target.value)} className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 w-full" />
+    case 'touchpoints':
+      return <input type="number" min={0} value={e.touchpoints || ''} onChange={ev => onUpdate(e.id, 'touchpoints', ev.target.value)} placeholder="0" className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs" />
+    case 'subscribers':
+      return <span className="text-xs text-gray-400">{formatSubscribers(e.subscribers || '')}</span>
+    case 'avgViews':
+      return <span className="text-xs text-gray-400">{e.avgViews ? e.avgViews.toLocaleString() : '—'}</span>
+    case 'fitScore': {
+      const { label, color } = fitScoreMeta(e.fitScore || 0)
+      return <span className={`text-xs font-bold ${color}`}>{e.fitScore || 0} <span className="font-normal opacity-70">{label}</span></span>
+    }
+    case 'linkedin':
+      return e.linkedin ? <a href={e.linkedin} target="_blank" className="text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-gray-400" />
+    case 'contentNiche':
+      return <AutoTextarea value={e.contentNiche || ''} onChange={v => onUpdate(e.id, 'contentNiche', v)} placeholder="e.g. golf, finance..." className="text-gray-200" />
+    case 'phone':
+      return <AutoTextarea value={e.phone || ''} onChange={v => onUpdate(e.id, 'phone', v)} placeholder="Add phone..." className="text-gray-200" />
+    case 'dealValue':
+      return <AutoTextarea value={e.dealValue || ''} onChange={v => onUpdate(e.id, 'dealValue', v)} placeholder="$..." className="text-gray-200" />
+    case 'contractSent':
+      return <input type="checkbox" checked={!!e.contractSent} onChange={ev => onUpdate(e.id, 'contractSent', ev.target.checked)} className="w-4 h-4 rounded accent-blue-500 cursor-pointer mt-0.5" />
+    default:
+      return null
+  }
+}
 
-function OutreachTab({ entries, onUpdate, onRemove }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize }: {
   entries: OutreachEntry[]
+  colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onRemove: (id: string) => void
+  onOpenCustomize: () => void
 }) {
-  const [widths, setWidths] = useState<number[]>(OUTREACH_COL_DEFAULTS)
-  const resizing = useRef<{ idx: number; startX: number; startW: number } | null>(null)
+  const visibleCols = colConfig.filter(c => c.visible)
+  const [widths, setWidths] = useState<Record<string, number>>(() =>
+    Object.fromEntries(colConfig.map(c => [c.id, c.width]))
+  )
+  // sync widths when colConfig changes (new cols added)
+  useEffect(() => {
+    setWidths(prev => {
+      const next = { ...prev }
+      colConfig.forEach(c => { if (!(c.id in next)) next[c.id as string] = c.width })
+      return next
+    })
+  }, [colConfig])
 
-  function startResize(e: React.MouseEvent, idx: number) {
+  const resizing = useRef<{ id: string; startX: number; startW: number } | null>(null)
+
+  function startResize(e: React.MouseEvent, colId: string) {
     e.preventDefault()
-    resizing.current = { idx, startX: e.clientX, startW: widths[idx] }
+    resizing.current = { id: colId, startX: e.clientX, startW: widths[colId] ?? 120 }
     const onMove = (ev: MouseEvent) => {
       if (!resizing.current) return
-      const { idx, startX, startW } = resizing.current
-      setWidths(prev => { const next = [...prev]; next[idx] = Math.max(40, startW + ev.clientX - startX); return next })
+      const { id, startX, startW } = resizing.current
+      setWidths(prev => ({ ...prev, [id]: Math.max(40, startW + ev.clientX - startX) }))
     }
     const onUp = () => { resizing.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }
 
+  const totalWidth = visibleCols.reduce((sum, c) => sum + (widths[c.id as string] ?? c.defaultWidth), 0) + 36
+
   if (entries.length === 0) {
-    return <p className="text-gray-500 text-sm mt-4">No outreach entries yet — click the <span className="text-purple-400">+</span> icon on any creator to add them.</p>
+    return (
+      <div className="mt-4">
+        <div className="flex justify-end mb-3">
+          <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            Customize Columns
+          </button>
+        </div>
+        <p className="text-gray-500 text-sm">No outreach entries yet — click the <span className="text-purple-400">+</span> icon on any creator to add them.</p>
+      </div>
+    )
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-800">
-      <table className="table-fixed text-sm border-collapse" style={{ width: widths.reduce((a, b) => a + b, 0) }}>
-        <thead className="bg-gray-800 text-gray-300">
-          <tr>
-            {OUTREACH_COL_LABELS.map((label, idx) => (
-              <th
-                key={idx}
-                style={{ width: widths[idx], minWidth: widths[idx] }}
-                className="relative text-left px-3 py-3 select-none font-medium"
-              >
-                <span className="truncate block">{label}</span>
-                {idx < OUTREACH_COL_LABELS.length - 1 && (
-                  <div
-                    onMouseDown={e => startResize(e, idx)}
-                    className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center"
-                  >
+    <div>
+      <div className="flex justify-end mb-3">
+        <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          Customize Columns
+        </button>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-gray-800">
+        <table className="table-fixed text-sm border-collapse" style={{ width: totalWidth }}>
+          <thead className="bg-gray-800 text-gray-300">
+            <tr>
+              {visibleCols.map(col => (
+                <th key={col.id as string} style={{ width: widths[col.id as string] ?? col.defaultWidth }} className="relative text-left px-3 py-3 select-none font-medium">
+                  <span className="truncate block">{col.label}</span>
+                  <div onMouseDown={e => startResize(e, col.id as string)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center">
                     <div className="w-px h-4 bg-gray-600 group-hover:bg-blue-400 transition-colors" />
                   </div>
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((e, i) => (
-            <tr key={e.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
-              {/* Channel Name */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[0] }}>
-                <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-400 font-medium" />
-              </td>
-              {/* YT link */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[1] }}>
-                <a href={e.channelUrl} target="_blank" className="text-gray-400 hover:text-white mt-0.5 block">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-red-500">
-                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 3.993L9 16z"/>
-                  </svg>
-                </a>
-              </td>
-              {/* Email — editable but opens mailto template when clicked */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[2] }}>
-                <div className="flex flex-col gap-1">
-                  {e.email && (
-                    <a
-                      href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator)}
-                      className="text-green-400 hover:underline text-xs break-all"
-                    >{e.email}</a>
-                  )}
-                  <AutoTextarea
-                    value={e.email}
-                    onChange={v => onUpdate(e.id, 'email', v)}
-                    placeholder="Add email..."
-                    className={e.email ? 'text-gray-600 text-xs' : 'text-gray-400'}
-                  />
-                </div>
-              </td>
-              {/* Description */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[3] }}>
-                <AutoTextarea value={e.description} onChange={v => onUpdate(e.id, 'description', v)} placeholder="—" className="text-gray-400" />
-              </td>
-              {/* Product */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[4] }}>
-                <AutoTextarea value={e.product} onChange={v => onUpdate(e.id, 'product', v)} placeholder="Add product..." className="text-gray-200" />
-              </td>
-              {/* Reached Out */}
-              <td className="px-3 py-2 align-top text-center" style={{ width: widths[5] }}>
-                <input type="checkbox" checked={e.reachedOut}
-                  onChange={ev => onUpdate(e.id, 'reachedOut', ev.target.checked)}
-                  className="w-4 h-4 rounded accent-purple-500 cursor-pointer mt-0.5" />
-              </td>
-              {/* Medium */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[6] }}>
-                <div className="flex flex-col gap-1">
-                  <select
-                    value={e.medium}
-                    onChange={ev => onUpdate(e.id, 'medium', ev.target.value)}
-                    className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 w-full"
-                  >
-                    <option value="">—</option>
-                    <option value="Email">Email</option>
-                    <option value="LinkedIn">LinkedIn</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  {e.medium === 'Other' && (
-                    <AutoTextarea value={e.mediumOther} onChange={v => onUpdate(e.id, 'mediumOther', v)} placeholder="specify..." className="text-gray-200" />
-                  )}
-                </div>
-              </td>
-              {/* Subject Line */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[7] }}>
-                <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-gray-200" />
-              </td>
-              {/* Status */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[8] }}>
-                <select
-                  value={e.status}
-                  onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
-                  className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none focus:border-purple-500 border ${
-                    e.status === 'Successful'   ? 'bg-green-900 border-green-700 text-green-300' :
-                    e.status === 'Open'         ? 'bg-blue-900 border-blue-700 text-blue-300' :
-                    e.status === 'Rejected'     ? 'bg-red-900 border-red-700 text-red-300' :
-                    e.status === 'No Response'  ? 'bg-gray-800 border-gray-600 text-gray-400' :
-                    'bg-gray-800 border-gray-700 text-gray-400'
-                  }`}
-                >
-                  <option value="">—</option>
-                  <option value="Open">Open</option>
-                  <option value="No Response">No Response</option>
-                  <option value="Successful">Successful</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </td>
-              {/* Remove */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[9] }}>
-                <button onClick={() => onRemove(e.id)} className="text-gray-700 hover:text-red-400 transition-colors">
-                  <TrashIcon />
-                </button>
-              </td>
+                </th>
+              ))}
+              <th style={{ width: 36 }} className="px-3 py-3" />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {entries.map((e, i) => (
+              <tr key={e.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
+                {visibleCols.map(col => (
+                  <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
+                    {renderOutreachCell(col, e, onUpdate)}
+                  </td>
+                ))}
+                <td className="px-3 py-2 align-top" style={{ width: 36 }}>
+                  <button onClick={() => onRemove(e.id)} className="text-gray-700 hover:text-red-400 transition-colors"><TrashIcon /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -606,6 +684,9 @@ export default function Home() {
   const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
   const [showCustomize, setShowCustomize] = useState(false)
   const [draftCols, setDraftCols] = useState<ColConfig[]>(DEFAULT_COLS)
+  const [outreachColConfig, setOutreachColConfig] = useState<OutreachColConfig[]>(DEFAULT_OUTREACH_COLS)
+  const [showOutreachCustomize, setShowOutreachCustomize] = useState(false)
+  const [draftOutreachCols, setDraftOutreachCols] = useState<OutreachColConfig[]>(DEFAULT_OUTREACH_COLS)
 
   // search version ref — prevents stale searches from overwriting newer ones
   const searchVersion = useRef(0)
@@ -623,6 +704,18 @@ export default function Home() {
       setOutreach(storedOutreach)
       setOutreachIds(new Set(storedOutreach.map((e: OutreachEntry) => e.channelId)))
     } catch { /* no stored outreach */ }
+    try {
+      const storedOutreachCols = JSON.parse(localStorage.getItem('outreach-col-config') || 'null')
+      if (storedOutreachCols) {
+        // merge stored config with any new columns added since last save
+        const merged = ALL_OUTREACH_COLS.map(def => {
+          const stored = storedOutreachCols.find((s: OutreachColConfig) => s.id === def.id)
+          return stored ? { ...def, visible: stored.visible, width: stored.width } : { ...def, visible: def.defaultVisible, width: def.defaultWidth }
+        })
+        setOutreachColConfig(merged)
+        setDraftOutreachCols(merged)
+      }
+    } catch { /* no stored outreach cols */ }
   }, [])
 
   // elapsed timer while loading
@@ -677,6 +770,20 @@ export default function Home() {
       headerUsed: '',
       status: '',
       addedAt: Date.now(),
+      notes: '',
+      followUpDate: '',
+      dateReachedOut: '',
+      touchpoints: '',
+      responseDate: '',
+      subscribers: c.subscribers || '',
+      avgViews: c.avgViews || 0,
+      fitScore: computeFitScore(c),
+      linkedin: c.linkedin || '',
+      contentNiche: '',
+      phone: '',
+      dealValue: '',
+      contractSent: false,
+      meetingScheduled: '',
     }
     saveOutreach([...outreach, entry])
   }
@@ -832,7 +939,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className={activeTab === 'outreach' ? 'w-full px-2' : 'max-w-7xl mx-auto'}>
         <h1 className="text-3xl font-bold mb-2">Creator Outreach</h1>
         <p className="text-gray-400 mb-6">Find YouTube creators and their contact info</p>
 
@@ -1076,11 +1183,51 @@ export default function Home() {
           </div>
         )}
 
+        {showOutreachCustomize && (
+          <div className="fixed inset-0 z-50 flex">
+            <div className="flex-1 bg-black/50" onClick={() => setShowOutreachCustomize(false)} />
+            <div className="w-80 bg-gray-900 border-l border-gray-700 flex flex-col h-full">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+                <h2 className="font-semibold text-white">Outreach Columns</h2>
+                <button onClick={() => setShowOutreachCustomize(false)} className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 px-5 pt-3 pb-1">Toggle columns on/off and drag to reorder.</p>
+              <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
+                {draftOutreachCols.map((col, idx) => (
+                  <div key={col.id as string} className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-800 group">
+                    <input type="checkbox" checked={col.visible}
+                      onChange={() => setDraftOutreachCols(d => d.map((c, i) => i === idx ? { ...c, visible: !c.visible } : c))}
+                      className="w-4 h-4 rounded accent-purple-500"
+                    />
+                    <span className="flex-1 text-sm text-gray-200">{col.label}</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button disabled={idx === 0} onClick={() => setDraftOutreachCols(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1">↑</button>
+                      <button disabled={idx === draftOutreachCols.length - 1} onClick={() => setDraftOutreachCols(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1">↓</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-4 border-t border-gray-800 flex gap-3">
+                <button onClick={() => setDraftOutreachCols(DEFAULT_OUTREACH_COLS)} className="flex-1 px-4 py-2 text-sm text-gray-400 border border-gray-700 rounded hover:border-gray-500 hover:text-white transition-colors">Reset</button>
+                <button onClick={() => {
+                  setOutreachColConfig(draftOutreachCols)
+                  localStorage.setItem('outreach-col-config', JSON.stringify(draftOutreachCols))
+                  setShowOutreachCustomize(false)
+                }} className="flex-1 px-4 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-700 rounded transition-colors">Save</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'outreach' ? (
           <OutreachTab
             entries={outreach}
+            colConfig={outreachColConfig}
             onUpdate={updateOutreachEntry}
             onRemove={removeOutreachEntry}
+            onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
           />
         ) : (
           <CreatorTable
