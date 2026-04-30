@@ -463,27 +463,41 @@ function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: 
   }
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onRemove: (id: string) => void
   onOpenCustomize: () => void
+  onReorderCols: (newConfig: OutreachColConfig[]) => void
 }) {
   const visibleCols = colConfig.filter(c => c.visible)
   const [widths, setWidths] = useState<Record<string, number>>(() =>
     Object.fromEntries(colConfig.map(c => [c.id, c.width]))
   )
-  // sync widths when colConfig changes (new cols added)
   useEffect(() => {
     setWidths(prev => {
       const next = { ...prev }
-      colConfig.forEach(c => { if (!(c.id in next)) next[c.id as string] = c.width })
+      colConfig.forEach(c => { if (!(c.id as string in next)) next[c.id as string] = c.width })
       return next
     })
   }, [colConfig])
 
   const resizing = useRef<{ id: string; startX: number; startW: number } | null>(null)
+  const dragIdx = useRef<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+
+  function handleColDrop(targetIdx: number) {
+    const from = dragIdx.current
+    // index 0 is channelName — always locked
+    if (from === null || from === 0 || targetIdx === 0 || from === targetIdx) { setDragOverIdx(null); return }
+    const newVisible = [...visibleCols]
+    const [moved] = newVisible.splice(from, 1)
+    newVisible.splice(targetIdx, 0, moved)
+    onReorderCols([...newVisible, ...colConfig.filter(c => !c.visible)])
+    dragIdx.current = null
+    setDragOverIdx(null)
+  }
 
   function startResize(e: React.MouseEvent, colId: string) {
     e.preventDefault()
@@ -526,14 +540,32 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize }
         <table className="table-fixed text-sm border-collapse" style={{ width: totalWidth }}>
           <thead className="bg-gray-800 text-gray-300">
             <tr>
-              {visibleCols.map(col => (
-                <th key={col.id as string} style={{ width: widths[col.id as string] ?? col.defaultWidth }} className="relative text-left px-3 py-3 select-none font-medium">
-                  <span className="truncate block">{col.label}</span>
-                  <div onMouseDown={e => startResize(e, col.id as string)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center">
-                    <div className="w-px h-4 bg-gray-600 group-hover:bg-blue-400 transition-colors" />
-                  </div>
-                </th>
-              ))}
+              {visibleCols.map((col, idx) => {
+                const colId = col.id as string
+                const isLocked = idx === 0
+                const isOver = dragOverIdx === idx && !isLocked
+                return (
+                  <th
+                    key={colId}
+                    style={{ width: widths[colId] ?? col.defaultWidth }}
+                    draggable={!isLocked}
+                    onDragStart={() => { if (!isLocked) dragIdx.current = idx }}
+                    onDragOver={e => { e.preventDefault(); if (!isLocked) setDragOverIdx(idx) }}
+                    onDragLeave={() => setDragOverIdx(null)}
+                    onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
+                    onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
+                    className={`relative text-left px-3 py-3 select-none font-medium transition-colors ${!isLocked ? 'cursor-grab' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-gray-700' : ''}`}
+                  >
+                    <span className="truncate flex items-center gap-1">
+                      {!isLocked && <span className="text-gray-600 text-xs">⠿</span>}
+                      {col.label}
+                    </span>
+                    <div onMouseDown={e => startResize(e, colId)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center">
+                      <div className="w-px h-4 bg-gray-600 group-hover:bg-blue-400 transition-colors" />
+                    </div>
+                  </th>
+                )
+              })}
               <th style={{ width: 36 }} className="px-3 py-3" />
             </tr>
           </thead>
@@ -587,27 +619,35 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortC
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRemoveFavorite, onAddToOutreach, isFavTab, loading, sortCol, sortDir, onSort, colConfig }: {
+function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRemoveFavorite, onAddToOutreach, onReorderCols, isFavTab, loading, sortCol, sortDir, onSort, colConfig }: {
   creators: Creator[], favorites: Set<string>, outreachIds: Set<string>
   onToggleFavorite: (c: Creator) => void
   onRemoveFavorite?: (id: string) => void
   onAddToOutreach: (c: Creator) => void
+  onReorderCols: (newConfig: ColConfig[]) => void
   isFavTab: boolean, loading?: boolean
   sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
   colConfig: ColConfig[]
 }) {
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir), [creators, sortCol, sortDir])
   const visibleCols = colConfig.filter(c => c.visible)
+  const dragIdx = useRef<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+
+  function handleColDrop(targetIdx: number) {
+    const from = dragIdx.current
+    if (from === null || from === targetIdx) { setDragOverIdx(null); return }
+    const newVisible = [...visibleCols]
+    const [moved] = newVisible.splice(from, 1)
+    newVisible.splice(targetIdx, 0, moved)
+    onReorderCols([...newVisible, ...colConfig.filter(c => !c.visible)])
+    dragIdx.current = null
+    setDragOverIdx(null)
+  }
 
   if (sorted.length === 0 && !loading) {
     return <p className="text-gray-500 text-sm mt-4">{isFavTab ? 'No favorites yet — star creators from the Results tab.' : ''}</p>
   }
-
-  const Th = ({ col, label }: { col: SortCol, label: string }) => (
-    <th className="text-left px-4 py-3 cursor-pointer hover:text-white select-none whitespace-nowrap" onClick={() => onSort(col)}>
-      {label}<SortIndicator col={col} sortCol={sortCol} sortDir={sortDir} />
-    </th>
-  )
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-800">
@@ -616,12 +656,27 @@ function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRe
           <tr>
             <th className="px-4 py-3 w-8"></th>
             <th className="px-4 py-3 w-8"></th>
-            <Th col="channelName" label="Channel" />
-            {visibleCols.map(col => {
+            <th className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">Channel</th>
+            {visibleCols.map((col, idx) => {
               const sc = COL_SORT[col.id]
-              return sc
-                ? <Th key={col.id} col={sc} label={col.label} />
-                : <th key={col.id} className="text-left px-4 py-3 whitespace-nowrap">{col.label}</th>
+              const isOver = dragOverIdx === idx
+              return (
+                <th
+                  key={col.id}
+                  draggable
+                  onDragStart={() => { dragIdx.current = idx }}
+                  onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
+                  onDragLeave={() => setDragOverIdx(null)}
+                  onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
+                  onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
+                  onClick={() => sc && onSort(sc)}
+                  className={`text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-white' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-gray-700' : ''}`}
+                >
+                  <span className="mr-1 text-gray-600 text-xs">⠿</span>
+                  {col.label}
+                  {sc && <SortIndicator col={sc} sortCol={sortCol} sortDir={sortDir} />}
+                </th>
+              )
             })}
             {isFavTab && <th className="px-4 py-3 w-8"></th>}
           </tr>
@@ -786,6 +841,18 @@ export default function Home() {
       meetingScheduled: '',
     }
     saveOutreach([...outreach, entry])
+  }
+
+  function reorderResultCols(newConfig: ColConfig[]) {
+    setColConfig(newConfig)
+    setDraftCols(newConfig)
+    localStorage.setItem('creator-col-config', JSON.stringify(newConfig))
+  }
+
+  function reorderOutreachCols(newConfig: OutreachColConfig[]) {
+    setOutreachColConfig(newConfig)
+    setDraftOutreachCols(newConfig)
+    localStorage.setItem('outreach-col-config', JSON.stringify(newConfig))
   }
 
   function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
@@ -1228,12 +1295,14 @@ export default function Home() {
             onUpdate={updateOutreachEntry}
             onRemove={removeOutreachEntry}
             onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
+            onReorderCols={reorderOutreachCols}
           />
         ) : (
           <CreatorTable
             creators={currentList} favorites={favIds} outreachIds={outreachIds}
             onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
             onAddToOutreach={addToOutreach}
+            onReorderCols={reorderResultCols}
             isFavTab={activeTab === 'favorites'} loading={loading}
             sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
             colConfig={colConfig}
