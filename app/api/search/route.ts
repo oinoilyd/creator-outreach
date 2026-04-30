@@ -39,49 +39,282 @@ const TOPIC_MAP: Record<string, string[]> = {
 
 const GENERIC_ROLES = ['coach', 'expert', 'content creator', 'consultant', 'educator', 'entrepreneur', 'influencer']
 
-// Country name to append to queries for regional biasing
+// Country name to append to every query for geographic signal
 const REGION_SUFFIX: Record<string, string> = {
   IN: 'india', GB: 'uk', CA: 'canada', AU: 'australia', NZ: 'new zealand',
   IE: 'ireland', PH: 'philippines', SG: 'singapore', NG: 'nigeria',
-  ZA: 'south africa', AE: 'uae', DE: 'germany', FR: 'france',
-  ES: 'spain', BR: 'brazil', MX: 'mexico', JP: 'japan', KR: 'korea', ID: 'indonesia',
+  ZA: 'south africa', AE: 'dubai uae', DE: 'germany', FR: 'france',
+  ES: 'spain', BR: 'brasil', MX: 'mexico', JP: 'japan', KR: 'korea', ID: 'indonesia',
 }
 
-// Local terminology that beats English terms for specific regions + topics
+// Canonical topic aliases — maps what a user might type to the REGION_TOPIC_EXTRAS keys
+const TOPIC_ALIASES: Record<string, string[]> = {
+  finance:    ['finance', 'investing', 'investment', 'money', 'banking', 'wealth', 'stock', 'trading', 'economics', 'economy'],
+  trading:    ['trading', 'trader', 'forex', 'stock', 'options', 'futures', 'crypto', 'day trade'],
+  investing:  ['investing', 'investment', 'investor', 'portfolio', 'wealth', 'dividends', 'etf', 'mutual fund'],
+  economics:  ['economics', 'economy', 'macro', 'gdp', 'inflation', 'monetary'],
+  crypto:     ['crypto', 'bitcoin', 'blockchain', 'nft', 'defi', 'web3', 'altcoin', 'ethereum'],
+  business:   ['business', 'entrepreneur', 'startup', 'small business', 'ecommerce', 'side hustle', 'hustle', 'sales', 'marketing'],
+  realestate: ['real estate', 'realestate', 'property', 'housing', 'mortgage', 'landlord', 'rent'],
+  fitness:    ['fitness', 'gym', 'workout', 'bodybuilding', 'weight loss', 'personal trainer', 'strength'],
+  health:     ['health', 'wellness', 'nutrition', 'diet', 'medicine', 'doctor', 'mental health', 'yoga', 'meditation'],
+  tech:       ['tech', 'software', 'coding', 'programming', 'ai', 'developer', 'engineer', 'saas'],
+  marketing:  ['marketing', 'social media', 'seo', 'branding', 'advertising', 'content creator', 'influencer'],
+  education:  ['education', 'tutor', 'learning', 'exam', 'study', 'teacher', 'course'],
+  law:        ['law', 'legal', 'lawyer', 'attorney', 'compliance', 'contract'],
+  mindset:    ['mindset', 'motivation', 'productivity', 'self improvement', 'life coach', 'personal development'],
+}
+
+function matchTopicKeys(keyword: string): string[] {
+  const lower = keyword.toLowerCase()
+  const matched = new Set<string>()
+  for (const [key, aliases] of Object.entries(TOPIC_ALIASES)) {
+    if (aliases.some(a => lower.includes(a) || a.includes(lower))) matched.add(key)
+  }
+  return [...matched]
+}
+
+// Deep local market terminology per region per topic category
 const REGION_TOPIC_EXTRAS: Record<string, Record<string, string[]>> = {
+  // ── INDIA ────────────────────────────────────────────────────────────────────
   IN: {
-    finance:    ['share market india', 'personal finance india', 'mutual fund india', 'money management india', 'financial planning hindi', 'paisa invest karo'],
-    investing:  ['share market india', 'stock market india beginner', 'nifty sensex trading', 'mutual fund sip india', 'intraday trading india', 'zerodha trading'],
-    trading:    ['share market trading india', 'intraday trading hindi', 'option trading india', 'sensex nifty analysis', 'forex trading india', 'algo trading india'],
-    economics:  ['indian economy explained', 'budget india analysis', 'rbi monetary policy', 'inflation india hindi', 'gdp india growth', 'economic survey india'],
-    crypto:     ['cryptocurrency india', 'bitcoin india hindi', 'crypto tax india', 'web3 india', 'nft india'],
-    business:   ['startup india', 'business ideas india', 'small business india hindi', 'entrepreneurship india', 'msme india', 'dropshipping india'],
-    realestate: ['real estate india', 'property investment india', 'housing loan india', 'rera india', 'flat purchase india'],
-    'real estate': ['real estate india', 'property investment india', 'housing loan india', 'rera india'],
-    fitness:    ['fitness india', 'gym workout hindi', 'weight loss india', 'bodybuilding india', 'calisthenics india hindi'],
-    health:     ['health tips hindi', 'ayurveda benefits', 'yoga hindi', 'diet plan india', 'home remedy india'],
-    tech:       ['tech india', 'software engineer india', 'coding hindi', 'ai india', 'startup tech india'],
-    marketing:  ['digital marketing india hindi', 'social media marketing india', 'freelancing india', 'youtube growth india'],
-    law:        ['law india hindi', 'legal advice india', 'ipc section explained', 'lawyer india youtube'],
-    education:  ['education india', 'upsc preparation', 'competitive exam india', 'online learning india hindi'],
-    mindset:    ['motivation hindi', 'self improvement india', 'success mindset hindi', 'productivity india'],
-    sales:      ['sales tips india', 'business development india', 'b2b sales india', 'direct selling india'],
+    finance:    ['share market india', 'personal finance hindi', 'mutual fund sip india', 'paisa kaise kamaye', 'financial planning india', 'money management india', 'zerodha groww india', 'demat account kaise khole', 'NSE BSE india investor'],
+    trading:    ['share market trading india', 'intraday trading hindi', 'option trading india', 'sensex nifty analysis', 'swing trading india', 'algo trading india', 'F&O trading india', 'zerodha kite trading', 'price action trading india'],
+    investing:  ['mutual fund india hindi', 'SIP investment india', 'nifty index fund india', 'long term investing india', 'value investing india hindi', 'stock market beginners india', 'ETF india', 'groww app investing'],
+    economics:  ['indian economy explained', 'budget 2024 india', 'RBI monetary policy hindi', 'inflation india', 'GST explained hindi', 'india GDP growth', 'economic survey india', 'demonetisation india', 'UPI digital payment india'],
+    crypto:     ['cryptocurrency india hindi', 'bitcoin india', 'crypto tax india', 'WazirX CoinDCX india', 'crypto regulation india', 'web3 india startup', 'NFT india hindi'],
+    business:   ['startup india hindi', 'business ideas india hindi', 'Shark Tank India', 'MSME business india', 'GST registration india', 'small business ideas india', 'dropshipping india hindi', 'amazon flipkart seller india', 'freelancing india'],
+    realestate: ['real estate india hindi', 'property investment india', 'RERA india explained', 'home loan india', 'flat purchase guide india', 'commercial property india', 'builder vs resale india', 'Noida Gurugram property'],
+    fitness:    ['fitness india hindi', 'gym workout india', 'weight loss india hindi', 'bodybuilding india', 'calisthenics india', 'diet plan india hindi', 'transformation india'],
+    health:     ['health tips hindi', 'ayurveda benefits', 'yoga hindi channel', 'home remedies india', 'diabetes india hindi', 'mental health india hindi', 'AIIMS doctor advice'],
+    tech:       ['coding hindi india', 'software engineer india', 'AI machine learning india', 'tech startup india', 'programming tutorials hindi', 'data science india hindi', 'FAANG preparation india'],
+    marketing:  ['digital marketing hindi india', 'social media marketing india', 'YouTube growth india', 'content creator india hindi', 'SEO hindi', 'affiliate marketing india'],
+    education:  ['UPSC preparation', 'NEET JEE preparation india', 'competitive exam india', 'IAS officer india', 'SSC CGL preparation', 'online learning hindi india'],
+    law:        ['law india hindi', 'IPC section explained hindi', 'legal advice india hindi', 'consumer rights india', 'property law india', 'startup legal india'],
+    mindset:    ['motivation hindi', 'success mindset india', 'productivity hindi channel', 'self improvement india hindi', 'Sandeep Maheshwari style', 'life coach india hindi'],
   },
-  NG: {
-    finance:    ['personal finance nigeria', 'investment nigeria', 'money management nigeria', 'how to invest nigeria'],
-    business:   ['business ideas nigeria', 'entrepreneurship nigeria', 'small business nigeria', 'hustle nigeria'],
-    trading:    ['forex trading nigeria', 'crypto nigeria', 'stock market nigeria', 'nse trading'],
-    realestate: ['real estate nigeria', 'property investment nigeria', 'lagos property'],
+
+  // ── UNITED KINGDOM ───────────────────────────────────────────────────────────
+  GB: {
+    finance:    ['personal finance uk', 'ISA investing uk', 'SIPP pension uk', 'FTSE 100 investing', 'premium bonds uk', 'conquer your cash uk', 'money saving expert uk', 'financial independence uk'],
+    trading:    ['stock trading uk', 'spread betting uk', 'CFD trading uk', 'FTSE trading', 'IG trading uk', 'Hargreaves Lansdown investing', 'share dealing uk', 'ISA stocks and shares'],
+    investing:  ['investing uk beginners', 'index fund uk', 'Vanguard uk investing', 'dividend investing uk', 'ISA allowance uk', 'global ETF uk', 'FIRE movement uk'],
+    economics:  ['uk economy explained', 'Bank of England interest rates', 'UK inflation cost of living', 'Brexit economic impact', 'UK budget analysis', 'recession uk', 'autumn statement uk'],
+    crypto:     ['crypto uk', 'bitcoin uk tax', 'HMRC crypto uk', 'crypto exchange uk regulated', 'ethereum uk'],
+    business:   ['small business uk', 'limited company uk', 'sole trader uk', 'HMRC self assessment', 'VAT registration uk', 'UK startup founder', 'side hustle uk', 'ecommerce uk'],
+    realestate: ['property investment uk', 'buy to let uk', 'stamp duty uk', 'remortgage uk', 'house prices uk', 'right to buy uk', 'HMO property uk', 'property portfolio uk'],
+    fitness:    ['fitness uk', 'gym uk workout', 'personal trainer uk', 'running uk', 'cycling uk fitness'],
+    health:     ['NHS health tips', 'mental health uk', 'nutrition uk', 'wellness uk channel', 'UK doctor advice'],
+    tech:       ['tech startup uk', 'software developer uk', 'fintech uk', 'AI uk', 'London tech scene'],
+    mindset:    ['motivation uk', 'productivity uk', 'self improvement uk', 'entrepreneur mindset uk'],
   },
+
+  // ── CANADA ───────────────────────────────────────────────────────────────────
+  CA: {
+    finance:    ['personal finance canada', 'TFSA investing canada', 'RRSP explained canada', 'FHSA first home canada', 'GIC savings canada', 'wealthsimple canada', 'EI CPP OAS canada', 'budget canada tips'],
+    trading:    ['stock trading canada', 'TSX stocks canada', 'options trading canada', 'questrade investing', 'interactive brokers canada', 'day trading canada tax'],
+    investing:  ['index fund canada', 'ETF investing canada', 'dividend stocks canada', 'TFSA investment canada', 'FIRE canada', 'passive income canada', 'couch potato portfolio canada'],
+    economics:  ['canadian economy', 'bank of canada interest rate', 'inflation canada', 'housing crisis canada', 'cost of living canada', 'CRA tax canada', 'canadian dollar'],
+    crypto:     ['crypto canada', 'bitcoin canada tax', 'CRA crypto reporting', 'canadian crypto exchange', 'wealthsimple crypto'],
+    business:   ['small business canada', 'incorporated business canada', 'GST HST canada', 'CRA business canada', 'side hustle canada', 'ecommerce canada', 'dropshipping canada'],
+    realestate: ['real estate canada', 'housing market canada', 'mortgage canada 2024', 'first time buyer canada', 'condo investment canada', 'toronto vancouver real estate', 'rental property canada'],
+    fitness:    ['fitness canada', 'workout canada', 'personal trainer canada'],
+    mindset:    ['entrepreneur canada', 'productivity canada', 'success mindset canada'],
+  },
+
+  // ── AUSTRALIA ────────────────────────────────────────────────────────────────
+  AU: {
+    finance:    ['personal finance australia', 'superannuation explained', 'SMSF australia', 'high interest savings australia', 'ETF australia beginners', 'vanguard australia', 'barefoot investor style', 'financial independence australia'],
+    trading:    ['share trading australia', 'ASX stocks australia', 'CommSec trading', 'options australia', 'CFD trading australia', 'day trading australia tax', 'SelfWealth australia'],
+    investing:  ['investing australia beginners', 'ASX ETF australia', 'dividend investing australia', 'passive investing australia', 'FIRE australia', 'index fund australia', 'franking credits explained'],
+    economics:  ['australian economy', 'RBA interest rates', 'inflation australia', 'cost of living australia', 'housing affordability australia', 'federal budget australia', 'recession australia'],
+    crypto:     ['crypto australia', 'bitcoin ATO tax australia', 'crypto exchange australia', 'coinspot swyftx australia', 'ethereum australia'],
+    business:   ['small business australia', 'ABN sole trader australia', 'GST australia', 'ATO tax australia', 'side hustle australia', 'ecommerce australia', 'shopify australia'],
+    realestate: ['property investment australia', 'negative gearing australia', 'stamp duty australia', 'housing market australia', 'rentvesting australia', 'buyers agent australia', 'dual income property australia'],
+    fitness:    ['fitness australia', 'workout australia', 'personal trainer australia', 'CrossFit australia'],
+    mindset:    ['entrepreneur australia', 'motivation australia', 'startup australia founder'],
+  },
+
+  // ── NEW ZEALAND ──────────────────────────────────────────────────────────────
+  NZ: {
+    finance:    ['personal finance new zealand', 'KiwiSaver explained', 'NZX investing', 'savings account new zealand', 'financial independence NZ', 'sorted money NZ'],
+    trading:    ['share trading new zealand', 'NZX stocks', 'Sharesies investing NZ', 'Hatch invest NZ', 'ASX from NZ'],
+    investing:  ['investing new zealand', 'index fund NZ', 'ETF new zealand', 'dividend NZ', 'FIRE movement NZ'],
+    economics:  ['new zealand economy', 'RBNZ interest rates', 'inflation NZ', 'cost of living NZ', 'housing crisis new zealand'],
+    business:   ['small business new zealand', 'sole trader NZ', 'GST new zealand', 'IRD tax NZ', 'startup NZ'],
+    realestate: ['property investment new zealand', 'housing market NZ', 'mortgage NZ', 'Auckland property', 'rental yield NZ'],
+  },
+
+  // ── IRELAND ──────────────────────────────────────────────────────────────────
+  IE: {
+    finance:    ['personal finance ireland', 'pension ireland', 'ARF PRSA ireland', 'ETF tax ireland', 'revenue tax ireland', 'money saving ireland', 'financial planning ireland'],
+    trading:    ['stock trading ireland', 'ETF investing ireland', 'degiro ireland', 'interactive brokers ireland', 'revenue CGT ireland'],
+    investing:  ['investing ireland beginners', 'index fund ireland', 'deemed disposal ireland ETF', 'FIRE ireland', 'passive income ireland'],
+    economics:  ['irish economy', 'ECB interest rates ireland', 'inflation ireland', 'cost of living ireland', 'corporation tax ireland', 'budget ireland'],
+    business:   ['small business ireland', 'sole trader ireland', 'limited company ireland', 'revenue commissioners ireland', 'VAT ireland', 'startup ireland'],
+    realestate: ['property investment ireland', 'house prices ireland', 'mortgage ireland', 'dublin property market', 'rental market ireland', 'buy to let ireland'],
+  },
+
+  // ── INDIA handled above ──────────────────────────────────────────────────────
+
+  // ── PHILIPPINES ──────────────────────────────────────────────────────────────
   PH: {
-    finance:    ['personal finance philippines', 'investing philippines', 'stocks pse philippines', 'pag-ibig sss philippines'],
-    business:   ['business ideas philippines', 'online business philippines', 'negosyo philippines'],
-    trading:    ['stock market philippines', 'forex philippines', 'crypto philippines', 'pse trading'],
+    finance:    ['personal finance philippines', 'investing philippines', 'MP2 pag-ibig', 'SSS contribution philippines', 'BDO BPI investment', 'UITF philippines', 'savings account philippines', 'VUL insurance philippines'],
+    trading:    ['PSE stocks philippines', 'stock market philippines beginners', 'forex trading philippines', 'crypto philippines', 'COL financial philippines', 'firstmetrosec philippines'],
+    investing:  ['investing philippines beginners', 'UITF philippines', 'index fund philippines', 'dividend stocks PSE', 'REITs philippines', 'passive income philippines'],
+    economics:  ['philippine economy', 'BSP interest rate philippines', 'inflation philippines', 'OFW investment guide', 'peso dollar rate'],
+    crypto:     ['crypto philippines', 'bitcoin philippines', 'axie infinity philippines', 'play to earn philippines', 'PDAX philippines'],
+    business:   ['business ideas philippines', 'online business philippines', 'negosyo tips tagalog', 'dropshipping philippines', 'lazada shopee seller', 'freelancing philippines', 'BIR registration philippines'],
+    realestate: ['real estate philippines', 'condo investment manila', 'DMCI SMDC preselling', 'pag-ibig housing loan', 'property investment cebu'],
+    fitness:    ['fitness philippines', 'gym philippines', 'workout tagalog'],
+    mindset:    ['motivation tagalog', 'self improvement philippines', 'entrepreneur philippines'],
   },
+
+  // ── SINGAPORE ────────────────────────────────────────────────────────────────
+  SG: {
+    finance:    ['personal finance singapore', 'CPF investment OA SA', 'Singapore savings bond SSB', 'endowment plan singapore', 'SRS supplementary retirement', 'singlife manulife singapore', 'DBS POSB savings singapore'],
+    trading:    ['SGX stocks singapore', 'stock trading singapore', 'tiger brokers moomoo singapore', 'US stocks from singapore', 'options trading singapore', 'CFD singapore'],
+    investing:  ['investing singapore beginners', 'REITs singapore SGX', 'ETF singapore', 'robo advisor syfe endowus', 'FIRE movement singapore', 'passive income singapore', 'CPF special account investing'],
+    economics:  ['singapore economy', 'MAS monetary policy', 'inflation singapore', 'GST hike singapore', 'cost of living singapore', 'singapore budget'],
+    crypto:     ['crypto singapore', 'MAS regulated crypto', 'bitcoin singapore', 'coinbase gemini singapore'],
+    business:   ['business setup singapore', 'sole proprietorship singapore', 'private limited company singapore', 'ACRA registration', 'GST registration singapore', 'startup singapore founder', 'SME grant singapore'],
+    realestate: ['HDB property singapore', 'condo investment singapore', 'ABSD stamp duty', 'BTO HDB application', 'property agent singapore', 'en bloc singapore', 'rental yield singapore'],
+    fitness:    ['fitness singapore', 'gym singapore', 'personal trainer singapore', 'running singapore'],
+    mindset:    ['entrepreneur singapore', 'startup founder singapore', 'productivity singapore'],
+  },
+
+  // ── NIGERIA ──────────────────────────────────────────────────────────────────
+  NG: {
+    finance:    ['personal finance nigeria', 'how to invest in nigeria', 'dollar investment nigeria', 'pension PFA nigeria', 'money management nigeria', 'saving money nigeria', 'piggyves cowrywise nigeria'],
+    trading:    ['forex trading nigeria', 'NGX stock exchange', 'stock market nigeria beginners', 'crypto P2P nigeria', 'USDT naira trading', 'binary options nigeria', 'gold trading nigeria'],
+    investing:  ['investment nigeria', 'treasury bills nigeria', 'mutual fund nigeria', 'real estate investment nigeria', 'agribusiness investment nigeria', 'dollar asset nigeria', 'ETF nigeria'],
+    economics:  ['nigerian economy', 'naira devaluation', 'inflation nigeria', 'CBN monetary policy', 'oil economy nigeria', 'GDP nigeria', 'cost of living nigeria'],
+    crypto:     ['crypto nigeria', 'bitcoin naira', 'binance nigeria', 'P2P crypto nigeria', 'USDT nigeria', 'web3 nigeria'],
+    business:   ['business ideas nigeria', 'small business nigeria', 'POS business nigeria', 'export business nigeria', 'agribusiness nigeria', 'ecommerce jumia konga nigeria', 'importation business nigeria', 'side hustle nigeria'],
+    realestate: ['real estate nigeria', 'property investment lagos abuja', 'land banking nigeria', 'affordable housing nigeria', 'short let investment nigeria'],
+    fitness:    ['fitness nigeria', 'gym workout nigeria', 'weight loss nigeria'],
+    mindset:    ['motivation nigeria', 'entrepreneur nigeria', 'success africa', 'hustle naija'],
+  },
+
+  // ── SOUTH AFRICA ─────────────────────────────────────────────────────────────
+  ZA: {
+    finance:    ['personal finance south africa', 'JSE investing', 'tax free savings account south africa', 'retirement annuity RA south africa', 'unit trust south africa', 'easy equities south africa', '22seven budgeting'],
+    trading:    ['JSE shares south africa', 'stock trading south africa', 'EasyEquities investing', 'forex trading south africa', 'crypto south africa', 'satrix etf south africa'],
+    investing:  ['investing south africa beginners', 'ETF south africa', 'JSE index fund', 'passive income south africa', 'FIRE movement south africa', 'dividend stocks south africa'],
+    economics:  ['south african economy', 'SARB interest rate', 'inflation south africa', 'rand exchange rate', 'eskom load shedding economy', 'budget south africa', 'GDP south africa'],
+    crypto:     ['crypto south africa', 'bitcoin rand', 'FSCA regulated crypto SA', 'luno valr south africa'],
+    business:   ['small business south africa', 'SARS tax south africa', 'Pty Ltd south africa', 'CIPC registration', 'side hustle south africa', 'ecommerce south africa', 'dropshipping south africa'],
+    realestate: ['property investment south africa', 'buy to let south africa', 'transfer duty south africa', 'sectional title south africa', 'cape town johannesburg property', 'rental income south africa'],
+    mindset:    ['entrepreneur south africa', 'motivation south africa', 'success africa', 'township business'],
+  },
+
+  // ── UAE / DUBAI ──────────────────────────────────────────────────────────────
+  AE: {
+    finance:    ['personal finance dubai uae', 'saving money dubai', 'expat finance uae', 'investment options dubai', 'golden visa uae investment', 'offshore banking uae', 'money transfer uae'],
+    trading:    ['stock trading dubai', 'DFM ADX stocks uae', 'forex trading dubai', 'gold trading dubai', 'crypto uae', 'commodity trading dubai'],
+    investing:  ['investing in dubai uae', 'REITs uae', 'ETF from uae', 'stock market expat dubai', 'passive income dubai'],
+    economics:  ['dubai economy', 'uae vision 2031', 'dirham dollar peg', 'cost of living dubai', 'free zone uae', 'oil economy uae'],
+    crypto:     ['crypto uae regulated', 'bitcoin dubai', 'VARA uae crypto', 'binance dubai', 'web3 uae'],
+    business:   ['business setup dubai', 'free zone vs mainland uae', 'trade licence dubai', 'company formation uae', 'entrepreneur visa uae', 'ecommerce dubai', 'dropshipping uae'],
+    realestate: ['dubai real estate investment', 'off plan property dubai', 'rental yield dubai', 'ROI property dubai', 'palm jumeirah investment', 'dubai marina apartment buy', 'short term rental dubai airbnb'],
+    fitness:    ['fitness dubai', 'gym dubai', 'personal trainer uae', 'CrossFit dubai'],
+    mindset:    ['entrepreneur dubai', 'success dubai mindset', 'startup uae founder'],
+  },
+
+  // ── GERMANY ──────────────────────────────────────────────────────────────────
+  DE: {
+    finance:    ['finanzen deutschland', 'geldanlage für anfänger', 'sparplan ETF deutschland', 'tagesgeldkonto vergleich', 'riester rente', 'bausparvertrag', 'finanzielle freiheit deutschland', 'personal finance germany english'],
+    trading:    ['aktien handel deutschland', 'DAX trading', 'XETRA trading', 'CFD handel', 'forex deutschland', 'aktienanalyse', 'stock trading germany english', 'scalable trade republic germany'],
+    investing:  ['ETF depot deutschland', 'world ETF sparplan', 'passiv investieren', 'dividenden aktien', 'index fonds deutschland', 'MSCI world germany', 'investing germany english beginners'],
+    economics:  ['deutsche wirtschaft', 'EZB zinsen deutschland', 'inflation germany', 'german economy explained', 'bundesbank monetary policy', 'wirtschaftslage deutschland'],
+    crypto:     ['krypto deutschland', 'bitcoin steuer germany', 'BaFin crypto', 'ethereum kaufen deutschland', 'crypto germany english'],
+    business:   ['selbstständig machen deutschland', 'GmbH gründen', 'einzelunternehmen anmelden', 'gewerbe anmelden', 'startup germany founder english', 'freelancer deutschland', 'business germany english'],
+    realestate: ['immobilien investment deutschland', 'eigentumswohnung kaufen', 'vermieten als kapitalanlage', 'immobilienmarkt berlin münchen', 'grundsteuer reform', 'real estate germany english'],
+    mindset:    ['motivation deutsch kanal', 'produktivität deutschland', 'erfolg mindset deutsch', 'entrepreneur germany english'],
+  },
+
+  // ── FRANCE ───────────────────────────────────────────────────────────────────
+  FR: {
+    finance:    ['finances personnelles france', 'assurance vie france', 'plan épargne retraite PER', 'livret A taux', 'bourse france débutant', 'investissement france', 'FIRE france liberté financière', 'personal finance france english'],
+    trading:    ['trading bourse france', 'CAC 40 trading', 'actions france', 'PEA plan épargne actions', 'trader professionnel france', 'stock trading france english'],
+    investing:  ['investir bourse france', 'ETF france débutant', 'PEA ETF', 'dividendes actions france', 'investissement passif france', 'investing france english'],
+    economics:  ['économie française', 'BCE taux directeur', 'inflation france', 'french economy explained', 'budget france analyse'],
+    crypto:     ['crypto france', 'bitcoin impôts france', 'AMF crypto regulation', 'ethereum france', 'crypto france english'],
+    business:   ['auto-entrepreneur france', 'micro-entreprise création', 'SAS SARL création', 'freelance france', 'startup france fondateur', 'e-commerce france', 'business france english'],
+    realestate: ['investissement immobilier france', 'LMNP meublé', 'SCI investissement', 'prix immobilier paris', 'immo locatif france', 'real estate france english'],
+    mindset:    ['motivation français', 'productivité france', 'mindset entrepreneur france'],
+  },
+
+  // ── SPAIN ────────────────────────────────────────────────────────────────────
+  ES: {
+    finance:    ['finanzas personales españa', 'inversión bolsa españa', 'plan pensiones', 'fondo indexado', 'ahorro spain', 'libertad financiera españa', 'personal finance spain english'],
+    trading:    ['trading bolsa española', 'IBEX 35 trading', 'acciones españa', 'broker español', 'forex trading españa', 'trading spain english'],
+    investing:  ['invertir bolsa españa', 'ETF españa', 'fondo indice españa', 'dividendos españa', 'indexa capital spain', 'passive investing spain english'],
+    economics:  ['economía española', 'banco de españa', 'inflación españa', 'spanish economy explained', 'PIB españa'],
+    crypto:     ['criptomonedas españa', 'bitcoin España impuestos', 'ethereum spain', 'hacienda crypto spain'],
+    business:   ['autónomo españa', 'emprendedor españa', 'SL empresa crear', 'startup españa', 'dropshipping spain español', 'ecommerce spain'],
+    realestate: ['inversión inmobiliaria españa', 'pisos alquiler barcelona madrid', 'comprarse piso españa', 'real estate spain english', 'golden visa spain property'],
+    mindset:    ['motivación español', 'emprendedor mindset spain', 'productividad español'],
+  },
+
+  // ── BRAZIL ───────────────────────────────────────────────────────────────────
   BR: {
-    finance:    ['finanças pessoais brasil', 'investimentos brasil', 'renda variável brasil', 'tesouro direto'],
-    business:   ['empreendedorismo brasil', 'negócios brasil', 'startup brasil'],
-    trading:    ['day trade brasil', 'bolsa de valores brasil', 'cripto brasil'],
+    finance:    ['finanças pessoais brasil', 'renda fixa brasil', 'tesouro direto selic', 'CDB LCI LCA brasil', 'FGTS brasil', 'educação financeira brasil', 'me poupe brasil', 'personal finance brazil english'],
+    trading:    ['day trade brasil', 'bolsa de valores B3', 'ações brasil', 'opções brasil', 'swing trade brasil', 'análise técnica brasil', 'rico clear xp investimentos'],
+    investing:  ['investimentos brasil', 'fundos imobiliários FII', 'ETF brasil B3', 'dividendos ações brasil', 'FIRE brasil independência financeira', 'renda passiva brasil'],
+    economics:  ['economia brasileira', 'SELIC taxa juros', 'inflação IPCA brasil', 'PIB brasil', 'banco central brasil', 'dólar real câmbio', 'crise brasil economia'],
+    crypto:     ['cripto brasil', 'bitcoin reais', 'receita federal crypto brasil', 'exchange brasileira', 'mercado bitcoin novadax brasil'],
+    business:   ['MEI empreendedor individual', 'abrir empresa brasil', 'CNPJ brasil', 'ecommerce mercado livre brasil', 'dropshipping brasil', 'afiliados digital brasil', 'side hustle brasil', 'startup brasil fundador'],
+    realestate: ['investimento imobiliário brasil', 'fundos imobiliários FII', 'comprar imóvel brasil', 'leilão imóvel brasil', 'aluguel renda brasil', 'real estate brazil english'],
+    mindset:    ['motivação português brasil', 'empreendedorismo brasil mindset', 'produtividade brasil'],
+  },
+
+  // ── MEXICO ───────────────────────────────────────────────────────────────────
+  MX: {
+    finance:    ['finanzas personales mexico', 'inversión mexico', 'CETES mexico', 'AFORE pensión mexico', 'FIBRAS mexico bolsa', 'ahorro mexico', 'libertad financiera mexico', 'personal finance mexico english'],
+    trading:    ['bolsa mexicana valores BMV', 'trading mexico', 'forex mexico', 'acciones mexico', 'cripto mexico', 'GBM bursanet mexico'],
+    investing:  ['invertir mexico principiante', 'ETF mexico', 'CETES directo', 'fondos de inversión mexico', 'renta pasiva mexico', 'FIRE mexico'],
+    economics:  ['economía mexicana', 'Banxico tasa interés', 'inflación mexico', 'peso dólar mexico', 'nearshoring mexico'],
+    crypto:     ['criptomonedas mexico', 'bitcoin mexico pesos', 'CNBV crypto regulación', 'bitso mexico', 'ethereum mexico'],
+    business:   ['negocio mexico ideas', 'emprendedor mexico', 'SAT registro empresas', 'dropshipping mexico', 'ecommerce mexico', 'mercado libre vendedor mexico', 'startup mexico'],
+    realestate: ['inversión inmobiliaria mexico', 'comprar casa mexico', 'INFONAVIT mexico', 'fibras bursatiles', 'real estate cancun cdmx'],
+    mindset:    ['motivación español mexico', 'emprendedor mindset mexico', 'éxito mentalidad'],
+  },
+
+  // ── JAPAN ────────────────────────────────────────────────────────────────────
+  JP: {
+    finance:    ['新NISA 投資 japan', 'iDeCo 個人型確定拠出年金', 'personal finance japan english', 'money management japan expat', 'saving money japan', 'japanese financial tips english', '積立投資 japan'],
+    trading:    ['日本株 投資', 'stock trading japan english', 'japan stock market TSE', 'forex trading japan', 'nikkei 225 analysis', 'day trading japan english'],
+    investing:  ['index fund japan english', '全世界株式 NISA', 'ETF japan', 'passive investing japan english', 'FIRE japan english', 'dividends japan stocks english'],
+    economics:  ['japanese economy explained english', 'bank of japan boj policy', 'yen weakness japan', 'japan gdp growth', 'deflation inflation japan', 'kishida economic policy'],
+    crypto:     ['crypto japan english', 'bitcoin japan yen', 'FSA regulated crypto japan', 'bitflyer GMO japan'],
+    business:   ['business japan english foreigner', 'startup japan english', 'freelance japan english', 'ecommerce japan', 'entrepreneur japan english'],
+    realestate: ['real estate investing japan english', 'tokyo property investment', 'akiya cheap house japan', 'rental yield japan', 'foreigner buy property japan'],
+    mindset:    ['productivity japan english', 'kaizen self improvement', 'entrepreneur japan english mindset'],
+  },
+
+  // ── SOUTH KOREA ──────────────────────────────────────────────────────────────
+  KR: {
+    finance:    ['personal finance korea english', '주식 투자 한국', 'stock investing korea english', 'korean finance tips english', '재테크 korea', 'saving money korea expat'],
+    trading:    ['KOSPI KOSDAQ trading', 'korea stock market english', '코스피 분석', 'day trading korea english', 'US stocks from korea', 'forex korea english'],
+    investing:  ['investing korea english beginners', 'ETF korea english', 'index fund korea', 'dividend stocks korea', 'ISA korea tax free', 'FIRE korea english'],
+    economics:  ['korean economy explained english', 'bank of korea BOK', 'inflation korea', 'won dollar exchange rate', 'export korea economy', 'chaebol economy korea'],
+    crypto:     ['crypto korea english', 'bitcoin korea won', 'upbit bithumb korea', 'crypto regulation korea english'],
+    business:   ['startup korea english', 'business korea english foreigner', 'ecommerce korea', 'korean market entry english', 'entrepreneur korea english'],
+    realestate: ['real estate korea english', 'jeonse system korea explained', 'apartment investing korea english', 'seoul property market english'],
+    mindset:    ['entrepreneur mindset korea english', 'productivity korea english', 'k-startup culture english'],
+  },
+
+  // ── INDONESIA ────────────────────────────────────────────────────────────────
+  ID: {
+    finance:    ['keuangan pribadi indonesia', 'investasi pemula indonesia', 'tabungan indonesia', 'reksa dana indonesia', 'OJK finansial indonesia', 'personal finance indonesia english'],
+    trading:    ['saham BEI indonesia', 'trading saham indonesia', 'forex trading indonesia', 'kripto indonesia', 'RTI business IDX', 'day trading indonesia'],
+    investing:  ['investasi saham indonesia', 'reksa dana OJK', 'ETF indonesia', 'passive income indonesia', 'FIRE indonesia', 'deposito vs saham indonesia'],
+    economics:  ['ekonomi indonesia', 'bank indonesia BI rate', 'inflasi rupiah', 'indonesia GDP growth', 'jokowi ekonomi indonesia', 'cost of living indonesia'],
+    crypto:     ['kripto indonesia', 'bitcoin rupiah', 'OJK kripto regulasi', 'tokocrypto pintu indonesia', 'ethereum indonesia'],
+    business:   ['bisnis online indonesia', 'UMKM indonesia', 'dropshipping indonesia', 'tokopedia shopee seller', 'PT perseroan terbatas indonesia', 'startup indonesia founder', 'freelance indonesia'],
+    realestate: ['investasi properti indonesia', 'beli rumah indonesia', 'KPR cicilan rumah', 'apartemen jakarta surabaya', 'tanah kavling indonesia'],
+    mindset:    ['motivasi indonesia', 'entrepreneur mindset indonesia', 'produktivitas indonesia'],
   },
 }
 
@@ -107,19 +340,40 @@ function applyRegion(queries: string[], keyword: string, gl: string): string[] {
   const suffix = REGION_SUFFIX[gl]
   const lower = keyword.toLowerCase().trim()
 
-  // Region-specific local terminology (highest priority — run first)
-  const extras: string[] = []
+  // Match keyword to topic categories using aliases
+  const matchedKeys = new Set<string>()
   if (REGION_TOPIC_EXTRAS[gl]) {
-    for (const [key, terms] of Object.entries(REGION_TOPIC_EXTRAS[gl])) {
-      if (lower.includes(key) || key.includes(lower)) extras.push(...terms)
+    // Direct key match
+    for (const key of Object.keys(REGION_TOPIC_EXTRAS[gl])) {
+      if (lower.includes(key) || key.includes(lower)) matchedKeys.add(key)
+    }
+    // Alias-based match (catches "economics" → "finance", "gym" → "fitness", etc.)
+    for (const [aliasKey, aliases] of Object.entries(TOPIC_ALIASES)) {
+      if (aliases.some(a => lower.includes(a) || a.includes(lower))) {
+        if (REGION_TOPIC_EXTRAS[gl][aliasKey]) matchedKeys.add(aliasKey)
+      }
     }
   }
 
-  // Append region suffix to all base queries so YouTube understands the geographic intent
+  // Collect all local market queries for matched topics
+  const extras: string[] = []
+  for (const key of matchedKeys) {
+    extras.push(...(REGION_TOPIC_EXTRAS[gl][key] || []))
+  }
+
+  // If no topic match, build generic regional queries from the keyword
+  const genericRegional = suffix ? [
+    `${keyword} ${suffix}`,
+    `${keyword} channel ${suffix}`,
+    `${keyword} content creator ${suffix}`,
+    `${keyword} tips ${suffix}`,
+  ] : []
+
+  // Suffix all base queries for geographic signal
   const suffixed = suffix ? queries.map(q => `${q} ${suffix}`) : queries
 
-  // Order: local extras first → suffixed queries → a few bare originals as fallback
-  return [...extras, ...suffixed, ...queries.slice(0, 3)]
+  // Order: local market extras → suffixed queries → generic regional → minimal bare fallback
+  return [...extras, ...genericRegional, ...suffixed, ...queries.slice(0, 2)]
 }
 
 function fallbackQueries(keyword: string, gl = ''): string[] {
