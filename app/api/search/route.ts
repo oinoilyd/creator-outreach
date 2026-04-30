@@ -47,6 +47,311 @@ const REGION_SUFFIX: Record<string, string> = {
   ES: 'spain', BR: 'brasil', MX: 'mexico', JP: 'japan', KR: 'korea', ID: 'indonesia',
 }
 
+// ── LANGUAGE BUNDLES PER REGION ─────────────────────────────────────────────
+// Native-language search terms that surface creators making content FOR local
+// audiences IN their local language. Fires alongside English local-market queries.
+interface LangBundle {
+  code: string        // BCP-47 language code (informational)
+  name: string        // display name
+  topics: Partial<Record<string, string[]>>  // topic key → native query terms
+  generic: string[]  // fallback when no topic matched
+}
+
+const REGION_LANGUAGES: Record<string, LangBundle[]> = {
+  // ── INDIA: Hindi · Tamil · Telugu · Marathi · Bengali · Kannada ───────────
+  IN: [
+    {
+      code: 'hi', name: 'Hindi',
+      topics: {
+        finance:    ['शेयर बाजार', 'mutual fund SIP hindi', 'share market hindi channel', 'पैसे कैसे बचाएं'],
+        trading:    ['option trading hindi', 'intraday trading hindi', 'शेयर ट्रेडिंग हिंदी'],
+        investing:  ['SIP investment hindi', 'stock market beginners hindi', 'mutual fund explained hindi'],
+        economics:  ['indian economy hindi channel', 'budget explained hindi', 'RBI policy hindi'],
+        crypto:     ['cryptocurrency explained hindi', 'bitcoin hindi channel', 'crypto news hindi'],
+        business:   ['business ideas hindi', 'online paise kaise kamaye', 'startup india hindi channel'],
+        realestate: ['property investment hindi', 'home loan guide hindi', 'real estate tips hindi'],
+        fitness:    ['workout hindi channel', 'weight loss tips hindi', 'gym beginners hindi'],
+        health:     ['health tips hindi', 'yoga hindi channel', 'ayurveda benefits hindi'],
+        tech:       ['coding sikhiye hindi', 'programming tutorial hindi', 'AI explained hindi'],
+        marketing:  ['digital marketing hindi', 'youtube channel kaise banaye hindi'],
+        education:  ['UPSC preparation channel', 'study motivation hindi', 'exam tips hindi channel'],
+        mindset:    ['motivation hindi channel', 'सफलता के राज', 'self improvement hindi'],
+        law:        ['kanoon ki jankari hindi', 'legal rights india hindi channel'],
+      },
+      generic: ['hindi youtube channel', 'hindi vlogger india', 'hindi content creator'],
+    },
+    {
+      code: 'ta', name: 'Tamil',
+      topics: {
+        finance:    ['share market tamil', 'investment tips tamil channel', 'mutual fund tamil'],
+        trading:    ['stock market trading tamil', 'option trading tamil channel'],
+        business:   ['business ideas tamil', 'online business tamil channel'],
+        fitness:    ['workout tamil channel', 'weight loss tamil', 'gym tips tamil'],
+        health:     ['health tips tamil', 'yoga tamil channel'],
+        mindset:    ['motivation tamil channel', 'self improvement tamil'],
+        education:  ['exam tips tamil channel', 'tnpsc preparation tamil'],
+        crypto:     ['crypto tamil channel', 'bitcoin explained tamil'],
+        realestate: ['property investment tamil', 'home buying guide tamil'],
+      },
+      generic: ['tamil youtube channel', 'tamil content creator', 'tamil vlogger'],
+    },
+    {
+      code: 'te', name: 'Telugu',
+      topics: {
+        finance:    ['share market telugu', 'investment tips telugu channel', 'mutual fund telugu'],
+        trading:    ['stock trading telugu channel', 'option trading telugu'],
+        business:   ['business ideas telugu', 'online business telugu channel'],
+        fitness:    ['workout telugu channel', 'fitness tips telugu'],
+        health:     ['health tips telugu channel', 'yoga telugu'],
+        mindset:    ['motivation telugu channel', 'success tips telugu'],
+        crypto:     ['crypto telugu channel', 'bitcoin explained telugu'],
+      },
+      generic: ['telugu youtube channel', 'telugu content creator', 'telugu vlogger'],
+    },
+    {
+      code: 'mr', name: 'Marathi',
+      topics: {
+        finance:    ['share market marathi', 'गुंतवणूक मराठी channel', 'mutual fund marathi'],
+        trading:    ['stock trading marathi channel', 'option trading marathi'],
+        business:   ['business ideas marathi channel', 'startup marathi'],
+        fitness:    ['workout marathi channel', 'fitness marathi'],
+        mindset:    ['motivation marathi channel', 'यश मराठी tips'],
+        education:  ['mpsc preparation marathi', 'study tips marathi channel'],
+      },
+      generic: ['marathi youtube channel', 'marathi content creator', 'marathi vlogger'],
+    },
+    {
+      code: 'bn', name: 'Bengali',
+      topics: {
+        finance:    ['share market bangla channel', 'mutual fund bangla', 'investment tips bangla'],
+        trading:    ['stock trading bangla channel', 'option trading bengali'],
+        business:   ['business ideas bangla channel', 'online income bangla'],
+        fitness:    ['workout bangla channel', 'fitness tips bangla'],
+        mindset:    ['motivation bangla channel', 'সাফল্য tips bangla'],
+      },
+      generic: ['bengali youtube channel', 'bangla content creator', 'bangla vlogger'],
+    },
+    {
+      code: 'kn', name: 'Kannada',
+      topics: {
+        finance:    ['share market kannada channel', 'investment tips kannada'],
+        trading:    ['stock trading kannada channel'],
+        business:   ['business ideas kannada channel', 'online business kannada'],
+        mindset:    ['motivation kannada channel', 'success tips kannada'],
+        education:  ['kpsc preparation kannada', 'study tips kannada channel'],
+      },
+      generic: ['kannada youtube channel', 'kannada content creator'],
+    },
+  ],
+
+  // ── PHILIPPINES: Tagalog / Filipino ──────────────────────────────────────
+  PH: [
+    {
+      code: 'tl', name: 'Filipino',
+      topics: {
+        finance:    ['pera tips tagalog channel', 'investment philippines tagalog', 'stock market tagalog tutorial'],
+        trading:    ['stocks tagalog tutorial', 'forex trading tagalog channel'],
+        business:   ['negosyo tips tagalog', 'online negosyo tagalog channel', 'paano kumita online'],
+        fitness:    ['workout tagalog channel', 'fitness tips tagalog', 'payat tips tagalog'],
+        health:     ['health tips tagalog channel', 'kalusugan tips Filipino'],
+        mindset:    ['motivasyon tagalog channel', 'self improvement tagalog', 'diskarte sa buhay'],
+        education:  ['board exam tips tagalog', 'study tips Filipino channel'],
+        crypto:     ['crypto tagalog channel', 'bitcoin Philippines tagalog'],
+      },
+      generic: ['tagalog youtube channel', 'pinoy content creator', 'filipino vlogger'],
+    },
+  ],
+
+  // ── UAE / DUBAI: Arabic ───────────────────────────────────────────────────
+  AE: [
+    {
+      code: 'ar', name: 'Arabic',
+      topics: {
+        finance:    ['استثمار المال عربي يوتيوب', 'تمويل شخصي عربي channel', 'ادارة المال عربي'],
+        trading:    ['تداول الاسهم عربي يوتيوب', 'فوركس عربي channel'],
+        business:   ['ريادة الاعمال عربي يوتيوب', 'مشاريع ناجحة عربي'],
+        mindset:    ['تطوير الذات عربي يوتيوب', 'تحفيز عربي channel'],
+        fitness:    ['لياقة بدنية عربي يوتيوب', 'تمارين رياضية عربي'],
+        health:     ['صحة ونصائح عربي يوتيوب', 'تغذية صحية عربي'],
+        realestate: ['عقارات دبي استثمار يوتيوب', 'اسعار العقارات عربي'],
+        crypto:     ['كريبتو عربي يوتيوب', 'بيتكوين عربي channel'],
+      },
+      generic: ['يوتيوب عربي قناة', 'صانع محتوى عربي', 'قناة عربية يوتيوب'],
+    },
+  ],
+
+  // ── GERMANY: German ───────────────────────────────────────────────────────
+  DE: [
+    {
+      code: 'de', name: 'German',
+      topics: {
+        finance:    ['Finanzen YouTube Kanal Deutsch', 'ETF Sparplan erklärt', 'Geld anlegen Anfänger Deutsch'],
+        trading:    ['Aktien kaufen lernen Deutsch', 'Börse Anfänger YouTube', 'Depot aufbauen Kanal'],
+        investing:  ['passiv investieren Kanal Deutsch', 'MSCI World erklärt', 'Dividenden Aktien Deutsch'],
+        business:   ['selbstständig YouTube Kanal', 'Unternehmen gründen Deutsch channel'],
+        fitness:    ['Fitness YouTube Deutsch Kanal', 'Abnehmen Tipps Deutsch', 'Muskelaufbau Kanal'],
+        health:     ['Gesundheit YouTube Deutsch', 'Ernährung Tipps Kanal Deutsch'],
+        mindset:    ['Motivation Deutsch YouTube', 'Produktivität Kanal Deutsch'],
+        tech:       ['Programmieren YouTube Deutsch', 'IT Kanal Deutsch'],
+      },
+      generic: ['Deutsch YouTube Kanal', 'deutschsprachiger YouTuber', 'Deutsch content creator'],
+    },
+  ],
+
+  // ── FRANCE: French ────────────────────────────────────────────────────────
+  FR: [
+    {
+      code: 'fr', name: 'French',
+      topics: {
+        finance:    ['chaîne YouTube finances France', 'investir bourse débutant YouTube', 'épargne retraite chaîne'],
+        trading:    ['trading bourse YouTube France', 'PEA actions investissement chaîne'],
+        business:   ['entrepreneur YouTube France', 'auto-entrepreneur conseils chaîne'],
+        fitness:    ['fitness YouTube France', 'perdre du poids conseils', 'musculation YouTube français'],
+        health:     ['santé YouTube France', 'nutrition conseils chaîne française'],
+        mindset:    ['motivation YouTube français', 'développement personnel France chaîne'],
+        tech:       ['programmation YouTube français', 'tech chaîne France'],
+      },
+      generic: ['chaîne YouTube française', 'créateur de contenu français', 'YouTuber français'],
+    },
+  ],
+
+  // ── SPAIN: Spanish ────────────────────────────────────────────────────────
+  ES: [
+    {
+      code: 'es', name: 'Spanish',
+      topics: {
+        finance:    ['canal finanzas YouTube España', 'invertir bolsa principiante canal', 'ahorro dinero YouTube'],
+        trading:    ['trading bolsa YouTube español', 'inversión acciones España canal'],
+        business:   ['emprendedor YouTube España canal', 'crear negocio online España'],
+        fitness:    ['fitness YouTube español canal', 'bajar de peso España', 'musculación YouTube español'],
+        health:     ['salud YouTube español canal', 'nutrición consejos España'],
+        mindset:    ['motivación YouTube español', 'desarrollo personal España canal'],
+        tech:       ['programación YouTube español canal', 'tecnología España canal'],
+      },
+      generic: ['canal YouTube español', 'creador contenido España', 'YouTuber español'],
+    },
+  ],
+
+  // ── BRAZIL: Portuguese ────────────────────────────────────────────────────
+  BR: [
+    {
+      code: 'pt', name: 'Portuguese',
+      topics: {
+        finance:    ['canal finanças YouTube Brasil', 'investir B3 iniciante canal', 'educação financeira YouTube'],
+        trading:    ['day trade YouTube Brasil canal', 'ações bolsa valores Brasil'],
+        business:   ['empreendedor YouTube Brasil canal', 'abrir negócio online Brasil'],
+        fitness:    ['fitness YouTube Brasil canal', 'emagrecer dicas', 'musculação canal brasileiro'],
+        health:     ['saúde dicas YouTube Brasil', 'nutrição canal português'],
+        mindset:    ['motivação YouTube Brasil canal', 'desenvolvimento pessoal português'],
+        tech:       ['programação YouTube português canal', 'tecnologia canal Brasil'],
+        crypto:     ['cripto YouTube Brasil canal', 'bitcoin reais channel'],
+      },
+      generic: ['canal YouTube brasileiro', 'criador de conteúdo Brasil', 'YouTuber brasileiro'],
+    },
+  ],
+
+  // ── MEXICO: Spanish (Mexico-specific) ─────────────────────────────────────
+  MX: [
+    {
+      code: 'es', name: 'Spanish',
+      topics: {
+        finance:    ['canal finanzas YouTube Mexico', 'invertir Mexico principiante', 'CETES educación financiera Mexico'],
+        trading:    ['trading bolsa Mexico YouTube canal', 'acciones BMV Mexico'],
+        business:   ['emprendedor YouTube Mexico canal', 'negocio online Mexico'],
+        fitness:    ['fitness YouTube Mexico canal', 'bajar peso Mexico', 'gym tips Mexico'],
+        health:     ['salud consejos Mexico YouTube', 'nutrición Mexico canal'],
+        mindset:    ['motivación YouTube Mexico canal', 'mentalidad éxito Mexico'],
+        tech:       ['programación YouTube Mexico canal', 'tecnología Mexico'],
+        crypto:     ['cripto YouTube Mexico canal', 'bitcoin pesos Mexico'],
+      },
+      generic: ['canal YouTube Mexico', 'creador contenido mexicano', 'YouTuber Mexico'],
+    },
+  ],
+
+  // ── JAPAN: Japanese ───────────────────────────────────────────────────────
+  JP: [
+    {
+      code: 'ja', name: 'Japanese',
+      topics: {
+        finance:    ['資産運用 YouTubeチャンネル', 'NISA 投資 初心者 解説', 'お金の増やし方 チャンネル'],
+        trading:    ['株 トレード YouTube', '日本株 デイトレ 解説チャンネル', 'FX 入門 日本語'],
+        investing:  ['インデックス投資 解説チャンネル', 'ETF 積立投資 YouTube', '長期投資 入門 日本語'],
+        business:   ['起業 YouTubeチャンネル 日本語', '副業 稼ぐ方法 YouTube', 'ビジネス 解説 日本語'],
+        fitness:    ['筋トレ YouTube 日本語チャンネル', 'ダイエット 方法 解説 YouTube'],
+        health:     ['健康 YouTubeチャンネル 日本語', '食事 栄養 解説 YouTube'],
+        mindset:    ['自己啓発 YouTubeチャンネル', '成功 マインドセット 日本語'],
+        tech:       ['プログラミング YouTube 日本語', 'ITエンジニア 解説チャンネル'],
+      },
+      generic: ['日本語 YouTubeチャンネル', '日本人 YouTuber', 'Japanese content creator'],
+    },
+  ],
+
+  // ── SOUTH KOREA: Korean ───────────────────────────────────────────────────
+  KR: [
+    {
+      code: 'ko', name: 'Korean',
+      topics: {
+        finance:    ['재테크 유튜브채널 한국어', '주식투자 초보 유튜브', '돈 모으는 방법 유튜브'],
+        trading:    ['주식 분석 유튜브 한국어', '코스피 단타 해설채널', '미국주식 한국어 해설'],
+        investing:  ['장기투자 유튜브 한국어', 'ETF 투자 해설 채널', '인덱스펀드 한국어'],
+        business:   ['창업 유튜브 채널 한국어', '부업 돈버는법 YouTube', '스타트업 한국 해설'],
+        fitness:    ['헬스 유튜브 채널 한국어', '다이어트 운동 YouTube 한국', '근성장 채널'],
+        health:     ['건강 유튜버 한국어', '영양 식단 YouTube 한국어'],
+        mindset:    ['자기계발 유튜브 한국어', '성공 마인드셋 채널'],
+        tech:       ['프로그래밍 유튜브 한국어', 'IT개발자 YouTube 채널'],
+        crypto:     ['코인 유튜브채널 한국어', '비트코인 한국어 해설'],
+      },
+      generic: ['한국어 유튜브채널', '한국 YouTuber', 'Korean content creator'],
+    },
+  ],
+
+  // ── INDONESIA: Bahasa Indonesia ───────────────────────────────────────────
+  ID: [
+    {
+      code: 'id', name: 'Indonesian',
+      topics: {
+        finance:    ['keuangan pribadi YouTube Indonesia', 'investasi saham pemula channel', 'tips nabung Indonesia'],
+        trading:    ['trading saham Indonesia YouTube', 'analisis saham BEI channel'],
+        business:   ['bisnis online YouTube Indonesia canal', 'usaha rumahan tips channel'],
+        fitness:    ['olahraga YouTube Indonesia channel', 'diet tips bahasa Indonesia', 'gym Indonesia channel'],
+        health:     ['kesehatan YouTube Indonesia channel', 'nutrisi makanan sehat Bahasa'],
+        mindset:    ['motivasi Indonesia YouTube channel', 'pengembangan diri Bahasa Indonesia'],
+        tech:       ['programming YouTube Indonesia channel', 'coding Bahasa Indonesia'],
+        crypto:     ['kripto YouTube Indonesia channel', 'bitcoin rupiah channel'],
+      },
+      generic: ['channel YouTube Indonesia', 'konten kreator Indonesia', 'YouTuber Indonesia'],
+    },
+  ],
+
+  // ── SINGAPORE: English-primary + Mandarin layer ───────────────────────────
+  SG: [
+    {
+      code: 'zh', name: 'Chinese',
+      topics: {
+        finance:    ['新加坡理财 YouTube频道', 'CPF 投资 新加坡 频道', '新加坡 股票 投资 解说'],
+        business:   ['新加坡 创业 YouTube', '新加坡 商业 中文频道'],
+        mindset:    ['新加坡 自我提升 频道', '成功思维 中文 Singapore'],
+        fitness:    ['健身 新加坡 中文频道', '减肥 新加坡 YouTube'],
+        health:     ['健康 养生 新加坡 频道', '营养 中文 YouTube'],
+      },
+      generic: ['新加坡 中文 YouTube频道', '新加坡 华语 频道', 'Singapore Chinese YouTuber'],
+    },
+  ],
+
+  // ── NIGERIA: Pidgin + Yoruba layer (English already dominant) ─────────────
+  NG: [
+    {
+      code: 'pcm', name: 'Nigerian Pidgin',
+      topics: {
+        finance:    ['how to make money naija channel', 'investment tips naija YouTube', 'save money Nigeria channel'],
+        business:   ['hustle naija YouTube', 'side hustle nigeria channel', 'online business naija'],
+        mindset:    ['motivation naija channel', 'success africa youth YouTube'],
+      },
+      generic: ['naija youtube channel', 'nigerian content creator', 'naija vlogger'],
+    },
+  ],
+}
+
 // Canonical topic aliases — maps what a user might type to the REGION_TOPIC_EXTRAS keys
 const TOPIC_ALIASES: Record<string, string[]> = {
   finance:    ['finance', 'investing', 'investment', 'money', 'banking', 'wealth', 'stock', 'trading', 'economics', 'economy'],
@@ -72,6 +377,26 @@ function matchTopicKeys(keyword: string): string[] {
     if (aliases.some(a => lower.includes(a) || a.includes(lower))) matched.add(key)
   }
   return [...matched]
+}
+
+// Generate native-language search queries for all language bundles in a region
+function buildLanguageQueries(gl: string, keyword: string): string[] {
+  const bundles = REGION_LANGUAGES[gl]
+  if (!bundles || bundles.length === 0) return []
+  const matchedTopicKeys = matchTopicKeys(keyword)
+  const queries: string[] = []
+  for (const bundle of bundles) {
+    const bundleQ: string[] = []
+    if (matchedTopicKeys.length > 0) {
+      for (const topicKey of matchedTopicKeys) {
+        bundleQ.push(...(bundle.topics[topicKey] || []).slice(0, 2))
+      }
+    }
+    // fall back to generic language queries when no topic matched
+    if (bundleQ.length === 0) bundleQ.push(...bundle.generic.slice(0, 2))
+    queries.push(...bundleQ)
+  }
+  return queries
 }
 
 // Deep local market terminology per region per topic category
@@ -340,28 +665,25 @@ function applyRegion(queries: string[], keyword: string, gl: string): string[] {
   const suffix = REGION_SUFFIX[gl]
   const lower = keyword.toLowerCase().trim()
 
-  // Match keyword to topic categories using aliases
+  // 1. Native-language queries (Hindi/Tamil/Telugu/etc. for India, etc.)
+  const nativeQueries = buildLanguageQueries(gl, keyword)
+
+  // 2. English local-market extras from REGION_TOPIC_EXTRAS
   const matchedKeys = new Set<string>()
   if (REGION_TOPIC_EXTRAS[gl]) {
-    // Direct key match
     for (const key of Object.keys(REGION_TOPIC_EXTRAS[gl])) {
       if (lower.includes(key) || key.includes(lower)) matchedKeys.add(key)
     }
-    // Alias-based match (catches "economics" → "finance", "gym" → "fitness", etc.)
     for (const [aliasKey, aliases] of Object.entries(TOPIC_ALIASES)) {
       if (aliases.some(a => lower.includes(a) || a.includes(lower))) {
         if (REGION_TOPIC_EXTRAS[gl][aliasKey]) matchedKeys.add(aliasKey)
       }
     }
   }
-
-  // Collect all local market queries for matched topics
   const extras: string[] = []
-  for (const key of matchedKeys) {
-    extras.push(...(REGION_TOPIC_EXTRAS[gl][key] || []))
-  }
+  for (const key of matchedKeys) extras.push(...(REGION_TOPIC_EXTRAS[gl][key] || []))
 
-  // If no topic match, build generic regional queries from the keyword
+  // 3. Generic country-suffixed queries (fallback when no topic matched)
   const genericRegional = suffix ? [
     `${keyword} ${suffix}`,
     `${keyword} channel ${suffix}`,
@@ -369,11 +691,12 @@ function applyRegion(queries: string[], keyword: string, gl: string): string[] {
     `${keyword} tips ${suffix}`,
   ] : []
 
-  // Suffix all base queries for geographic signal
+  // 4. Suffix all base English queries for geographic signal
   const suffixed = suffix ? queries.map(q => `${q} ${suffix}`) : queries
 
-  // Order: local market extras → suffixed queries → generic regional → minimal bare fallback
-  return [...extras, ...genericRegional, ...suffixed, ...queries.slice(0, 2)]
+  // Order: native-language → English local market → country-suffixed → bare English fallback
+  // Deduplicate to avoid redundant search calls
+  return [...new Set([...nativeQueries, ...extras, ...genericRegional, ...suffixed, ...queries.slice(0, 2)])]
 }
 
 function fallbackQueries(keyword: string, gl = ''): string[] {
