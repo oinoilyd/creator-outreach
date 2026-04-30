@@ -132,28 +132,55 @@ async function fromRSS(channelId: string): Promise<string[]> {
 }
 
 // SOURCE 2b: /videos page scrape — fallback when RSS returns 404
-async function fromVideosPage(channelId: string): Promise<string[]> {
+function parseViewText(raw: any): number {
+  const text: string = typeof raw === 'string' ? raw : (raw?.simpleText || raw?.runs?.[0]?.text || '')
+  if (!text) return NaN
+  const t = text.replace(/,/g, '').toLowerCase()
+  const m = t.match(/[\d.]+/)
+  if (!m) return NaN
+  const n = parseFloat(m[0])
+  if (t.includes('b')) return Math.round(n * 1_000_000_000)
+  if (t.includes('m')) return Math.round(n * 1_000_000)
+  if (t.includes('k')) return Math.round(n * 1_000)
+  return Math.round(n)
+}
+
+async function fromVideosPage(channelId: string): Promise<{ dates: string[], avgViews: number }> {
   const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/videos`, 8000)
   const data = extractYtInitialData(html)
-  if (!data) return []
+  if (!data) return { dates: [], avgViews: NaN }
+
   const dates: string[] = []
   const publishedTexts: any[] = deepCollect(data, 'publishedTimeText')
   for (const t of publishedTexts) {
     const text: string = typeof t === 'string' ? t : (t?.simpleText || t?.runs?.[0]?.text || '')
     if (text && dates.length < 2) dates.push(text)
   }
-  return dates
+
+  const viewCounts: number[] = []
+  const viewTexts: any[] = deepCollect(data, 'viewCountText')
+  for (const v of viewTexts) {
+    const n = parseViewText(v)
+    if (!isNaN(n) && n >= 0) viewCounts.push(n)
+    if (viewCounts.length >= 10) break
+  }
+  const avgViews = viewCounts.length > 0
+    ? Math.round(viewCounts.reduce((a, b) => a + b, 0) / viewCounts.length)
+    : NaN
+
+  return { dates, avgViews }
 }
 
 // SOURCE 2: try RSS first (exact dates), fall back to /videos page scrape
-async function fromYouTubeVideos(channelId: string): Promise<string[]> {
+async function fromYouTubeVideos(channelId: string): Promise<{ dates: string[], avgViews: number }> {
   const [rssResult, videosResult] = await Promise.allSettled([
     fromRSS(channelId),
     fromVideosPage(channelId),
   ])
   const rss = rssResult.status === 'fulfilled' ? rssResult.value : []
-  if (rss.length > 0) return rss
-  return videosResult.status === 'fulfilled' ? videosResult.value : []
+  const videos = videosResult.status === 'fulfilled' ? videosResult.value : { dates: [], avgViews: NaN }
+  const dates = rss.length > 0 ? rss : videos.dates
+  return { dates, avgViews: videos.avgViews }
 }
 
 // SOURCE 3: DuckDuckGo — find LinkedIn profile for a creator by name
@@ -268,7 +295,9 @@ export async function GET(req: NextRequest) {
     fromDDGEmail(channelName, website),
   ])
 
-  const videoDates = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : []
+  const ytVideos = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : { dates: [], avgViews: NaN }
+  const videoDates = ytVideos.dates
+  const avgViews = isNaN(ytVideos.avgViews) ? undefined : ytVideos.avgViews
   const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [], socials: {} }
   const ddgLinkedIn = ddgLinkedInResult.status === 'fulfilled' ? ddgLinkedInResult.value : ''
   const ddgEmails = ddgEmailResult.status === 'fulfilled' ? ddgEmailResult.value : []
@@ -284,5 +313,5 @@ export async function GET(req: NextRequest) {
     website: website || '',
   }
 
-  return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, ...socials })
+  return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, avgViews, ...socials })
 }

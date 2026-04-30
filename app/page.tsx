@@ -446,6 +446,7 @@ export default function Home() {
               email: c.email || extra.email || '',
               subscribers: c.subscribers || extra.subscribers || '',
               videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
+              avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : c.avgViews,
               linkedin: c.linkedin || extra.linkedin || '',
               instagram: c.instagram || extra.instagram || '',
               twitter: c.twitter || extra.twitter || '',
