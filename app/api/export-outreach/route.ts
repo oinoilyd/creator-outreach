@@ -13,8 +13,7 @@ export async function POST(req: NextRequest) {
     'Reached Out': e.reachedOut ? 'Yes' : 'No',
     'Medium': e.medium === 'Other' ? (e.mediumOther || 'Other') : (e.medium || ''),
     'Subject Line': e.headerUsed || '',
-    'Open': e.open ? 'Yes' : 'No',
-    'Rejected': e.rejected ? 'Yes' : 'No',
+    'Status': e.status || '',
   }))
 
   const ws = XLSX.utils.json_to_sheet(rows)
@@ -24,7 +23,7 @@ export async function POST(req: NextRequest) {
   ws['!cols'] = [
     { wch: 28 }, { wch: 40 }, { wch: 32 }, { wch: 50 },
     { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 40 },
-    { wch: 10 }, { wch: 10 },
+    { wch: 16 },
   ]
 
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })

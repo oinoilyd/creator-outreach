@@ -39,8 +39,7 @@ interface OutreachEntry {
   medium: 'Email' | 'LinkedIn' | 'Other' | ''
   mediumOther: string
   headerUsed: string
-  open: boolean
-  rejected: boolean
+  status: 'Open' | 'Rejected' | 'Successful' | 'No Response' | ''
   addedAt: number
 }
 
@@ -326,8 +325,8 @@ function AutoTextarea({ value, onChange, placeholder, className }: {
   )
 }
 
-const OUTREACH_COL_LABELS = ['Channel', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Open', 'Rejected', '']
-const OUTREACH_COL_DEFAULTS = [160, 42, 190, 230, 160, 96, 170, 210, 58, 68, 36]
+const OUTREACH_COL_LABELS = ['Channel', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Status', '']
+const OUTREACH_COL_DEFAULTS = [160, 42, 190, 230, 160, 96, 170, 210, 130, 36]
 
 function OutreachTab({ entries, onUpdate, onRemove }: {
   entries: OutreachEntry[]
@@ -446,20 +445,28 @@ function OutreachTab({ entries, onUpdate, onRemove }: {
               <td className="px-3 py-2 align-top" style={{ width: widths[7] }}>
                 <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-gray-200" />
               </td>
-              {/* Open */}
-              <td className="px-3 py-2 align-top text-center" style={{ width: widths[8] }}>
-                <input type="checkbox" checked={e.open}
-                  onChange={ev => onUpdate(e.id, 'open', ev.target.checked)}
-                  className="w-4 h-4 rounded accent-green-500 cursor-pointer mt-0.5" />
-              </td>
-              {/* Rejected */}
-              <td className="px-3 py-2 align-top text-center" style={{ width: widths[9] }}>
-                <input type="checkbox" checked={e.rejected}
-                  onChange={ev => onUpdate(e.id, 'rejected', ev.target.checked)}
-                  className="w-4 h-4 rounded accent-red-500 cursor-pointer mt-0.5" />
+              {/* Status */}
+              <td className="px-3 py-2 align-top" style={{ width: widths[8] }}>
+                <select
+                  value={e.status}
+                  onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
+                  className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none focus:border-purple-500 border ${
+                    e.status === 'Successful'   ? 'bg-green-900 border-green-700 text-green-300' :
+                    e.status === 'Open'         ? 'bg-blue-900 border-blue-700 text-blue-300' :
+                    e.status === 'Rejected'     ? 'bg-red-900 border-red-700 text-red-300' :
+                    e.status === 'No Response'  ? 'bg-gray-800 border-gray-600 text-gray-400' :
+                    'bg-gray-800 border-gray-700 text-gray-400'
+                  }`}
+                >
+                  <option value="">—</option>
+                  <option value="Open">Open</option>
+                  <option value="No Response">No Response</option>
+                  <option value="Successful">Successful</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
               </td>
               {/* Remove */}
-              <td className="px-3 py-2 align-top" style={{ width: widths[10] }}>
+              <td className="px-3 py-2 align-top" style={{ width: widths[9] }}>
                 <button onClick={() => onRemove(e.id)} className="text-gray-700 hover:text-red-400 transition-colors">
                   <TrashIcon />
                 </button>
@@ -668,8 +675,7 @@ export default function Home() {
       medium: '',
       mediumOther: '',
       headerUsed: '',
-      open: false,
-      rejected: false,
+      status: '',
       addedAt: Date.now(),
     }
     saveOutreach([...outreach, entry])
@@ -800,14 +806,13 @@ export default function Home() {
 
   function handleExportOutreachCSV() {
     setShowExport(false)
-    const headers = ['Channel Name', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Open', 'Rejected']
+    const headers = ['Channel Name', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Status']
     const rows = outreach.map(e => [
       e.channelName, e.channelUrl, e.email, e.description, e.product,
       e.reachedOut ? 'Yes' : 'No',
       e.medium === 'Other' ? e.mediumOther : e.medium,
       e.headerUsed,
-      e.open ? 'Yes' : 'No',
-      e.rejected ? 'Yes' : 'No',
+      e.status || '',
     ])
     const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
