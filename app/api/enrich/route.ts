@@ -28,17 +28,15 @@ function bestEmail(emails: string[]): string {
   return priority || emails[0] || ''
 }
 
-function decodeYtRedirect(url: string): string {
-  try {
-    if (url.includes('/redirect')) {
-      const u = new URL(url.startsWith('http') ? url : 'https://youtube.com' + url)
-      return decodeURIComponent(u.searchParams.get('q') || url)
-    }
-    return url
-  } catch { return url }
+function normalizeUrl(url: string): string {
+  if (!url) return ''
+  const u = url.trim()
+  if (u.startsWith('http://') || u.startsWith('https://')) return u
+  return 'https://' + u
 }
 
-// Safely extract ytInitialData from YouTube page HTML
+const SOCIAL_DOMAIN = /facebook\.com|instagram\.com|twitter\.com|x\.com|tiktok\.com|youtube\.com|linkedin\.com/i
+
 function extractYtInitialData(html: string): any | null {
   try {
     const marker = 'var ytInitialData = '
@@ -46,7 +44,6 @@ function extractYtInitialData(html: string): any | null {
     if (start === -1) return null
     const jsonStart = html.indexOf('{', start)
     if (jsonStart === -1) return null
-    // find the end of the JSON by walking braces
     let depth = 0
     let i = jsonStart
     for (; i < html.length; i++) {
@@ -57,16 +54,15 @@ function extractYtInitialData(html: string): any | null {
   } catch { return null }
 }
 
-// Walk an object recursively and collect values at any depth
 function deepCollect(obj: any, key: string, results: any[] = [], depth = 0): any[] {
-  if (depth > 15 || !obj || typeof obj !== 'object') return results
+  if (depth > 25 || !obj || typeof obj !== 'object') return results
   if (Array.isArray(obj)) { obj.forEach(v => deepCollect(v, key, results, depth + 1)); return results }
   if (obj[key] !== undefined) results.push(obj[key])
   Object.values(obj).forEach(v => deepCollect(v, key, results, depth + 1))
   return results
 }
 
-// SOURCE 1: YouTube channel About page — extract description, links, business email, and subscriber count
+// SOURCE 1: YouTube About page — uses current aboutChannelViewModel / channelExternalLinkViewModel structure
 async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], socials: Record<string, string>, subscribers: string }> {
   const socials: Record<string, string> = {}
   const emails: string[] = []
@@ -76,100 +72,111 @@ async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], 
     const data = extractYtInitialData(html)
     if (!data) return { emails, socials, subscribers }
 
-    // extract subscriber count — try raw number first, then formatted text
-    const subCounts: any[] = deepCollect(data, 'subscriberCount')
-    for (const s of subCounts) {
-      if (typeof s === 'number' && s > 0) { subscribers = String(s); break }
-    }
-    if (!subscribers) {
-      const subTexts: any[] = deepCollect(data, 'subscriberCountText')
-      for (const t of subTexts) {
-        const text: string = typeof t === 'string' ? t : (t?.simpleText || t?.runs?.[0]?.text || '')
-        if (text && /\d/.test(text)) { subscribers = text.replace(/subscribers?/i, '').trim(); break }
+    // aboutChannelViewModel holds description + subscriberCountText
+    const aboutVMs: any[] = deepCollect(data, 'aboutChannelViewModel')
+    const vm = aboutVMs[0]
+    if (vm) {
+      if (typeof vm.description === 'string') emails.push(...extractEmails(vm.description))
+      if (typeof vm.subscriberCountText === 'string') {
+        subscribers = vm.subscriberCountText.replace(/subscribers?/i, '').trim()
       }
     }
 
-    // grab all description text blobs
-    const simpleTexts: string[] = deepCollect(data, 'simpleText')
-    for (const t of simpleTexts) {
-      if (typeof t === 'string') emails.push(...extractEmails(t))
+    // channelExternalLinkViewModel holds all external links (website, socials, and sometimes email links)
+    const extLinks: any[] = deepCollect(data, 'channelExternalLinkViewModel')
+    for (const ext of extLinks) {
+      const rawUrl = ext.link?.content || ''
+      if (!rawUrl) continue
+
+      // Some creators list email as a link (e.g. title="📧 Email", url="info@example.com")
+      if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(rawUrl) && !BAD_EMAIL.test(rawUrl)) {
+        emails.push(rawUrl)
+        continue
+      }
+
+      const url = normalizeUrl(rawUrl)
+      if (!socials.instagram && rawUrl.includes('instagram.com')) socials.instagram = url
+      if (!socials.twitter && (rawUrl.includes('twitter.com') || rawUrl.includes('x.com'))) socials.twitter = url
+      if (!socials.tiktok && rawUrl.includes('tiktok.com')) socials.tiktok = url
+      // accept both linkedin.com/in/ (personal) and linkedin.com/company/ (business)
+      if (!socials.linkedin && rawUrl.includes('linkedin.com')) socials.linkedin = url
+      if (!socials.website && !SOCIAL_DOMAIN.test(rawUrl)) socials.website = url
     }
 
-    // grab business email (YouTube sometimes puts it in a dedicated field)
-    const businessEmails: any[] = deepCollect(data, 'businessEmail')
-    for (const e of businessEmails) {
-      if (typeof e === 'string') emails.push(...extractEmails(e))
-    }
-
-    // grab all URLs from the links section and decode YouTube redirects
-    const urlObjects: any[] = deepCollect(data, 'urlEndpoint')
-    for (const obj of urlObjects) {
-      const raw = obj?.url || ''
-      const url = decodeYtRedirect(raw)
-      if (!url || url.includes('youtube.com')) continue
-      if (!socials.instagram && url.includes('instagram.com')) socials.instagram = url
-      if (!socials.twitter && (url.includes('twitter.com') || url.includes('x.com'))) socials.twitter = url
-      if (!socials.tiktok && url.includes('tiktok.com')) socials.tiktok = url
-      if (!socials.linkedin && url.includes('linkedin.com')) socials.linkedin = url
-      if (!socials.website && !url.match(/instagram|twitter|tiktok|linkedin|youtube/i)) socials.website = url
-    }
-
-    // also try the channelMetadataRenderer description
-    const metaDescriptions: any[] = deepCollect(data, 'description')
-    for (const d of metaDescriptions) {
-      if (typeof d === 'string') emails.push(...extractEmails(d))
-    }
   } catch { /* failed */ }
   return { emails, socials, subscribers }
 }
 
-// SOURCE 1b: YouTube RSS feed — accurate publish dates for the 2 most recent videos
-async function fromYouTubeVideos(channelId: string): Promise<string[]> {
-  try {
-    const xml = await fetchHtml(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, 8000)
-    // Match only <entry> blocks — skips the feed-level <published> (channel creation date)
-    const entries = [...xml.matchAll(/<entry[\s\S]*?<\/entry>/g)]
-    const dates: string[] = []
-    for (const entry of entries) {
-      if (dates.length >= 2) break
-      const m = entry[0].match(/<published>([^<]+)<\/published>/)
-      if (!m) continue
-      const d = new Date(m[1])
-      if (isNaN(d.getTime())) continue
-      const days = Math.floor((Date.now() - d.getTime()) / 86400000)
-      let label: string
-      if (days === 0) label = 'today'
-      else if (days < 30) label = `${days} day${days === 1 ? '' : 's'} ago`
-      else if (days < 60) label = '1 month ago'
-      else if (days < 365) label = `${Math.floor(days / 30)} months ago`
-      else label = `${Math.floor(days / 365)} year${Math.floor(days / 365) === 1 ? '' : 's'} ago`
-      dates.push(label)
-    }
-    return dates
-  } catch { return [] }
+// SOURCE 2a: YouTube RSS feed — exact ISO dates, works for most channels
+async function fromRSS(channelId: string): Promise<string[]> {
+  const xml = await fetchHtml(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, 6000)
+  const entries = [...xml.matchAll(/<entry[\s\S]*?<\/entry>/g)]
+  const dates: string[] = []
+  for (const entry of entries) {
+    if (dates.length >= 2) break
+    const m = entry[0].match(/<published>([^<]+)<\/published>/)
+    if (!m) continue
+    const d = new Date(m[1])
+    if (isNaN(d.getTime())) continue
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000)
+    let label: string
+    if (days === 0) label = 'today'
+    else if (days < 30) label = `${days} day${days === 1 ? '' : 's'} ago`
+    else if (days < 60) label = '1 month ago'
+    else if (days < 365) label = `${Math.floor(days / 30)} months ago`
+    else label = `${Math.floor(days / 365)} year${Math.floor(days / 365) === 1 ? '' : 's'} ago`
+    dates.push(label)
+  }
+  if (dates.length === 0) throw new Error('no RSS entries')
+  return dates
 }
 
-// SOURCE 2: scrape website — main page + contact/about subpages
-async function fromWebsite(url: string): Promise<{ emails: string[], socials: Record<string, string> }> {
+// SOURCE 2b: /videos page scrape — fallback when RSS returns 404
+async function fromVideosPage(channelId: string): Promise<string[]> {
+  const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/videos`, 8000)
+  const data = extractYtInitialData(html)
+  if (!data) return []
+  const dates: string[] = []
+  const publishedTexts: any[] = deepCollect(data, 'publishedTimeText')
+  for (const t of publishedTexts) {
+    const text: string = typeof t === 'string' ? t : (t?.simpleText || t?.runs?.[0]?.text || '')
+    if (text && dates.length < 2) dates.push(text)
+  }
+  return dates
+}
+
+// SOURCE 2: try RSS first (exact dates), fall back to /videos page scrape
+async function fromYouTubeVideos(channelId: string): Promise<string[]> {
+  const [rssResult, videosResult] = await Promise.allSettled([
+    fromRSS(channelId),
+    fromVideosPage(channelId),
+  ])
+  const rss = rssResult.status === 'fulfilled' ? rssResult.value : []
+  if (rss.length > 0) return rss
+  return videosResult.status === 'fulfilled' ? videosResult.value : []
+}
+
+// SOURCE 3: scrape website contact pages for email and LinkedIn links
+async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials: Record<string, string> }> {
   const socials: Record<string, string> = {}
   const allEmails: string[] = []
-  if (!url) return { emails: allEmails, socials }
+  const url = normalizeUrl(rawUrl)
+  if (!url || SOCIAL_DOMAIN.test(url)) return { emails: allEmails, socials }
 
   const base = url.replace(/\/$/, '')
-  const pagesToTry = [url, `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/work-with-me`, `${base}/sponsorship`]
+  const pagesToTry = [url, `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/work-with-me`]
 
   await Promise.allSettled(pagesToTry.map(async (page) => {
     try {
-      const html = await fetchHtml(page, 6000)
+      const html = await fetchHtml(page, 5000)
       const $ = cheerio.load(html)
       allEmails.push(...extractEmails(html))
       $('a[href]').each((_, el) => {
         const href = $(el).attr('href') || ''
         if (href.startsWith('mailto:')) allEmails.push(...extractEmails(href))
-        if (!socials.linkedin && href.includes('linkedin.com/in')) socials.linkedin = href
+        if (!socials.linkedin && href.includes('linkedin.com')) socials.linkedin = href
         if (!socials.instagram && href.includes('instagram.com')) socials.instagram = href
         if (!socials.twitter && (href.includes('twitter.com') || href.includes('x.com'))) socials.twitter = href
-        if (!socials.tiktok && href.includes('tiktok.com')) socials.tiktok = href
       })
     } catch { /* page not found */ }
   }))
@@ -177,123 +184,42 @@ async function fromWebsite(url: string): Promise<{ emails: string[], socials: Re
   return { emails: allEmails, socials }
 }
 
-// SOURCE 3: scan Instagram page HTML for email in bio
-async function fromInstagram(url: string): Promise<string[]> {
-  if (!url) return []
-  try {
-    const html = await fetchHtml(url, 6000)
-    return extractEmails(html)
-  } catch { return [] }
-}
-
-// SOURCE 4: scan TikTok page HTML for email in bio
-async function fromTikTok(url: string): Promise<string[]> {
-  if (!url) return []
-  try {
-    const html = await fetchHtml(url, 6000)
-    return extractEmails(html)
-  } catch { return [] }
-}
-
-// SOURCE 5: DuckDuckGo — search for creator email
-async function fromDDGEmail(name: string, website: string): Promise<string[]> {
-  const queries = [
-    `"${name}" email`,
-    `"${name}" contact email`,
-    website ? `site:${new URL(website).hostname} email` : '',
-  ].filter(Boolean)
-
-  const emails: string[] = []
-  await Promise.allSettled(queries.map(async (q) => {
-    try {
-      const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, 6000)
-      emails.push(...extractEmails(html))
-    } catch { /* failed */ }
-  }))
-  return emails
-}
-
-function decodeDDGUrl(href: string): string {
-  try {
-    if (href.includes('uddg=')) {
-      const encoded = href.split('uddg=')[1]?.split('&')[0]
-      if (encoded) return decodeURIComponent(encoded)
-    }
-  } catch { /* ignore */ }
-  return href
-}
-
-function extractLinkedInUrl(text: string): string {
-  const m = text.match(/https?:\/\/(www\.)?linkedin\.com\/in\/[\w%-]+\/?/i)
-  return m ? m[0] : ''
-}
-
-// SOURCE 6: DuckDuckGo — find LinkedIn profile URL (multiple strategies)
-async function fromDDGLinkedIn(name: string): Promise<string> {
-  if (!name) return ''
-  const queries = [
-    `"${name}" site:linkedin.com/in`,
-    `${name} LinkedIn`,
-    `"${name}" linkedin.com`,
-  ]
-  for (const q of queries) {
-    try {
-      const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, 7000)
-      // try extracting from raw HTML text first (catches encoded URLs in page source)
-      const fromText = extractLinkedInUrl(html)
-      if (fromText) return fromText
-      // parse links and decode DDG redirects
-      const $ = cheerio.load(html)
-      const found = $('a[href]').toArray().map(el => {
-        const href = $(el).attr('href') || ''
-        return decodeDDGUrl(href)
-      }).find(u => u.includes('linkedin.com/in'))
-      if (found) return found.startsWith('http') ? found : `https://${found}`
-    } catch { /* try next query */ }
-  }
-  return ''
-}
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const name = searchParams.get('name') || ''
   const channelId = searchParams.get('channelId') || ''
-  const website = searchParams.get('website') || ''
-  const instagram = searchParams.get('instagram') || ''
-  const tiktok = searchParams.get('tiktok') || ''
+  const websiteParam = searchParams.get('website') || ''
+  const instagramParam = searchParams.get('instagram') || ''
+  const tiktokParam = searchParams.get('tiktok') || ''
   const description = searchParams.get('description') || ''
 
-  // emails already in description (passed from search)
   const descEmails = extractEmails(description)
 
-  // run all sources in parallel
-  const [ytResult, ytVideosResult, webResult, igEmails, ttEmails, ddgEmails, ddgLinkedIn] = await Promise.allSettled([
-    fromYouTubeAbout(channelId),
+  // Phase 1: About page — discovers description emails, all social/website links, subscriber count
+  const yt = await fromYouTubeAbout(channelId)
+    .catch(() => ({ emails: [], socials: {} as Record<string, string>, subscribers: '' }))
+
+  const website = yt.socials.website || websiteParam
+  const instagram = yt.socials.instagram || instagramParam
+  const tiktok = yt.socials.tiktok || tiktokParam
+
+  // Phase 2: RSS feed for dates + website scraping with the URL we just discovered
+  const [ytVideosResult, webResult] = await Promise.allSettled([
     fromYouTubeVideos(channelId),
     fromWebsite(website),
-    fromInstagram(instagram),
-    fromTikTok(tiktok),
-    fromDDGEmail(name, website),
-    fromDDGLinkedIn(name),
   ])
 
-  const yt = ytResult.status === 'fulfilled' ? ytResult.value : { emails: [], socials: {}, subscribers: '' }
   const videoDates = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : []
   const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [], socials: {} }
-  const ig = igEmails.status === 'fulfilled' ? igEmails.value : []
-  const tt = ttEmails.status === 'fulfilled' ? ttEmails.value : []
-  const ddg = ddgEmails.status === 'fulfilled' ? ddgEmails.value : []
-  const linkedin = ddgLinkedIn.status === 'fulfilled' ? ddgLinkedIn.value : ''
 
-  const allEmails = [...descEmails, ...yt.emails, ...web.emails, ...ig, ...tt, ...ddg]
+  const allEmails = [...descEmails, ...yt.emails, ...web.emails]
   const email = bestEmail(allEmails)
 
   const socials = {
-    instagram: yt.socials.instagram || web.socials.instagram || instagram || '',
+    instagram: instagram || web.socials.instagram || '',
     twitter: yt.socials.twitter || web.socials.twitter || '',
-    tiktok: yt.socials.tiktok || web.socials.tiktok || tiktok || '',
-    linkedin: yt.socials.linkedin || web.socials.linkedin || linkedin || '',
-    website: yt.socials.website || web.socials.website || website || '',
+    tiktok: tiktok || web.socials.tiktok || '',
+    linkedin: yt.socials.linkedin || web.socials.linkedin || '',
+    website: website || '',
   }
 
   return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, ...socials })
