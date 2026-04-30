@@ -297,9 +297,22 @@ function AutoTextarea({ value, onChange, placeholder, className }: {
   value: string, onChange: (v: string) => void, placeholder?: string, className?: string
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
+
+  function resize() {
+    if (!ref.current) return
+    ref.current.style.height = 'auto'
+    ref.current.style.height = ref.current.scrollHeight + 'px'
+  }
+
+  useEffect(() => { resize() }, [value])
+
   useEffect(() => {
-    if (ref.current) { ref.current.style.height = 'auto'; ref.current.style.height = ref.current.scrollHeight + 'px' }
-  }, [value])
+    if (!ref.current) return
+    const observer = new ResizeObserver(() => resize())
+    observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <textarea
       ref={ref}
