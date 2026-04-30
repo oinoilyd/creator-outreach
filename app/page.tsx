@@ -22,9 +22,9 @@ interface Creator {
   enriching?: boolean
 }
 
-type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
+type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
 type SortDir = 'asc' | 'desc'
-type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok'
+type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
 
 interface ColConfig {
   id: ColId
@@ -33,6 +33,7 @@ interface ColConfig {
 }
 
 const DEFAULT_COLS: ColConfig[] = [
+  { id: 'fitScore',    label: 'Fit Score',   visible: true },
   { id: 'avgViews',    label: 'Avg Views',   visible: true },
   { id: 'subscribers', label: 'Subscribers', visible: true },
   { id: 'lastPosted',  label: 'Last Posted', visible: true },
@@ -45,13 +46,74 @@ const DEFAULT_COLS: ColConfig[] = [
 ]
 
 const COL_SORT: Partial<Record<ColId, SortCol>> = {
-  avgViews: 'avgViews', subscribers: 'subscribers', lastPosted: 'lastPosted',
+  fitScore: 'fitScore', avgViews: 'avgViews', subscribers: 'subscribers', lastPosted: 'lastPosted',
   email: 'email', linkedin: 'linkedin', website: 'website',
   instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
 }
 
+function computeFitScore(c: Creator): number {
+  let score = 0
+
+  // Recency (30 pts)
+  const days = parseRelativeDays(c.videoDates?.[0] || '')
+  if (days === Infinity) score += 10
+  else if (days <= 7)   score += 30
+  else if (days <= 30)  score += 22
+  else if (days <= 60)  score += 14
+  else if (days <= 90)  score += 7
+
+  // View range sweet spot (25 pts)
+  const v = c.avgViews
+  if      (v >= 10000  && v < 50000)  score += 25
+  else if (v >= 1000   && v < 10000)  score += 20
+  else if (v >= 50000  && v < 100000) score += 18
+  else if (v >= 100000 && v < 500000) score += 10
+  else if (v >= 500000)               score += 3
+  else if (v > 0)                     score += 5
+
+  // Reachability (20 pts)
+  if (c.email)    score += 15
+  if (c.linkedin) score += 5
+
+  // Keyword relevance (15 pts) — matchedVia set by search route
+  if (c.matchedVia === 'name') score += 10
+  else                         score += 2
+  if (c.videoTitles?.length > 0) score += 5
+
+  // Audience quality: views-to-subscriber ratio (10 pts)
+  const subs = Number(c.subscribers)
+  if (subs > 0 && !isNaN(subs)) {
+    const ratio = c.avgViews / subs
+    if      (ratio >= 0.10) score += 10
+    else if (ratio >= 0.05) score += 7
+    else if (ratio >= 0.02) score += 4
+    else                    score += 1
+  } else {
+    score += 5
+  }
+
+  return Math.min(100, score)
+}
+
+function fitScoreMeta(score: number): { label: string; color: string } {
+  if (score >= 75) return { label: 'Strong Fit',   color: 'text-green-400' }
+  if (score >= 50) return { label: 'Possible Fit', color: 'text-yellow-400' }
+  if (score >= 25) return { label: 'Weak Fit',     color: 'text-orange-400' }
+  return              { label: 'Poor Fit',      color: 'text-red-400' }
+}
+
 function renderCell(id: ColId, c: Creator): React.ReactNode {
   switch (id) {
+    case 'fitScore': {
+      const score = computeFitScore(c)
+      const { label, color } = fitScoreMeta(score)
+      return (
+        <td key={id} className="px-4 py-3 whitespace-nowrap">
+          <span className={`font-bold ${color}`}>{score}</span>
+          <span className={`ml-1.5 text-xs ${color} opacity-70`}>{label}</span>
+        </td>
+      )
+    }
     case 'avgViews':    return <td key={id} className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
     case 'subscribers': return <td key={id} className="px-4 py-3 text-gray-300">{formatSubscribers(c.subscribers)}</td>
     case 'lastPosted':  return (
@@ -170,7 +232,8 @@ function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
       return a.channelName.localeCompare(b.channelName)
     }
     let cmp = 0
-    if (col === 'avgViews') cmp = a.avgViews - b.avgViews
+    if (col === 'fitScore') cmp = computeFitScore(a) - computeFitScore(b)
+    else if (col === 'avgViews') cmp = a.avgViews - b.avgViews
     else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
     else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
     else if (col === 'lastPosted') cmp = parseRelativeDays(b.videoDates?.[0] || '') - parseRelativeDays(a.videoDates?.[0] || '')
@@ -287,7 +350,7 @@ export default function Home() {
   const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 })
   const [elapsed, setElapsed] = useState(0)
   const [status, setStatus] = useState('')
-  const [sortCol, setSortCol] = useState<SortCol>('email')
+  const [sortCol, setSortCol] = useState<SortCol>('fitScore')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [activeTab, setActiveTab] = useState<'results' | 'favorites'>('results')
   const [favorites, setFavorites] = useState<Creator[]>([])
