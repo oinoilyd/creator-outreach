@@ -25,6 +25,24 @@ interface Creator {
 type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
 type SortDir = 'asc' | 'desc'
 type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
+type ActiveTab = 'results' | 'favorites' | 'outreach'
+
+interface OutreachEntry {
+  id: string
+  channelId: string
+  channelName: string
+  channelUrl: string
+  description: string
+  email: string
+  product: string
+  reachedOut: boolean
+  medium: 'Email' | 'LinkedIn' | 'Other' | ''
+  mediumOther: string
+  headerUsed: string
+  open: boolean
+  rejected: boolean
+  addedAt: number
+}
 
 interface ColConfig {
   id: ColId
@@ -262,6 +280,162 @@ function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
   })
 }
 
+function PlusCircleIcon({ added }: { added: boolean }) {
+  return added ? (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+    </svg>
+  ) : (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v8M8 12h8" />
+    </svg>
+  )
+}
+
+function OutreachTab({ entries, onUpdate, onRemove }: {
+  entries: OutreachEntry[]
+  onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
+  onRemove: (id: string) => void
+}) {
+  if (entries.length === 0) {
+    return <p className="text-gray-500 text-sm mt-4">No outreach entries yet — click the <span className="text-purple-400">+</span> icon on any creator to add them.</p>
+  }
+
+  const cols = [
+    { label: 'Channel', width: 'w-36' },
+    { label: 'YT', width: 'w-10' },
+    { label: 'Email', width: 'w-44' },
+    { label: 'Description', width: 'w-52' },
+    { label: 'Product', width: 'w-36' },
+    { label: 'Reached Out', width: 'w-24' },
+    { label: 'Medium', width: 'w-36' },
+    { label: 'Header Used', width: 'w-48' },
+    { label: 'Open', width: 'w-16' },
+    { label: 'Rejected', width: 'w-16' },
+    { label: '', width: 'w-8' },
+  ]
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-800">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-800 text-gray-300">
+          <tr>
+            {cols.map(c => (
+              <th key={c.label} className={`text-left px-3 py-3 whitespace-nowrap ${c.width}`}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e, i) => (
+            <tr key={e.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
+              {/* Channel Name */}
+              <td className="px-3 py-2">
+                <input
+                  className="w-full bg-transparent text-blue-400 hover:underline focus:outline-none focus:bg-gray-800 rounded px-1 text-sm"
+                  value={e.channelName}
+                  onChange={ev => onUpdate(e.id, 'channelName', ev.target.value)}
+                />
+              </td>
+              {/* YT link */}
+              <td className="px-3 py-2">
+                <a href={e.channelUrl} target="_blank" className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-red-500">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 3.993L9 16z"/>
+                  </svg>
+                </a>
+              </td>
+              {/* Email */}
+              <td className="px-3 py-2">
+                <input
+                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                  value={e.email}
+                  onChange={ev => onUpdate(e.id, 'email', ev.target.value)}
+                  placeholder="—"
+                />
+              </td>
+              {/* Description */}
+              <td className="px-3 py-2">
+                <input
+                  className="w-full bg-transparent text-gray-400 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                  value={e.description}
+                  onChange={ev => onUpdate(e.id, 'description', ev.target.value)}
+                  placeholder="—"
+                />
+              </td>
+              {/* Product */}
+              <td className="px-3 py-2">
+                <input
+                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                  value={e.product}
+                  onChange={ev => onUpdate(e.id, 'product', ev.target.value)}
+                  placeholder="Add product..."
+                />
+              </td>
+              {/* Reached Out */}
+              <td className="px-3 py-2 text-center">
+                <input type="checkbox" checked={e.reachedOut}
+                  onChange={ev => onUpdate(e.id, 'reachedOut', ev.target.checked)}
+                  className="w-4 h-4 rounded accent-purple-500 cursor-pointer" />
+              </td>
+              {/* Medium */}
+              <td className="px-3 py-2">
+                <div className="flex items-center gap-1">
+                  <select
+                    value={e.medium}
+                    onChange={ev => onUpdate(e.id, 'medium', ev.target.value)}
+                    className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="">—</option>
+                    <option value="Email">Email</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {e.medium === 'Other' && (
+                    <input
+                      className="w-20 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
+                      value={e.mediumOther}
+                      onChange={ev => onUpdate(e.id, 'mediumOther', ev.target.value)}
+                      placeholder="specify..."
+                    />
+                  )}
+                </div>
+              </td>
+              {/* Header Used */}
+              <td className="px-3 py-2">
+                <input
+                  className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs"
+                  value={e.headerUsed}
+                  onChange={ev => onUpdate(e.id, 'headerUsed', ev.target.value)}
+                  placeholder="Subject line used..."
+                />
+              </td>
+              {/* Open */}
+              <td className="px-3 py-2 text-center">
+                <input type="checkbox" checked={e.open}
+                  onChange={ev => onUpdate(e.id, 'open', ev.target.checked)}
+                  className="w-4 h-4 rounded accent-green-500 cursor-pointer" />
+              </td>
+              {/* Rejected */}
+              <td className="px-3 py-2 text-center">
+                <input type="checkbox" checked={e.rejected}
+                  onChange={ev => onUpdate(e.id, 'rejected', ev.target.checked)}
+                  className="w-4 h-4 rounded accent-red-500 cursor-pointer" />
+              </td>
+              {/* Remove */}
+              <td className="px-3 py-2">
+                <button onClick={() => onRemove(e.id)} className="text-gray-700 hover:text-red-400 transition-colors">
+                  <TrashIcon />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} className="w-5 h-5">
@@ -292,9 +466,12 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortC
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite, isFavTab, loading, sortCol, sortDir, onSort, colConfig }: {
-  creators: Creator[], favorites: Set<string>, onToggleFavorite: (c: Creator) => void
-  onRemoveFavorite?: (id: string) => void, isFavTab: boolean, loading?: boolean
+function CreatorTable({ creators, favorites, outreachIds, onToggleFavorite, onRemoveFavorite, onAddToOutreach, isFavTab, loading, sortCol, sortDir, onSort, colConfig }: {
+  creators: Creator[], favorites: Set<string>, outreachIds: Set<string>
+  onToggleFavorite: (c: Creator) => void
+  onRemoveFavorite?: (id: string) => void
+  onAddToOutreach: (c: Creator) => void
+  isFavTab: boolean, loading?: boolean
   sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
   colConfig: ColConfig[]
 }) {
@@ -317,6 +494,7 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
         <thead className="bg-gray-800 text-gray-300">
           <tr>
             <th className="px-4 py-3 w-8"></th>
+            <th className="px-4 py-3 w-8"></th>
             <Th col="channelName" label="Channel" />
             {visibleCols.map(col => {
               const sc = COL_SORT[col.id]
@@ -333,6 +511,15 @@ function CreatorTable({ creators, favorites, onToggleFavorite, onRemoveFavorite,
               <td className="px-4 py-3">
                 <button onClick={() => onToggleFavorite(c)} className={`transition-colors ${favorites.has(c.channelId) ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400'}`}>
                   <StarIcon filled={favorites.has(c.channelId)} />
+                </button>
+              </td>
+              <td className="px-4 py-3">
+                <button
+                  onClick={() => onAddToOutreach(c)}
+                  title={outreachIds.has(c.channelId) ? 'Added to Outreach' : 'Add to Outreach'}
+                  className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-gray-600 hover:text-purple-400'}`}
+                >
+                  <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
@@ -364,9 +551,11 @@ export default function Home() {
   const [status, setStatus] = useState('')
   const [sortCol, setSortCol] = useState<SortCol>('fitScore')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [activeTab, setActiveTab] = useState<'results' | 'favorites'>('results')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('results')
   const [favorites, setFavorites] = useState<Creator[]>([])
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
+  const [outreach, setOutreach] = useState<OutreachEntry[]>([])
+  const [outreachIds, setOutreachIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [emailOnly, setEmailOnly] = useState(false)
@@ -386,6 +575,11 @@ export default function Home() {
       setFavorites(stored)
       setFavIds(new Set(stored.map((c: Creator) => c.channelId)))
     } catch { /* no stored favorites */ }
+    try {
+      const storedOutreach = JSON.parse(localStorage.getItem('creator-outreach') || '[]')
+      setOutreach(storedOutreach)
+      setOutreachIds(new Set(storedOutreach.map((e: OutreachEntry) => e.channelId)))
+    } catch { /* no stored outreach */ }
   }, [])
 
   // elapsed timer while loading
@@ -413,6 +607,41 @@ export default function Home() {
   function toggleFavorite(c: Creator) {
     if (favIds.has(c.channelId)) saveFavorites(favorites.filter(f => f.channelId !== c.channelId))
     else saveFavorites([...favorites, c])
+  }
+
+  function saveOutreach(updated: OutreachEntry[]) {
+    setOutreach(updated)
+    setOutreachIds(new Set(updated.map(e => e.channelId)))
+    localStorage.setItem('creator-outreach', JSON.stringify(updated))
+  }
+
+  function addToOutreach(c: Creator) {
+    if (outreachIds.has(c.channelId)) return
+    const entry: OutreachEntry = {
+      id: `${c.channelId}-${Date.now()}`,
+      channelId: c.channelId,
+      channelName: c.channelName,
+      channelUrl: c.channelUrl,
+      description: c.description || '',
+      email: c.email || '',
+      product: '',
+      reachedOut: false,
+      medium: '',
+      mediumOther: '',
+      headerUsed: '',
+      open: false,
+      rejected: false,
+      addedAt: Date.now(),
+    }
+    saveOutreach([...outreach, entry])
+  }
+
+  function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
+    saveOutreach(outreach.map(e => e.id === id ? { ...e, [field]: value } : e))
+  }
+
+  function removeOutreachEntry(id: string) {
+    saveOutreach(outreach.filter(e => e.id !== id))
   }
 
   function removeFavorite(id: string) {
@@ -687,10 +916,13 @@ export default function Home() {
             <button onClick={() => setActiveTab('favorites')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'favorites' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
               Favorites {favorites.length > 0 && <span className="ml-1 text-xs text-yellow-400">({favorites.length})</span>}
             </button>
+            <button onClick={() => setActiveTab('outreach')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'outreach' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+              Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}
+            </button>
           </div>
           <button
             onClick={() => { setDraftCols(colConfig); setShowCustomize(true) }}
-            className="ml-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors mb-1"
+            className={`ml-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' ? 'invisible' : ''}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -756,13 +988,22 @@ export default function Home() {
           </div>
         )}
 
-        <CreatorTable
-          creators={currentList} favorites={favIds}
-          onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
-          isFavTab={activeTab === 'favorites'} loading={loading}
-          sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
-          colConfig={colConfig}
-        />
+        {activeTab === 'outreach' ? (
+          <OutreachTab
+            entries={outreach}
+            onUpdate={updateOutreachEntry}
+            onRemove={removeOutreachEntry}
+          />
+        ) : (
+          <CreatorTable
+            creators={currentList} favorites={favIds} outreachIds={outreachIds}
+            onToggleFavorite={toggleFavorite} onRemoveFavorite={removeFavorite}
+            onAddToOutreach={addToOutreach}
+            isFavTab={activeTab === 'favorites'} loading={loading}
+            sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
+            colConfig={colConfig}
+          />
+        )}
       </div>
     </main>
   )
