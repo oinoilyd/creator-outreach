@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
-const client = new Anthropic()
+const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
 
 interface ScoreWeights {
   recency: number
