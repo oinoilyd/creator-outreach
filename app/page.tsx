@@ -324,12 +324,52 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
             <span className="text-gray-400">Total</span>
             <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
           </div>
-          {narrative && (
-            <div className="mt-2 pt-2 border-t border-gray-800">
-              <div className="text-gray-500 text-[10px] uppercase tracking-wide font-semibold mb-1">Your guidance</div>
-              <p className="text-gray-400 text-xs leading-relaxed italic">"{narrative}"</p>
-            </div>
-          )}
+
+          {/* Weight transparency section */}
+          {(() => {
+            const isCustom = JSON.stringify(weights) !== JSON.stringify(DEFAULT_WEIGHTS)
+            const hasNarrative = !!narrative.trim()
+            const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
+            const norm = wTotal > 0 ? 100 / wTotal : 1
+            return (
+              <div className="mt-2 pt-2 border-t border-gray-800 space-y-2">
+                <div className="text-gray-500 text-[10px] uppercase tracking-wide font-semibold flex items-center justify-between">
+                  <span>Active weights driving this score</span>
+                  {isCustom
+                    ? <span className="text-purple-400 font-semibold">✨ Personalized</span>
+                    : <span className="text-gray-600">Default</span>
+                  }
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {WEIGHT_META.map(({ key, label: wLabel }) => {
+                    const pct = Math.round(weights[key] * norm)
+                    const isDefault = weights[key] === DEFAULT_WEIGHTS[key]
+                    return (
+                      <div key={key} className="flex flex-col items-center gap-0.5">
+                        <div className="w-full bg-gray-800 rounded-sm h-1 overflow-hidden">
+                          <div className="h-full rounded-sm transition-all" style={{ width: `${(weights[key] / 50) * 100}%`, backgroundColor: isCustom && !isDefault ? 'rgb(168,85,247)' : 'rgb(75,85,99)' }} />
+                        </div>
+                        <span className={`text-[9px] font-mono ${isCustom && !isDefault ? 'text-purple-400' : 'text-gray-600'}`}>{pct}</span>
+                        <span className="text-[8px] text-gray-700 leading-tight text-center">{wLabel.split(' ')[0]}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {hasNarrative && isCustom && (
+                  <div className="text-[10px] text-gray-500 leading-relaxed border-t border-gray-800 pt-1.5">
+                    <span className="text-purple-400 font-semibold">Your guidance: </span>
+                    <span className="italic">"{narrative}"</span>
+                  </div>
+                )}
+                {hasNarrative && !isCustom && (
+                  <div className="flex items-start gap-1.5 p-2 bg-purple-900/20 border border-purple-800/40 rounded text-[10px] text-purple-300 leading-relaxed">
+                    <span className="shrink-0">✨</span>
+                    <span>You have guidance saved but haven't applied it yet — open <strong>⚡ Score Settings</strong> and click <strong>Apply with AI</strong> to tune these weights to match.</span>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       )}
     </td>
