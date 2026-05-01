@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef, useContext } from 'react'
 
 interface Creator {
   channelId: string
@@ -44,6 +44,90 @@ const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string
   { key: 'relevance',   label: 'Relevance',         description: 'Content match to your search' },
   { key: 'quality',     label: 'Audience Quality',  description: 'Views-to-subscriber engagement ratio' },
 ]
+
+// ── GUIDANCE SCORE ───────────────────────────────────────────────────────────
+// Separate from sliders — accumulated feedback entries converted into rules
+// that fire against each creator. Worth up to 20 pts of the total score.
+
+type GuidanceCondition =
+  | 'has_email' | 'no_email'
+  | 'has_instagram' | 'has_tiktok' | 'has_website' | 'has_linkedin'
+  | 'multi_platform'
+  | 'subs_gte' | 'subs_lte'
+  | 'views_gte' | 'views_lte'
+  | 'posts_recent'
+
+interface GuidanceRule {
+  condition: GuidanceCondition
+  value?: number
+  points: number   // positive or negative
+  label: string    // human-readable, e.g. "Has Instagram"
+}
+
+interface GuidanceEntry {
+  id: string
+  text: string       // original feedback text
+  timestamp: number
+  rules: GuidanceRule[]
+  summary: string    // AI's one-line interpretation
+}
+
+const GUIDANCE_MAX = 20  // guidance contributes up to 20 pts (base contributes up to 80)
+
+interface GuidanceContextType {
+  entries: GuidanceEntry[]
+  addEntry: (e: GuidanceEntry) => void
+  removeEntry: (id: string) => void
+  resetAll: () => void
+}
+const GuidanceContext = React.createContext<GuidanceContextType>({
+  entries: [], addEntry: () => {}, removeEntry: () => {}, resetAll: () => {},
+})
+
+function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
+  const subs = Number(c.subscribers) || 0
+  const platforms = [c.email, c.instagram, c.tiktok, c.twitter, c.linkedin, c.website].filter(Boolean).length
+  switch (rule.condition) {
+    case 'has_email':      return !!c.email
+    case 'no_email':       return !c.email
+    case 'has_instagram':  return !!c.instagram
+    case 'has_tiktok':     return !!c.tiktok
+    case 'has_website':    return !!c.website
+    case 'has_linkedin':   return !!c.linkedin
+    case 'multi_platform': return platforms >= 3
+    case 'subs_gte':       return subs >= (rule.value ?? 0)
+    case 'subs_lte':       return subs > 0 && subs <= (rule.value ?? Infinity)
+    case 'views_gte':      return c.avgViews >= (rule.value ?? 0)
+    case 'views_lte':      return c.avgViews > 0 && c.avgViews <= (rule.value ?? Infinity)
+    case 'posts_recent':   return parseRelativeDays(c.videoDates?.[0] || '') <= 30
+    default: return false
+  }
+}
+
+function computeGuidanceScore(c: Creator, entries: GuidanceEntry[]): {
+  pts: number
+  fired: { ruleLabel: string; pts: number; entryId: string }[]
+  missed: { ruleLabel: string; pts: number; entryId: string }[]
+} {
+  const fired: { ruleLabel: string; pts: number; entryId: string }[] = []
+  const missed: { ruleLabel: string; pts: number; entryId: string }[] = []
+  let total = 0
+  for (const entry of entries) {
+    for (const rule of entry.rules) {
+      if (evaluateGuidanceRule(rule, c)) {
+        fired.push({ ruleLabel: rule.label, pts: rule.points, entryId: entry.id })
+        total += rule.points
+      } else {
+        missed.push({ ruleLabel: rule.label, pts: rule.points, entryId: entry.id })
+      }
+    }
+  }
+  return {
+    pts: Math.min(GUIDANCE_MAX, Math.max(-GUIDANCE_MAX, total)),
+    fired,
+    missed,
+  }
+}
 
 interface OutreachEntry {
   id: string
@@ -165,9 +249,9 @@ const COL_SORT: Partial<Record<ColId, SortCol>> = {
   instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
 }
 
-function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS): number {
+function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): number {
   const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
-  const norm = wTotal > 0 ? 100 / wTotal : 1
+  const norm = wTotal > 0 ? 80 / wTotal : 1  // base contributes max 80 pts; guidance adds up to 20
 
   // Recency ratio (0–1)
   const days = parseRelativeDays(c.videoDates?.[0] || '')
@@ -200,15 +284,17 @@ function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS): n
     qualRatio        * weights.quality
   ) * norm
 
+  // Guidance score on top of base (max +20 / min -20)
+  const { pts: guidancePts } = computeGuidanceScore(c, guidanceEntries)
   // Fixed penalty regardless of weight preferences
   const penalty = subs >= 750000 ? 20 : subs >= 500000 ? 10 : 0
-  return Math.min(100, Math.max(0, Math.round(raw - penalty)))
+  return Math.min(100, Math.max(0, Math.round(raw + guidancePts - penalty)))
 }
 
-function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS): Array<{ label: string; pts: number; max: number; note: string }> {
+function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> {
   const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
-  const norm = wTotal > 0 ? 100 / wTotal : 1
-  const items: Array<{ label: string; pts: number; max: number; note: string }> = []
+  const norm = wTotal > 0 ? 80 / wTotal : 1
+  const items: Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> = []
 
   // Recency
   const days = parseRelativeDays(c.videoDates?.[0] || '')
@@ -265,6 +351,16 @@ function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WE
 
   if (subs >= 750000)      items.push({ label: 'Large channel', pts: -20, max: 0, note: '750K+ subs' })
   else if (subs >= 500000) items.push({ label: 'Large channel', pts: -10, max: 0, note: '500K–750K subs' })
+
+  // Guidance score row
+  const { pts: guidancePts, fired } = computeGuidanceScore(c, guidanceEntries)
+  const guidanceNote = guidanceEntries.length === 0
+    ? 'No guidance yet — add feedback to personalize'
+    : fired.length === 0
+    ? 'No rules matched this creator'
+    : `${fired.length} rule${fired.length === 1 ? '' : 's'} matched`
+  items.push({ label: 'Guidance', pts: guidancePts, max: GUIDANCE_MAX, note: guidanceNote, isGuidance: true })
+
   return items
 }
 
@@ -277,10 +373,37 @@ function fitScoreMeta(score: number): { label: string; color: string } {
 
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
+  const [guidanceView, setGuidanceView] = useState(false)
+  const [newText, setNewText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const ref = useRef<HTMLTableCellElement>(null)
-  const score = computeFitScore(c, weights)
+  const { entries, addEntry, removeEntry, resetAll } = useContext(GuidanceContext)
+  const score = computeFitScore(c, weights, entries)
   const { label, color } = fitScoreMeta(score)
-  const items = computeFitScoreBreakdown(c, weights)
+  const items = computeFitScoreBreakdown(c, weights, entries)
+  const { fired, missed } = computeGuidanceScore(c, entries)
+
+  async function submitGuidance() {
+    if (!newText.trim()) return
+    setSubmitting(true)
+    setSubmitError('')
+    try {
+      const res = await fetch('/api/interpret-guidance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newText }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Failed')
+      addEntry({ id: `g-${Date.now()}`, text: newText, timestamp: Date.now(), rules: data.rules, summary: data.summary })
+      setNewText('')
+    } catch (err: any) {
+      setSubmitError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -301,75 +424,170 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
         </svg>
       </button>
       {open && (
-        <div className="absolute z-50 left-0 top-full mt-1 w-72 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-semibold text-gray-200">Fit Score Breakdown</span>
-            <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">✕</button>
-          </div>
-          <div className="space-y-1.5">
-            {items.map((item, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className={`w-5 text-right font-mono font-bold ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                  {item.pts > 0 ? '+' : ''}{item.pts}
-                </span>
-                <div className="flex-1">
-                  <span className="text-gray-300">{item.label}</span>
-                  {item.max > 0 && <span className="text-gray-600 ml-1">/ {item.max}</span>}
-                  {item.note && <div className="text-gray-500 text-xs">{item.note}</div>}
-                </div>
+        <div className={`absolute z-50 left-0 top-full mt-1 ${guidanceView ? 'w-88' : 'w-72'} bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs`} style={{ width: guidanceView ? '22rem' : '18rem' }}>
+          {/* ── GUIDANCE DETAIL VIEW ── */}
+          {guidanceView ? (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <button onClick={() => setGuidanceView(false)} className="text-gray-500 hover:text-white flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Back
+                </button>
+                <span className="font-semibold text-gray-200">✨ Guidance Score</span>
+                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">✕</button>
               </div>
-            ))}
-          </div>
-          <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
-            <span className="text-gray-400">Total</span>
-            <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
-          </div>
-
-          {/* Weight transparency section */}
-          {(() => {
-            const isCustom = JSON.stringify(weights) !== JSON.stringify(DEFAULT_WEIGHTS)
-            const hasNarrative = !!narrative.trim()
-            const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
-            const norm = wTotal > 0 ? 100 / wTotal : 1
-            return (
-              <div className="mt-2 pt-2 border-t border-gray-800 space-y-2">
-                <div className="text-gray-500 text-[10px] uppercase tracking-wide font-semibold flex items-center justify-between">
-                  <span>Active weights driving this score</span>
-                  {isCustom
-                    ? <span className="text-purple-400 font-semibold">✨ Personalized</span>
-                    : <span className="text-gray-600">Default</span>
-                  }
-                </div>
-                <div className="grid grid-cols-5 gap-1">
-                  {WEIGHT_META.map(({ key, label: wLabel }) => {
-                    const pct = Math.round(weights[key] * norm)
-                    const isDefault = weights[key] === DEFAULT_WEIGHTS[key]
+              {entries.length === 0 ? (
+                <p className="text-gray-500 text-center py-3">No guidance added yet. Add feedback below to start scoring.</p>
+              ) : (
+                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                  {entries.map((entry: GuidanceEntry) => {
+                    const entryFired = fired.filter(f => f.entryId === entry.id)
+                    const entryMissed = missed.filter(m => m.entryId === entry.id)
+                    const entryPts = entryFired.reduce((s, f) => s + f.pts, 0)
                     return (
-                      <div key={key} className="flex flex-col items-center gap-0.5">
-                        <div className="w-full bg-gray-800 rounded-sm h-1 overflow-hidden">
-                          <div className="h-full rounded-sm transition-all" style={{ width: `${(weights[key] / 50) * 100}%`, backgroundColor: isCustom && !isDefault ? 'rgb(168,85,247)' : 'rgb(75,85,99)' }} />
+                      <div key={entry.id} className="border border-gray-800 rounded p-2 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="text-gray-300 leading-tight">{entry.summary || entry.text}</div>
+                            <div className={`font-mono font-bold text-[10px] mt-0.5 ${entryPts > 0 ? 'text-green-400' : entryPts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                              {entryPts > 0 ? '+' : ''}{entryPts} pts this creator
+                            </div>
+                          </div>
+                          <button onClick={() => removeEntry(entry.id)} className="text-gray-600 hover:text-red-400 shrink-0 mt-0.5" title="Delete this guidance">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
                         </div>
-                        <span className={`text-[9px] font-mono ${isCustom && !isDefault ? 'text-purple-400' : 'text-gray-600'}`}>{pct}</span>
-                        <span className="text-[8px] text-gray-700 leading-tight text-center">{wLabel.split(' ')[0]}</span>
+                        {entry.rules.length > 0 && (
+                          <div className="space-y-0.5">
+                            {entryFired.map((f, fi) => (
+                              <div key={fi} className="flex items-center gap-1.5 text-green-400">
+                                <span className="shrink-0">✓</span>
+                                <span className="flex-1 text-gray-300">{f.ruleLabel}</span>
+                                <span className="font-mono">{f.pts > 0 ? '+' : ''}{f.pts}</span>
+                              </div>
+                            ))}
+                            {entryMissed.map((m, mi) => (
+                              <div key={mi} className="flex items-center gap-1.5 text-gray-600">
+                                <span className="shrink-0">✗</span>
+                                <span className="flex-1">{m.ruleLabel}</span>
+                                <span className="font-mono">{m.pts > 0 ? '+' : ''}{m.pts}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
                 </div>
-                {hasNarrative && isCustom && (
-                  <div className="text-[10px] text-gray-500 leading-relaxed border-t border-gray-800 pt-1.5">
-                    <span className="text-purple-400 font-semibold">Your guidance: </span>
-                    <span className="italic">"{narrative}"</span>
-                  </div>
-                )}
-                {hasNarrative && !isCustom && (
-                  <div className="flex items-start gap-1.5 p-2 bg-purple-900/20 border border-purple-800/40 rounded text-[10px] text-purple-300 leading-relaxed">
-                    <span className="shrink-0">✨</span>
-                    <span>You have guidance saved but haven't applied it yet — open <strong>⚡ Score Settings</strong> and click <strong>Apply with AI</strong> to tune these weights to match.</span>
-                  </div>
-                )}
+              )}
+              {/* Add new guidance */}
+              <div className="mt-3 pt-2 border-t border-gray-800 space-y-2">
+                <textarea
+                  value={newText}
+                  onChange={e => setNewText(e.target.value)}
+                  placeholder="e.g. I prefer creators with Instagram presence…"
+                  rows={2}
+                  className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-xs focus:outline-none focus:border-purple-500"
+                />
+                {submitError && <div className="text-red-400 text-[10px]">{submitError}</div>}
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={submitGuidance}
+                    disabled={submitting || !newText.trim()}
+                    className="px-2 py-1 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white rounded text-xs flex items-center gap-1"
+                  >
+                    {submitting ? <><Spinner /><span>Processing…</span></> : '✨ Add'}
+                  </button>
+                  {entries.length > 0 && (
+                    <button onClick={() => { resetAll(); }} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
+                  )}
+                </div>
               </div>
-            )
-          })()}
+            </>
+          ) : (
+            /* ── MAIN BREAKDOWN VIEW ── */
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-gray-200">Fit Score Breakdown</span>
+                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+              </div>
+              <div className="space-y-1.5">
+                {items.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className={`w-5 text-right font-mono font-bold ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                      {item.pts > 0 ? '+' : ''}{item.pts}
+                    </span>
+                    <div className="flex-1">
+                      {item.isGuidance ? (
+                        <button onClick={() => setGuidanceView(true)} className="text-purple-400 hover:text-purple-300 flex items-center gap-1">
+                          <span>✨ Guidance</span>
+                          <span className="text-gray-600 ml-0.5">/ {item.max}</span>
+                          <span className="text-gray-500 text-[10px] ml-1">view →</span>
+                        </button>
+                      ) : (
+                        <>
+                          <span className="text-gray-300">{item.label}</span>
+                          {item.max > 0 && <span className="text-gray-600 ml-1">/ {item.max}</span>}
+                        </>
+                      )}
+                      {item.note && !item.isGuidance && <div className="text-gray-500 text-xs">{item.note}</div>}
+                      {item.isGuidance && item.note && <div className="text-gray-500 text-[10px]">{item.note}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
+                <span className="text-gray-400">Total</span>
+                <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
+              </div>
+
+              {/* Weight transparency section */}
+              {(() => {
+                const isCustom = JSON.stringify(weights) !== JSON.stringify(DEFAULT_WEIGHTS)
+                const hasNarrative = !!narrative.trim()
+                const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
+                const norm = wTotal > 0 ? 100 / wTotal : 1
+                return (
+                  <div className="mt-2 pt-2 border-t border-gray-800 space-y-2">
+                    <div className="text-gray-500 text-[10px] uppercase tracking-wide font-semibold flex items-center justify-between">
+                      <span>Active weights driving this score</span>
+                      {isCustom
+                        ? <span className="text-purple-400 font-semibold">✨ Personalized</span>
+                        : <span className="text-gray-600">Default</span>
+                      }
+                    </div>
+                    <div className="grid grid-cols-5 gap-1">
+                      {WEIGHT_META.map(({ key, label: wLabel }) => {
+                        const pct = Math.round(weights[key] * norm)
+                        const isDefault = weights[key] === DEFAULT_WEIGHTS[key]
+                        return (
+                          <div key={key} className="flex flex-col items-center gap-0.5">
+                            <div className="w-full bg-gray-800 rounded-sm h-1 overflow-hidden">
+                              <div className="h-full rounded-sm transition-all" style={{ width: `${(weights[key] / 50) * 100}%`, backgroundColor: isCustom && !isDefault ? 'rgb(168,85,247)' : 'rgb(75,85,99)' }} />
+                            </div>
+                            <span className={`text-[9px] font-mono ${isCustom && !isDefault ? 'text-purple-400' : 'text-gray-600'}`}>{pct}</span>
+                            <span className="text-[8px] text-gray-700 leading-tight text-center">{wLabel.split(' ')[0]}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {hasNarrative && isCustom && (
+                      <div className="text-[10px] text-gray-500 leading-relaxed border-t border-gray-800 pt-1.5">
+                        <span className="text-purple-400 font-semibold">Your guidance: </span>
+                        <span className="italic">"{narrative}"</span>
+                      </div>
+                    )}
+                    {hasNarrative && !isCustom && (
+                      <div className="flex items-start gap-1.5 p-2 bg-purple-900/20 border border-purple-800/40 rounded text-[10px] text-purple-300 leading-relaxed">
+                        <span className="shrink-0">✨</span>
+                        <span>You have guidance saved but haven't applied it yet — open <strong>⚡ Score Settings</strong> and click <strong>Apply with AI</strong> to tune these weights to match.</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </>
+          )}
         </div>
       )}
     </td>
@@ -491,7 +709,7 @@ function contactPriority(c: Creator): number {
   return 0
 }
 
-function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weights: ScoreWeights = DEFAULT_WEIGHTS): Creator[] {
+function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): Creator[] {
   return [...list].sort((a, b) => {
     if (col === 'email') {
       const pri = contactPriority(b) - contactPriority(a)
@@ -499,7 +717,7 @@ function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weights: Scor
       return a.channelName.localeCompare(b.channelName)
     }
     let cmp = 0
-    if (col === 'fitScore') cmp = computeFitScore(a, weights) - computeFitScore(b, weights)
+    if (col === 'fitScore') cmp = computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
     else if (col === 'avgViews') cmp = a.avgViews - b.avgViews
     else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
     else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
@@ -1022,7 +1240,8 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   scoreWeights: ScoreWeights
   scoreNarrative: string
 }) {
-  const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights), [creators, sortCol, sortDir, scoreWeights])
+  const { entries: guidanceEntries } = useContext(GuidanceContext)
+  const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries), [creators, sortCol, sortDir, scoreWeights, guidanceEntries])
   const visibleCols = colConfig.filter(c => c.visible)
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -1183,6 +1402,7 @@ export default function Home() {
   const [scoreWeights, setScoreWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS)
   const [scoreNarrative, setScoreNarrative] = useState('')
   const [showScoreSettings, setShowScoreSettings] = useState(false)
+  const [guidanceEntries, setGuidanceEntries] = useState<GuidanceEntry[]>([])
   const seenChannelIds = useRef<Set<string>>(new Set())
 
   // search version ref — prevents stale searches from overwriting newer ones
@@ -1221,6 +1441,10 @@ export default function Home() {
       const storedNarrative = localStorage.getItem('creator-score-narrative') || ''
       if (storedNarrative) setScoreNarrative(storedNarrative)
     } catch { /* no stored narrative */ }
+    try {
+      const storedGuidance = JSON.parse(localStorage.getItem('creator-guidance-entries') || '[]')
+      if (Array.isArray(storedGuidance) && storedGuidance.length > 0) setGuidanceEntries(storedGuidance)
+    } catch { /* no stored guidance */ }
   }, [])
 
   // elapsed timer while loading
@@ -1243,6 +1467,27 @@ export default function Home() {
     setOutreach(updated)
     setOutreachIds(new Set(updated.map(e => e.channelId)))
     localStorage.setItem('creator-outreach', JSON.stringify(updated))
+  }
+
+  function addGuidanceEntry(entry: GuidanceEntry) {
+    setGuidanceEntries(prev => {
+      const updated = [...prev, entry]
+      localStorage.setItem('creator-guidance-entries', JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  function removeGuidanceEntry(id: string) {
+    setGuidanceEntries(prev => {
+      const updated = prev.filter(e => e.id !== id)
+      localStorage.setItem('creator-guidance-entries', JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  function resetAllGuidance() {
+    setGuidanceEntries([])
+    localStorage.removeItem('creator-guidance-entries')
   }
 
   function addToOutreach(c: Creator) {
@@ -1271,7 +1516,7 @@ export default function Home() {
       responseDate: '',
       subscribers: c.subscribers || '',
       avgViews: c.avgViews || 0,
-      fitScore: computeFitScore(c, scoreWeights),
+      fitScore: computeFitScore(c, scoreWeights, guidanceEntries),
       linkedin: c.linkedin || '',
       contentNiche: '',
       phone: '',
@@ -1457,7 +1702,7 @@ export default function Home() {
         const reSorted = [...enriched].sort((a, b) => {
           const ae = a.email ? 1 : 0, be = b.email ? 1 : 0
           if (ae !== be) return be - ae
-          return computeFitScore(b, scoreWeights) - computeFitScore(a, scoreWeights)
+          return computeFitScore(b, scoreWeights, guidanceEntries) - computeFitScore(a, scoreWeights, guidanceEntries)
         })
         setLoadMoreCreators(prev => {
           const keep = prev.slice(0, prev.length - batch.length)
@@ -1541,6 +1786,7 @@ export default function Home() {
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
   return (
+    <GuidanceContext.Provider value={{ entries: guidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, resetAll: resetAllGuidance }}>
     <main className="min-h-screen bg-gray-950 text-white p-8">
       <div className={activeTab === 'outreach' ? 'w-full px-2' : 'max-w-7xl mx-auto'}>
         <h1 className="text-3xl font-bold mb-2">Creator Outreach</h1>
@@ -1910,5 +2156,6 @@ export default function Home() {
         />
       )}
     </main>
+    </GuidanceContext.Provider>
   )
 }
