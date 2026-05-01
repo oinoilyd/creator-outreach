@@ -27,6 +27,24 @@ type SortDir = 'asc' | 'desc'
 type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
 type ActiveTab = 'results' | 'outreach' | 'dismissed'
 
+interface ScoreWeights {
+  recency: number
+  views: number
+  reachability: number
+  relevance: number
+  quality: number
+}
+
+const DEFAULT_WEIGHTS: ScoreWeights = { recency: 30, views: 25, reachability: 20, relevance: 15, quality: 10 }
+
+const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string }[] = [
+  { key: 'recency',     label: 'Recency',          description: 'How recently they posted' },
+  { key: 'views',       label: 'Avg Views',         description: 'View count sweet spot (10K–50K ideal)' },
+  { key: 'reachability',label: 'Reachability',      description: 'Email and LinkedIn availability' },
+  { key: 'relevance',   label: 'Relevance',         description: 'Content match to your search' },
+  { key: 'quality',     label: 'Audience Quality',  description: 'Views-to-subscriber engagement ratio' },
+]
+
 interface OutreachEntry {
   id: string
   channelId: string
@@ -147,98 +165,103 @@ const COL_SORT: Partial<Record<ColId, SortCol>> = {
   instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
 }
 
-function computeFitScore(c: Creator): number {
-  let score = 0
+function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS): number {
+  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
+  const norm = wTotal > 0 ? 100 / wTotal : 1
 
-  // Recency (30 pts)
+  // Recency ratio (0–1)
   const days = parseRelativeDays(c.videoDates?.[0] || '')
-  if (days === Infinity) score += 10
-  else if (days <= 7)   score += 30
-  else if (days <= 30)  score += 22
-  else if (days <= 60)  score += 14
-  else if (days <= 90)  score += 7
+  const recencyRatio = days === Infinity ? 10/30 : days <= 7 ? 1 : days <= 30 ? 22/30 : days <= 60 ? 14/30 : days <= 90 ? 7/30 : 0
 
-  // View range sweet spot (25 pts)
+  // Avg views ratio (0–1)
   const v = c.avgViews
-  if      (v >= 10000  && v < 50000)  score += 25
-  else if (v >= 1000   && v < 10000)  score += 20
-  else if (v >= 50000  && v < 100000) score += 18
-  else if (v >= 100000 && v < 500000) score += 10
-  else if (v >= 500000)               score += 3
-  else if (v > 0)                     score += 5
+  const viewsRatio = v >= 10000 && v < 50000 ? 1 : v >= 1000 && v < 10000 ? 20/25 : v >= 50000 && v < 100000 ? 18/25 : v >= 100000 && v < 500000 ? 10/25 : v >= 500000 ? 3/25 : v > 0 ? 5/25 : 0
 
-  // Reachability (20 pts)
-  if (c.email)    score += 15
-  if (c.linkedin) score += 5
+  // Reachability ratio (0–1)
+  const reachRatio = c.email && c.linkedin ? 1 : c.email ? 15/20 : c.linkedin ? 5/20 : 0
 
-  // Keyword relevance (15 pts) — matchedVia set by search route
-  if (c.matchedVia === 'name') score += 10
-  else                         score += 2
-  if (c.videoTitles?.length > 0) score += 5
+  // Relevance ratio (0–1)
+  let relRatio = c.matchedVia === 'name' ? 10/15 : 2/15
+  if (c.videoTitles?.length > 0) relRatio = Math.min(1, relRatio + 5/15)
 
-  // Audience quality: views-to-subscriber ratio (10 pts)
+  // Audience quality ratio (0–1)
   const subs = Number(c.subscribers)
+  let qualRatio = 5/10
   if (subs > 0 && !isNaN(subs)) {
     const ratio = c.avgViews / subs
-    if      (ratio >= 0.10) score += 10
-    else if (ratio >= 0.05) score += 7
-    else if (ratio >= 0.02) score += 4
-    else                    score += 1
-  } else {
-    score += 5
+    qualRatio = ratio >= 0.10 ? 1 : ratio >= 0.05 ? 7/10 : ratio >= 0.02 ? 4/10 : 1/10
   }
 
-  // Large team penalty — 750k+ subs means established operation, unlikely to need help
-  if (subs >= 750000) score -= 20
-  else if (subs >= 500000) score -= 10
+  const raw = (
+    recencyRatio     * weights.recency     +
+    viewsRatio       * weights.views       +
+    reachRatio       * weights.reachability +
+    relRatio         * weights.relevance   +
+    qualRatio        * weights.quality
+  ) * norm
 
-  return Math.min(100, Math.max(0, score))
+  // Fixed penalty regardless of weight preferences
+  const penalty = subs >= 750000 ? 20 : subs >= 500000 ? 10 : 0
+  return Math.min(100, Math.max(0, Math.round(raw - penalty)))
 }
 
-function computeFitScoreBreakdown(c: Creator): Array<{ label: string; pts: number; max: number; note: string }> {
+function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS): Array<{ label: string; pts: number; max: number; note: string }> {
+  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
+  const norm = wTotal > 0 ? 100 / wTotal : 1
   const items: Array<{ label: string; pts: number; max: number; note: string }> = []
+
+  // Recency
   const days = parseRelativeDays(c.videoDates?.[0] || '')
-  let rPts = 0, rNote = ''
-  if (days === Infinity) { rPts = 10; rNote = 'No post date found' }
-  else if (days <= 7)  { rPts = 30; rNote = c.videoDates?.[0] || '' }
-  else if (days <= 30) { rPts = 22; rNote = c.videoDates?.[0] || '' }
-  else if (days <= 60) { rPts = 14; rNote = c.videoDates?.[0] || '' }
-  else if (days <= 90) { rPts = 7;  rNote = c.videoDates?.[0] || '' }
-  else                 { rPts = 0;  rNote = c.videoDates?.[0] || 'Over 90 days ago' }
-  items.push({ label: 'Recency', pts: rPts, max: 30, note: rNote })
+  let rRatio = 0, rNote = ''
+  if (days === Infinity) { rRatio = 10/30; rNote = 'No post date found' }
+  else if (days <= 7)  { rRatio = 1;      rNote = c.videoDates?.[0] || '' }
+  else if (days <= 30) { rRatio = 22/30;  rNote = c.videoDates?.[0] || '' }
+  else if (days <= 60) { rRatio = 14/30;  rNote = c.videoDates?.[0] || '' }
+  else if (days <= 90) { rRatio = 7/30;   rNote = c.videoDates?.[0] || '' }
+  else                 { rRatio = 0;      rNote = c.videoDates?.[0] || 'Over 90 days ago' }
+  const rMax = Math.round(weights.recency * norm)
+  items.push({ label: 'Recency', pts: Math.round(rRatio * weights.recency * norm), max: rMax, note: rNote })
 
+  // Avg Views
   const v = c.avgViews
-  let vPts = 0, vNote = ''
-  if      (v >= 10000  && v < 50000)  { vPts = 25; vNote = '10K–50K sweet spot' }
-  else if (v >= 1000   && v < 10000)  { vPts = 20; vNote = '1K–10K growing' }
-  else if (v >= 50000  && v < 100000) { vPts = 18; vNote = '50K–100K solid' }
-  else if (v >= 100000 && v < 500000) { vPts = 10; vNote = '100K–500K large' }
-  else if (v >= 500000)               { vPts = 3;  vNote = '500K+ very large' }
-  else if (v > 0)                     { vPts = 5;  vNote = 'Under 1K views' }
-  items.push({ label: 'Avg Views', pts: vPts, max: 25, note: vNote })
+  let vRatio = 0, vNote = ''
+  if      (v >= 10000  && v < 50000)  { vRatio = 1;     vNote = '10K–50K sweet spot' }
+  else if (v >= 1000   && v < 10000)  { vRatio = 20/25; vNote = '1K–10K growing' }
+  else if (v >= 50000  && v < 100000) { vRatio = 18/25; vNote = '50K–100K solid' }
+  else if (v >= 100000 && v < 500000) { vRatio = 10/25; vNote = '100K–500K large' }
+  else if (v >= 500000)               { vRatio = 3/25;  vNote = '500K+ very large' }
+  else if (v > 0)                     { vRatio = 5/25;  vNote = 'Under 1K views' }
+  const vMax = Math.round(weights.views * norm)
+  items.push({ label: 'Avg Views', pts: Math.round(vRatio * weights.views * norm), max: vMax, note: vNote })
 
-  let cPts = 0, cNote = ''
-  if (c.email && c.linkedin) { cPts = 20; cNote = 'Email + LinkedIn' }
-  else if (c.email)          { cPts = 15; cNote = 'Email found' }
-  else if (c.linkedin)       { cPts = 5;  cNote = 'LinkedIn only' }
-  else                       { cPts = 0;  cNote = 'No contact info' }
-  items.push({ label: 'Reachability', pts: cPts, max: 20, note: cNote })
+  // Reachability
+  let cRatio = 0, cNote = ''
+  if (c.email && c.linkedin) { cRatio = 1;     cNote = 'Email + LinkedIn' }
+  else if (c.email)          { cRatio = 15/20; cNote = 'Email found' }
+  else if (c.linkedin)       { cRatio = 5/20;  cNote = 'LinkedIn only' }
+  else                       { cRatio = 0;     cNote = 'No contact info' }
+  const cMax = Math.round(weights.reachability * norm)
+  items.push({ label: 'Reachability', pts: Math.round(cRatio * weights.reachability * norm), max: cMax, note: cNote })
 
-  let relPts = c.matchedVia === 'name' ? 10 : 2
+  // Relevance
+  let relRatio = c.matchedVia === 'name' ? 10/15 : 2/15
   let relNote = c.matchedVia === 'name' ? 'Channel name matched' : 'Related content match'
-  if (c.videoTitles?.length > 0) { relPts += 5; relNote += ' + video titles' }
-  items.push({ label: 'Relevance', pts: relPts, max: 15, note: relNote })
+  if (c.videoTitles?.length > 0) { relRatio = Math.min(1, relRatio + 5/15); relNote += ' + video titles' }
+  const relMax = Math.round(weights.relevance * norm)
+  items.push({ label: 'Relevance', pts: Math.round(relRatio * weights.relevance * norm), max: relMax, note: relNote })
 
+  // Audience Quality
   const subs = Number(c.subscribers)
-  let qPts = 5, qNote = 'No subscriber data'
+  let qRatio = 5/10, qNote = 'No subscriber data'
   if (subs > 0 && !isNaN(subs)) {
     const ratio = c.avgViews / subs
-    if      (ratio >= 0.10) { qPts = 10; qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
-    else if (ratio >= 0.05) { qPts = 7;  qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
-    else if (ratio >= 0.02) { qPts = 4;  qNote = `${(ratio*100).toFixed(1)}% views/subs ratio` }
-    else                    { qPts = 1;  qNote = `${(ratio*100).toFixed(1)}% views/subs ratio (low)` }
+    if      (ratio >= 0.10) { qRatio = 1;    qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
+    else if (ratio >= 0.05) { qRatio = 7/10; qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
+    else if (ratio >= 0.02) { qRatio = 4/10; qNote = `${(ratio*100).toFixed(1)}% views/subs ratio` }
+    else                    { qRatio = 1/10; qNote = `${(ratio*100).toFixed(1)}% views/subs ratio (low)` }
   }
-  items.push({ label: 'Audience Quality', pts: qPts, max: 10, note: qNote })
+  const qMax = Math.round(weights.quality * norm)
+  items.push({ label: 'Audience Quality', pts: Math.round(qRatio * weights.quality * norm), max: qMax, note: qNote })
 
   if (subs >= 750000)      items.push({ label: 'Large channel', pts: -20, max: 0, note: '750K+ subs' })
   else if (subs >= 500000) items.push({ label: 'Large channel', pts: -10, max: 0, note: '500K–750K subs' })
@@ -252,12 +275,12 @@ function fitScoreMeta(score: number): { label: string; color: string } {
   return              { label: 'Poor Fit',      color: 'text-red-400' }
 }
 
-function FitScoreCell({ c }: { c: Creator }) {
+function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLTableCellElement>(null)
-  const score = computeFitScore(c)
+  const score = computeFitScore(c, weights)
   const { label, color } = fitScoreMeta(score)
-  const items = computeFitScoreBreakdown(c)
+  const items = computeFitScoreBreakdown(c, weights)
 
   useEffect(() => {
     if (!open) return
@@ -301,16 +324,22 @@ function FitScoreCell({ c }: { c: Creator }) {
             <span className="text-gray-400">Total</span>
             <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
           </div>
+          {narrative && (
+            <div className="mt-2 pt-2 border-t border-gray-800">
+              <div className="text-gray-500 text-[10px] uppercase tracking-wide font-semibold mb-1">Your guidance</div>
+              <p className="text-gray-400 text-xs leading-relaxed italic">"{narrative}"</p>
+            </div>
+          )}
         </div>
       )}
     </td>
   )
 }
 
-function renderCell(id: ColId, c: Creator): React.ReactNode {
+function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: string): React.ReactNode {
   switch (id) {
     case 'fitScore': {
-      return <FitScoreCell key={id} c={c} />
+      return <FitScoreCell key={id} c={c} weights={weights} narrative={narrative} />
     }
     case 'avgViews':    return <td key={id} className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
     case 'subscribers': return <td key={id} className="px-4 py-3 text-gray-300">{formatSubscribers(c.subscribers)}</td>
@@ -422,7 +451,7 @@ function contactPriority(c: Creator): number {
   return 0
 }
 
-function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
+function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weights: ScoreWeights = DEFAULT_WEIGHTS): Creator[] {
   return [...list].sort((a, b) => {
     if (col === 'email') {
       const pri = contactPriority(b) - contactPriority(a)
@@ -430,7 +459,7 @@ function sortCreators(list: Creator[], col: SortCol, dir: SortDir): Creator[] {
       return a.channelName.localeCompare(b.channelName)
     }
     let cmp = 0
-    if (col === 'fitScore') cmp = computeFitScore(a) - computeFitScore(b)
+    if (col === 'fitScore') cmp = computeFitScore(a, weights) - computeFitScore(b, weights)
     else if (col === 'avgViews') cmp = a.avgViews - b.avgViews
     else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
     else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
@@ -782,7 +811,119 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortC
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch }: {
+function ScoreSettingsModal({ weights, narrative, onSave, onClose }: {
+  weights: ScoreWeights
+  narrative: string
+  onSave: (w: ScoreWeights, n: string) => void
+  onClose: () => void
+}) {
+  const [draft, setDraft] = useState<ScoreWeights>({ ...weights })
+  const [draftNarrative, setDraftNarrative] = useState(narrative)
+
+  const wTotal = draft.recency + draft.views + draft.reachability + draft.relevance + draft.quality
+  const norm = wTotal > 0 ? 100 / wTotal : 1
+
+  function setPct(key: keyof ScoreWeights, val: number) {
+    setDraft(prev => ({ ...prev, [key]: val }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          <div>
+            <h2 className="text-white font-semibold text-base flex items-center gap-2">
+              <span className="text-purple-400">⚡</span> AI Score Settings
+            </h2>
+            <p className="text-gray-500 text-xs mt-0.5">Customize what makes a great lead for you</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors text-lg leading-none">✕</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
+          {/* Sliders */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Category Weights</span>
+              <span className="text-xs text-gray-600">auto-normalized to 100 pts</span>
+            </div>
+            <div className="space-y-4">
+              {WEIGHT_META.map(({ key, label, description }) => {
+                const pct = Math.round(draft[key] * norm)
+                return (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div>
+                        <span className="text-sm text-gray-200 font-medium">{label}</span>
+                        <span className="text-xs text-gray-600 ml-2">{description}</span>
+                      </div>
+                      <span className="text-sm font-mono font-bold text-purple-400 w-8 text-right">{pct}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-700 w-10 shrink-0">Ignore</span>
+                      <input
+                        type="range" min={0} max={50} step={1}
+                        value={draft[key]}
+                        onChange={e => setPct(key, parseInt(e.target.value))}
+                        className="flex-1 h-1.5 appearance-none bg-gray-700 rounded-full accent-purple-500 cursor-pointer"
+                      />
+                      <span className="text-xs text-gray-700 w-12 shrink-0 text-right">Critical</span>
+                    </div>
+                    {/* Visual bar */}
+                    <div className="mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500/40 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-4 flex items-center justify-between text-xs text-gray-600 border-t border-gray-800 pt-3">
+              <span>Weights auto-normalize — total always = 100 pts</span>
+              <button onClick={() => setDraft({ ...DEFAULT_WEIGHTS })} className="text-gray-500 hover:text-gray-300 underline underline-offset-2">Reset defaults</button>
+            </div>
+          </div>
+
+          {/* Narrative */}
+          <div>
+            <div className="mb-2">
+              <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Your Guidance</span>
+              <p className="text-xs text-gray-600 mt-0.5">Describe what makes a great lead — this is shown in each creator's score breakdown for context.</p>
+            </div>
+            <textarea
+              value={draftNarrative}
+              onChange={e => setDraftNarrative(e.target.value)}
+              rows={4}
+              placeholder={`e.g. "Finance creators with Instagram tend to convert well for me. Under 5K subs rarely respond. I prefer creators who post consistently over once-in-a-while big videos."`}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-none leading-relaxed"
+            />
+            <div className="mt-2 flex items-start gap-2 p-3 bg-gray-800/60 border border-gray-700/50 rounded-lg">
+              <span className="text-purple-400 text-sm shrink-0 mt-0.5">✨</span>
+              <div>
+                <p className="text-xs text-gray-400 font-medium">AI weight adjustment — coming soon</p>
+                <p className="text-xs text-gray-600 mt-0.5">Once connected, clicking "Apply with AI" will read your guidance above and automatically tune the sliders to match. Requires adding an Anthropic API key to Vercel.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-800">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+          <button
+            onClick={() => { onSave(draft, draftNarrative); onClose() }}
+            className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -791,8 +932,10 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
   colConfig: ColConfig[]
   loadMoreBatch?: Creator[]
+  scoreWeights: ScoreWeights
+  scoreNarrative: string
 }) {
-  const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir), [creators, sortCol, sortDir])
+  const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights), [creators, sortCol, sortDir, scoreWeights])
   const visibleCols = colConfig.filter(c => c.visible)
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -875,7 +1018,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 </button>
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-              {visibleCols.map(col => renderCell(col.id, c))}
+              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative))}
             </tr>
           ))}
           {loadMoreBatch && loadMoreBatch.length > 0 && (
@@ -906,7 +1049,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                     </button>
                   </td>
                   <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-                  {visibleCols.map(col => renderCell(col.id, c))}
+                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative))}
                 </tr>
               ))}
             </>
@@ -950,6 +1093,9 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [currentKeyword, setCurrentKeyword] = useState('')
   const [region, setRegion] = useState('')
+  const [scoreWeights, setScoreWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS)
+  const [scoreNarrative, setScoreNarrative] = useState('')
+  const [showScoreSettings, setShowScoreSettings] = useState(false)
   const seenChannelIds = useRef<Set<string>>(new Set())
 
   // search version ref — prevents stale searches from overwriting newer ones
@@ -980,6 +1126,14 @@ export default function Home() {
       setDismissed(storedDismissed)
       setDismissedIds(new Set(storedDismissed.map((c: Creator) => c.channelId)))
     } catch { /* no stored dismissed */ }
+    try {
+      const storedWeights = JSON.parse(localStorage.getItem('creator-score-weights') || 'null')
+      if (storedWeights) setScoreWeights(storedWeights)
+    } catch { /* no stored weights */ }
+    try {
+      const storedNarrative = localStorage.getItem('creator-score-narrative') || ''
+      if (storedNarrative) setScoreNarrative(storedNarrative)
+    } catch { /* no stored narrative */ }
   }, [])
 
   // elapsed timer while loading
@@ -1030,7 +1184,7 @@ export default function Home() {
       responseDate: '',
       subscribers: c.subscribers || '',
       avgViews: c.avgViews || 0,
-      fitScore: computeFitScore(c),
+      fitScore: computeFitScore(c, scoreWeights),
       linkedin: c.linkedin || '',
       contentNiche: '',
       phone: '',
@@ -1216,7 +1370,7 @@ export default function Home() {
         const reSorted = [...enriched].sort((a, b) => {
           const ae = a.email ? 1 : 0, be = b.email ? 1 : 0
           if (ae !== be) return be - ae
-          return computeFitScore(b) - computeFitScore(a)
+          return computeFitScore(b, scoreWeights) - computeFitScore(a, scoreWeights)
         })
         setLoadMoreCreators(prev => {
           const keep = prev.slice(0, prev.length - batch.length)
@@ -1314,6 +1468,14 @@ export default function Home() {
             onChange={e => setKeyword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
           />
+          {/* Score settings icon */}
+          <button
+            onClick={() => setShowScoreSettings(true)}
+            title="AI Score Settings"
+            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative ? 'bg-purple-700 border-purple-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+          >
+            <span className="text-sm">⚡</span>
+          </button>
           {/* Filter icon */}
           <button
             onClick={() => setShowFilter(v => !v)}
@@ -1622,6 +1784,8 @@ export default function Home() {
               sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
               colConfig={colConfig}
               loadMoreBatch={activeTab === 'results' ? loadMoreCreators : undefined}
+              scoreWeights={scoreWeights}
+              scoreNarrative={scoreNarrative}
             />
             {activeTab === 'results' && (
               <div className="mt-5 flex flex-col items-center gap-2">
@@ -1644,6 +1808,20 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {showScoreSettings && (
+        <ScoreSettingsModal
+          weights={scoreWeights}
+          narrative={scoreNarrative}
+          onSave={(w, n) => {
+            setScoreWeights(w)
+            setScoreNarrative(n)
+            localStorage.setItem('creator-score-weights', JSON.stringify(w))
+            localStorage.setItem('creator-score-narrative', n)
+          }}
+          onClose={() => setShowScoreSettings(false)}
+        />
+      )}
     </main>
   )
 }
