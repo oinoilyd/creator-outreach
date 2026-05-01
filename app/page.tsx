@@ -819,12 +819,38 @@ function ScoreSettingsModal({ weights, narrative, onSave, onClose }: {
 }) {
   const [draft, setDraft] = useState<ScoreWeights>({ ...weights })
   const [draftNarrative, setDraftNarrative] = useState(narrative)
+  const [applying, setApplying] = useState(false)
+  const [aiSummary, setAiSummary] = useState('')
+  const [aiError, setAiError] = useState('')
 
   const wTotal = draft.recency + draft.views + draft.reachability + draft.relevance + draft.quality
   const norm = wTotal > 0 ? 100 / wTotal : 1
 
   function setPct(key: keyof ScoreWeights, val: number) {
     setDraft(prev => ({ ...prev, [key]: val }))
+    setAiSummary('')
+  }
+
+  async function applyWithAI() {
+    if (!draftNarrative.trim()) return
+    setApplying(true)
+    setAiError('')
+    setAiSummary('')
+    try {
+      const res = await fetch('/api/interpret-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weights: draft, narrative: draftNarrative }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Unknown error')
+      setDraft(data.weights)
+      setAiSummary(data.summary || '')
+    } catch (err: any) {
+      setAiError(err.message || 'Failed to interpret feedback')
+    } finally {
+      setApplying(false)
+    }
   }
 
   return (
@@ -898,13 +924,34 @@ function ScoreSettingsModal({ weights, narrative, onSave, onClose }: {
               placeholder={`e.g. "Finance creators with Instagram tend to convert well for me. Under 5K subs rarely respond. I prefer creators who post consistently over once-in-a-while big videos."`}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-none leading-relaxed"
             />
-            <div className="mt-2 flex items-start gap-2 p-3 bg-gray-800/60 border border-gray-700/50 rounded-lg">
-              <span className="text-purple-400 text-sm shrink-0 mt-0.5">✨</span>
-              <div>
-                <p className="text-xs text-gray-400 font-medium">AI weight adjustment — coming soon</p>
-                <p className="text-xs text-gray-600 mt-0.5">Once connected, clicking "Apply with AI" will read your guidance above and automatically tune the sliders to match. Requires adding an Anthropic API key to Vercel.</p>
+            <button
+              onClick={applyWithAI}
+              disabled={applying || !draftNarrative.trim()}
+              className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              {applying ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Reading your guidance...
+                </>
+              ) : (
+                <>✨ Apply with AI</>
+              )}
+            </button>
+            {aiSummary && (
+              <div className="mt-2 flex items-start gap-2 p-3 bg-purple-900/30 border border-purple-700/50 rounded-lg">
+                <span className="text-purple-400 text-sm shrink-0 mt-0.5">✨</span>
+                <p className="text-xs text-purple-200 leading-relaxed">{aiSummary}</p>
               </div>
-            </div>
+            )}
+            {aiError && (
+              <div className="mt-2 p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
+                <p className="text-xs text-red-400">{aiError}</p>
+              </div>
+            )}
           </div>
         </div>
 
