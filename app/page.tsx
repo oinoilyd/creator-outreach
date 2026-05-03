@@ -33,9 +33,10 @@ interface ScoreWeights {
   reachability: number
   relevance: number
   quality: number
+  guidance: number   // 6th weight — share of the 100pts allocated to guidance criteria
 }
 
-const DEFAULT_WEIGHTS: ScoreWeights = { recency: 30, views: 25, reachability: 20, relevance: 15, quality: 10 }
+const DEFAULT_WEIGHTS: ScoreWeights = { recency: 25, views: 20, reachability: 20, relevance: 15, quality: 10, guidance: 10 }
 
 const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string }[] = [
   { key: 'recency',     label: 'Recency',          description: 'How recently they posted' },
@@ -43,11 +44,12 @@ const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string
   { key: 'reachability',label: 'Reachability',      description: 'Email and LinkedIn availability' },
   { key: 'relevance',   label: 'Relevance',         description: 'Content match to your search' },
   { key: 'quality',     label: 'Audience Quality',  description: 'Views-to-subscriber engagement ratio' },
+  { key: 'guidance',    label: 'Your Criteria',     description: 'AI-interpreted lead criteria you\'ve trained' },
 ]
 
 // ── GUIDANCE SCORE ───────────────────────────────────────────────────────────
-// Separate from sliders — accumulated feedback entries converted into rules
-// that fire against each creator. Worth up to 20 pts of the total score.
+// Accumulated feedback entries converted into scoring rules. Contributes
+// a proportional share of 100 pts based on the "guidance" weight slider.
 
 type GuidanceCondition =
   | 'has_email' | 'no_email'
@@ -56,6 +58,8 @@ type GuidanceCondition =
   | 'subs_gte' | 'subs_lte'
   | 'views_gte' | 'views_lte'
   | 'posts_recent'
+  | 'has_product_mention'
+  | 'has_english_description'
 
 interface GuidanceRule {
   condition: GuidanceCondition
@@ -72,7 +76,7 @@ interface GuidanceEntry {
   summary: string    // AI's one-line interpretation
 }
 
-const GUIDANCE_MAX = 20  // guidance contributes up to 20 pts (base contributes up to 80)
+// No GUIDANCE_MAX — guidance weight is part of the normalized 100pt total like any other slider
 
 interface GuidanceContextType {
   entries: GuidanceEntry[]
@@ -86,7 +90,7 @@ const GuidanceContext = React.createContext<GuidanceContextType>({
 
 function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
   const subs = Number(c.subscribers) || 0
-  const platforms = [c.email, c.instagram, c.tiktok, c.twitter, c.linkedin, c.website].filter(Boolean).length
+  const platforms = [c.instagram, c.tiktok, c.twitter, c.linkedin, c.website].filter(Boolean).length
   switch (rule.condition) {
     case 'has_email':      return !!c.email
     case 'no_email':       return !c.email
@@ -94,39 +98,48 @@ function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
     case 'has_tiktok':     return !!c.tiktok
     case 'has_website':    return !!c.website
     case 'has_linkedin':   return !!c.linkedin
-    case 'multi_platform': return platforms >= 3
+    case 'multi_platform': return platforms >= 2
     case 'subs_gte':       return subs >= (rule.value ?? 0)
     case 'subs_lte':       return subs > 0 && subs <= (rule.value ?? Infinity)
     case 'views_gte':      return c.avgViews >= (rule.value ?? 0)
     case 'views_lte':      return c.avgViews > 0 && c.avgViews <= (rule.value ?? Infinity)
     case 'posts_recent':   return parseRelativeDays(c.videoDates?.[0] || '') <= 30
+    case 'has_product_mention': {
+      const desc = (c.description || '').toLowerCase()
+      return /\b(course|coaching|program|book|store|shop|merch|product|membership|community|consulting|service|brand|sell|selling|offer|template|mentorship|workshop)\b/.test(desc)
+    }
+    case 'has_english_description': {
+      const desc = c.description || ''
+      if (!desc || desc.length < 20) return false
+      const asciiRatio = desc.split('').filter(ch => ch.charCodeAt(0) < 128).length / desc.length
+      return asciiRatio > 0.85
+    }
     default: return false
   }
 }
 
 function computeGuidanceScore(c: Creator, entries: GuidanceEntry[]): {
-  pts: number
+  ratio: number   // 0–1 fraction of possible points earned; feeds into weight normalization
   fired: { ruleLabel: string; pts: number; entryId: string }[]
   missed: { ruleLabel: string; pts: number; entryId: string }[]
 } {
   const fired: { ruleLabel: string; pts: number; entryId: string }[] = []
   const missed: { ruleLabel: string; pts: number; entryId: string }[] = []
-  let total = 0
+  let netFired = 0
+  let maxPositive = 0
   for (const entry of entries) {
     for (const rule of entry.rules) {
+      if (rule.points > 0) maxPositive += rule.points
       if (evaluateGuidanceRule(rule, c)) {
         fired.push({ ruleLabel: rule.label, pts: rule.points, entryId: entry.id })
-        total += rule.points
+        netFired += rule.points
       } else {
         missed.push({ ruleLabel: rule.label, pts: rule.points, entryId: entry.id })
       }
     }
   }
-  return {
-    pts: Math.min(GUIDANCE_MAX, Math.max(-GUIDANCE_MAX, total)),
-    fired,
-    missed,
-  }
+  const ratio = maxPositive > 0 ? Math.min(1, Math.max(0, netFired / maxPositive)) : 0
+  return { ratio, fired, missed }
 }
 
 interface OutreachEntry {
@@ -250,8 +263,8 @@ const COL_SORT: Partial<Record<ColId, SortCol>> = {
 }
 
 function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): number {
-  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
-  const norm = wTotal > 0 ? 80 / wTotal : 1  // base contributes max 80 pts; guidance adds up to 20
+  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality + weights.guidance
+  const norm = wTotal > 0 ? 100 / wTotal : 1
 
   // Recency ratio (0–1)
   const days = parseRelativeDays(c.videoDates?.[0] || '')
@@ -272,28 +285,29 @@ function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, gu
   const subs = Number(c.subscribers)
   let qualRatio = 5/10
   if (subs > 0 && !isNaN(subs)) {
-    const ratio = c.avgViews / subs
-    qualRatio = ratio >= 0.10 ? 1 : ratio >= 0.05 ? 7/10 : ratio >= 0.02 ? 4/10 : 1/10
+    const r = c.avgViews / subs
+    qualRatio = r >= 0.10 ? 1 : r >= 0.05 ? 7/10 : r >= 0.02 ? 4/10 : 1/10
   }
 
+  // Guidance ratio (0–1) — 0 when no entries
+  const { ratio: guidanceRatio } = guidanceEntries.length > 0 ? computeGuidanceScore(c, guidanceEntries) : { ratio: 0 }
+
   const raw = (
-    recencyRatio     * weights.recency     +
-    viewsRatio       * weights.views       +
-    reachRatio       * weights.reachability +
-    relRatio         * weights.relevance   +
-    qualRatio        * weights.quality
+    recencyRatio   * weights.recency      +
+    viewsRatio     * weights.views        +
+    reachRatio     * weights.reachability +
+    relRatio       * weights.relevance    +
+    qualRatio      * weights.quality      +
+    guidanceRatio  * weights.guidance
   ) * norm
 
-  // Guidance score on top of base (max +20 / min -20)
-  const { pts: guidancePts } = computeGuidanceScore(c, guidanceEntries)
-  // Fixed penalty regardless of weight preferences
   const penalty = subs >= 750000 ? 20 : subs >= 500000 ? 10 : 0
-  return Math.min(100, Math.max(0, Math.round(raw + guidancePts - penalty)))
+  return Math.min(100, Math.max(0, Math.round(raw - penalty)))
 }
 
 function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> {
-  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
-  const norm = wTotal > 0 ? 80 / wTotal : 1
+  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality + weights.guidance
+  const norm = wTotal > 0 ? 100 / wTotal : 1
   const items: Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> = []
 
   // Recency
@@ -352,14 +366,20 @@ function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WE
   if (subs >= 750000)      items.push({ label: 'Large channel', pts: -20, max: 0, note: '750K+ subs' })
   else if (subs >= 500000) items.push({ label: 'Large channel', pts: -10, max: 0, note: '500K–750K subs' })
 
-  // Guidance score row
-  const { pts: guidancePts, fired } = computeGuidanceScore(c, guidanceEntries)
-  const guidanceNote = guidanceEntries.length === 0
-    ? 'No guidance yet — add feedback to personalize'
-    : fired.length === 0
-    ? 'No rules matched this creator'
-    : `${fired.length} rule${fired.length === 1 ? '' : 's'} matched`
-  items.push({ label: 'Guidance', pts: guidancePts, max: GUIDANCE_MAX, note: guidanceNote, isGuidance: true })
+  // Guidance row — proportional share of total pts based on guidance weight
+  const gMax = Math.round(weights.guidance * norm)
+  if (weights.guidance > 0) {
+    const { ratio: gRatio, fired } = guidanceEntries.length > 0
+      ? computeGuidanceScore(c, guidanceEntries)
+      : { ratio: 0, fired: [] }
+    const gPts = Math.round(gRatio * weights.guidance * norm)
+    const guidanceNote = guidanceEntries.length === 0
+      ? 'Add criteria below to personalize this score'
+      : fired.length === 0
+      ? 'None of your criteria matched this creator'
+      : `${fired.length} of your criteria matched`
+    items.push({ label: 'Your Criteria', pts: gPts, max: gMax, note: guidanceNote, isGuidance: true })
+  }
 
   return items
 }
@@ -382,7 +402,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
   const score = computeFitScore(c, weights, entries)
   const { label, color } = fitScoreMeta(score)
   const items = computeFitScoreBreakdown(c, weights, entries)
-  const { fired, missed } = computeGuidanceScore(c, entries)
+  const { ratio: guidanceRatio, fired, missed } = entries.length > 0 ? computeGuidanceScore(c, entries) : { ratio: 0, fired: [], missed: [] }
 
   async function submitGuidance() {
     if (!newText.trim()) return
@@ -433,46 +453,70 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   Back
                 </button>
-                <span className="font-semibold text-gray-200">✨ Guidance Score</span>
+                <span className="font-semibold text-gray-200">✨ Your Lead Criteria</span>
                 <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">✕</button>
               </div>
+
+              {/* Score bar for this creator */}
+              {entries.length > 0 && (
+                <div className="mb-3 p-2 bg-gray-800/60 rounded border border-gray-700/50">
+                  <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
+                    <span>Criteria match for this creator</span>
+                    <span className={`font-bold font-mono ${guidanceRatio >= 0.7 ? 'text-green-400' : guidanceRatio >= 0.4 ? 'text-yellow-400' : 'text-gray-500'}`}>{Math.round(guidanceRatio * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.round(guidanceRatio * 100)}%`, backgroundColor: guidanceRatio >= 0.7 ? 'rgb(74,222,128)' : guidanceRatio >= 0.4 ? 'rgb(250,204,21)' : 'rgb(75,85,99)' }} />
+                  </div>
+                </div>
+              )}
+
               {entries.length === 0 ? (
-                <p className="text-gray-500 text-center py-3">No guidance added yet. Add feedback below to start scoring.</p>
+                <p className="text-gray-500 text-center py-3 text-[11px] leading-relaxed">No criteria yet — describe what makes a great lead and the AI will build the scoring logic.</p>
               ) : (
-                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
                   {entries.map((entry: GuidanceEntry) => {
                     const entryFired = fired.filter(f => f.entryId === entry.id)
                     const entryMissed = missed.filter(m => m.entryId === entry.id)
-                    const entryPts = entryFired.reduce((s, f) => s + f.pts, 0)
+                    const allMatch = entryFired.length > 0 && entryMissed.length === 0
+                    const noneMatch = entryFired.length === 0
                     return (
-                      <div key={entry.id} className="border border-gray-800 rounded p-2 space-y-1.5">
+                      <div key={entry.id} className="border border-gray-800 rounded-md p-2 space-y-1.5 bg-gray-900/60">
+                        {/* Criteria header */}
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="text-gray-300 leading-tight">{entry.summary || entry.text}</div>
-                            <div className={`font-mono font-bold text-[10px] mt-0.5 ${entryPts > 0 ? 'text-green-400' : entryPts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                              {entryPts > 0 ? '+' : ''}{entryPts} pts this creator
-                            </div>
+                          <div className="flex-1">
+                            <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">What you said</div>
+                            <div className="text-gray-400 text-[11px] italic leading-snug">"{entry.text}"</div>
+                            {entry.summary && (
+                              <div className="text-gray-300 text-[11px] mt-1 leading-snug">
+                                <span className="text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
+                              </div>
+                            )}
                           </div>
-                          <button onClick={() => removeEntry(entry.id)} className="text-gray-600 hover:text-red-400 shrink-0 mt-0.5" title="Delete this guidance">
+                          <button onClick={() => removeEntry(entry.id)} className="text-gray-700 hover:text-red-400 shrink-0" title="Remove this criteria">
                             <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </div>
+                        {/* Logic breakdown */}
                         {entry.rules.length > 0 && (
-                          <div className="space-y-0.5">
+                          <div className="pt-1.5 border-t border-gray-800/60 space-y-1">
+                            <div className="text-[9px] text-gray-600 uppercase tracking-wide">Scoring logic</div>
                             {entryFired.map((f, fi) => (
-                              <div key={fi} className="flex items-center gap-1.5 text-green-400">
-                                <span className="shrink-0">✓</span>
-                                <span className="flex-1 text-gray-300">{f.ruleLabel}</span>
-                                <span className="font-mono">{f.pts > 0 ? '+' : ''}{f.pts}</span>
+                              <div key={fi} className="flex items-center gap-1.5">
+                                <span className="text-green-500 shrink-0 text-[11px]">✓</span>
+                                <span className="flex-1 text-gray-300 text-[11px]">{f.ruleLabel}</span>
+                                <span className={`font-mono text-[10px] font-bold ${f.pts > 0 ? 'text-green-400' : 'text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
                               </div>
                             ))}
                             {entryMissed.map((m, mi) => (
-                              <div key={mi} className="flex items-center gap-1.5 text-gray-600">
-                                <span className="shrink-0">✗</span>
-                                <span className="flex-1">{m.ruleLabel}</span>
-                                <span className="font-mono">{m.pts > 0 ? '+' : ''}{m.pts}</span>
+                              <div key={mi} className="flex items-center gap-1.5">
+                                <span className="text-gray-700 shrink-0 text-[11px]">✗</span>
+                                <span className="flex-1 text-gray-600 text-[11px]">{m.ruleLabel}</span>
+                                <span className="font-mono text-[10px] text-gray-700">{m.pts > 0 ? '+' : ''}{m.pts}</span>
                               </div>
                             ))}
+                            <div className={`text-[10px] mt-0.5 font-medium ${allMatch ? 'text-green-400' : noneMatch ? 'text-gray-600' : 'text-yellow-500'}`}>
+                              {allMatch ? '✓ Fully matches this creator' : noneMatch ? '✗ Doesn\'t match this creator' : `⚡ Partially matches (${entryFired.length}/${entry.rules.length} rules)`}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -480,12 +524,14 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                   })}
                 </div>
               )}
+
               {/* Add new guidance */}
               <div className="mt-3 pt-2 border-t border-gray-800 space-y-2">
+                <div className="text-[10px] text-gray-500 mb-1">Add a new lead criterion — describe it naturally, AI handles the rest</div>
                 <textarea
                   value={newText}
                   onChange={e => setNewText(e.target.value)}
-                  placeholder="e.g. I prefer creators with Instagram presence…"
+                  placeholder={`e.g. "A good lead has a product or course they sell" or "They target American audiences"`}
                   rows={2}
                   className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-xs focus:outline-none focus:border-purple-500"
                 />
@@ -496,10 +542,10 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                     disabled={submitting || !newText.trim()}
                     className="px-2 py-1 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white rounded text-xs flex items-center gap-1"
                   >
-                    {submitting ? <><Spinner /><span>Processing…</span></> : '✨ Add'}
+                    {submitting ? <><Spinner /><span>Processing…</span></> : '✨ Add criterion'}
                   </button>
                   {entries.length > 0 && (
-                    <button onClick={() => { resetAll(); }} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
+                    <button onClick={() => { resetAll() }} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
                   )}
                 </div>
               </div>
@@ -1081,7 +1127,7 @@ function ScoreSettingsModal({ weights, narrative, onSave, onClose }: {
   const [aiSummary, setAiSummary] = useState('')
   const [aiError, setAiError] = useState('')
 
-  const wTotal = draft.recency + draft.views + draft.reachability + draft.relevance + draft.quality
+  const wTotal = draft.recency + draft.views + draft.reachability + draft.relevance + draft.quality + draft.guidance
   const norm = wTotal > 0 ? 100 / wTotal : 1
 
   function setPct(key: keyof ScoreWeights, val: number) {
@@ -1136,29 +1182,33 @@ function ScoreSettingsModal({ weights, narrative, onSave, onClose }: {
             <div className="space-y-4">
               {WEIGHT_META.map(({ key, label, description }) => {
                 const pct = Math.round(draft[key] * norm)
+                const isGuidanceSlider = key === 'guidance'
                 return (
-                  <div key={key}>
+                  <div key={key} className={isGuidanceSlider ? 'pt-3 border-t border-gray-800/60' : ''}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div>
-                        <span className="text-sm text-gray-200 font-medium">{label}</span>
+                        <span className={`text-sm font-medium ${isGuidanceSlider ? 'text-purple-300' : 'text-gray-200'}`}>{label}</span>
+                        {isGuidanceSlider && <span className="ml-1.5 text-[10px] text-purple-500 bg-purple-900/30 px-1.5 py-0.5 rounded-full">✨ AI</span>}
                         <span className="text-xs text-gray-600 ml-2">{description}</span>
                       </div>
-                      <span className="text-sm font-mono font-bold text-purple-400 w-8 text-right">{pct}</span>
+                      <span className={`text-sm font-mono font-bold w-8 text-right ${isGuidanceSlider ? 'text-purple-400' : 'text-purple-400'}`}>{pct}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-700 w-10 shrink-0">Ignore</span>
+                      <span className="text-xs text-gray-700 w-7 shrink-0">Low</span>
                       <input
                         type="range" min={0} max={50} step={1}
                         value={draft[key]}
                         onChange={e => setPct(key, parseInt(e.target.value))}
-                        className="flex-1 h-1.5 appearance-none bg-gray-700 rounded-full accent-purple-500 cursor-pointer"
+                        className={`flex-1 h-1.5 appearance-none bg-gray-700 rounded-full cursor-pointer ${isGuidanceSlider ? 'accent-purple-400' : 'accent-purple-500'}`}
                       />
-                      <span className="text-xs text-gray-700 w-12 shrink-0 text-right">Critical</span>
+                      <span className="text-xs text-gray-700 w-10 shrink-0 text-right">Critical</span>
                     </div>
-                    {/* Visual bar */}
                     <div className="mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-500/40 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: isGuidanceSlider ? 'rgba(168,85,247,0.5)' : 'rgba(168,85,247,0.4)' }} />
                     </div>
+                    {isGuidanceSlider && draft.guidance === 0 && (
+                      <div className="mt-1.5 text-[10px] text-gray-600">Drag up to let your AI criteria affect scores</div>
+                    )}
                   </div>
                 )
               })}

@@ -9,14 +9,16 @@ interface ScoreWeights {
   reachability: number
   relevance: number
   quality: number
+  guidance: number
 }
 
-const CATEGORY_DESCRIPTIONS = {
-  recency:      'How recently the creator posted (0 = ignore, 50 = critical)',
+const CATEGORY_DESCRIPTIONS: Record<keyof ScoreWeights, string> = {
+  recency:      'How recently the creator posted (0 = low priority, 50 = critical)',
   views:        'Average view count sweet spot — favors 10K–50K range',
   reachability: 'Whether email and/or LinkedIn are available for outreach',
   relevance:    'How well the channel content matches the search topic',
   quality:      'Views-to-subscriber engagement ratio (audience loyalty)',
+  guidance:     'How much the creator matches your AI-interpreted lead criteria (product sellers, audience type, etc.)',
 }
 
 export async function POST(req: NextRequest) {
@@ -26,13 +28,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No narrative provided' }, { status: 400 })
   }
 
-  const currentWeightsText = Object.entries(weights)
-    .map(([k, v]) => `  ${k}: ${v} — ${CATEGORY_DESCRIPTIONS[k as keyof ScoreWeights]}`)
+  const currentWeightsText = (Object.entries(weights) as [keyof ScoreWeights, number][])
+    .map(([k, v]) => `  ${k}: ${v} — ${CATEGORY_DESCRIPTIONS[k]}`)
     .join('\n')
 
   const prompt = `You are helping tune a YouTube creator fit-score system for a creator outreach tool. The user does outreach to YouTube creators to pitch them on a content/growth service.
 
-The scoring system has 5 categories. Each has a weight between 0 and 50. The weights are auto-normalized so they always sum to 100 points total. Higher weight = more important to the final score.
+The scoring system has 6 categories. Each has a weight between 0 and 50. The weights are auto-normalized so they always sum to 100 points total. Higher weight = more important to the final score.
 
 Current weights:
 ${currentWeightsText}
@@ -47,7 +49,8 @@ Based on their guidance, suggest updated weights that better reflect their prior
     "views": <number 0-50>,
     "reachability": <number 0-50>,
     "relevance": <number 0-50>,
-    "quality": <number 0-50>
+    "quality": <number 0-50>,
+    "guidance": <number 0-50>
   },
   "summary": "<one sentence explaining the key changes you made and why>"
 }
@@ -55,7 +58,7 @@ Based on their guidance, suggest updated weights that better reflect their prior
 Rules:
 - Keep each weight between 0 and 50
 - Only change weights that the user's guidance clearly implies should change
-- If the user mentions something not covered by the 5 categories, note it in the summary but don't distort other weights to compensate
+- If the guidance mentions creator criteria (product sellers, specific audience, posting style), increase the "guidance" weight so the AI criteria matter more
 - The summary must be plain English, under 25 words`
 
   try {
@@ -66,8 +69,6 @@ Rules:
     })
 
     const raw = (message.content[0] as any).text?.trim() || ''
-
-    // Strip markdown fences if present
     const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const parsed = JSON.parse(jsonStr)
 
@@ -75,13 +76,13 @@ Rules:
       throw new Error('Invalid response shape')
     }
 
-    // Clamp all values to 0–50
     const safe: ScoreWeights = {
       recency:      Math.min(50, Math.max(0, Math.round(parsed.weights.recency      ?? weights.recency))),
       views:        Math.min(50, Math.max(0, Math.round(parsed.weights.views        ?? weights.views))),
       reachability: Math.min(50, Math.max(0, Math.round(parsed.weights.reachability ?? weights.reachability))),
       relevance:    Math.min(50, Math.max(0, Math.round(parsed.weights.relevance    ?? weights.relevance))),
       quality:      Math.min(50, Math.max(0, Math.round(parsed.weights.quality      ?? weights.quality))),
+      guidance:     Math.min(50, Math.max(0, Math.round(parsed.weights.guidance     ?? weights.guidance))),
     }
 
     return NextResponse.json({ weights: safe, summary: parsed.summary || '' })
