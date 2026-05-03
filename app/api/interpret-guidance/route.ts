@@ -6,29 +6,31 @@ const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
 const CONDITIONS_DOC = `
 Available condition types — use the EXACT string for "condition":
 
-CONTACT / REACHABILITY
+BUSINESS / PRODUCT SIGNALS  ← use these for "has a product", "business account", "sells something", "entrepreneur"
+  "has_product_mention"    → checks channel name, video titles, and description for: course, coaching, program, book, store, shop, merch, product, membership, consulting, service, brand, academy, masterclass, agency, business, entrepreneur, workshop, digital product, ecommerce, mentor, training. Works even before full data is loaded.
+  "has_website"            → creator has a personal/business website link on their channel
+
+AUDIENCE / LANGUAGE SIGNALS  ← use these for "American audience", "English-speaking", "US market"
+  "has_english_description"→ channel name, video titles, and description are primarily in English (>80% ASCII). Good signal for US/UK/AU/CA creators.
+
+CONTACT / REACHABILITY  ← use these for "reachable", "has contact info", "can email them"
   "has_email"              → creator has an email address found
   "no_email"               → creator has no email address
   "has_linkedin"           → creator has a LinkedIn profile
-  "has_website"            → creator has a personal website or link
 
-SOCIAL PRESENCE
+SOCIAL PRESENCE  ← use these for "active on social", "has Instagram", "cross-platform"
   "has_instagram"          → creator has an Instagram link
   "has_tiktok"             → creator has a TikTok link
-  "multi_platform"         → creator is active on 2+ social platforms (Instagram, TikTok, Twitter, LinkedIn, website)
+  "multi_platform"         → creator is active on 2+ platforms (Instagram, TikTok, Twitter, LinkedIn, website)
 
-CHANNEL SIZE
+CHANNEL SIZE  ← use these for "small channel", "large channel", "micro influencer", "established creator"
   "subs_gte"               → subscriber count ≥ value  (e.g. { condition: "subs_gte", value: 10000 })
   "subs_lte"               → subscriber count ≤ value  (e.g. { condition: "subs_lte", value: 500000 })
 
-CONTENT PERFORMANCE
-  "views_gte"              → average views ≥ value     (e.g. { condition: "views_gte", value: 5000 })
-  "views_lte"              → average views ≤ value     (e.g. { condition: "views_lte", value: 100000 })
-  "posts_recent"           → most recent post was within the last 30 days
-
-CREATOR BUSINESS SIGNALS
-  "has_product_mention"    → channel description mentions products, courses, coaching, books, merchandise, membership, store, consulting, or workshops — signals the creator sells something beyond just content
-  "has_english_description"→ channel description is primarily in English — signals English-speaking audience (useful for targeting US/UK/AU/CA market creators)
+CONTENT PERFORMANCE  ← use these for "gets views", "viral", "consistent views", "low engagement"
+  "views_gte"              → average views per video ≥ value
+  "views_lte"              → average views per video ≤ value
+  "posts_recent"           → posted within the last 30 days (active creator)
 `
 
 export async function POST(req: NextRequest) {
@@ -38,39 +40,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400 })
   }
 
-  const prompt = `You are building scoring logic for a YouTube creator outreach tool. A user has described a criterion for what makes a great lead. Your job is to convert it into precise, evaluatable scoring rules.
+  const prompt = `You are building scoring rules for a YouTube creator outreach tool. A user described what makes a great lead. Convert it into evaluatable scoring rules.
 
 ${CONDITIONS_DOC}
 
-Each rule:
-- "condition": one of the exact condition strings above
-- "value": a number (ONLY for subs_gte, subs_lte, views_gte, views_lte — omit for all others)
-- "points": integer from -10 to +10. Positive = good signal, negative = bad signal. Scale: ±2–3 mild preference, ±5–7 strong preference, ±8–10 near deal-breaker.
-- "label": short human-readable label under 8 words (e.g. "Has product/course to sell", "Posts in English")
+Rule format:
+- "condition": exact string from the list above
+- "value": number ONLY for subs_gte, subs_lte, views_gte, views_lte (omit for everything else)
+- "points": -10 to +10. Positive = good signal. ±2–3 = mild, ±5–7 = strong, ±8–10 = must-have/deal-breaker.
+- "label": under 8 words describing what the rule checks (e.g. "Has product or course to sell")
 
-User's lead criterion: "${text}"
+User's criterion: "${text}"
 
-Think carefully about what this implies about a creator's profile. Consider:
-- Does it say anything about what platforms they're on?
-- Does it say anything about their audience or market?
-- Does it suggest they sell something or have a business?
-- Does it say anything about how active or large they are?
+Mapping guide for common phrases:
+- "has a product", "sells something", "business", "entrepreneur", "course creator" → use "has_product_mention" with high points (7–9)
+- "business account", "brand channel", "company" → use "has_product_mention" + "has_website"
+- "American audience", "US market", "English speaking" → use "has_english_description"
+- "reachable", "can contact them" → use "has_email"
+- "active on social", "social presence" → use "multi_platform" or "has_instagram"
+- "consistent", "active creator" → use "posts_recent"
+- "small creator", "micro influencer" → use "subs_lte" with appropriate value
+- "established", "decent following" → use "subs_gte" with appropriate value
 
-Return ONLY valid JSON — no explanation, no markdown:
+Return ONLY valid JSON, no markdown:
 {
   "rules": [
-    { "condition": "has_product_mention", "points": 8, "label": "Has product/course to sell" },
-    ...
+    { "condition": "has_product_mention", "points": 8, "label": "Has product or course to sell" }
   ],
-  "summary": "<one sentence in plain English under 20 words: what this criterion looks for and why it matters>"
+  "summary": "<one plain-English sentence under 20 words explaining what this criterion targets>"
 }
 
-Important:
+Rules:
 - Extract 1–4 rules maximum
-- Only use conditions from the list above — do not invent new condition strings
-- If the criterion cannot be evaluated by any available condition, return empty rules and explain in summary
-- Negative rules (bad signals) are valid — e.g. "no_email" with -5 if the user says they need email to reach out
-- summary should explain the AI's interpretation, not just repeat what the user said`
+- Use "has_product_mention" for ANY mention of business/product/selling — it's the most reliable condition for that concept
+- If the criterion clearly can't map to any available condition, return empty rules and explain in summary`
 
   try {
     const message = await client.messages.create({

@@ -105,14 +105,24 @@ function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
     case 'views_lte':      return c.avgViews > 0 && c.avgViews <= (rule.value ?? Infinity)
     case 'posts_recent':   return parseRelativeDays(c.videoDates?.[0] || '') <= 30
     case 'has_product_mention': {
-      const desc = (c.description || '').toLowerCase()
-      return /\b(course|coaching|program|book|store|shop|merch|product|membership|community|consulting|service|brand|sell|selling|offer|template|mentorship|workshop)\b/.test(desc)
+      // Check description (post-enrichment), channel name, AND video titles (available from search)
+      const corpus = [
+        c.description || '',
+        c.channelName || '',
+        ...(c.videoTitles || []),
+      ].join(' ').toLowerCase()
+      return /\b(course|courses|coaching|coach|program|programs|book|books|store|shop|merch|merchandise|product|products|membership|community|consulting|consultant|service|services|brand|sell|selling|offer|template|templates|mentorship|mentor|workshop|workshops|academy|masterclass|training|agency|studio|media|business|entrepreneur|founder|creator economy|digital product|online business|side hustle|passive income|build your|grow your business|ecommerce|e-commerce|dropship)\b/.test(corpus)
     }
     case 'has_english_description': {
-      const desc = c.description || ''
-      if (!desc || desc.length < 20) return false
-      const asciiRatio = desc.split('').filter(ch => ch.charCodeAt(0) < 128).length / desc.length
-      return asciiRatio > 0.85
+      // Use channel name + video titles as fallback when description isn't yet loaded
+      const corpus = [
+        c.description || '',
+        c.channelName || '',
+        ...(c.videoTitles || []),
+      ].join(' ')
+      if (!corpus.trim() || corpus.trim().length < 10) return false
+      const asciiRatio = corpus.split('').filter(ch => ch.charCodeAt(0) < 128).length / corpus.length
+      return asciiRatio > 0.80
     }
     default: return false
   }
