@@ -404,6 +404,12 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
   const items = computeFitScoreBreakdown(c, weights, entries)
   const { ratio: guidanceRatio, fired, missed } = entries.length > 0 ? computeGuidanceScore(c, entries) : { ratio: 0, fired: [], missed: [] }
 
+  // Compute actual pts contribution guidance makes to this creator's score
+  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality + weights.guidance
+  const norm = wTotal > 0 ? 100 / wTotal : 1
+  const guidanceMaxPts = Math.round(weights.guidance * norm)
+  const guidanceActualPts = Math.round(guidanceRatio * weights.guidance * norm)
+
   async function submitGuidance() {
     if (!newText.trim()) return
     setSubmitting(true)
@@ -444,108 +450,144 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
         </svg>
       </button>
       {open && (
-        <div className={`absolute z-50 left-0 top-full mt-1 ${guidanceView ? 'w-88' : 'w-72'} bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 text-xs`} style={{ width: guidanceView ? '22rem' : '18rem' }}>
+        <div
+          className="absolute z-50 left-0 top-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs flex flex-col"
+          style={{ width: '20rem', maxWidth: 'calc(100vw - 1rem)', maxHeight: 'min(560px, 80vh)' }}
+        >
           {/* ── GUIDANCE DETAIL VIEW ── */}
           {guidanceView ? (
             <>
-              <div className="flex items-center justify-between mb-2">
-                <button onClick={() => setGuidanceView(false)} className="text-gray-500 hover:text-white flex items-center gap-1">
+              {/* Sticky header */}
+              <div className="shrink-0 flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-800">
+                <button onClick={() => setGuidanceView(false)} className="text-gray-500 hover:text-white flex items-center gap-1 text-[11px]">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   Back
                 </button>
-                <span className="font-semibold text-gray-200">✨ Your Lead Criteria</span>
-                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+                <span className="font-semibold text-gray-200 text-[11px]">✨ Your Lead Criteria</span>
+                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white leading-none">✕</button>
               </div>
 
-              {/* Score bar for this creator */}
-              {entries.length > 0 && (
-                <div className="mb-3 p-2 bg-gray-800/60 rounded border border-gray-700/50">
-                  <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-                    <span>Criteria match for this creator</span>
-                    <span className={`font-bold font-mono ${guidanceRatio >= 0.7 ? 'text-green-400' : guidanceRatio >= 0.4 ? 'text-yellow-400' : 'text-gray-500'}`}>{Math.round(guidanceRatio * 100)}%</span>
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2.5 min-h-0">
+
+                {/* Score contribution card — always visible */}
+                <div className="bg-gray-800/70 rounded-lg p-2.5 space-y-2 border border-gray-700/40">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 font-medium">Score contribution</span>
+                    <span className={`font-bold font-mono text-sm ${guidanceActualPts > 0 ? 'text-purple-300' : 'text-gray-500'}`}>
+                      {guidanceActualPts} <span className="text-gray-600 font-normal text-[10px]">/ {guidanceMaxPts} pts</span>
+                    </span>
                   </div>
-                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.round(guidanceRatio * 100)}%`, backgroundColor: guidanceRatio >= 0.7 ? 'rgb(74,222,128)' : guidanceRatio >= 0.4 ? 'rgb(250,204,21)' : 'rgb(75,85,99)' }} />
+                  {/* Progress bar */}
+                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: guidanceMaxPts > 0 ? `${Math.round(guidanceRatio * 100)}%` : '0%',
+                        backgroundColor: guidanceRatio >= 0.7 ? 'rgb(168,85,247)' : guidanceRatio >= 0.4 ? 'rgb(139,92,246)' : 'rgb(75,85,99)',
+                      }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-500 leading-snug">
+                    {weights.guidance === 0 ? (
+                      <span className="text-amber-500">⚠ Your Criteria weight is set to 0 — open <strong>Score Settings</strong> and drag it up to let these criteria affect scores.</span>
+                    ) : entries.length === 0 ? (
+                      <span>Add criteria below — the AI converts your words into scoring logic applied to every creator.</span>
+                    ) : (
+                      <span>
+                        {guidanceActualPts === guidanceMaxPts
+                          ? 'This creator hits all your criteria — full points earned.'
+                          : guidanceActualPts === 0
+                          ? 'This creator didn\'t match any criteria — no points earned.'
+                          : `This creator matched ${Math.round(guidanceRatio * 100)}% of your criteria.`}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {entries.length === 0 ? (
-                <p className="text-gray-500 text-center py-3 text-[11px] leading-relaxed">No criteria yet — describe what makes a great lead and the AI will build the scoring logic.</p>
-              ) : (
-                <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
-                  {entries.map((entry: GuidanceEntry) => {
-                    const entryFired = fired.filter(f => f.entryId === entry.id)
-                    const entryMissed = missed.filter(m => m.entryId === entry.id)
-                    const allMatch = entryFired.length > 0 && entryMissed.length === 0
-                    const noneMatch = entryFired.length === 0
-                    return (
-                      <div key={entry.id} className="border border-gray-800 rounded-md p-2 space-y-1.5 bg-gray-900/60">
-                        {/* Criteria header */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">What you said</div>
-                            <div className="text-gray-400 text-[11px] italic leading-snug">"{entry.text}"</div>
-                            {entry.summary && (
-                              <div className="text-gray-300 text-[11px] mt-1 leading-snug">
-                                <span className="text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
-                              </div>
-                            )}
-                          </div>
-                          <button onClick={() => removeEntry(entry.id)} className="text-gray-700 hover:text-red-400 shrink-0" title="Remove this criteria">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
-                        </div>
-                        {/* Logic breakdown */}
-                        {entry.rules.length > 0 && (
-                          <div className="pt-1.5 border-t border-gray-800/60 space-y-1">
-                            <div className="text-[9px] text-gray-600 uppercase tracking-wide">Scoring logic</div>
-                            {entryFired.map((f, fi) => (
-                              <div key={fi} className="flex items-center gap-1.5">
-                                <span className="text-green-500 shrink-0 text-[11px]">✓</span>
-                                <span className="flex-1 text-gray-300 text-[11px]">{f.ruleLabel}</span>
-                                <span className={`font-mono text-[10px] font-bold ${f.pts > 0 ? 'text-green-400' : 'text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
-                              </div>
-                            ))}
-                            {entryMissed.map((m, mi) => (
-                              <div key={mi} className="flex items-center gap-1.5">
-                                <span className="text-gray-700 shrink-0 text-[11px]">✗</span>
-                                <span className="flex-1 text-gray-600 text-[11px]">{m.ruleLabel}</span>
-                                <span className="font-mono text-[10px] text-gray-700">{m.pts > 0 ? '+' : ''}{m.pts}</span>
-                              </div>
-                            ))}
-                            <div className={`text-[10px] mt-0.5 font-medium ${allMatch ? 'text-green-400' : noneMatch ? 'text-gray-600' : 'text-yellow-500'}`}>
-                              {allMatch ? '✓ Fully matches this creator' : noneMatch ? '✗ Doesn\'t match this creator' : `⚡ Partially matches (${entryFired.length}/${entry.rules.length} rules)`}
+                {/* Criteria entries */}
+                {entries.length === 0 ? (
+                  <p className="text-gray-500 text-center py-2 text-[11px] leading-relaxed">
+                    No criteria yet. Describe what makes a great lead below — the AI handles the rest.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {entries.map((entry: GuidanceEntry) => {
+                      const entryFired = fired.filter(f => f.entryId === entry.id)
+                      const entryMissed = missed.filter(m => m.entryId === entry.id)
+                      const allMatch = entryFired.length > 0 && entryMissed.length === 0
+                      const noneMatch = entryFired.length === 0
+                      return (
+                        <div key={entry.id} className="border border-gray-800 rounded-md overflow-hidden">
+                          {/* Criterion header */}
+                          <div className="flex items-start gap-2 px-2 pt-2 pb-1.5">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-gray-400 text-[10px] italic leading-snug break-words">"{entry.text}"</div>
+                              {entry.summary && (
+                                <div className="text-gray-300 text-[11px] mt-1 leading-snug break-words">
+                                  <span className="text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
+                                </div>
+                              )}
                             </div>
+                            <button onClick={() => removeEntry(entry.id)} className="text-gray-700 hover:text-red-400 shrink-0 mt-0.5" title="Remove">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+                          {/* Scoring logic */}
+                          {entry.rules.length > 0 && (
+                            <div className="bg-gray-800/40 px-2 py-1.5 space-y-1">
+                              <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold">Scoring logic for this creator</div>
+                              {entryFired.map((f, fi) => (
+                                <div key={fi} className="flex items-center gap-1.5">
+                                  <span className="text-green-500 shrink-0">✓</span>
+                                  <span className="flex-1 text-gray-300 leading-snug break-words">{f.ruleLabel}</span>
+                                  <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-green-400' : 'text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
+                                </div>
+                              ))}
+                              {entryMissed.map((m, mi) => (
+                                <div key={mi} className="flex items-center gap-1.5">
+                                  <span className="text-gray-700 shrink-0">✗</span>
+                                  <span className="flex-1 text-gray-600 leading-snug break-words">{m.ruleLabel}</span>
+                                  <span className="font-mono shrink-0 text-gray-700">{m.pts > 0 ? '+' : ''}{m.pts}</span>
+                                </div>
+                              ))}
+                              <div className={`text-[10px] font-medium pt-0.5 ${allMatch ? 'text-green-400' : noneMatch ? 'text-gray-600' : 'text-yellow-500'}`}>
+                                {allMatch ? '✓ Fully matched' : noneMatch ? '✗ Not matched' : `⚡ Partial (${entryFired.length}/${entry.rules.length} rules hit)`}
+                              </div>
+                            </div>
+                          )}
+                          {entry.rules.length === 0 && (
+                            <div className="bg-gray-800/40 px-2 py-1.5">
+                              <span className="text-gray-600 text-[10px]">No evaluatable rules extracted — try rephrasing with more specifics.</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
 
-              {/* Add new guidance */}
-              <div className="mt-3 pt-2 border-t border-gray-800 space-y-2">
-                <div className="text-[10px] text-gray-500 mb-1">Add a new lead criterion — describe it naturally, AI handles the rest</div>
+              {/* Sticky footer — add criterion */}
+              <div className="shrink-0 px-3 py-2.5 border-t border-gray-800 space-y-2">
                 <textarea
                   value={newText}
                   onChange={e => setNewText(e.target.value)}
-                  placeholder={`e.g. "A good lead has a product or course they sell" or "They target American audiences"`}
+                  placeholder='e.g. "A good lead sells a course or product" or "They target American audiences"'
                   rows={2}
-                  className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-xs focus:outline-none focus:border-purple-500"
+                  className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-[11px] leading-snug focus:outline-none focus:border-purple-500"
                 />
-                {submitError && <div className="text-red-400 text-[10px]">{submitError}</div>}
+                {submitError && <div className="text-red-400 text-[10px] break-words">{submitError}</div>}
                 <div className="flex items-center justify-between">
                   <button
                     onClick={submitGuidance}
                     disabled={submitting || !newText.trim()}
-                    className="px-2 py-1 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white rounded text-xs flex items-center gap-1"
+                    className="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white rounded text-[11px] flex items-center gap-1"
                   >
                     {submitting ? <><Spinner /><span>Processing…</span></> : '✨ Add criterion'}
                   </button>
                   {entries.length > 0 && (
-                    <button onClick={() => { resetAll() }} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
+                    <button onClick={resetAll} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
                   )}
                 </div>
               </div>
@@ -553,85 +595,87 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
           ) : (
             /* ── MAIN BREAKDOWN VIEW ── */
             <>
-              <div className="flex items-center justify-between mb-2">
+              {/* Sticky header */}
+              <div className="shrink-0 flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-800">
                 <span className="font-semibold text-gray-200">Fit Score Breakdown</span>
-                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">✕</button>
-              </div>
-              <div className="space-y-1.5">
-                {items.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className={`w-5 text-right font-mono font-bold ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                      {item.pts > 0 ? '+' : ''}{item.pts}
-                    </span>
-                    <div className="flex-1">
-                      {item.isGuidance ? (
-                        <button onClick={() => setGuidanceView(true)} className="text-purple-400 hover:text-purple-300 flex items-center gap-1">
-                          <span>✨ Guidance</span>
-                          <span className="text-gray-600 ml-0.5">/ {item.max}</span>
-                          <span className="text-gray-500 text-[10px] ml-1">view →</span>
-                        </button>
-                      ) : (
-                        <>
-                          <span className="text-gray-300">{item.label}</span>
-                          {item.max > 0 && <span className="text-gray-600 ml-1">/ {item.max}</span>}
-                        </>
-                      )}
-                      {item.note && !item.isGuidance && <div className="text-gray-500 text-xs">{item.note}</div>}
-                      {item.isGuidance && item.note && <div className="text-gray-500 text-[10px]">{item.note}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
-                <span className="text-gray-400">Total</span>
-                <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
+                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white leading-none">✕</button>
               </div>
 
-              {/* Weight transparency section */}
-              {(() => {
-                const isCustom = JSON.stringify(weights) !== JSON.stringify(DEFAULT_WEIGHTS)
-                const hasNarrative = !!narrative.trim()
-                const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
-                const norm = wTotal > 0 ? 100 / wTotal : 1
-                return (
-                  <div className="mt-2 pt-2 border-t border-gray-800 space-y-2">
-                    <div className="text-gray-500 text-[10px] uppercase tracking-wide font-semibold flex items-center justify-between">
-                      <span>Active weights driving this score</span>
-                      {isCustom
-                        ? <span className="text-purple-400 font-semibold">✨ Personalized</span>
-                        : <span className="text-gray-600">Default</span>
-                      }
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto px-3 py-2.5 min-h-0">
+                <div className="space-y-1.5">
+                  {items.map((item, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className={`w-6 text-right font-mono font-bold shrink-0 leading-snug ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                        {item.pts > 0 ? '+' : ''}{item.pts}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        {item.isGuidance ? (
+                          <button onClick={() => setGuidanceView(true)} className="text-purple-400 hover:text-purple-300 flex items-center gap-1 text-left">
+                            <span>✨ Your Criteria</span>
+                            <span className="text-gray-600">/ {item.max}</span>
+                            <span className="text-gray-500 text-[10px] ml-0.5">view →</span>
+                          </button>
+                        ) : (
+                          <span className="text-gray-300 leading-snug">{item.label}
+                            {item.max > 0 && <span className="text-gray-600 ml-1">/ {item.max}</span>}
+                          </span>
+                        )}
+                        {item.note && (
+                          <div className="text-gray-500 text-[10px] leading-snug break-words mt-0.5">{item.note}</div>
+                        )}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-5 gap-1">
-                      {WEIGHT_META.map(({ key, label: wLabel }) => {
-                        const pct = Math.round(weights[key] * norm)
-                        const isDefault = weights[key] === DEFAULT_WEIGHTS[key]
-                        return (
-                          <div key={key} className="flex flex-col items-center gap-0.5">
-                            <div className="w-full bg-gray-800 rounded-sm h-1 overflow-hidden">
-                              <div className="h-full rounded-sm transition-all" style={{ width: `${(weights[key] / 50) * 100}%`, backgroundColor: isCustom && !isDefault ? 'rgb(168,85,247)' : 'rgb(75,85,99)' }} />
+                  ))}
+                </div>
+
+                {/* Total */}
+                <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
+                  <span className="text-gray-400">Total</span>
+                  <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
+                </div>
+
+                {/* Weight distribution — single horizontal stacked bar */}
+                {(() => {
+                  const isCustom = JSON.stringify(weights) !== JSON.stringify(DEFAULT_WEIGHTS)
+                  const allWeightsMeta = WEIGHT_META
+                  return (
+                    <div className="mt-3 pt-2 border-t border-gray-800 space-y-2">
+                      <div className="flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-wide font-semibold">
+                        <span>Weight distribution</span>
+                        {isCustom ? <span className="text-purple-400 normal-case font-normal">✨ Personalized</span> : <span className="text-gray-700 normal-case font-normal">Default</span>}
+                      </div>
+                      {/* Stacked bar */}
+                      <div className="flex h-1.5 rounded-full overflow-hidden gap-px bg-gray-800">
+                        {allWeightsMeta.map(({ key }) => {
+                          const pct = wTotal > 0 ? (weights[key] / wTotal) * 100 : 0
+                          const isGuidanceKey = key === 'guidance'
+                          return pct > 0 ? (
+                            <div
+                              key={key}
+                              style={{ width: `${pct}%`, backgroundColor: isGuidanceKey ? 'rgb(168,85,247)' : 'rgb(99,102,241)' }}
+                              title={`${WEIGHT_META.find(m => m.key === key)?.label}: ${Math.round(pct)}%`}
+                            />
+                          ) : null
+                        })}
+                      </div>
+                      {/* Labels */}
+                      <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                        {allWeightsMeta.map(({ key, label: wLabel }) => {
+                          const pct = Math.round(wTotal > 0 ? (weights[key] / wTotal) * 100 : 0)
+                          const isGuidanceKey = key === 'guidance'
+                          return (
+                            <div key={key} className="flex items-center gap-1 min-w-0">
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: isGuidanceKey ? 'rgb(168,85,247)' : 'rgb(99,102,241)', opacity: pct === 0 ? 0.3 : 1 }} />
+                              <span className={`text-[9px] truncate ${isGuidanceKey ? 'text-purple-400' : 'text-gray-600'}`}>{wLabel.split(' ')[0]} {pct}%</span>
                             </div>
-                            <span className={`text-[9px] font-mono ${isCustom && !isDefault ? 'text-purple-400' : 'text-gray-600'}`}>{pct}</span>
-                            <span className="text-[8px] text-gray-700 leading-tight text-center">{wLabel.split(' ')[0]}</span>
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
+                      </div>
                     </div>
-                    {hasNarrative && isCustom && (
-                      <div className="text-[10px] text-gray-500 leading-relaxed border-t border-gray-800 pt-1.5">
-                        <span className="text-purple-400 font-semibold">Your guidance: </span>
-                        <span className="italic">"{narrative}"</span>
-                      </div>
-                    )}
-                    {hasNarrative && !isCustom && (
-                      <div className="flex items-start gap-1.5 p-2 bg-purple-900/20 border border-purple-800/40 rounded text-[10px] text-purple-300 leading-relaxed">
-                        <span className="shrink-0">✨</span>
-                        <span>You have guidance saved but haven't applied it yet — open <strong>⚡ Score Settings</strong> and click <strong>Apply with AI</strong> to tune these weights to match.</span>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
+                  )
+                })()}
+              </div>
             </>
           )}
         </div>
