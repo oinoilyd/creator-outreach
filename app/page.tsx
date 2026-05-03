@@ -128,6 +128,155 @@ function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
   }
 }
 
+// Returns a human-readable explanation of WHY a rule fired (or why it didn't), for display in the UI
+function getGuidanceRuleEvidence(rule: GuidanceRule, c: Creator): string {
+  switch (rule.condition) {
+    case 'has_product_mention': {
+      const keywords = ['course','courses','coaching','coach','program','programs','academy','masterclass',
+        'workshop','workshops','mentorship','mentor','training','consulting','consultant','agency',
+        'book','books','store','shop','merch','merchandise','product','products','membership',
+        'service','services','brand','sell','selling','offer','template','templates',
+        'business','entrepreneur','ecommerce','e-commerce','dropship','digital product',
+        'passive income','side hustle','online business','grow your business','build your',
+        'creator economy']
+      const sources: { text: string; where: string }[] = [
+        { text: (c.channelName || '').toLowerCase(), where: 'channel name' },
+        ...(c.videoTitles || []).map(t => ({ text: t.toLowerCase(), where: 'video title' })),
+        { text: (c.description || '').toLowerCase(), where: 'description' },
+      ]
+      for (const src of sources) {
+        const hit = keywords.find(kw => src.text.includes(kw))
+        if (hit) {
+          const excerpt = src.where === 'channel name' ? c.channelName :
+            src.where === 'description' ? (c.description || '').slice(0, 60) + '…' :
+            (c.videoTitles || []).find(t => t.toLowerCase().includes(hit)) || ''
+          return `"${hit}" found in ${src.where}${src.where !== 'channel name' ? ` — "${excerpt.slice(0, 50)}${excerpt.length > 50 ? '…' : ''}"` : ''}`
+        }
+      }
+      return ''
+    }
+    case 'has_english_description': {
+      const first = c.channelName || (c.videoTitles || [])[0] || ''
+      return first ? `Content appears to be in English ("${first.slice(0, 40)}")` : 'Content appears to be in English'
+    }
+    case 'has_email':      return c.email ? `Email: ${c.email}` : ''
+    case 'has_website':    return c.website ? c.website.replace(/^https?:\/\//, '') : ''
+    case 'has_instagram':  return c.instagram ? c.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//, '@') : ''
+    case 'has_tiktok':     return c.tiktok ? c.tiktok.replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/, '@') : ''
+    case 'has_linkedin':   return c.linkedin ? 'LinkedIn profile found' : ''
+    case 'multi_platform': {
+      const active = [
+        c.instagram && 'Instagram', c.tiktok && 'TikTok',
+        c.twitter && 'Twitter/X', c.linkedin && 'LinkedIn', c.website && 'Website',
+      ].filter(Boolean)
+      return active.length > 0 ? active.join(', ') : ''
+    }
+    case 'subs_gte':
+    case 'subs_lte': {
+      const s = Number(c.subscribers) || 0
+      return s > 0 ? `${(s / 1000).toFixed(s >= 1000000 ? 1 : 0)}${s >= 1000000 ? 'M' : 'K'} subscribers` : ''
+    }
+    case 'views_gte':
+    case 'views_lte':
+      return c.avgViews > 0 ? `~${c.avgViews.toLocaleString()} avg views` : ''
+    case 'posts_recent':
+      return c.videoDates?.[0] ? `Last post: ${c.videoDates[0]}` : ''
+    default: return ''
+  }
+}
+
+// ── PRESET GUIDANCE ENTRIES ───────────────────────────────────────────────────
+// Pre-built criteria with known-good rules — added without an AI call.
+interface GuidancePreset {
+  label: string
+  description: string
+  emoji: string
+  entry: Omit<GuidanceEntry, 'id' | 'timestamp'>
+}
+
+const GUIDANCE_PRESETS: GuidancePreset[] = [
+  {
+    label: 'Sells a product or course',
+    description: 'Creator has a course, coaching, or product beyond just content',
+    emoji: '🛒',
+    entry: {
+      text: 'A good lead has a product, course, or coaching program they sell',
+      rules: [{ condition: 'has_product_mention', points: 8, label: 'Has product/course to sell' }],
+      summary: 'Prioritizes creators who sell products, courses, or coaching — not just content.',
+    },
+  },
+  {
+    label: 'Has contact email',
+    description: 'Email found — can reach out directly',
+    emoji: '📧',
+    entry: {
+      text: 'I need to be able to email them directly',
+      rules: [{ condition: 'has_email', points: 8, label: 'Has email for direct outreach' }],
+      summary: 'Requires a contact email to be found for direct outreach.',
+    },
+  },
+  {
+    label: 'English-speaking audience',
+    description: 'Content is in English (US, UK, AU, CA market)',
+    emoji: '🇺🇸',
+    entry: {
+      text: 'They target English-speaking audiences in the US, UK, or AU market',
+      rules: [{ condition: 'has_english_description', points: 6, label: 'English-language content' }],
+      summary: 'Favors creators whose content is in English, signaling US/UK/AU audiences.',
+    },
+  },
+  {
+    label: 'Has a website',
+    description: 'Business or personal site linked on channel',
+    emoji: '🌐',
+    entry: {
+      text: 'They have a website or business link on their channel',
+      rules: [{ condition: 'has_website', points: 6, label: 'Has website or business link' }],
+      summary: 'Favors creators with a website, a strong signal of a business or brand presence.',
+    },
+  },
+  {
+    label: 'Active on Instagram',
+    description: 'Has Instagram for multi-channel outreach',
+    emoji: '📸',
+    entry: {
+      text: 'I prefer creators who are also active on Instagram',
+      rules: [{ condition: 'has_instagram', points: 5, label: 'Has Instagram presence' }],
+      summary: 'Favors creators with Instagram, enabling multi-channel outreach.',
+    },
+  },
+  {
+    label: 'Multi-platform creator',
+    description: 'Active on 2+ platforms beyond just YouTube',
+    emoji: '🔗',
+    entry: {
+      text: 'They should have a presence on multiple social platforms',
+      rules: [{ condition: 'multi_platform', points: 5, label: 'Active on 2+ platforms' }],
+      summary: 'Favors creators active on multiple platforms — stronger brand presence.',
+    },
+  },
+  {
+    label: 'Posts consistently',
+    description: 'Uploaded within the last 30 days',
+    emoji: '📅',
+    entry: {
+      text: 'I want creators who post consistently and are active',
+      rules: [{ condition: 'posts_recent', points: 5, label: 'Posted in last 30 days' }],
+      summary: 'Favors creators who have posted recently, filtering out inactive channels.',
+    },
+  },
+  {
+    label: 'Micro-influencer (under 100K)',
+    description: 'Under 100K subs — more responsive, better rates',
+    emoji: '📊',
+    entry: {
+      text: 'I prefer smaller creators under 100K subscribers who are more reachable',
+      rules: [{ condition: 'subs_lte', value: 100000, points: 4, label: 'Under 100K subscribers' }],
+      summary: 'Favors micro-influencers under 100K subscribers who tend to respond more.',
+    },
+  },
+]
+
 function computeGuidanceScore(c: Creator, entries: GuidanceEntry[]): {
   ratio: number   // 0–1 fraction of possible points earned; feeds into weight normalization
   fired: { ruleLabel: string; pts: number; entryId: string }[]
@@ -545,15 +694,27 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                           </div>
                           {/* Scoring logic */}
                           {entry.rules.length > 0 && (
-                            <div className="bg-gray-800/40 px-2 py-1.5 space-y-1">
+                            <div className="bg-gray-800/40 px-2 py-1.5 space-y-1.5">
                               <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold">Scoring logic for this creator</div>
-                              {entryFired.map((f, fi) => (
-                                <div key={fi} className="flex items-center gap-1.5">
-                                  <span className="text-green-500 shrink-0">✓</span>
-                                  <span className="flex-1 text-gray-300 leading-snug break-words">{f.ruleLabel}</span>
-                                  <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-green-400' : 'text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
-                                </div>
-                              ))}
+                              {entryFired.map((f, fi) => {
+                                // Find the matching rule object to get condition info for evidence
+                                const ruleObj = entry.rules.find(r => r.label === f.ruleLabel) || entry.rules[fi]
+                                const evidence = ruleObj ? getGuidanceRuleEvidence(ruleObj, c) : ''
+                                return (
+                                  <div key={fi} className="space-y-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-green-500 shrink-0">✓</span>
+                                      <span className="flex-1 text-gray-200 font-medium leading-snug break-words">{f.ruleLabel}</span>
+                                      <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-green-400' : 'text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
+                                    </div>
+                                    {evidence && (
+                                      <div className="ml-4 text-[10px] text-green-700 leading-snug break-words bg-green-900/20 rounded px-1.5 py-0.5">
+                                        {evidence}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
                               {entryMissed.map((m, mi) => (
                                 <div key={mi} className="flex items-center gap-1.5">
                                   <span className="text-gray-700 shrink-0">✗</span>
@@ -561,8 +722,8 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                                   <span className="font-mono shrink-0 text-gray-700">{m.pts > 0 ? '+' : ''}{m.pts}</span>
                                 </div>
                               ))}
-                              <div className={`text-[10px] font-medium pt-0.5 ${allMatch ? 'text-green-400' : noneMatch ? 'text-gray-600' : 'text-yellow-500'}`}>
-                                {allMatch ? '✓ Fully matched' : noneMatch ? '✗ Not matched' : `⚡ Partial (${entryFired.length}/${entry.rules.length} rules hit)`}
+                              <div className={`text-[10px] font-medium pt-0.5 border-t border-gray-800/50 ${allMatch ? 'text-green-400' : noneMatch ? 'text-gray-600' : 'text-yellow-500'}`}>
+                                {allMatch ? '✓ Fully matched' : noneMatch ? '✗ Not matched' : `⚡ Partial — ${entryFired.length}/${entry.rules.length} rules hit`}
                               </div>
                             </div>
                           )}
@@ -578,27 +739,61 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 )}
               </div>
 
-              {/* Sticky footer — add criterion */}
-              <div className="shrink-0 px-3 py-2.5 border-t border-gray-800 space-y-2">
-                <textarea
-                  value={newText}
-                  onChange={e => setNewText(e.target.value)}
-                  placeholder='e.g. "A good lead sells a course or product" or "They target American audiences"'
-                  rows={2}
-                  className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-[11px] leading-snug focus:outline-none focus:border-purple-500"
-                />
-                {submitError && <div className="text-red-400 text-[10px] break-words">{submitError}</div>}
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={submitGuidance}
-                    disabled={submitting || !newText.trim()}
-                    className="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white rounded text-[11px] flex items-center gap-1"
-                  >
-                    {submitting ? <><Spinner /><span>Processing…</span></> : '✨ Add criterion'}
-                  </button>
-                  {entries.length > 0 && (
-                    <button onClick={resetAll} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
-                  )}
+              {/* Sticky footer — presets + add criterion */}
+              <div className="shrink-0 border-t border-gray-800">
+                {/* Preset chips */}
+                {(() => {
+                  const alreadyAdded = new Set(entries.map(e => e.text))
+                  const available = GUIDANCE_PRESETS.filter(p => !alreadyAdded.has(p.entry.text))
+                  if (available.length === 0) return null
+                  return (
+                    <div className="px-3 pt-2.5 pb-1.5">
+                      <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold mb-1.5">Suggested criteria</div>
+                      <div className="flex flex-wrap gap-1">
+                        {available.map(preset => (
+                          <button
+                            key={preset.label}
+                            title={preset.description}
+                            onClick={() => {
+                              addEntry({
+                                id: `g-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                                timestamp: Date.now(),
+                                ...preset.entry,
+                              })
+                            }}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-purple-600 rounded-full text-[10px] text-gray-400 hover:text-gray-200 transition-colors"
+                          >
+                            <span>{preset.emoji}</span>
+                            <span>{preset.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Custom criterion input */}
+                <div className="px-3 pb-2.5 pt-2 space-y-2">
+                  <textarea
+                    value={newText}
+                    onChange={e => setNewText(e.target.value)}
+                    placeholder='Or describe your own: "They sell a course" or "Target American audiences"'
+                    rows={2}
+                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-[11px] leading-snug focus:outline-none focus:border-purple-500"
+                  />
+                  {submitError && <div className="text-red-400 text-[10px] break-words">{submitError}</div>}
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={submitGuidance}
+                      disabled={submitting || !newText.trim()}
+                      className="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white rounded text-[11px] flex items-center gap-1"
+                    >
+                      {submitting ? <><Spinner /><span>Processing…</span></> : '✨ Add criterion'}
+                    </button>
+                    {entries.length > 0 && (
+                      <button onClick={resetAll} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
+                    )}
+                  </div>
                 </div>
               </div>
             </>
