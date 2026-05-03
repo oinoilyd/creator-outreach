@@ -195,8 +195,8 @@ interface GuidancePreset {
 }
 
 // Presets only cover things the base sliders can't express.
-// Sliders already handle: recency, avg views, reachability (email+linkedin), relevance, audience quality.
-// Presets handle: specific platform presence, business signals, audience language — none of which have a slider.
+// Sliders handle: recency, avg views, reachability (email+linkedin), relevance, audience quality.
+// Presets handle: specific platform presence, business signals, audience language.
 const GUIDANCE_PRESETS: GuidancePreset[] = [
   {
     label: 'Sells a product or course',
@@ -206,6 +206,19 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'A good lead has a product, course, or coaching program they sell',
       rules: [{ condition: 'has_product_mention', points: 8, label: 'Has product/course to sell' }],
       summary: 'Prioritizes creators who sell products, courses, or coaching — not just content.',
+    },
+  },
+  {
+    label: 'Full business presence',
+    description: 'Has a product AND a website — strong dual business signal',
+    emoji: '🏢',
+    entry: {
+      text: 'They run a real business with both a product and a website, not just a YouTube channel',
+      rules: [
+        { condition: 'has_product_mention', points: 6, label: 'Has product/course to sell' },
+        { condition: 'has_website', points: 5, label: 'Has business website' },
+      ],
+      summary: 'Strong signal for creators running a real business — product plus a website.',
     },
   },
   {
@@ -229,6 +242,16 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
     },
   },
   {
+    label: 'Has LinkedIn',
+    description: 'LinkedIn profile — professional or B2B creator signal',
+    emoji: '💼',
+    entry: {
+      text: 'They have a LinkedIn profile showing they are a professional',
+      rules: [{ condition: 'has_linkedin', points: 5, label: 'Has LinkedIn profile' }],
+      summary: 'Favors creators with LinkedIn — stronger for professional and B2B niches.',
+    },
+  },
+  {
     label: 'Active on Instagram',
     description: 'Has Instagram — useful for multi-channel outreach',
     emoji: '📸',
@@ -239,13 +262,53 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
     },
   },
   {
+    label: 'Active on TikTok',
+    description: 'Has TikTok — cross-platform reach signal',
+    emoji: '🎵',
+    entry: {
+      text: 'I prefer creators who also post on TikTok',
+      rules: [{ condition: 'has_tiktok', points: 4, label: 'Has TikTok channel' }],
+      summary: 'Favors creators with a TikTok presence — broader audience and more reach.',
+    },
+  },
+  {
     label: 'Multi-platform presence',
     description: 'Active on 2+ platforms beyond YouTube',
     emoji: '🔗',
     entry: {
       text: 'They should have a presence on multiple social platforms beyond YouTube',
       rules: [{ condition: 'multi_platform', points: 5, label: 'Active on 2+ platforms' }],
-      summary: 'Favors creators with a broader social presence — stronger brand and more reach.',
+      summary: 'Favors creators active on multiple platforms — stronger brand and more reach.',
+    },
+  },
+  {
+    label: 'Established creator',
+    description: 'Over 10K subscribers — past the hobbyist stage',
+    emoji: '⭐',
+    entry: {
+      text: 'I want creators who have at least 10K subscribers and are established',
+      rules: [{ condition: 'subs_gte', value: 10000, points: 4, label: 'At least 10K subscribers' }],
+      summary: 'Favors creators with 10K+ subscribers — past the early hobbyist phase.',
+    },
+  },
+  {
+    label: 'Stays under 500K',
+    description: 'Under 500K subs — approachable, responsive to outreach',
+    emoji: '🎯',
+    entry: {
+      text: 'I prefer creators who have not yet blown up — under 500K subscribers',
+      rules: [{ condition: 'subs_lte', value: 500000, points: 3, label: 'Under 500K subscribers' }],
+      summary: 'Filters out mega-channels — smaller creators respond better to cold outreach.',
+    },
+  },
+  {
+    label: 'Gets solid views',
+    description: 'Averages 5K+ views per video — real audience engagement',
+    emoji: '👀',
+    entry: {
+      text: 'I want creators who consistently get at least 5,000 views per video',
+      rules: [{ condition: 'views_gte', value: 5000, points: 4, label: 'Averages 5K+ views/video' }],
+      summary: 'Favors creators with real viewership — 5K+ average views per video.',
     },
   },
 ]
@@ -529,6 +592,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
   const [newText, setNewText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [proposedEntry, setProposedEntry] = useState<{ text: string; rules: GuidanceRule[]; summary: string } | null>(null)
   const ref = useRef<HTMLTableCellElement>(null)
   const { entries, addEntry, removeEntry, resetAll } = useContext(GuidanceContext)
   const score = computeFitScore(c, weights, entries)
@@ -546,6 +610,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
     if (!newText.trim()) return
     setSubmitting(true)
     setSubmitError('')
+    setProposedEntry(null)
     try {
       const res = await fetch('/api/interpret-guidance', {
         method: 'POST',
@@ -554,8 +619,8 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error || 'Failed')
-      addEntry({ id: `g-${Date.now()}`, text: newText, timestamp: Date.now(), rules: data.rules, summary: data.summary })
-      setNewText('')
+      // Show proposed rules for review instead of adding immediately
+      setProposedEntry({ text: newText, rules: data.rules, summary: data.summary })
     } catch (err: any) {
       setSubmitError(err.message)
     } finally {
@@ -712,10 +777,53 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 )}
               </div>
 
-              {/* Sticky footer — presets + add criterion */}
+              {/* Sticky footer — presets + add your own */}
               <div className="shrink-0 border-t border-gray-800">
+
+                {/* Proposed entry review — shown after AI interprets custom input */}
+                {proposedEntry && (
+                  <div className="px-3 pt-2.5 pb-2 space-y-2 border-b border-gray-800 bg-purple-950/30">
+                    <div className="text-[9px] text-purple-400 uppercase tracking-wide font-semibold">AI recommendation — does this look right?</div>
+                    {proposedEntry.summary && (
+                      <div className="text-[11px] text-gray-300 leading-snug">{proposedEntry.summary}</div>
+                    )}
+                    {proposedEntry.rules.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {proposedEntry.rules.map((rule, ri) => (
+                          <div key={ri} className="flex items-center gap-1 px-2 py-0.5 bg-purple-900/50 border border-purple-700/60 rounded-full text-[10px] text-purple-200">
+                            <span>{rule.label}</span>
+                            <span className={`font-mono font-bold ${rule.points > 0 ? 'text-green-400' : 'text-red-400'}`}>{rule.points > 0 ? '+' : ''}{rule.points}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-amber-500">⚠ Couldn't map this to scoreable criteria — try rephrasing with more specifics.</div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      {proposedEntry.rules.length > 0 && (
+                        <button
+                          onClick={() => {
+                            addEntry({ id: `g-${Date.now()}`, timestamp: Date.now(), ...proposedEntry })
+                            setProposedEntry(null)
+                            setNewText('')
+                          }}
+                          className="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded text-[11px] font-medium"
+                        >
+                          ✓ Add these
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setProposedEntry(null)}
+                        className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded text-[11px]"
+                      >
+                        {proposedEntry.rules.length > 0 ? 'Try again' : 'Dismiss'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Preset chips */}
-                {(() => {
+                {!proposedEntry && (() => {
                   const alreadyAdded = new Set(entries.map(e => e.text))
                   const available = GUIDANCE_PRESETS.filter(p => !alreadyAdded.has(p.entry.text))
                   if (available.length === 0) return null
@@ -727,13 +835,11 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                           <button
                             key={preset.label}
                             title={preset.description}
-                            onClick={() => {
-                              addEntry({
-                                id: `g-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                                timestamp: Date.now(),
-                                ...preset.entry,
-                              })
-                            }}
+                            onClick={() => addEntry({
+                              id: `g-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                              timestamp: Date.now(),
+                              ...preset.entry,
+                            })}
                             className="flex items-center gap-1 px-2 py-0.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-purple-600 rounded-full text-[10px] text-gray-400 hover:text-gray-200 transition-colors"
                           >
                             <span>{preset.emoji}</span>
@@ -745,28 +851,35 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                   )
                 })()}
 
-                {/* Custom criterion input */}
-                <div className="px-3 pb-2.5 pt-2 space-y-2">
-                  <textarea
-                    value={newText}
-                    onChange={e => setNewText(e.target.value)}
-                    placeholder='Or describe your own: "They sell a course" or "Target American audiences"'
-                    rows={2}
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-[11px] leading-snug focus:outline-none focus:border-purple-500"
-                  />
-                  {submitError && <div className="text-red-400 text-[10px] break-words">{submitError}</div>}
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={submitGuidance}
-                      disabled={submitting || !newText.trim()}
-                      className="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white rounded text-[11px] flex items-center gap-1"
-                    >
-                      {submitting ? <><Spinner /><span>Processing…</span></> : '✨ Add criterion'}
-                    </button>
-                    {entries.length > 0 && (
-                      <button onClick={resetAll} className="text-gray-600 hover:text-red-400 text-[10px]">Reset all</button>
-                    )}
-                  </div>
+                {/* Add your own input */}
+                <div className="px-3 pb-2.5 pt-2 space-y-1.5">
+                  {!proposedEntry && (
+                    <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold">Add your own</div>
+                  )}
+                  {!proposedEntry && (
+                    <>
+                      <textarea
+                        value={newText}
+                        onChange={e => { setNewText(e.target.value); setSubmitError('') }}
+                        placeholder='Describe a criterion — AI will check if it can be scored and suggest matching rules'
+                        rows={2}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-[11px] leading-snug focus:outline-none focus:border-purple-500"
+                      />
+                      {submitError && <div className="text-red-400 text-[10px] break-words">{submitError}</div>}
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={submitGuidance}
+                          disabled={submitting || !newText.trim()}
+                          className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-purple-500 disabled:opacity-40 text-gray-300 rounded text-[11px] flex items-center gap-1 transition-colors"
+                        >
+                          {submitting ? <><Spinner /><span>Checking…</span></> : <><span>✨</span><span>Check & suggest</span></>}
+                        </button>
+                        {entries.length > 0 && (
+                          <button onClick={resetAll} className="text-gray-700 hover:text-red-400 text-[10px] transition-colors">Reset all</button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </>
