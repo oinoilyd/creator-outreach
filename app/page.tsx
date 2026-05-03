@@ -194,10 +194,13 @@ interface GuidancePreset {
   entry: Omit<GuidanceEntry, 'id' | 'timestamp'>
 }
 
+// Presets only cover things the base sliders can't express.
+// Sliders already handle: recency, avg views, reachability (email+linkedin), relevance, audience quality.
+// Presets handle: specific platform presence, business signals, audience language — none of which have a slider.
 const GUIDANCE_PRESETS: GuidancePreset[] = [
   {
     label: 'Sells a product or course',
-    description: 'Creator has a course, coaching, or product beyond just content',
+    description: 'Creator sells a course, coaching, or product — not just content',
     emoji: '🛒',
     entry: {
       text: 'A good lead has a product, course, or coaching program they sell',
@@ -206,18 +209,8 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
     },
   },
   {
-    label: 'Has contact email',
-    description: 'Email found — can reach out directly',
-    emoji: '📧',
-    entry: {
-      text: 'I need to be able to email them directly',
-      rules: [{ condition: 'has_email', points: 8, label: 'Has email for direct outreach' }],
-      summary: 'Requires a contact email to be found for direct outreach.',
-    },
-  },
-  {
     label: 'English-speaking audience',
-    description: 'Content is in English (US, UK, AU, CA market)',
+    description: 'Content is in English — US, UK, AU, CA market',
     emoji: '🇺🇸',
     entry: {
       text: 'They target English-speaking audiences in the US, UK, or AU market',
@@ -227,52 +220,32 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
   },
   {
     label: 'Has a website',
-    description: 'Business or personal site linked on channel',
+    description: 'Business or personal site linked on their channel',
     emoji: '🌐',
     entry: {
       text: 'They have a website or business link on their channel',
       rules: [{ condition: 'has_website', points: 6, label: 'Has website or business link' }],
-      summary: 'Favors creators with a website, a strong signal of a business or brand presence.',
+      summary: 'Favors creators with a website — strong signal of an established brand or business.',
     },
   },
   {
     label: 'Active on Instagram',
-    description: 'Has Instagram for multi-channel outreach',
+    description: 'Has Instagram — useful for multi-channel outreach',
     emoji: '📸',
     entry: {
       text: 'I prefer creators who are also active on Instagram',
       rules: [{ condition: 'has_instagram', points: 5, label: 'Has Instagram presence' }],
-      summary: 'Favors creators with Instagram, enabling multi-channel outreach.',
+      summary: 'Favors creators with Instagram — opens an additional outreach channel.',
     },
   },
   {
-    label: 'Multi-platform creator',
-    description: 'Active on 2+ platforms beyond just YouTube',
+    label: 'Multi-platform presence',
+    description: 'Active on 2+ platforms beyond YouTube',
     emoji: '🔗',
     entry: {
-      text: 'They should have a presence on multiple social platforms',
+      text: 'They should have a presence on multiple social platforms beyond YouTube',
       rules: [{ condition: 'multi_platform', points: 5, label: 'Active on 2+ platforms' }],
-      summary: 'Favors creators active on multiple platforms — stronger brand presence.',
-    },
-  },
-  {
-    label: 'Posts consistently',
-    description: 'Uploaded within the last 30 days',
-    emoji: '📅',
-    entry: {
-      text: 'I want creators who post consistently and are active',
-      rules: [{ condition: 'posts_recent', points: 5, label: 'Posted in last 30 days' }],
-      summary: 'Favors creators who have posted recently, filtering out inactive channels.',
-    },
-  },
-  {
-    label: 'Micro-influencer (under 100K)',
-    description: 'Under 100K subs — more responsive, better rates',
-    emoji: '📊',
-    entry: {
-      text: 'I prefer smaller creators under 100K subscribers who are more reachable',
-      rules: [{ condition: 'subs_lte', value: 100000, points: 4, label: 'Under 100K subscribers' }],
-      summary: 'Favors micro-influencers under 100K subscribers who tend to respond more.',
+      summary: 'Favors creators with a broader social presence — stronger brand and more reach.',
     },
   },
 ]
