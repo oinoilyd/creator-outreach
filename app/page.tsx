@@ -33,10 +33,9 @@ interface ScoreWeights {
   reachability: number
   relevance: number
   quality: number
-  guidance: number   // 6th weight — share of the 100pts allocated to guidance criteria
 }
 
-const DEFAULT_WEIGHTS: ScoreWeights = { recency: 25, views: 20, reachability: 20, relevance: 15, quality: 10, guidance: 10 }
+const DEFAULT_WEIGHTS: ScoreWeights = { recency: 25, views: 20, reachability: 20, relevance: 15, quality: 10 }
 
 const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string }[] = [
   { key: 'recency',     label: 'Recency',          description: 'How recently they posted' },
@@ -44,7 +43,6 @@ const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string
   { key: 'reachability',label: 'Reachability',      description: 'Email and LinkedIn availability' },
   { key: 'relevance',   label: 'Relevance',         description: 'Content match to your search' },
   { key: 'quality',     label: 'Audience Quality',  description: 'Views-to-subscriber engagement ratio' },
-  { key: 'guidance',    label: 'Your Criteria',     description: 'AI-interpreted lead criteria you\'ve trained' },
 ]
 
 // ── GUIDANCE SCORE ───────────────────────────────────────────────────────────
@@ -53,7 +51,7 @@ const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string
 
 type GuidanceCondition =
   | 'has_email' | 'no_email'
-  | 'has_instagram' | 'has_tiktok' | 'has_website' | 'has_linkedin'
+  | 'has_instagram' | 'has_tiktok' | 'has_twitter' | 'has_website' | 'has_linkedin'
   | 'multi_platform'
   | 'subs_gte' | 'subs_lte'
   | 'views_gte' | 'views_lte'
@@ -74,18 +72,20 @@ interface GuidanceEntry {
   timestamp: number
   rules: GuidanceRule[]
   summary: string    // AI's one-line interpretation
+  weight: number     // this criterion's individual score weight (0–30)
 }
 
-// No GUIDANCE_MAX — guidance weight is part of the normalized 100pt total like any other slider
+const DEFAULT_GUIDANCE_WEIGHT = 10 // default pts weight for each new criterion
 
 interface GuidanceContextType {
   entries: GuidanceEntry[]
   addEntry: (e: GuidanceEntry) => void
   removeEntry: (id: string) => void
+  updateEntryWeight: (id: string, weight: number) => void
   resetAll: () => void
 }
 const GuidanceContext = React.createContext<GuidanceContextType>({
-  entries: [], addEntry: () => {}, removeEntry: () => {}, resetAll: () => {},
+  entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
 
 function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
@@ -96,6 +96,7 @@ function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
     case 'no_email':       return !c.email
     case 'has_instagram':  return !!c.instagram
     case 'has_tiktok':     return !!c.tiktok
+    case 'has_twitter':    return !!c.twitter
     case 'has_website':    return !!c.website
     case 'has_linkedin':   return !!c.linkedin
     case 'multi_platform': return platforms >= 2
@@ -163,11 +164,12 @@ function getGuidanceRuleEvidence(rule: GuidanceRule, c: Creator): string {
     case 'has_website':    return c.website ? c.website.replace(/^https?:\/\//, '') : ''
     case 'has_instagram':  return c.instagram ? c.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//, '@') : ''
     case 'has_tiktok':     return c.tiktok ? c.tiktok.replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/, '@') : ''
+    case 'has_twitter':    return c.twitter ? c.twitter.replace(/^https?:\/\/(www\.)?(twitter|x)\.com\/@?/, '@') : ''
     case 'has_linkedin':   return c.linkedin ? 'LinkedIn profile found' : ''
     case 'multi_platform': {
       const active = [
         c.instagram && 'Instagram', c.tiktok && 'TikTok',
-        c.twitter && 'Twitter/X', c.linkedin && 'LinkedIn', c.website && 'Website',
+        c.twitter && 'X', c.linkedin && 'LinkedIn', c.website && 'Website',
       ].filter(Boolean)
       return active.length > 0 ? active.join(', ') : ''
     }
@@ -206,6 +208,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'A good lead has a product, course, or coaching program they sell',
       rules: [{ condition: 'has_product_mention', points: 8, label: 'Has product/course to sell' }],
       summary: 'Prioritizes creators who sell products, courses, or coaching — not just content.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -219,6 +222,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
         { condition: 'has_website', points: 5, label: 'Has business website' },
       ],
       summary: 'Strong signal for creators running a real business — product plus a website.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -229,6 +233,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'They target English-speaking audiences in the US, UK, or AU market',
       rules: [{ condition: 'has_english_description', points: 6, label: 'English-language content' }],
       summary: 'Favors creators whose content is in English, signaling US/UK/AU audiences.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -239,6 +244,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'They have a website or business link on their channel',
       rules: [{ condition: 'has_website', points: 6, label: 'Has website or business link' }],
       summary: 'Favors creators with a website — strong signal of an established brand or business.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -249,6 +255,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'They have a LinkedIn profile showing they are a professional',
       rules: [{ condition: 'has_linkedin', points: 5, label: 'Has LinkedIn profile' }],
       summary: 'Favors creators with LinkedIn — stronger for professional and B2B niches.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -259,6 +266,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'I prefer creators who are also active on Instagram',
       rules: [{ condition: 'has_instagram', points: 5, label: 'Has Instagram presence' }],
       summary: 'Favors creators with Instagram — opens an additional outreach channel.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -269,6 +277,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'I prefer creators who also post on TikTok',
       rules: [{ condition: 'has_tiktok', points: 4, label: 'Has TikTok channel' }],
       summary: 'Favors creators with a TikTok presence — broader audience and more reach.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -279,6 +288,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'They should have a presence on multiple social platforms beyond YouTube',
       rules: [{ condition: 'multi_platform', points: 5, label: 'Active on 2+ platforms' }],
       summary: 'Favors creators active on multiple platforms — stronger brand and more reach.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -289,6 +299,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'I want creators who have at least 10K subscribers and are established',
       rules: [{ condition: 'subs_gte', value: 10000, points: 4, label: 'At least 10K subscribers' }],
       summary: 'Favors creators with 10K+ subscribers — past the early hobbyist phase.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -299,6 +310,7 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'I prefer creators who have not yet blown up — under 500K subscribers',
       rules: [{ condition: 'subs_lte', value: 500000, points: 3, label: 'Under 500K subscribers' }],
       summary: 'Filters out mega-channels — smaller creators respond better to cold outreach.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
   {
@@ -309,32 +321,93 @@ const GUIDANCE_PRESETS: GuidancePreset[] = [
       text: 'I want creators who consistently get at least 5,000 views per video',
       rules: [{ condition: 'views_gte', value: 5000, points: 4, label: 'Averages 5K+ views/video' }],
       summary: 'Favors creators with real viewership — 5K+ average views per video.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
+    },
+  },
+  {
+    label: 'Posted recently',
+    description: 'Active creator — posted within the last 30 days',
+    emoji: '📅',
+    entry: {
+      text: 'I want creators who are actively posting — within the last 30 days',
+      rules: [{ condition: 'posts_recent', points: 6, label: 'Posted in last 30 days' }],
+      summary: 'Favors creators who posted recently — a sign they are active and reachable.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
+    },
+  },
+  {
+    label: 'Has email',
+    description: 'Email found — ready to outreach directly',
+    emoji: '📧',
+    entry: {
+      text: 'I only want creators I can email directly',
+      rules: [{ condition: 'has_email', points: 8, label: 'Has email address' }],
+      summary: 'Prioritizes creators with a discoverable email for direct outreach.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
+    },
+  },
+  {
+    label: 'Micro influencer',
+    description: 'Under 50K subs — high engagement, more responsive',
+    emoji: '🌱',
+    entry: {
+      text: 'I prefer smaller micro influencers under 50K subscribers',
+      rules: [{ condition: 'subs_lte', value: 50000, points: 5, label: 'Under 50K subscribers' }],
+      summary: 'Targets micro influencers — typically higher engagement and more open to outreach.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
+    },
+  },
+  {
+    label: 'High reach',
+    description: 'Averages 100K+ views — proven large audience',
+    emoji: '🚀',
+    entry: {
+      text: 'I want creators with high reach who average 100K+ views per video',
+      rules: [{ condition: 'views_gte', value: 100000, points: 6, label: 'Averages 100K+ views' }],
+      summary: 'Targets high-reach creators with proven large viewership per video.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
+    },
+  },
+  {
+    label: 'Has X',
+    description: 'Active on X — broader reach and engagement',
+    emoji: '🐦',
+    entry: {
+      text: 'I prefer creators who also post on X',
+      rules: [{ condition: 'has_twitter', points: 4, label: 'Has X presence' }],
+      summary: 'Favors creators with an X account linked on their channel.',
+      weight: DEFAULT_GUIDANCE_WEIGHT,
     },
   },
 ]
 
+// Returns the 0–1 ratio of an individual entry's rules that fired for this creator
+function computeEntryRatio(entry: GuidanceEntry, c: Creator): number {
+  let netFired = 0, maxPositive = 0
+  for (const rule of entry.rules) {
+    if (rule.points > 0) maxPositive += rule.points
+    if (evaluateGuidanceRule(rule, c)) netFired += rule.points
+  }
+  return maxPositive > 0 ? Math.min(1, Math.max(0, netFired / maxPositive)) : 0
+}
+
+// Returns aggregate fired/missed lists for the guidance detail popup
 function computeGuidanceScore(c: Creator, entries: GuidanceEntry[]): {
-  ratio: number   // 0–1 fraction of possible points earned; feeds into weight normalization
   fired: { ruleLabel: string; pts: number; entryId: string }[]
   missed: { ruleLabel: string; pts: number; entryId: string }[]
 } {
   const fired: { ruleLabel: string; pts: number; entryId: string }[] = []
   const missed: { ruleLabel: string; pts: number; entryId: string }[] = []
-  let netFired = 0
-  let maxPositive = 0
   for (const entry of entries) {
     for (const rule of entry.rules) {
-      if (rule.points > 0) maxPositive += rule.points
       if (evaluateGuidanceRule(rule, c)) {
         fired.push({ ruleLabel: rule.label, pts: rule.points, entryId: entry.id })
-        netFired += rule.points
       } else {
         missed.push({ ruleLabel: rule.label, pts: rule.points, entryId: entry.id })
       }
     }
   }
-  const ratio = maxPositive > 0 ? Math.min(1, Math.max(0, netFired / maxPositive)) : 0
-  return { ratio, fired, missed }
+  return { fired, missed }
 }
 
 interface OutreachEntry {
@@ -423,12 +496,11 @@ const DEFAULT_COLS: ColConfig[] = [
   { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
   { id: 'website',     label: 'Website',     visible: false },
   { id: 'instagram',   label: 'Instagram',   visible: false },
-  { id: 'twitter',     label: 'Twitter/X',   visible: false },
+  { id: 'twitter',     label: 'X',            visible: false },
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 
 const REGIONS: { code: string; flag: string; label: string }[] = [
-  { code: '',   flag: '🌐', label: 'Global' },
   { code: 'US', flag: '🇺🇸', label: 'United States' },
   { code: 'GB', flag: '🇬🇧', label: 'United Kingdom' },
   { code: 'CA', flag: '🇨🇦', label: 'Canada' },
@@ -451,6 +523,31 @@ const REGIONS: { code: string; flag: string; label: string }[] = [
   { code: 'ID', flag: '🇮🇩', label: 'Indonesia' },
 ]
 
+type PlatformId = 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'linkedin'
+
+interface PlatformConfig {
+  id: PlatformId
+  label: string
+  emoji: string
+  activeBg: string      // tailwind classes for active button
+  condition: GuidanceCondition | null
+  column: ColId | null
+  chipLabel: string
+  chipWeight: number
+}
+
+const PLATFORM_CONFIGS: PlatformConfig[] = [
+  { id: 'youtube',   label: 'YouTube',    emoji: '▶️',  activeBg: 'bg-red-700 border-red-600 text-white',      condition: null,           column: null,        chipLabel: '',                   chipWeight: 0  },
+  { id: 'instagram', label: 'Instagram',  emoji: '📸',  activeBg: 'bg-pink-700 border-pink-500 text-white',    condition: 'has_instagram', column: 'instagram', chipLabel: 'Active on Instagram', chipWeight: 20 },
+  { id: 'tiktok',    label: 'TikTok',     emoji: '🎵',  activeBg: 'bg-cyan-700 border-cyan-500 text-white',    condition: 'has_tiktok',   column: 'tiktok',    chipLabel: 'Active on TikTok',    chipWeight: 20 },
+  { id: 'twitter',   label: 'X',           emoji: '🐦', activeBg: 'bg-gray-800 border-gray-500 text-white',    condition: 'has_twitter',  column: 'twitter',   chipLabel: 'Active on X',         chipWeight: 20 },
+  { id: 'linkedin',  label: 'LinkedIn',   emoji: '💼',  activeBg: 'bg-blue-800 border-blue-600 text-white',    condition: 'has_linkedin', column: 'linkedin',  chipLabel: 'Has LinkedIn',        chipWeight: 20 },
+]
+
+const PLATFORM_LOCK_ID = '__platform__'
+
+const YOUTUBE_ONLY_COL_IDS: ColId[] = ['avgViews', 'subscribers', 'lastPosted']
+
 const COL_SORT: Partial<Record<ColId, SortCol>> = {
   fitScore: 'fitScore', avgViews: 'avgViews', subscribers: 'subscribers', lastPosted: 'lastPosted',
   email: 'email', linkedin: 'linkedin', website: 'website',
@@ -458,54 +555,80 @@ const COL_SORT: Partial<Record<ColId, SortCol>> = {
 }
 
 function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): number {
-  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality + weights.guidance
+  const subs = Number(c.subscribers)
+  const penalty = subs >= 750000 ? 20 : subs >= 500000 ? 10 : 0
+
+  // ── CHIP MODE: user has selected criteria — chips ARE the score (100%) ──
+  if (guidanceEntries.length > 0) {
+    const guidanceTotal = guidanceEntries.reduce((sum, e) => sum + (e.weight ?? DEFAULT_GUIDANCE_WEIGHT), 0)
+    if (guidanceTotal === 0) return 0
+    let guidancePts = 0
+    for (const entry of guidanceEntries) {
+      guidancePts += computeEntryRatio(entry, c) * (entry.weight ?? DEFAULT_GUIDANCE_WEIGHT)
+    }
+    const raw = (guidancePts / guidanceTotal) * 100
+    return Math.min(100, Math.max(0, Math.round(raw - penalty)))
+  }
+
+  // ── DEFAULT MODE: no chips — use base weight sliders ──
+  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
   const norm = wTotal > 0 ? 100 / wTotal : 1
 
-  // Recency ratio (0–1)
   const days = parseRelativeDays(c.videoDates?.[0] || '')
   const recencyRatio = days === Infinity ? 10/30 : days <= 7 ? 1 : days <= 30 ? 22/30 : days <= 60 ? 14/30 : days <= 90 ? 7/30 : 0
 
-  // Avg views ratio (0–1)
   const v = c.avgViews
   const viewsRatio = v >= 10000 && v < 50000 ? 1 : v >= 1000 && v < 10000 ? 20/25 : v >= 50000 && v < 100000 ? 18/25 : v >= 100000 && v < 500000 ? 10/25 : v >= 500000 ? 3/25 : v > 0 ? 5/25 : 0
 
-  // Reachability ratio (0–1)
   const reachRatio = c.email && c.linkedin ? 1 : c.email ? 15/20 : c.linkedin ? 5/20 : 0
 
-  // Relevance ratio (0–1)
   let relRatio = c.matchedVia === 'name' ? 10/15 : 2/15
   if (c.videoTitles?.length > 0) relRatio = Math.min(1, relRatio + 5/15)
 
-  // Audience quality ratio (0–1)
-  const subs = Number(c.subscribers)
   let qualRatio = 5/10
   if (subs > 0 && !isNaN(subs)) {
     const r = c.avgViews / subs
     qualRatio = r >= 0.10 ? 1 : r >= 0.05 ? 7/10 : r >= 0.02 ? 4/10 : 1/10
   }
 
-  // Guidance ratio (0–1) — 0 when no entries
-  const { ratio: guidanceRatio } = guidanceEntries.length > 0 ? computeGuidanceScore(c, guidanceEntries) : { ratio: 0 }
-
   const raw = (
     recencyRatio   * weights.recency      +
     viewsRatio     * weights.views        +
     reachRatio     * weights.reachability +
     relRatio       * weights.relevance    +
-    qualRatio      * weights.quality      +
-    guidanceRatio  * weights.guidance
+    qualRatio      * weights.quality
   ) * norm
 
-  const penalty = subs >= 750000 ? 20 : subs >= 500000 ? 10 : 0
   return Math.min(100, Math.max(0, Math.round(raw - penalty)))
 }
 
 function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> {
-  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality + weights.guidance
-  const norm = wTotal > 0 ? 100 / wTotal : 1
   const items: Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> = []
+  const subs = Number(c.subscribers)
 
-  // Recency
+  // ── CHIP MODE: user criteria are the entire score ──
+  if (guidanceEntries.length > 0) {
+    const guidanceTotal = guidanceEntries.reduce((sum, e) => sum + (e.weight ?? DEFAULT_GUIDANCE_WEIGHT), 0)
+    const norm = guidanceTotal > 0 ? 100 / guidanceTotal : 1
+    for (const entry of guidanceEntries) {
+      const w = entry.weight ?? DEFAULT_GUIDANCE_WEIGHT
+      const ratio = computeEntryRatio(entry, c)
+      const pts = Math.round(ratio * w * norm)
+      const max = Math.round(w * norm)
+      const preset = GUIDANCE_PRESETS.find(p => p.entry.text === entry.text)
+      const label = preset ? `${preset.emoji} ${preset.label}` : (entry.summary?.slice(0, 30) || 'Custom criterion')
+      const note = ratio === 1 ? 'Matched' : ratio > 0 ? 'Partial match' : 'Not matched'
+      items.push({ label, pts, max, note, isGuidance: true })
+    }
+    if (subs >= 750000)      items.push({ label: 'Large channel penalty', pts: -20, max: 0, note: '750K+ subs' })
+    else if (subs >= 500000) items.push({ label: 'Large channel penalty', pts: -10, max: 0, note: '500K–750K subs' })
+    return items
+  }
+
+  // ── DEFAULT MODE: base weight breakdown ──
+  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality
+  const norm = wTotal > 0 ? 100 / wTotal : 1
+
   const days = parseRelativeDays(c.videoDates?.[0] || '')
   let rRatio = 0, rNote = ''
   if (days === Infinity) { rRatio = 10/30; rNote = 'No post date found' }
@@ -514,10 +637,8 @@ function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WE
   else if (days <= 60) { rRatio = 14/30;  rNote = c.videoDates?.[0] || '' }
   else if (days <= 90) { rRatio = 7/30;   rNote = c.videoDates?.[0] || '' }
   else                 { rRatio = 0;      rNote = c.videoDates?.[0] || 'Over 90 days ago' }
-  const rMax = Math.round(weights.recency * norm)
-  items.push({ label: 'Recency', pts: Math.round(rRatio * weights.recency * norm), max: rMax, note: rNote })
+  items.push({ label: 'Recency', pts: Math.round(rRatio * weights.recency * norm), max: Math.round(weights.recency * norm), note: rNote })
 
-  // Avg Views
   const v = c.avgViews
   let vRatio = 0, vNote = ''
   if      (v >= 10000  && v < 50000)  { vRatio = 1;     vNote = '10K–50K sweet spot' }
@@ -526,27 +647,20 @@ function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WE
   else if (v >= 100000 && v < 500000) { vRatio = 10/25; vNote = '100K–500K large' }
   else if (v >= 500000)               { vRatio = 3/25;  vNote = '500K+ very large' }
   else if (v > 0)                     { vRatio = 5/25;  vNote = 'Under 1K views' }
-  const vMax = Math.round(weights.views * norm)
-  items.push({ label: 'Avg Views', pts: Math.round(vRatio * weights.views * norm), max: vMax, note: vNote })
+  items.push({ label: 'Avg Views', pts: Math.round(vRatio * weights.views * norm), max: Math.round(weights.views * norm), note: vNote })
 
-  // Reachability
   let cRatio = 0, cNote = ''
   if (c.email && c.linkedin) { cRatio = 1;     cNote = 'Email + LinkedIn' }
   else if (c.email)          { cRatio = 15/20; cNote = 'Email found' }
   else if (c.linkedin)       { cRatio = 5/20;  cNote = 'LinkedIn only' }
   else                       { cRatio = 0;     cNote = 'No contact info' }
-  const cMax = Math.round(weights.reachability * norm)
-  items.push({ label: 'Reachability', pts: Math.round(cRatio * weights.reachability * norm), max: cMax, note: cNote })
+  items.push({ label: 'Reachability', pts: Math.round(cRatio * weights.reachability * norm), max: Math.round(weights.reachability * norm), note: cNote })
 
-  // Relevance
   let relRatio = c.matchedVia === 'name' ? 10/15 : 2/15
   let relNote = c.matchedVia === 'name' ? 'Channel name matched' : 'Related content match'
   if (c.videoTitles?.length > 0) { relRatio = Math.min(1, relRatio + 5/15); relNote += ' + video titles' }
-  const relMax = Math.round(weights.relevance * norm)
-  items.push({ label: 'Relevance', pts: Math.round(relRatio * weights.relevance * norm), max: relMax, note: relNote })
+  items.push({ label: 'Relevance', pts: Math.round(relRatio * weights.relevance * norm), max: Math.round(weights.relevance * norm), note: relNote })
 
-  // Audience Quality
-  const subs = Number(c.subscribers)
   let qRatio = 5/10, qNote = 'No subscriber data'
   if (subs > 0 && !isNaN(subs)) {
     const ratio = c.avgViews / subs
@@ -555,26 +669,10 @@ function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WE
     else if (ratio >= 0.02) { qRatio = 4/10; qNote = `${(ratio*100).toFixed(1)}% views/subs ratio` }
     else                    { qRatio = 1/10; qNote = `${(ratio*100).toFixed(1)}% views/subs ratio (low)` }
   }
-  const qMax = Math.round(weights.quality * norm)
-  items.push({ label: 'Audience Quality', pts: Math.round(qRatio * weights.quality * norm), max: qMax, note: qNote })
+  items.push({ label: 'Audience Quality', pts: Math.round(qRatio * weights.quality * norm), max: Math.round(weights.quality * norm), note: qNote })
 
-  if (subs >= 750000)      items.push({ label: 'Large channel', pts: -20, max: 0, note: '750K+ subs' })
-  else if (subs >= 500000) items.push({ label: 'Large channel', pts: -10, max: 0, note: '500K–750K subs' })
-
-  // Guidance row — proportional share of total pts based on guidance weight
-  const gMax = Math.round(weights.guidance * norm)
-  if (weights.guidance > 0) {
-    const { ratio: gRatio, fired } = guidanceEntries.length > 0
-      ? computeGuidanceScore(c, guidanceEntries)
-      : { ratio: 0, fired: [] }
-    const gPts = Math.round(gRatio * weights.guidance * norm)
-    const guidanceNote = guidanceEntries.length === 0
-      ? 'Add criteria below to personalize this score'
-      : fired.length === 0
-      ? 'None of your criteria matched this creator'
-      : `${fired.length} of your criteria matched`
-    items.push({ label: 'Your Criteria', pts: gPts, max: gMax, note: guidanceNote, isGuidance: true })
-  }
+  if (subs >= 750000)      items.push({ label: 'Large channel penalty', pts: -20, max: 0, note: '750K+ subs' })
+  else if (subs >= 500000) items.push({ label: 'Large channel penalty', pts: -10, max: 0, note: '500K–750K subs' })
 
   return items
 }
@@ -589,44 +687,20 @@ function fitScoreMeta(score: number): { label: string; color: string } {
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
   const [guidanceView, setGuidanceView] = useState(false)
-  const [newText, setNewText] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
-  const [proposedEntry, setProposedEntry] = useState<{ text: string; rules: GuidanceRule[]; summary: string } | null>(null)
   const ref = useRef<HTMLTableCellElement>(null)
-  const { entries, addEntry, removeEntry, resetAll } = useContext(GuidanceContext)
+  const { entries } = useContext(GuidanceContext)
   const score = computeFitScore(c, weights, entries)
   const { label, color } = fitScoreMeta(score)
   const items = computeFitScoreBreakdown(c, weights, entries)
-  const { ratio: guidanceRatio, fired, missed } = entries.length > 0 ? computeGuidanceScore(c, entries) : { ratio: 0, fired: [], missed: [] }
+  const { fired, missed } = entries.length > 0 ? computeGuidanceScore(c, entries) : { fired: [], missed: [] }
 
-  // Compute actual pts contribution guidance makes to this creator's score
-  const wTotal = weights.recency + weights.views + weights.reachability + weights.relevance + weights.quality + weights.guidance
-  const norm = wTotal > 0 ? 100 / wTotal : 1
-  const guidanceMaxPts = Math.round(weights.guidance * norm)
-  const guidanceActualPts = Math.round(guidanceRatio * weights.guidance * norm)
-
-  async function submitGuidance() {
-    if (!newText.trim()) return
-    setSubmitting(true)
-    setSubmitError('')
-    setProposedEntry(null)
-    try {
-      const res = await fetch('/api/interpret-guidance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: newText }),
-      })
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error || 'Failed')
-      // Show proposed rules for review instead of adding immediately
-      setProposedEntry({ text: newText, rules: data.rules, summary: data.summary })
-    } catch (err: any) {
-      setSubmitError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  // In chip mode, chips ARE the score (100 pts total)
+  const guidanceTotal = entries.reduce((sum, e) => sum + (e.weight ?? DEFAULT_GUIDANCE_WEIGHT), 0)
+  const guidanceNorm = guidanceTotal > 0 ? 100 / guidanceTotal : 1
+  const guidanceMaxPts = entries.length > 0 ? 100 : 0
+  const guidanceActualPts = entries.length > 0
+    ? Math.min(100, Math.round(entries.reduce((sum, e) => sum + computeEntryRatio(e, c) * (e.weight ?? DEFAULT_GUIDANCE_WEIGHT), 0) / guidanceTotal * 100))
+    : 0
 
   useEffect(() => {
     if (!open) return
@@ -680,23 +754,21 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
-                        width: guidanceMaxPts > 0 ? `${Math.round(guidanceRatio * 100)}%` : '0%',
-                        backgroundColor: guidanceRatio >= 0.7 ? 'rgb(168,85,247)' : guidanceRatio >= 0.4 ? 'rgb(139,92,246)' : 'rgb(75,85,99)',
+                        width: guidanceMaxPts > 0 ? `${Math.round((guidanceActualPts / guidanceMaxPts) * 100)}%` : '0%',
+                        backgroundColor: guidanceMaxPts > 0 && guidanceActualPts / guidanceMaxPts >= 0.7 ? 'rgb(168,85,247)' : guidanceMaxPts > 0 && guidanceActualPts / guidanceMaxPts >= 0.4 ? 'rgb(139,92,246)' : 'rgb(75,85,99)',
                       }}
                     />
                   </div>
                   <div className="text-[10px] text-gray-500 leading-snug">
-                    {weights.guidance === 0 ? (
-                      <span className="text-amber-500">⚠ Your Criteria weight is set to 0 — open <strong>Score Settings</strong> and drag it up to let these criteria affect scores.</span>
-                    ) : entries.length === 0 ? (
-                      <span>Add criteria below — the AI converts your words into scoring logic applied to every creator.</span>
+                    {entries.length === 0 ? (
+                      <span>No criteria yet — select some in Score Settings.</span>
                     ) : (
                       <span>
                         {guidanceActualPts === guidanceMaxPts
                           ? 'This creator hits all your criteria — full points earned.'
                           : guidanceActualPts === 0
                           ? 'This creator didn\'t match any criteria — no points earned.'
-                          : `This creator matched ${Math.round(guidanceRatio * 100)}% of your criteria.`}
+                          : `${guidanceActualPts} of ${guidanceMaxPts} pts earned across your criteria.`}
                       </span>
                     )}
                   </div>
@@ -704,8 +776,8 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
 
                 {/* Criteria entries */}
                 {entries.length === 0 ? (
-                  <p className="text-gray-500 text-center py-2 text-[11px] leading-relaxed">
-                    No criteria yet. Describe what makes a great lead below — the AI handles the rest.
+                  <p className="text-gray-500 text-center py-3 text-[11px] leading-relaxed">
+                    No criteria active. Open <strong className="text-gray-400">Score Settings</strong> to select what makes a great lead.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -717,25 +789,19 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                       return (
                         <div key={entry.id} className="border border-gray-800 rounded-md overflow-hidden">
                           {/* Criterion header */}
-                          <div className="flex items-start gap-2 px-2 pt-2 pb-1.5">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-gray-400 text-[10px] italic leading-snug break-words">"{entry.text}"</div>
-                              {entry.summary && (
-                                <div className="text-gray-300 text-[11px] mt-1 leading-snug break-words">
-                                  <span className="text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
-                                </div>
-                              )}
-                            </div>
-                            <button onClick={() => removeEntry(entry.id)} className="text-gray-700 hover:text-red-400 shrink-0 mt-0.5" title="Remove">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                          <div className="px-2 pt-2 pb-1.5">
+                            <div className="text-gray-400 text-[10px] italic leading-snug break-words">"{entry.text}"</div>
+                            {entry.summary && (
+                              <div className="text-gray-300 text-[11px] mt-1 leading-snug break-words">
+                                <span className="text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
+                              </div>
+                            )}
                           </div>
                           {/* Scoring logic */}
                           {entry.rules.length > 0 && (
                             <div className="bg-gray-800/40 px-2 py-1.5 space-y-1.5">
-                              <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold">Scoring logic for this creator</div>
+                              <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold">Result for this creator</div>
                               {entryFired.map((f, fi) => {
-                                // Find the matching rule object to get condition info for evidence
                                 const ruleObj = entry.rules.find(r => r.label === f.ruleLabel) || entry.rules[fi]
                                 const evidence = ruleObj ? getGuidanceRuleEvidence(ruleObj, c) : ''
                                 return (
@@ -767,7 +833,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                           )}
                           {entry.rules.length === 0 && (
                             <div className="bg-gray-800/40 px-2 py-1.5">
-                              <span className="text-gray-600 text-[10px]">No evaluatable rules extracted — try rephrasing with more specifics.</span>
+                              <span className="text-gray-600 text-[10px]">No evaluatable rules — criterion may need rephrasing.</span>
                             </div>
                           )}
                         </div>
@@ -777,110 +843,15 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 )}
               </div>
 
-              {/* Sticky footer — presets + add your own */}
-              <div className="shrink-0 border-t border-gray-800">
-
-                {/* Proposed entry review — shown after AI interprets custom input */}
-                {proposedEntry && (
-                  <div className="px-3 pt-2.5 pb-2 space-y-2 border-b border-gray-800 bg-purple-950/30">
-                    <div className="text-[9px] text-purple-400 uppercase tracking-wide font-semibold">AI recommendation — does this look right?</div>
-                    {proposedEntry.summary && (
-                      <div className="text-[11px] text-gray-300 leading-snug">{proposedEntry.summary}</div>
-                    )}
-                    {proposedEntry.rules.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {proposedEntry.rules.map((rule, ri) => (
-                          <div key={ri} className="flex items-center gap-1 px-2 py-0.5 bg-purple-900/50 border border-purple-700/60 rounded-full text-[10px] text-purple-200">
-                            <span>{rule.label}</span>
-                            <span className={`font-mono font-bold ${rule.points > 0 ? 'text-green-400' : 'text-red-400'}`}>{rule.points > 0 ? '+' : ''}{rule.points}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-[10px] text-amber-500">⚠ Couldn't map this to scoreable criteria — try rephrasing with more specifics.</div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      {proposedEntry.rules.length > 0 && (
-                        <button
-                          onClick={() => {
-                            addEntry({ id: `g-${Date.now()}`, timestamp: Date.now(), ...proposedEntry })
-                            setProposedEntry(null)
-                            setNewText('')
-                          }}
-                          className="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded text-[11px] font-medium"
-                        >
-                          ✓ Add these
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setProposedEntry(null)}
-                        className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded text-[11px]"
-                      >
-                        {proposedEntry.rules.length > 0 ? 'Try again' : 'Dismiss'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Preset chips */}
-                {!proposedEntry && (() => {
-                  const alreadyAdded = new Set(entries.map(e => e.text))
-                  const available = GUIDANCE_PRESETS.filter(p => !alreadyAdded.has(p.entry.text))
-                  if (available.length === 0) return null
-                  return (
-                    <div className="px-3 pt-2.5 pb-1.5">
-                      <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold mb-1.5">Suggested criteria</div>
-                      <div className="flex flex-wrap gap-1">
-                        {available.map(preset => (
-                          <button
-                            key={preset.label}
-                            title={preset.description}
-                            onClick={() => addEntry({
-                              id: `g-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                              timestamp: Date.now(),
-                              ...preset.entry,
-                            })}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-purple-600 rounded-full text-[10px] text-gray-400 hover:text-gray-200 transition-colors"
-                          >
-                            <span>{preset.emoji}</span>
-                            <span>{preset.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {/* Add your own input */}
-                <div className="px-3 pb-2.5 pt-2 space-y-1.5">
-                  {!proposedEntry && (
-                    <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold">Add your own</div>
-                  )}
-                  {!proposedEntry && (
-                    <>
-                      <textarea
-                        value={newText}
-                        onChange={e => { setNewText(e.target.value); setSubmitError('') }}
-                        placeholder='Describe a criterion — AI will check if it can be scored and suggest matching rules'
-                        rows={2}
-                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-gray-200 placeholder-gray-600 resize-none text-[11px] leading-snug focus:outline-none focus:border-purple-500"
-                      />
-                      {submitError && <div className="text-red-400 text-[10px] break-words">{submitError}</div>}
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={submitGuidance}
-                          disabled={submitting || !newText.trim()}
-                          className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-purple-500 disabled:opacity-40 text-gray-300 rounded text-[11px] flex items-center gap-1 transition-colors"
-                        >
-                          {submitting ? <><Spinner /><span>Checking…</span></> : <><span>✨</span><span>Check & suggest</span></>}
-                        </button>
-                        {entries.length > 0 && (
-                          <button onClick={resetAll} className="text-gray-700 hover:text-red-400 text-[10px] transition-colors">Reset all</button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+              {/* Sticky footer — link to Score Settings */}
+              <div className="shrink-0 border-t border-gray-800 px-3 py-2.5 flex items-center justify-between">
+                <span className="text-[10px] text-gray-600">Manage criteria in Score Settings</span>
+                <button
+                  onClick={() => { setOpen(false); setGuidanceView(false) }}
+                  className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-0.5"
+                >
+                  Done
+                </button>
               </div>
             </>
           ) : (
@@ -928,37 +899,42 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
 
                 {/* Weight distribution — single horizontal stacked bar */}
                 {(() => {
-                  const isCustom = JSON.stringify(weights) !== JSON.stringify(DEFAULT_WEIGHTS)
-                  const allWeightsMeta = WEIGHT_META
+                  // Chip mode: only chip segments. Default mode: base segments.
+                  const chipMode = entries.length > 0
+                  const segments: { key: string; label: string; w: number }[] = chipMode
+                    ? entries.map(e => {
+                        const preset = GUIDANCE_PRESETS.find(p => p.entry.text === e.text)
+                        return { key: e.id, label: preset ? `${preset.emoji} ${preset.label}` : (e.summary?.split(' ').slice(0,3).join(' ') || 'Criterion'), w: e.weight ?? DEFAULT_GUIDANCE_WEIGHT }
+                      })
+                    : WEIGHT_META.map(m => ({ key: m.key, label: m.label, w: weights[m.key] }))
+                  const segTotal = segments.reduce((s, seg) => s + seg.w, 0)
                   return (
                     <div className="mt-3 pt-2 border-t border-gray-800 space-y-2">
                       <div className="flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-wide font-semibold">
-                        <span>Weight distribution</span>
-                        {isCustom ? <span className="text-purple-400 normal-case font-normal">✨ Personalized</span> : <span className="text-gray-700 normal-case font-normal">Default</span>}
+                        <span>Score breakdown</span>
+                        {chipMode ? <span className="text-purple-400 normal-case font-normal">✨ Your criteria</span> : <span className="text-gray-700 normal-case font-normal">Default</span>}
                       </div>
                       {/* Stacked bar */}
                       <div className="flex h-1.5 rounded-full overflow-hidden gap-px bg-gray-800">
-                        {allWeightsMeta.map(({ key }) => {
-                          const pct = wTotal > 0 ? (weights[key] / wTotal) * 100 : 0
-                          const isGuidanceKey = key === 'guidance'
+                        {segments.map(seg => {
+                          const pct = segTotal > 0 ? (seg.w / segTotal) * 100 : 0
                           return pct > 0 ? (
                             <div
-                              key={key}
-                              style={{ width: `${pct}%`, backgroundColor: isGuidanceKey ? 'rgb(168,85,247)' : 'rgb(99,102,241)' }}
-                              title={`${WEIGHT_META.find(m => m.key === key)?.label}: ${Math.round(pct)}%`}
+                              key={seg.key}
+                              style={{ width: `${pct}%`, backgroundColor: chipMode ? 'rgb(168,85,247)' : 'rgb(99,102,241)' }}
+                              title={`${seg.label}: ${Math.round(pct)}%`}
                             />
                           ) : null
                         })}
                       </div>
                       {/* Labels */}
                       <div className="grid grid-cols-3 gap-x-2 gap-y-1">
-                        {allWeightsMeta.map(({ key, label: wLabel }) => {
-                          const pct = Math.round(wTotal > 0 ? (weights[key] / wTotal) * 100 : 0)
-                          const isGuidanceKey = key === 'guidance'
+                        {segments.map(seg => {
+                          const pct = Math.round(segTotal > 0 ? (seg.w / segTotal) * 100 : 0)
                           return (
-                            <div key={key} className="flex items-center gap-1 min-w-0">
-                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: isGuidanceKey ? 'rgb(168,85,247)' : 'rgb(99,102,241)', opacity: pct === 0 ? 0.3 : 1 }} />
-                              <span className={`text-[9px] truncate ${isGuidanceKey ? 'text-purple-400' : 'text-gray-600'}`}>{wLabel.split(' ')[0]} {pct}%</span>
+                            <div key={seg.key} className="flex items-center gap-1 min-w-0">
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: chipMode ? 'rgb(168,85,247)' : 'rgb(99,102,241)', opacity: pct === 0 ? 0.3 : 1 }} />
+                              <span className={`text-[9px] truncate ${chipMode ? 'text-purple-400' : 'text-gray-600'}`}>{seg.label.split(' ').slice(0,2).join(' ')} {pct}%</span>
                             </div>
                           )
                         })}
@@ -1381,7 +1357,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
 
 function DismissIcon({ active }: { active: boolean }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} className="w-5 h-5">
       <circle cx="12" cy="12" r="9" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 9l-6 6M9 9l6 6" />
     </svg>
@@ -1450,45 +1426,197 @@ function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortC
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
-function ScoreSettingsModal({ weights, narrative, onSave, onClose }: {
+function PlatformIcon({ id, className = 'w-4 h-4' }: { id: PlatformId; className?: string }) {
+  switch (id) {
+    case 'youtube':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+      )
+    case 'instagram':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zm0 10.162a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+        </svg>
+      )
+    case 'tiktok':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.84 1.57V6.8a4.85 4.85 0 01-1.07-.11z"/>
+        </svg>
+      )
+    case 'twitter':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.629L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
+        </svg>
+      )
+    case 'linkedin':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+        </svg>
+      )
+  }
+}
+
+function PlatformDropdown({ activePlatform, onChange }: { activePlatform: PlatformId; onChange: (id: PlatformId) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const active = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="inline-flex items-center gap-1.5 text-white font-semibold hover:text-gray-200 transition-colors group"
+      >
+        <PlatformIcon id={activePlatform} className="w-4 h-4" />
+        <span>{active.label}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-7 w-48 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+          {PLATFORM_CONFIGS.map(p => (
+            <button
+              key={p.id}
+              onClick={() => { onChange(p.id); setOpen(false) }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                p.id === activePlatform
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              }`}
+            >
+              <PlatformIcon id={p.id} className={p.id === 'twitter' ? 'w-4 h-4 shrink-0' : 'w-4 h-4 shrink-0'} />
+              {p.id !== 'twitter' && <span className="font-medium">{p.label}</span>}
+              {p.id === 'youtube' && <span className="text-[10px] text-gray-500 ml-1">(suggested)</span>}
+              {p.id === activePlatform && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 ml-auto text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HamburgerMenu({ onOpenScoreSettings }: { onOpenScoreSettings: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const items: { icon: React.ReactNode; label: string; sublabel?: string; onClick: () => void; dividerAfter?: boolean }[] = [
+    {
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
+      label: 'Lead Criteria',
+      sublabel: 'Scoring weights & AI filters',
+      onClick: () => { onOpenScoreSettings(); setOpen(false) },
+      dividerAfter: true,
+    },
+    {
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
+      label: 'Account',
+      sublabel: 'Coming soon',
+      onClick: () => {},
+    },
+    {
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
+      label: 'Contact Us',
+      sublabel: 'Questions or feedback',
+      onClick: () => { window.open('mailto:dmeehanj@gmail.com', '_blank'); setOpen(false) },
+      dividerAfter: true,
+    },
+    {
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+      label: 'About',
+      sublabel: 'How this tool works',
+      onClick: () => {},
+    },
+  ]
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-colors ${open ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+        title="Menu"
+      >
+        <span className="block w-5 h-px bg-current rounded" />
+        <span className="block w-5 h-px bg-current rounded" />
+        <span className="block w-5 h-px bg-current rounded" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-11 w-56 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+          {items.map((item, i) => (
+            <React.Fragment key={i}>
+              <button
+                onClick={item.onClick}
+                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-800 transition-colors group"
+              >
+                <span className="text-gray-500 group-hover:text-gray-300 mt-0.5 shrink-0 transition-colors">{item.icon}</span>
+                <div className="min-w-0">
+                  <div className="text-sm text-gray-200 font-medium leading-tight">{item.label}</div>
+                  {item.sublabel && <div className="text-[11px] text-gray-500 mt-0.5">{item.sublabel}</div>}
+                </div>
+              </button>
+              {item.dividerAfter && <div className="mx-4 my-1 border-t border-gray-800" />}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ScoreSettingsModal({ weights, narrative, guidanceEntries, activePlatform, onAddGuidance, onRemoveGuidance, onUpdateGuidanceWeight, onResetGuidance, onSave, onClose }: {
   weights: ScoreWeights
   narrative: string
+  guidanceEntries: GuidanceEntry[]
+  activePlatform: PlatformId
+  onAddGuidance: (e: GuidanceEntry) => void
+  onRemoveGuidance: (id: string) => void
+  onUpdateGuidanceWeight: (id: string, weight: number) => void
+  onResetGuidance: () => void
   onSave: (w: ScoreWeights, n: string) => void
   onClose: () => void
 }) {
+  const [showDefaultSliders, setShowDefaultSliders] = useState(false)
   const [draft, setDraft] = useState<ScoreWeights>({ ...weights })
-  const [draftNarrative, setDraftNarrative] = useState(narrative)
-  const [applying, setApplying] = useState(false)
-  const [aiSummary, setAiSummary] = useState('')
-  const [aiError, setAiError] = useState('')
+  const lockedPlatform = PLATFORM_CONFIGS.find(p => p.id === activePlatform && p.condition !== null)
 
-  const wTotal = draft.recency + draft.views + draft.reachability + draft.relevance + draft.quality + draft.guidance
-  const norm = wTotal > 0 ? 100 / wTotal : 1
+  const activeTexts = new Set(guidanceEntries.map(e => e.text))
+  // Custom entries = not matching any preset
+  const customEntries = guidanceEntries.filter(e => !GUIDANCE_PRESETS.some(p => p.entry.text === e.text))
+  // For slider % display when in default mode
+  const baseTotal = draft.recency + draft.views + draft.reachability + draft.relevance + draft.quality
+  const baseNorm = baseTotal > 0 ? 100 / baseTotal : 1
 
-  function setPct(key: keyof ScoreWeights, val: number) {
-    setDraft(prev => ({ ...prev, [key]: val }))
-    setAiSummary('')
-  }
-
-  async function applyWithAI() {
-    if (!draftNarrative.trim()) return
-    setApplying(true)
-    setAiError('')
-    setAiSummary('')
-    try {
-      const res = await fetch('/api/interpret-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weights: draft, narrative: draftNarrative }),
-      })
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error || 'Unknown error')
-      setDraft(data.weights)
-      setAiSummary(data.summary || '')
-    } catch (err: any) {
-      setAiError(err.message || 'Failed to interpret feedback')
-    } finally {
-      setApplying(false)
+  function togglePreset(preset: GuidancePreset) {
+    const existing = guidanceEntries.find(e => e.text === preset.entry.text)
+    if (existing) {
+      onRemoveGuidance(existing.id)
+    } else {
+      onAddGuidance({ id: `g-${Date.now()}-${Math.random().toString(36).slice(2)}`, timestamp: Date.now(), ...preset.entry })
     }
   }
 
@@ -1496,124 +1624,176 @@ function ScoreSettingsModal({ weights, narrative, onSave, onClose }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 shrink-0">
           <div>
             <h2 className="text-white font-semibold text-base flex items-center gap-2">
-              <span className="text-purple-400">⚡</span> AI Score Settings
+              <span className="text-purple-400">✨</span> Lead Criteria
             </h2>
-            <p className="text-gray-500 text-xs mt-0.5">Customize what makes a great lead for you</p>
+            <p className="text-gray-500 text-xs mt-0.5">Select what makes a great lead — these affect every creator's score</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors text-lg leading-none">✕</button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
-          {/* Sliders */}
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+
+          {/* ── CHIP GRID: presets + custom entries ── */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Category Weights</span>
-              <span className="text-xs text-gray-600">auto-normalized to 100 pts</span>
-            </div>
-            <div className="space-y-4">
-              {WEIGHT_META.map(({ key, label, description }) => {
-                const pct = Math.round(draft[key] * norm)
-                const isGuidanceSlider = key === 'guidance'
+            <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold block mb-3">Select your criteria</span>
+            {/* Locked platform chip */}
+            {lockedPlatform && (
+              <div className="flex items-center gap-2.5 p-3 rounded-lg border border-gray-600 bg-gray-800/60 mb-3">
+                <span className="text-gray-400 shrink-0"><PlatformIcon id={lockedPlatform.id} className="w-4 h-4" /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-gray-300">{lockedPlatform.chipLabel}</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">Auto-applied · switch platform to change</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Built-in presets */}
+              {GUIDANCE_PRESETS.map(preset => {
+                const active = activeTexts.has(preset.entry.text)
                 return (
-                  <div key={key} className={isGuidanceSlider ? 'pt-3 border-t border-gray-800/60' : ''}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div>
-                        <span className={`text-sm font-medium ${isGuidanceSlider ? 'text-purple-300' : 'text-gray-200'}`}>{label}</span>
-                        {isGuidanceSlider && <span className="ml-1.5 text-[10px] text-purple-500 bg-purple-900/30 px-1.5 py-0.5 rounded-full">✨ AI</span>}
-                        <span className="text-xs text-gray-600 ml-2">{description}</span>
-                      </div>
-                      <span className={`text-sm font-mono font-bold w-8 text-right ${isGuidanceSlider ? 'text-purple-400' : 'text-purple-400'}`}>{pct}</span>
+                  <button
+                    key={preset.label}
+                    onClick={() => togglePreset(preset)}
+                    className={`flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all ${
+                      active
+                        ? 'bg-purple-900/40 border-purple-600 text-white'
+                        : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                    }`}
+                  >
+                    <span className="text-base shrink-0 mt-0.5">{preset.emoji}</span>
+                    <div className="min-w-0">
+                      <div className={`text-sm font-medium leading-tight ${active ? 'text-white' : 'text-gray-300'}`}>{preset.label}</div>
+                      <div className="text-[11px] text-gray-500 leading-snug mt-0.5">{preset.description}</div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-700 w-7 shrink-0">Low</span>
+                    {active && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-purple-400 shrink-0 ml-auto mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    )}
+                  </button>
+                )
+              })}
+              {/* Custom chips — added via "Add your own", always active, click to remove */}
+              {customEntries.map(entry => (
+                <button
+                  key={entry.id}
+                  onClick={() => onRemoveGuidance(entry.id)}
+                  className="flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all bg-purple-900/40 border-purple-600 text-white hover:border-red-500/60 group"
+                  title="Click to remove"
+                >
+                  <span className="text-base shrink-0 mt-0.5">✏️</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium leading-tight text-white truncate">{entry.summary || entry.text}</div>
+                    <div className="text-[11px] text-purple-300/70 leading-snug mt-0.5">Custom · click to remove</div>
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-purple-400 group-hover:text-red-400 shrink-0 ml-auto mt-0.5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── CRITERIA IMPACT SLIDERS — one per active entry ── */}
+          {guidanceEntries.length > 0 && (
+            <div className="border-t border-gray-800 pt-4">
+              <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold block mb-3">Adjust criteria impact</span>
+              <div className="space-y-3">
+                {guidanceEntries.map(entry => {
+                  const preset = GUIDANCE_PRESETS.find(p => p.entry.text === entry.text)
+                  const entryLabel = preset ? `${preset.emoji} ${preset.label}` : (entry.summary?.slice(0, 40) || 'Custom criterion')
+                  const w = entry.weight ?? DEFAULT_GUIDANCE_WEIGHT
+                  const chipTotal = guidanceEntries.reduce((sum, e) => sum + (e.weight ?? DEFAULT_GUIDANCE_WEIGHT), 0)
+                  const pct = chipTotal > 0 ? Math.round((w / chipTotal) * 100) : 0
+                  return (
+                    <div key={entry.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-purple-300 truncate max-w-[78%]">{entryLabel}</span>
+                        <span className="text-xs font-mono text-gray-500">{pct}%</span>
+                      </div>
+                      <input
+                        type="range" min={0} max={30} step={1}
+                        value={w}
+                        onChange={e => onUpdateGuidanceWeight(entry.id, parseInt(e.target.value))}
+                        className="w-full h-1.5 appearance-none bg-gray-700 rounded-full cursor-pointer accent-purple-400"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── USE DEFAULT SCORING (collapsible) ── */}
+          <div className="border-t border-gray-800 pt-3">
+            <button
+              onClick={() => setShowDefaultSliders(v => !v)}
+              className="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-400 transition-colors w-full"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 transition-transform ${showDefaultSliders ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              Use default scoring instead
+            </button>
+            {showDefaultSliders && (
+              <div className="mt-3 space-y-3">
+                <p className="text-xs text-gray-600">These are the default signals used when no criteria are selected. Selecting criteria above overrides this entirely.</p>
+                {WEIGHT_META.map(({ key, label }) => {
+                  const pct = Math.round(draft[key] * baseNorm)
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-gray-400">{label}</span>
+                        <span className="text-xs font-mono text-gray-600">{pct}%</span>
+                      </div>
                       <input
                         type="range" min={0} max={50} step={1}
                         value={draft[key]}
-                        onChange={e => setPct(key, parseInt(e.target.value))}
-                        className={`flex-1 h-1.5 appearance-none bg-gray-700 rounded-full cursor-pointer ${isGuidanceSlider ? 'accent-purple-400' : 'accent-purple-500'}`}
+                        onChange={e => setDraft(prev => ({ ...prev, [key]: parseInt(e.target.value) }))}
+                        className="w-full h-1.5 appearance-none bg-gray-700 rounded-full cursor-pointer accent-indigo-500"
                       />
-                      <span className="text-xs text-gray-700 w-10 shrink-0 text-right">Critical</span>
                     </div>
-                    <div className="mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: isGuidanceSlider ? 'rgba(168,85,247,0.5)' : 'rgba(168,85,247,0.4)' }} />
-                    </div>
-                    {isGuidanceSlider && draft.guidance === 0 && (
-                      <div className="mt-1.5 text-[10px] text-gray-600">Drag up to let your AI criteria affect scores</div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-4 flex items-center justify-between text-xs text-gray-600 border-t border-gray-800 pt-3">
-              <span>Weights auto-normalize — total always = 100 pts</span>
-              <button onClick={() => setDraft({ ...DEFAULT_WEIGHTS })} className="text-gray-500 hover:text-gray-300 underline underline-offset-2">Reset defaults</button>
-            </div>
+                  )
+                })}
+                <button onClick={() => setDraft({ ...DEFAULT_WEIGHTS })} className="text-xs text-gray-600 hover:text-gray-400 underline underline-offset-2">Reset to defaults</button>
+              </div>
+            )}
           </div>
 
-          {/* Narrative */}
-          <div>
-            <div className="mb-2">
-              <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Your Guidance</span>
-              <p className="text-xs text-gray-600 mt-0.5">Describe what makes a great lead — this is shown in each creator's score breakdown for context.</p>
-            </div>
-            <textarea
-              value={draftNarrative}
-              onChange={e => setDraftNarrative(e.target.value)}
-              rows={4}
-              placeholder={`e.g. "Finance creators with Instagram tend to convert well for me. Under 5K subs rarely respond. I prefer creators who post consistently over once-in-a-while big videos."`}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-none leading-relaxed"
-            />
-            <button
-              onClick={applyWithAI}
-              disabled={applying || !draftNarrative.trim()}
-              className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-700 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
-            >
-              {applying ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                  Reading your guidance...
-                </>
-              ) : (
-                <>✨ Apply with AI</>
-              )}
-            </button>
-            {aiSummary && (
-              <div className="mt-2 flex items-start gap-2 p-3 bg-purple-900/30 border border-purple-700/50 rounded-lg">
-                <span className="text-purple-400 text-sm shrink-0 mt-0.5">✨</span>
-                <p className="text-xs text-purple-200 leading-relaxed">{aiSummary}</p>
-              </div>
-            )}
-            {aiError && (
-              <div className="mt-2 p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
-                <p className="text-xs text-red-400">{aiError}</p>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-800">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
-          <button
-            onClick={() => { onSave(draft, draftNarrative); onClose() }}
-            className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            Save Settings
-          </button>
+        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-800 shrink-0">
+          <div className="flex items-center gap-3">
+            {(guidanceEntries.length > 0 || lockedPlatform)
+              ? <span className="text-xs text-purple-400">{guidanceEntries.length + (lockedPlatform ? 1 : 0)} criteria active{lockedPlatform ? ` (incl. ${lockedPlatform.label})` : ''}</span>
+              : <span className="text-xs text-gray-500">Using default scoring</span>
+            }
+            {guidanceEntries.length > 0 && (
+              <button
+                onClick={() => { onResetGuidance(); setDraft({ ...DEFAULT_WEIGHTS }); setShowDefaultSliders(false) }}
+                className="text-xs text-gray-700 hover:text-red-400 underline underline-offset-2 transition-colors"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+            <button
+              onClick={() => { onSave(draft, narrative); onClose() }}
+              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -1624,6 +1804,8 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   loadMoreBatch?: Creator[]
   scoreWeights: ScoreWeights
   scoreNarrative: string
+  activePlatform: PlatformId
+  totalUnfiltered: number
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries), [creators, sortCol, sortDir, scoreWeights, guidanceEntries])
@@ -1640,10 +1822,6 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
     onReorderCols([...newVisible, ...colConfig.filter(c => !c.visible)])
     dragIdx.current = null
     setDragOverIdx(null)
-  }
-
-  if (sorted.length === 0 && !loading) {
-    return <p className="text-gray-500 text-sm mt-4"></p>
   }
 
   return (
@@ -1688,6 +1866,15 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
           </tr>
         </thead>
         <tbody>
+          {sorted.length === 0 && !loading && (
+            <tr>
+              <td colSpan={3 + visibleCols.length} className="px-6 py-10 text-center text-gray-600 text-sm">
+                {totalUnfiltered > 0 && activePlatform !== 'youtube'
+                  ? `None of the ${totalUnfiltered} results have ${PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label} linked — try a broader search`
+                  : 'Search for a topic above to find creators'}
+              </td>
+            </tr>
+          )}
           {sorted.map((c, i) => (
             <tr key={c.channelId} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
               <td className="px-2 py-3 text-center">
@@ -1751,6 +1938,24 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   )
 }
 
+// ─── Per-platform localStorage helpers ───────────────────────────────────────
+
+function loadPlatformState(platform: PlatformId): { weights: ScoreWeights; narrative: string; guidance: GuidanceEntry[] } {
+  let weights: ScoreWeights = DEFAULT_WEIGHTS
+  let narrative = ''
+  let guidance: GuidanceEntry[] = []
+  try {
+    const w = JSON.parse(localStorage.getItem(`creator-score-weights-${platform}`) || 'null')
+    if (w) weights = w
+  } catch { /* ignore */ }
+  try { narrative = localStorage.getItem(`creator-score-narrative-${platform}`) || '' } catch { /* ignore */ }
+  try {
+    const g = JSON.parse(localStorage.getItem(`creator-guidance-entries-${platform}`) || '[]')
+    if (Array.isArray(g)) guidance = g
+  } catch { /* ignore */ }
+  return { weights, narrative, guidance }
+}
+
 export default function Home() {
   const [keyword, setKeyword] = useState('')
   const maxResults = 100
@@ -1783,12 +1988,58 @@ export default function Home() {
   const [loadMoreCreators, setLoadMoreCreators] = useState<Creator[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [currentKeyword, setCurrentKeyword] = useState('')
-  const [region, setRegion] = useState('')
+  const [regions, setRegions] = useState<string[]>([])
   const [scoreWeights, setScoreWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS)
   const [scoreNarrative, setScoreNarrative] = useState('')
   const [showScoreSettings, setShowScoreSettings] = useState(false)
   const [guidanceEntries, setGuidanceEntries] = useState<GuidanceEntry[]>([])
+  const [activePlatform, setActivePlatform] = useState<PlatformId>('youtube')
   const seenChannelIds = useRef<Set<string>>(new Set())
+
+  // Derive the active platform config
+  const platformConfig = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
+
+  // Auto-inject a locked guidance entry for the active platform (not stored in state)
+  const platformEntry: GuidanceEntry | null = useMemo(() => {
+    if (!platformConfig.condition) return null
+    return {
+      id: PLATFORM_LOCK_ID,
+      text: platformConfig.label,
+      timestamp: 0,
+      rules: [{ condition: platformConfig.condition, points: 10, label: platformConfig.chipLabel }],
+      summary: `Creator is active on ${platformConfig.label}`,
+      weight: platformConfig.chipWeight,
+    }
+  }, [platformConfig])
+
+  // Effective entries = platform lock (if any) + user chips
+  const effectiveGuidanceEntries = useMemo(
+    () => platformEntry ? [platformEntry, ...guidanceEntries] : guidanceEntries,
+    [platformEntry, guidanceEntries]
+  )
+
+  // Effective col config: bring the platform's column to the front and ensure it's visible
+  const effectiveColConfig = useMemo(() => {
+    const isYouTube = platformConfig.id === 'youtube'
+    // For non-YouTube platforms: hide YouTube-only metrics, show & front-load the platform column
+    let cols = colConfig.map(c => {
+      if (!isYouTube && (c.id === 'avgViews' || c.id === 'subscribers' || c.id === 'lastPosted')) {
+        return { ...c, visible: false }
+      }
+      if (platformConfig.column && c.id === platformConfig.column) {
+        return { ...c, visible: true }
+      }
+      return c
+    })
+    if (platformConfig.column) {
+      const idx = cols.findIndex(c => c.id === platformConfig.column)
+      if (idx > 0) {
+        const [moved] = cols.splice(idx, 1)
+        cols.unshift(moved)
+      }
+    }
+    return cols
+  }, [colConfig, platformConfig])
 
   // search version ref — prevents stale searches from overwriting newer ones
   const searchVersion = useRef(0)
@@ -1818,18 +2069,34 @@ export default function Home() {
       setDismissed(storedDismissed)
       setDismissedIds(new Set(storedDismissed.map((c: Creator) => c.channelId)))
     } catch { /* no stored dismissed */ }
+    // Migrate legacy (non-platform-keyed) data into the youtube slot on first run
     try {
-      const storedWeights = JSON.parse(localStorage.getItem('creator-score-weights') || 'null')
-      if (storedWeights) setScoreWeights(storedWeights)
-    } catch { /* no stored weights */ }
+      const legacyWeights = localStorage.getItem('creator-score-weights')
+      if (legacyWeights && !localStorage.getItem('creator-score-weights-youtube')) {
+        localStorage.setItem('creator-score-weights-youtube', legacyWeights)
+        localStorage.removeItem('creator-score-weights')
+      }
+    } catch { /* ignore */ }
     try {
-      const storedNarrative = localStorage.getItem('creator-score-narrative') || ''
-      if (storedNarrative) setScoreNarrative(storedNarrative)
-    } catch { /* no stored narrative */ }
+      const legacyNarrative = localStorage.getItem('creator-score-narrative')
+      if (legacyNarrative && !localStorage.getItem('creator-score-narrative-youtube')) {
+        localStorage.setItem('creator-score-narrative-youtube', legacyNarrative)
+        localStorage.removeItem('creator-score-narrative')
+      }
+    } catch { /* ignore */ }
     try {
-      const storedGuidance = JSON.parse(localStorage.getItem('creator-guidance-entries') || '[]')
-      if (Array.isArray(storedGuidance) && storedGuidance.length > 0) setGuidanceEntries(storedGuidance)
-    } catch { /* no stored guidance */ }
+      const legacyGuidance = localStorage.getItem('creator-guidance-entries')
+      if (legacyGuidance && !localStorage.getItem('creator-guidance-entries-youtube')) {
+        localStorage.setItem('creator-guidance-entries-youtube', legacyGuidance)
+        localStorage.removeItem('creator-guidance-entries')
+      }
+    } catch { /* ignore */ }
+
+    // Load initial platform state (youtube by default)
+    const { weights: w0, narrative: n0, guidance: g0 } = loadPlatformState('youtube')
+    setScoreWeights(w0)
+    setScoreNarrative(n0)
+    setGuidanceEntries(g0)
   }, [])
 
   // elapsed timer while loading
@@ -1857,7 +2124,7 @@ export default function Home() {
   function addGuidanceEntry(entry: GuidanceEntry) {
     setGuidanceEntries(prev => {
       const updated = [...prev, entry]
-      localStorage.setItem('creator-guidance-entries', JSON.stringify(updated))
+      localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(updated))
       return updated
     })
   }
@@ -1865,14 +2132,22 @@ export default function Home() {
   function removeGuidanceEntry(id: string) {
     setGuidanceEntries(prev => {
       const updated = prev.filter(e => e.id !== id)
-      localStorage.setItem('creator-guidance-entries', JSON.stringify(updated))
+      localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  function updateGuidanceEntryWeight(id: string, weight: number) {
+    setGuidanceEntries(prev => {
+      const updated = prev.map(e => e.id === id ? { ...e, weight } : e)
+      localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(updated))
       return updated
     })
   }
 
   function resetAllGuidance() {
     setGuidanceEntries([])
-    localStorage.removeItem('creator-guidance-entries')
+    localStorage.removeItem(`creator-guidance-entries-${activePlatform}`)
   }
 
   function addToOutreach(c: Creator) {
@@ -1901,7 +2176,7 @@ export default function Home() {
       responseDate: '',
       subscribers: c.subscribers || '',
       avgViews: c.avgViews || 0,
-      fitScore: computeFitScore(c, scoreWeights, guidanceEntries),
+      fitScore: computeFitScore(c, scoreWeights, effectiveGuidanceEntries),
       linkedin: c.linkedin || '',
       contentNiche: '',
       phone: '',
@@ -1962,11 +2237,19 @@ export default function Home() {
     setStatus('Searching YouTube...')
 
     try {
-      const glParam = region ? `&gl=${encodeURIComponent(region)}` : ''
-      const res = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`)
-      const data = await res.json()
+      const regionCodes = regions.length > 0 ? regions : ['']
+      const allResponses = await Promise.all(
+        regionCodes.map(code => {
+          const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
+          return fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
+        })
+      )
       if (version !== searchVersion.current) return  // superseded by newer search
-      if (data.error) { setStatus(`Error: ${data.error}`); return }
+      const firstError = allResponses.find(d => d.error)
+      if (firstError) { setStatus(`Error: ${firstError.error}`); return }
+      // merge and deduplicate by channelId
+      const seenMerge = new Set<string>()
+      const data = { channels: allResponses.flatMap(d => (d.channels as Creator[]) || []).filter(c => { if (seenMerge.has(c.channelId)) return false; seenMerge.add(c.channelId); return true }) }
 
       // Track all returned channel IDs so Load More skips them
       ;(data.channels as Creator[]).forEach((c: Creator) => seenChannelIds.current.add(c.channelId))
@@ -2022,7 +2305,7 @@ export default function Home() {
     } finally {
       if (version === searchVersion.current) setLoading(false)
     }
-  }, [minViews, maxViews, maxResults, region, dismissedIds, outreachIds])
+  }, [minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
 
   async function handleSearch() { await runSearch(keyword) }
 
@@ -2030,10 +2313,16 @@ export default function Home() {
     if (!currentKeyword || loadingMore || loading) return
     setLoadingMore(true)
     try {
-      const glParam = region ? `&gl=${encodeURIComponent(region)}` : ''
-      const res = await fetch(`/api/search?keyword=${encodeURIComponent(currentKeyword)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`)
-      const data = await res.json()
-      if (data.error) return
+      const regionCodes = regions.length > 0 ? regions : ['']
+      const allResponses = await Promise.all(
+        regionCodes.map(code => {
+          const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
+          return fetch(`/api/search?keyword=${encodeURIComponent(currentKeyword)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
+        })
+      )
+      if (allResponses.some(d => d.error)) return
+      const seenMerge = new Set<string>()
+      const data = { channels: allResponses.flatMap(d => (d.channels as Creator[]) || []).filter(c => { if (seenMerge.has(c.channelId)) return false; seenMerge.add(c.channelId); return true }) }
 
       // Filter: skip already seen, dismissed, outreached
       const fresh = (data.channels as Creator[]).filter(
@@ -2087,7 +2376,7 @@ export default function Home() {
         const reSorted = [...enriched].sort((a, b) => {
           const ae = a.email ? 1 : 0, be = b.email ? 1 : 0
           if (ae !== be) return be - ae
-          return computeFitScore(b, scoreWeights, guidanceEntries) - computeFitScore(a, scoreWeights, guidanceEntries)
+          return computeFitScore(b, scoreWeights, effectiveGuidanceEntries) - computeFitScore(a, scoreWeights, effectiveGuidanceEntries)
         })
         setLoadMoreCreators(prev => {
           const keep = prev.slice(0, prev.length - batch.length)
@@ -2096,7 +2385,7 @@ export default function Home() {
       }
     } catch { /* ignore */ }
     finally { setLoadingMore(false) }
-  }, [currentKeyword, loadingMore, loading, minViews, maxViews, maxResults, region, dismissedIds, outreachIds])
+  }, [currentKeyword, loadingMore, loading, minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
 
   async function handleExportExcel(list: Creator[]) {
     setShowExport(false)
@@ -2115,7 +2404,7 @@ export default function Home() {
 
   function handleExportCSV(list: Creator[]) {
     setShowExport(false)
-    const headers = ['Channel Name', 'YouTube URL', 'Avg Views', 'Subscribers', 'Last Posted', 'Email', 'LinkedIn', 'Website', 'Instagram', 'Twitter/X', 'TikTok']
+    const headers = ['Channel Name', 'YouTube URL', 'Avg Views', 'Subscribers', 'Last Posted', 'Email', 'LinkedIn', 'Website', 'Instagram', 'X', 'TikTok']
     const rows = list.map(c => [
       c.channelName, c.channelUrl, c.avgViews, formatSubscribers(c.subscribers),
       c.videoDates?.[0] || '', c.email, c.linkedin, c.website, c.instagram, c.twitter, c.tiktok,
@@ -2168,14 +2457,46 @@ export default function Home() {
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
     .filter(c => maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
     .filter(c => !emailOnly || !!c.email)
+    .filter(c => {
+      if (activePlatform === 'youtube') return true
+      if (activePlatform === 'instagram') return !!c.instagram
+      if (activePlatform === 'tiktok') return !!c.tiktok
+      if (activePlatform === 'twitter') return !!c.twitter
+      if (activePlatform === 'linkedin') return !!c.linkedin
+      return true
+    })
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
   return (
-    <GuidanceContext.Provider value={{ entries: guidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, resetAll: resetAllGuidance }}>
+    <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
     <main className="min-h-screen bg-gray-950 text-white p-8">
       <div className={activeTab === 'outreach' ? 'w-full px-2' : 'max-w-7xl mx-auto'}>
-        <h1 className="text-3xl font-bold mb-2">Creator Outreach</h1>
-        <p className="text-gray-400 mb-6">Find YouTube creators and their contact info</p>
+
+        {/* Header row: title + hamburger */}
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <h1 className="text-3xl font-bold">Creator Outreach</h1>
+            <p className="text-gray-400 mt-1 flex items-center gap-1.5 flex-wrap">
+              Find
+              <PlatformDropdown activePlatform={activePlatform} onChange={(newPlatform) => {
+                // Save current platform's scoring state
+                localStorage.setItem(`creator-score-weights-${activePlatform}`, JSON.stringify(scoreWeights))
+                localStorage.setItem(`creator-score-narrative-${activePlatform}`, scoreNarrative)
+                localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(guidanceEntries))
+                // Load new platform's scoring state
+                const { weights, narrative, guidance } = loadPlatformState(newPlatform)
+                setScoreWeights(weights)
+                setScoreNarrative(narrative)
+                setGuidanceEntries(guidance)
+                setActivePlatform(newPlatform)
+              }} />
+              creators and their contact info
+            </p>
+          </div>
+          <HamburgerMenu onOpenScoreSettings={() => setShowScoreSettings(true)} />
+        </div>
+
+        <div className="mb-5" />
 
         {/* Search bar */}
         <div className="flex gap-3 mb-2 flex-wrap">
@@ -2189,21 +2510,31 @@ export default function Home() {
           {/* Score settings icon */}
           <button
             onClick={() => setShowScoreSettings(true)}
-            title="AI Score Settings"
-            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative ? 'bg-purple-700 border-purple-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+            title="Lead Criteria"
+            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-purple-700 border-purple-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
           >
             <span className="text-sm">⚡</span>
           </button>
           {/* Filter icon */}
           <button
             onClick={() => setShowFilter(v => !v)}
-            title="Filters"
-            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${showFilter || region ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+            title={regions.length === 0 ? 'Filters — English-language search (no regional filter)' : regions.length === REGIONS.length ? 'Filters — Global (all regions)' : `Filters — searching: ${regions.map(code => REGIONS.find(r => r.code === code)?.label).join(', ')}`}
+            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
             </svg>
-            {region && <span className="text-sm">{REGIONS.find(r => r.code === region)?.flag}</span>}
+            {regions.length > 0 && (
+              <span className="text-sm flex gap-px">
+                {regions.length === REGIONS.length
+                  ? '🌐'
+                  : <>
+                    {regions.slice(0, 3).map(code => REGIONS.find(r => r.code === code)?.flag).join('')}
+                    {regions.length > 3 && <span className="text-[10px] font-bold">+{regions.length - 3}</span>}
+                  </>
+                }
+              </span>
+            )}
           </button>
           <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 rounded font-semibold">
             {loading ? 'Searching...' : 'Search'}
@@ -2212,11 +2543,11 @@ export default function Home() {
             <button
               onClick={() => setShowExport(v => !v)}
               disabled={activeTab === 'outreach' ? outreach.length === 0 : activeTab === 'dismissed' ? true : currentList.length === 0}
-              className="bg-green-700 hover:bg-green-600 disabled:opacity-30 disabled:cursor-not-allowed px-4 py-2 rounded font-semibold text-sm flex items-center gap-1.5"
+              title="Export"
+              className="bg-green-700 hover:bg-green-600 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2 rounded flex items-center"
             >
-              Export
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
             </button>
             {showExport && (
@@ -2288,13 +2619,34 @@ export default function Home() {
               </button>
             </div>
             <div className="flex items-start gap-3 flex-wrap border-t border-gray-800 pt-3">
-              <span className="text-xs text-gray-400 w-20 shrink-0 mt-1">Region:</span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-col w-20 shrink-0 mt-1 gap-0.5">
+                <span className="text-xs text-gray-400">Region:</span>
+                <span className="text-[10px] text-gray-600 leading-snug">Pick countries or go Global for all</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 flex-1">
+                {/* English = no region filter (default) */}
+                <button
+                  onClick={() => setRegions([])}
+                  title="No regional filter — English-language creators only"
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === 0 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                >
+                  <span>🌐</span>
+                  <span>English</span>
+                </button>
+                {/* Global = all countries */}
+                <button
+                  onClick={() => setRegions(REGIONS.map(r => r.code))}
+                  title="Search across all countries simultaneously — slower but surfaces creators from every region"
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === REGIONS.length ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                >
+                  <span>🗺️</span>
+                  <span>Global</span>
+                </button>
                 {REGIONS.map(r => (
                   <button
                     key={r.code}
-                    onClick={() => setRegion(r.code)}
-                    className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${region === r.code ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                    onClick={() => setRegions(prev => regions.includes(r.code) ? prev.filter(c => c !== r.code) : [...prev, r.code])}
+                    className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.includes(r.code) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
                   >
                     <span>{r.flag}</span>
                     <span>{r.label}</span>
@@ -2340,11 +2692,10 @@ export default function Home() {
               Suggested searches
             </button>
             {showSuggestions && (
-              <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 border border-gray-700 rounded px-2 py-0.5 hover:border-gray-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} title="Shuffle suggestions" className="text-gray-500 hover:text-gray-300 border border-gray-700 rounded p-0.5 hover:border-gray-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Refresh
               </button>
             )}
           </div>
@@ -2364,7 +2715,7 @@ export default function Home() {
         <div className="flex items-center mb-4 border-b border-gray-800">
           <div className="flex gap-1">
             <button onClick={() => setActiveTab('results')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'results' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-              Results {creators.length > 0 && <span className="ml-1 text-xs text-gray-400">({creators.length})</span>}
+              Results {currentList.length > 0 && <span className="ml-1 text-xs text-gray-400">({currentList.length}{currentList.length !== creators.length ? ` of ${creators.length}` : ''})</span>}
             </button>
             <button onClick={() => setActiveTab('outreach')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'outreach' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
               Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}
@@ -2374,7 +2725,13 @@ export default function Home() {
             </button>
           </div>
           <button
-            onClick={() => { setDraftCols(colConfig); setShowCustomize(true) }}
+            onClick={() => {
+              const draft = activePlatform === 'youtube'
+                ? colConfig
+                : colConfig.filter(c => !YOUTUBE_ONLY_COL_IDS.includes(c.id))
+              setDraftCols(draft)
+              setShowCustomize(true)
+            }}
             className={`ml-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' || activeTab === 'dismissed' ? 'invisible' : ''}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2399,29 +2756,41 @@ export default function Home() {
                 </button>
               </div>
               <p className="text-xs text-gray-500 px-5 pt-3 pb-1">Channel is always shown first.</p>
+              {activePlatform !== 'youtube' && (
+                <p className="text-xs text-gray-600 px-5 pb-2">YouTube-only metrics hidden for {platformConfig.label} view.</p>
+              )}
               <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
-                {draftCols.map((col, idx) => (
-                  <div key={col.id} className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-800 group">
-                    <input
-                      type="checkbox" checked={col.visible}
-                      onChange={() => setDraftCols(d => d.map((c, i) => i === idx ? { ...c, visible: !c.visible } : c))}
-                      className="w-4 h-4 rounded accent-blue-500"
-                    />
-                    <span className="flex-1 text-sm text-gray-200">{col.label}</span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        disabled={idx === 0}
-                        onClick={() => setDraftCols(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })}
-                        className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
-                      >↑</button>
-                      <button
-                        disabled={idx === draftCols.length - 1}
-                        onClick={() => setDraftCols(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })}
-                        className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
-                      >↓</button>
+                {draftCols.map((col, idx) => {
+                  const isLocked = platformConfig.column === col.id
+                  return (
+                    <div key={col.id} className={`flex items-center gap-3 py-2 px-3 rounded group ${isLocked ? 'opacity-60' : 'hover:bg-gray-800'}`}>
+                      <input
+                        type="checkbox" checked={col.visible}
+                        disabled={isLocked}
+                        onChange={() => !isLocked && setDraftCols(d => d.map((c, i) => i === idx ? { ...c, visible: !c.visible } : c))}
+                        className="w-4 h-4 rounded accent-blue-500 disabled:cursor-not-allowed"
+                      />
+                      <span className="flex-1 text-sm text-gray-200">{col.label}</span>
+                      {isLocked
+                        ? <span className="text-[10px] text-gray-500 shrink-0">auto-on</span>
+                        : (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              disabled={idx === 0}
+                              onClick={() => setDraftCols(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })}
+                              className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                            >↑</button>
+                            <button
+                              disabled={idx === draftCols.length - 1}
+                              onClick={() => setDraftCols(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })}
+                              className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                            >↓</button>
+                          </div>
+                        )
+                      }
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
               <div className="px-5 py-4 border-t border-gray-800 flex gap-3">
                 <button
@@ -2431,7 +2800,18 @@ export default function Home() {
                   Reset
                 </button>
                 <button
-                  onClick={() => { setColConfig(draftCols); setShowCustomize(false) }}
+                  onClick={() => {
+                    let saved = draftCols
+                    if (activePlatform !== 'youtube') {
+                      // Re-append YouTube-only cols so they're preserved for when user switches back
+                      const ytOnly = colConfig.filter(c => YOUTUBE_ONLY_COL_IDS.includes(c.id))
+                      saved = [...draftCols, ...ytOnly]
+                    }
+                    setColConfig(saved)
+                    setDraftCols(saved)
+                    localStorage.setItem('creator-col-config', JSON.stringify(saved))
+                    setShowCustomize(false)
+                  }}
                   className="flex-1 px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 rounded transition-colors"
                 >
                   Save
@@ -2500,10 +2880,17 @@ export default function Home() {
               onReorderCols={reorderResultCols}
               loading={loading}
               sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
-              colConfig={colConfig}
-              loadMoreBatch={activeTab === 'results' ? loadMoreCreators : undefined}
+              colConfig={effectiveColConfig}
+              loadMoreBatch={activeTab === 'results' ? loadMoreCreators.filter(c =>
+                c.avgViews >= minViews && c.avgViews <= maxViews &&
+                (maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays) &&
+                (!emailOnly || !!c.email) &&
+                (activePlatform === 'youtube' || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
+              ) : undefined}
               scoreWeights={scoreWeights}
               scoreNarrative={scoreNarrative}
+              activePlatform={activePlatform}
+              totalUnfiltered={creators.length}
             />
             {activeTab === 'results' && (
               <div className="mt-5 flex flex-col items-center gap-2">
@@ -2531,11 +2918,17 @@ export default function Home() {
         <ScoreSettingsModal
           weights={scoreWeights}
           narrative={scoreNarrative}
+          guidanceEntries={guidanceEntries}
+          activePlatform={activePlatform}
+          onAddGuidance={addGuidanceEntry}
+          onRemoveGuidance={removeGuidanceEntry}
+          onUpdateGuidanceWeight={updateGuidanceEntryWeight}
+          onResetGuidance={resetAllGuidance}
           onSave={(w, n) => {
             setScoreWeights(w)
             setScoreNarrative(n)
-            localStorage.setItem('creator-score-weights', JSON.stringify(w))
-            localStorage.setItem('creator-score-narrative', n)
+            localStorage.setItem(`creator-score-weights-${activePlatform}`, JSON.stringify(w))
+            localStorage.setItem(`creator-score-narrative-${activePlatform}`, n)
           }}
           onClose={() => setShowScoreSettings(false)}
         />

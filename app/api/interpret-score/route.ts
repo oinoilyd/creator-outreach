@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { clampString } from '@/lib/security'
 
 const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
 
@@ -9,7 +10,6 @@ interface ScoreWeights {
   reachability: number
   relevance: number
   quality: number
-  guidance: number
 }
 
 const CATEGORY_DESCRIPTIONS: Record<keyof ScoreWeights, string> = {
@@ -18,11 +18,14 @@ const CATEGORY_DESCRIPTIONS: Record<keyof ScoreWeights, string> = {
   reachability: 'Whether email and/or LinkedIn are available for outreach',
   relevance:    'How well the channel content matches the search topic',
   quality:      'Views-to-subscriber engagement ratio (audience loyalty)',
-  guidance:     'How much the creator matches your AI-interpreted lead criteria (product sellers, audience type, etc.)',
 }
 
 export async function POST(req: NextRequest) {
-  const { weights, narrative } = await req.json() as { weights: ScoreWeights; narrative: string }
+  const body = await req.json() as { weights: ScoreWeights; narrative: string }
+
+  // Cap narrative to prevent prompt injection / token exhaustion
+  const narrative = clampString(body.narrative, 2000)
+  const weights = body.weights
 
   if (!narrative?.trim()) {
     return NextResponse.json({ error: 'No narrative provided' }, { status: 400 })
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const prompt = `You are helping tune a YouTube creator fit-score system for a creator outreach tool. The user does outreach to YouTube creators to pitch them on a content/growth service.
 
-The scoring system has 6 categories. Each has a weight between 0 and 50. The weights are auto-normalized so they always sum to 100 points total. Higher weight = more important to the final score.
+The scoring system has 5 categories. Each has a weight between 0 and 50. The weights are auto-normalized so they always sum to 100 points total. Higher weight = more important to the final score.
 
 Current weights:
 ${currentWeightsText}
@@ -49,8 +52,7 @@ Based on their guidance, suggest updated weights that better reflect their prior
     "views": <number 0-50>,
     "reachability": <number 0-50>,
     "relevance": <number 0-50>,
-    "quality": <number 0-50>,
-    "guidance": <number 0-50>
+    "quality": <number 0-50>
   },
   "summary": "<one sentence explaining the key changes you made and why>"
 }
@@ -58,7 +60,6 @@ Based on their guidance, suggest updated weights that better reflect their prior
 Rules:
 - Keep each weight between 0 and 50
 - Only change weights that the user's guidance clearly implies should change
-- If the guidance mentions creator criteria (product sellers, specific audience, posting style), increase the "guidance" weight so the AI criteria matter more
 - The summary must be plain English, under 25 words`
 
   try {
@@ -82,7 +83,6 @@ Rules:
       reachability: Math.min(50, Math.max(0, Math.round(parsed.weights.reachability ?? weights.reachability))),
       relevance:    Math.min(50, Math.max(0, Math.round(parsed.weights.relevance    ?? weights.relevance))),
       quality:      Math.min(50, Math.max(0, Math.round(parsed.weights.quality      ?? weights.quality))),
-      guidance:     Math.min(50, Math.max(0, Math.round(parsed.weights.guidance     ?? weights.guidance))),
     }
 
     return NextResponse.json({ weights: safe, summary: parsed.summary || '' })
