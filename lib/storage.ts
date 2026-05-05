@@ -96,12 +96,17 @@ function outreachToRow(e: OutreachEntry, uid: string) {
 
 export async function getOutreach(): Promise<OutreachEntry[]> {
   const uid = await userId()
-  if (!uid) return []
+  if (!uid) {
+    console.warn('[getOutreach] no user; returning []')
+    return []
+  }
   const supabase = createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('outreach_entries')
     .select('*')
     .order('added_at', { ascending: false })
+  if (error) console.error('[getOutreach] read failed:', error.message)
+  console.log(`[getOutreach] returned ${data?.length ?? 0} rows`)
   return (data ?? []).map(rowToOutreach)
 }
 
@@ -138,12 +143,17 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
 
 export async function getDismissed(): Promise<Creator[]> {
   const uid = await userId()
-  if (!uid) return []
+  if (!uid) {
+    console.warn('[getDismissed] no user; returning []')
+    return []
+  }
   const supabase = createClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('dismissed_creators')
     .select('data, dismissed_at')
     .order('dismissed_at', { ascending: false })
+  if (error) console.error('[getDismissed] read failed:', error.message)
+  console.log(`[getDismissed] returned ${data?.length ?? 0} rows`)
   return (data ?? []).map(r => r.data as Creator)
 }
 

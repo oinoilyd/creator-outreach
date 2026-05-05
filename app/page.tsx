@@ -809,22 +809,39 @@ export default function Home() {
       if (user) {
         setUserId(user.id)
         setUserEmail(user.email ?? null)
-        const { data: profileRow, error: profileErr } = await supabase
+
+        // Use maybeSingle so missing row returns null instead of erroring
+        let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
           .select('full_name, linkedin_url, pitch_line, onboarded')
           .eq('user_id', user.id)
-          .single()
+          .maybeSingle()
         console.log('[home-init] profile row:', profileRow, 'error:', profileErr?.message)
+
+        // Defensive: if no profile row exists (trigger may have failed),
+        // create one ourselves before continuing.
+        if (!profileRow) {
+          console.warn('[home-init] no profile row, creating one')
+          const { data: inserted } = await supabase
+            .from('user_profile')
+            .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
+            .select('full_name, linkedin_url, pitch_line, onboarded')
+            .single()
+          profileRow = inserted
+        }
+
         if (profileRow) {
           setProfile({
             fullName: profileRow.full_name ?? '',
             linkedinUrl: profileRow.linkedin_url ?? '',
             pitchLine: profileRow.pitch_line ?? '',
           })
-          console.log('[home-init] onboarded:', profileRow.onboarded, '→', !profileRow.onboarded ? 'SHOWING modal' : 'skipping modal')
-          if (!profileRow.onboarded) setShowOnboarding(true)
-        } else {
-          console.warn('[home-init] no profile row found — modal will not show')
+          if (!profileRow.onboarded) {
+            console.log('[home-init] onboarded=false → showing modal')
+            setShowOnboarding(true)
+          } else {
+            console.log('[home-init] onboarded=true → skipping modal')
+          }
         }
       }
 
