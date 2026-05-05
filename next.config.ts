@@ -21,8 +21,8 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       // Allow images from self, data URIs, and any HTTPS source (YouTube thumbnails etc.)
       "img-src 'self' data: https:",
-      // API calls only go to self
-      "connect-src 'self'",
+      // API calls go to self + Supabase (auth, database) + Google (OAuth) + Vercel feedback API
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://vercel.live",
       "font-src 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",

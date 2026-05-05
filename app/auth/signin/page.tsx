@@ -112,16 +112,11 @@ function SignInForm() {
 }
 
 export default function SignInPage() {
-  const urlOk = !!process.env.NEXT_PUBLIC_SUPABASE_URL
-  const keyOk = !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   return (
     <div className="flex-1 min-h-screen flex items-center justify-center bg-gray-950 p-4">
       <Suspense fallback={<div className="text-gray-500">Loading…</div>}>
         <SignInForm />
       </Suspense>
-      <div className="fixed bottom-2 left-2 text-[10px] text-gray-600 font-mono">
-        env: url={urlOk ? '✓' : '✗MISSING'} key={keyOk ? '✓' : '✗MISSING'}
-      </div>
     </div>
   )
 }
