@@ -805,21 +805,26 @@ export default function Home() {
       // Resolve session + profile, decide whether to show onboarding
       const supabase = createSupabaseClient()
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('[home-init] user:', user?.id, user?.email)
       if (user) {
         setUserId(user.id)
         setUserEmail(user.email ?? null)
-        const { data: profileRow } = await supabase
+        const { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
           .select('full_name, linkedin_url, pitch_line, onboarded')
           .eq('user_id', user.id)
           .single()
+        console.log('[home-init] profile row:', profileRow, 'error:', profileErr?.message)
         if (profileRow) {
           setProfile({
             fullName: profileRow.full_name ?? '',
             linkedinUrl: profileRow.linkedin_url ?? '',
             pitchLine: profileRow.pitch_line ?? '',
           })
+          console.log('[home-init] onboarded:', profileRow.onboarded, '→', !profileRow.onboarded ? 'SHOWING modal' : 'skipping modal')
           if (!profileRow.onboarded) setShowOnboarding(true)
+        } else {
+          console.warn('[home-init] no profile row found — modal will not show')
         }
       }
 
