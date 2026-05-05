@@ -1,39 +1,12 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useCallback, useRef, useContext } from 'react'
-
-interface Creator {
-  channelId: string
-  channelName: string
-  channelUrl: string
-  avgViews: number
-  subscribers: string
-  email: string
-  website: string
-  linkedin: string
-  twitter: string
-  instagram: string
-  tiktok: string
-  company: string
-  matchedVia: string
-  videoTitles: string[]
-  videoDates: string[]
-  description: string
-  enriching?: boolean
-}
-
-type SortCol = 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
-type SortDir = 'asc' | 'desc'
-type ColId = 'avgViews' | 'subscribers' | 'lastPosted' | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok' | 'fitScore'
-type ActiveTab = 'results' | 'outreach' | 'dismissed'
-
-interface ScoreWeights {
-  recency: number
-  views: number
-  reachability: number
-  relevance: number
-  quality: number
-}
+import type {
+  Creator, SortCol, SortDir, ColId, ActiveTab, ScoreWeights,
+  GuidanceCondition, GuidanceRule, GuidanceEntry, GuidancePreset, GuidanceContextType,
+  OutreachEntry, OutreachColDef, OutreachColConfig,
+  ColConfig, PlatformId, PlatformConfig,
+} from '@/lib/types'
 
 const DEFAULT_WEIGHTS: ScoreWeights = { recency: 25, views: 20, reachability: 20, relevance: 15, quality: 10 }
 
@@ -46,44 +19,11 @@ const WEIGHT_META: { key: keyof ScoreWeights; label: string; description: string
 ]
 
 // ── GUIDANCE SCORE ───────────────────────────────────────────────────────────
-// Accumulated feedback entries converted into scoring rules. Contributes
-// a proportional share of 100 pts based on the "guidance" weight slider.
-
-type GuidanceCondition =
-  | 'has_email' | 'no_email'
-  | 'has_instagram' | 'has_tiktok' | 'has_twitter' | 'has_website' | 'has_linkedin'
-  | 'multi_platform'
-  | 'subs_gte' | 'subs_lte'
-  | 'views_gte' | 'views_lte'
-  | 'posts_recent'
-  | 'has_product_mention'
-  | 'has_english_description'
-
-interface GuidanceRule {
-  condition: GuidanceCondition
-  value?: number
-  points: number   // positive or negative
-  label: string    // human-readable, e.g. "Has Instagram"
-}
-
-interface GuidanceEntry {
-  id: string
-  text: string       // original feedback text
-  timestamp: number
-  rules: GuidanceRule[]
-  summary: string    // AI's one-line interpretation
-  weight: number     // this criterion's individual score weight (0–30)
-}
+// Accumulated feedback entries converted into scoring rules. When any entry
+// is active, the guidance score fully takes over from the base sliders.
 
 const DEFAULT_GUIDANCE_WEIGHT = 10 // default pts weight for each new criterion
 
-interface GuidanceContextType {
-  entries: GuidanceEntry[]
-  addEntry: (e: GuidanceEntry) => void
-  removeEntry: (id: string) => void
-  updateEntryWeight: (id: string, weight: number) => void
-  resetAll: () => void
-}
 const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
@@ -189,13 +129,6 @@ function getGuidanceRuleEvidence(rule: GuidanceRule, c: Creator): string {
 
 // ── PRESET GUIDANCE ENTRIES ───────────────────────────────────────────────────
 // Pre-built criteria with known-good rules — added without an AI call.
-interface GuidancePreset {
-  label: string
-  description: string
-  emoji: string
-  entry: Omit<GuidanceEntry, 'id' | 'timestamp'>
-}
-
 // Presets only cover things the base sliders can't express.
 // Sliders handle: recency, avg views, reachability (email+linkedin), relevance, audience quality.
 // Presets handle: specific platform presence, business signals, audience language.
@@ -410,49 +343,6 @@ function computeGuidanceScore(c: Creator, entries: GuidanceEntry[]): {
   return { fired, missed }
 }
 
-interface OutreachEntry {
-  id: string
-  channelId: string
-  channelName: string
-  channelUrl: string
-  description: string
-  email: string
-  product: string
-  reachedOut: boolean
-  medium: 'Email' | 'LinkedIn' | 'Other' | ''
-  mediumOther: string
-  headerUsed: string
-  status: 'Open' | 'Rejected' | 'Successful' | 'No Response' | ''
-  addedAt: number
-  // optional fields
-  notes: string
-  followUpDate: string
-  dateReachedOut: string
-  touchpoints: string
-  responseDate: string
-  subscribers: string
-  avgViews: number
-  fitScore: number
-  linkedin: string
-  contentNiche: string
-  phone: string
-  dealValue: string
-  contractSent: boolean
-  meetingScheduled: string
-}
-
-interface OutreachColDef {
-  id: keyof OutreachEntry
-  label: string
-  defaultVisible: boolean
-  defaultWidth: number
-}
-
-interface OutreachColConfig extends OutreachColDef {
-  visible: boolean
-  width: number
-}
-
 const ALL_OUTREACH_COLS: OutreachColDef[] = [
   { id: 'channelName',     label: 'Channel',           defaultVisible: true,  defaultWidth: 160 },
   { id: 'channelUrl',      label: 'YT',                defaultVisible: true,  defaultWidth: 42  },
@@ -480,12 +370,6 @@ const ALL_OUTREACH_COLS: OutreachColDef[] = [
 ]
 
 const DEFAULT_OUTREACH_COLS: OutreachColConfig[] = ALL_OUTREACH_COLS.map(c => ({ ...c, visible: c.defaultVisible, width: c.defaultWidth }))
-
-interface ColConfig {
-  id: ColId
-  label: string
-  visible: boolean
-}
 
 const DEFAULT_COLS: ColConfig[] = [
   { id: 'fitScore',    label: 'Fit Score',   visible: true  },
@@ -522,19 +406,6 @@ const REGIONS: { code: string; flag: string; label: string }[] = [
   { code: 'KR', flag: '🇰🇷', label: 'South Korea' },
   { code: 'ID', flag: '🇮🇩', label: 'Indonesia' },
 ]
-
-type PlatformId = 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'linkedin'
-
-interface PlatformConfig {
-  id: PlatformId
-  label: string
-  emoji: string
-  activeBg: string      // tailwind classes for active button
-  condition: GuidanceCondition | null
-  column: ColId | null
-  chipLabel: string
-  chipWeight: number
-}
 
 const PLATFORM_CONFIGS: PlatformConfig[] = [
   { id: 'youtube',   label: 'YouTube',    emoji: '▶️',  activeBg: 'bg-red-700 border-red-600 text-white',      condition: null,           column: null,        chipLabel: '',                   chipWeight: 0  },
