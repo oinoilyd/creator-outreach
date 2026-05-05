@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
+import { requireUser } from '@/lib/api-auth'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -272,6 +273,9 @@ async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials:
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireUser()
+  if (auth instanceof NextResponse) return auth
+
   const { searchParams } = new URL(req.url)
 
   // Validate channelId — YouTube channel IDs are always "UC" + 22 base64 chars

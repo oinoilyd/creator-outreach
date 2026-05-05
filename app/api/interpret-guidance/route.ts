@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { clampString } from '@/lib/security'
+import { requireUser } from '@/lib/api-auth'
 
 const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
 
@@ -35,6 +36,9 @@ CONTENT PERFORMANCE  ← use these for "gets views", "viral", "consistent views"
 `
 
 export async function POST(req: NextRequest) {
+  const auth = await requireUser()
+  if (auth instanceof NextResponse) return auth
+
   const body = await req.json() as { text: string }
 
   // Cap text to prevent prompt injection / token exhaustion

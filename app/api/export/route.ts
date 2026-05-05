@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import { requireUser } from '@/lib/api-auth'
 
 export async function POST(req: NextRequest) {
+  const auth = await requireUser()
+  if (auth instanceof NextResponse) return auth
+
   const { channels } = await req.json()
 
   const rows = channels.map((c: any) => ({

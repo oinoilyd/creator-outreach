@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Innertube } from 'youtubei.js'
 import { clampString, clampInt } from '@/lib/security'
+import { requireUser } from '@/lib/api-auth'
 
 const TOPIC_MAP: Record<string, string[]> = {
   basketball: ['basketball coach', 'basketball trainer', 'basketball analyst', 'NBA agent', 'basketball recruiter', 'basketball content creator', 'basketball skills trainer', 'youth basketball coach', 'basketball player'],
@@ -814,6 +815,9 @@ async function runBatched(yt: any, queries: string[]): Promise<VideoHit[]> {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireUser()
+  if (auth instanceof NextResponse) return auth
+
   const { searchParams } = new URL(req.url)
 
   const keyword = clampString(searchParams.get('keyword'), 200)
