@@ -35,6 +35,7 @@ import { DismissedTab } from '@/components/DismissedTab'
 import { PlatformDropdown } from '@/components/PlatformDropdown'
 import { HamburgerMenu } from '@/components/HamburgerMenu'
 import { ScoreSettingsModal } from '@/components/ScoreSettingsModal'
+import { OnboardingModal } from '@/components/OnboardingModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
@@ -45,6 +46,7 @@ import {
   loadPlatformState,
   migrateLegacyKeys,
 } from '@/lib/storage'
+import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 
 const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
@@ -738,6 +740,12 @@ export default function Home() {
   const [activePlatform, setActivePlatform] = useState<PlatformId>('youtube')
   const seenChannelIds = useRef<Set<string>>(new Set())
 
+  // Auth + profile
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+
   // Derive the active platform config
   const platformConfig = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
 
@@ -790,6 +798,20 @@ export default function Home() {
   useEffect(() => {
     setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))
     ;(async () => {
+      // Resolve session + profile, decide whether to show onboarding
+      const supabase = createSupabaseClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+        setUserEmail(user.email ?? null)
+        const { data: profile } = await supabase
+          .from('user_profile')
+          .select('onboarded')
+          .eq('user_id', user.id)
+          .single()
+        if (profile && !profile.onboarded) setShowOnboarding(true)
+      }
+
       // Migrate any pre-platform-toggle keys before reading
       await migrateLegacyKeys()
 
@@ -1213,7 +1235,11 @@ export default function Home() {
               creators and their contact info
             </p>
           </div>
-          <HamburgerMenu onOpenScoreSettings={() => setShowScoreSettings(true)} />
+          <HamburgerMenu
+            userEmail={userEmail}
+            onOpenScoreSettings={() => setShowScoreSettings(true)}
+            onOpenProfile={() => setShowProfile(true)}
+          />
         </div>
 
         <div className="mb-5" />
@@ -1651,6 +1677,13 @@ export default function Home() {
             void savePlatformNarrative(activePlatform, n)
           }}
           onClose={() => setShowScoreSettings(false)}
+        />
+      )}
+
+      {showOnboarding && userId && (
+        <OnboardingModal
+          userId={userId}
+          onComplete={() => setShowOnboarding(false)}
         />
       )}
     </main>

@@ -2,7 +2,15 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 
-export function HamburgerMenu({ onOpenScoreSettings }: { onOpenScoreSettings: () => void }) {
+export function HamburgerMenu({
+  userEmail,
+  onOpenScoreSettings,
+  onOpenProfile,
+}: {
+  userEmail: string | null
+  onOpenScoreSettings: () => void
+  onOpenProfile: () => void
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -14,6 +22,12 @@ export function HamburgerMenu({ onOpenScoreSettings }: { onOpenScoreSettings: ()
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  async function signOut() {
+    setOpen(false)
+    await fetch('/auth/signout', { method: 'POST' })
+    window.location.href = '/auth/signin'
+  }
+
   const items: { icon: React.ReactNode; label: string; sublabel?: string; onClick: () => void; dividerAfter?: boolean }[] = [
     {
       icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
@@ -24,9 +38,9 @@ export function HamburgerMenu({ onOpenScoreSettings }: { onOpenScoreSettings: ()
     },
     {
       icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
-      label: 'Account',
-      sublabel: 'Coming soon',
-      onClick: () => {},
+      label: 'Profile',
+      sublabel: 'Name, LinkedIn, pitch line',
+      onClick: () => { onOpenProfile(); setOpen(false) },
     },
     {
       icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
@@ -40,6 +54,13 @@ export function HamburgerMenu({ onOpenScoreSettings }: { onOpenScoreSettings: ()
       label: 'About',
       sublabel: 'How this tool works',
       onClick: () => {},
+      dividerAfter: true,
+    },
+    {
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
+      label: 'Sign out',
+      sublabel: userEmail || undefined,
+      onClick: signOut,
     },
   ]
 
@@ -66,7 +87,7 @@ export function HamburgerMenu({ onOpenScoreSettings }: { onOpenScoreSettings: ()
                 <span className="text-gray-500 group-hover:text-gray-300 mt-0.5 shrink-0 transition-colors">{item.icon}</span>
                 <div className="min-w-0">
                   <div className="text-sm text-gray-200 font-medium leading-tight">{item.label}</div>
-                  {item.sublabel && <div className="text-[11px] text-gray-500 mt-0.5">{item.sublabel}</div>}
+                  {item.sublabel && <div className="text-[11px] text-gray-500 mt-0.5 truncate">{item.sublabel}</div>}
                 </div>
               </button>
               {item.dividerAfter && <div className="mx-4 my-1 border-t border-gray-800" />}

@@ -1,0 +1,95 @@
+'use client'
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+
+export function OnboardingModal({ userId, onComplete }: { userId: string; onComplete: () => void }) {
+  const [fullName, setFullName] = useState('')
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function save(opts: { skipLinkedin: boolean }) {
+    setError('')
+    if (!fullName.trim()) {
+      setError('Full name is required')
+      return
+    }
+    setLoading(true)
+    const supabase = createClient()
+    const { error: err } = await supabase
+      .from('user_profile')
+      .update({
+        full_name: fullName.trim(),
+        linkedin_url: opts.skipLinkedin ? '' : linkedinUrl.trim(),
+        onboarded: true,
+      })
+      .eq('user_id', userId)
+
+    if (err) {
+      setError(err.message)
+      setLoading(false)
+      return
+    }
+    onComplete()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold text-white mb-1">Welcome 👋</h2>
+        <p className="text-gray-500 text-sm mb-6">A couple quick details so your outreach emails sound like you, not a template.</p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">
+              Full name <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              placeholder="e.g. Jane Smith"
+              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-[11px] text-gray-600 mt-1">Used as the sender name in outreach emails.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">
+              LinkedIn URL <span className="text-gray-600">(optional)</span>
+            </label>
+            <input
+              type="url"
+              value={linkedinUrl}
+              onChange={e => setLinkedinUrl(e.target.value)}
+              placeholder="https://linkedin.com/in/your-handle"
+              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-[11px] text-gray-600 mt-1">Goes in the footer of your outreach emails. Skip and add later if you don&apos;t have one handy.</p>
+          </div>
+        </div>
+
+        {error && <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/40 rounded px-3 py-2 mt-4">{error}</div>}
+
+        <div className="flex items-center justify-between gap-3 mt-6">
+          <button
+            onClick={() => save({ skipLinkedin: true })}
+            disabled={loading}
+            className="text-sm text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
+          >
+            Skip LinkedIn for now
+          </button>
+          <button
+            onClick={() => save({ skipLinkedin: false })}
+            disabled={loading}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Saving…' : 'Save & continue'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
