@@ -13,13 +13,13 @@ import {
 } from '@/lib/format'
 import {
   DEFAULT_GUIDANCE_WEIGHT, GUIDANCE_PRESETS,
-  evaluateGuidanceRule, getGuidanceRuleEvidence,
+  getGuidanceRuleEvidence,
   computeEntryRatio, computeGuidanceScore,
 } from '@/lib/guidance'
 import {
   DEFAULT_WEIGHTS, WEIGHT_META,
   computeFitScore, computeFitScoreBreakdown, fitScoreMeta,
-  contactPriority, sortCreators,
+  sortCreators,
 } from '@/lib/scoring'
 import {
   ALL_OUTREACH_COLS, DEFAULT_OUTREACH_COLS, DEFAULT_COLS,
@@ -28,8 +28,8 @@ import {
 import { PLATFORM_CONFIGS, PLATFORM_LOCK_ID } from '@/lib/platform'
 import { REGIONS } from '@/lib/regions'
 import {
-  PlusCircleIcon, DismissIcon, StarIcon, TrashIcon, Spinner, SortIndicator,
-  PlatformIcon, AutoTextarea,
+  PlusCircleIcon, DismissIcon, TrashIcon, Spinner, SortIndicator,
+  AutoTextarea,
 } from '@/components/ui'
 import { DismissedTab } from '@/components/DismissedTab'
 import { PlatformDropdown } from '@/components/PlatformDropdown'
@@ -38,7 +38,7 @@ import { ScoreSettingsModal } from '@/components/ScoreSettingsModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
-  getColConfig, saveColConfig,
+  saveColConfig,
   getOutreachColConfig, saveOutreachColConfig,
   savePlatformWeights, savePlatformNarrative,
   savePlatformGuidance, clearPlatformGuidance,
