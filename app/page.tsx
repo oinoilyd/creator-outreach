@@ -21,92 +21,16 @@ import {
   computeFitScore, computeFitScoreBreakdown, fitScoreMeta,
   contactPriority, sortCreators,
 } from '@/lib/scoring'
+import {
+  ALL_OUTREACH_COLS, DEFAULT_OUTREACH_COLS, DEFAULT_COLS,
+  YOUTUBE_ONLY_COL_IDS, COL_SORT,
+} from '@/lib/columns'
+import { PLATFORM_CONFIGS, PLATFORM_LOCK_ID } from '@/lib/platform'
+import { REGIONS } from '@/lib/regions'
 
 const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
-
-const ALL_OUTREACH_COLS: OutreachColDef[] = [
-  { id: 'channelName',     label: 'Channel',           defaultVisible: true,  defaultWidth: 160 },
-  { id: 'channelUrl',      label: 'YT',                defaultVisible: true,  defaultWidth: 42  },
-  { id: 'email',           label: 'Email',             defaultVisible: true,  defaultWidth: 190 },
-  { id: 'description',     label: 'Description',       defaultVisible: true,  defaultWidth: 230 },
-  { id: 'product',         label: 'Product',           defaultVisible: true,  defaultWidth: 160 },
-  { id: 'reachedOut',      label: 'Reached Out',       defaultVisible: true,  defaultWidth: 96  },
-  { id: 'medium',          label: 'Medium',            defaultVisible: true,  defaultWidth: 170 },
-  { id: 'headerUsed',      label: 'Subject Line',      defaultVisible: true,  defaultWidth: 210 },
-  { id: 'status',          label: 'Status',            defaultVisible: true,  defaultWidth: 130 },
-  { id: 'notes',           label: 'Notes',             defaultVisible: false, defaultWidth: 220 },
-  { id: 'followUpDate',    label: 'Follow Up Date',    defaultVisible: false, defaultWidth: 140 },
-  { id: 'dateReachedOut',  label: 'Date Reached Out',  defaultVisible: false, defaultWidth: 145 },
-  { id: 'touchpoints',     label: '# Touchpoints',     defaultVisible: false, defaultWidth: 110 },
-  { id: 'responseDate',    label: 'Response Date',     defaultVisible: false, defaultWidth: 140 },
-  { id: 'subscribers',     label: 'Subscribers',       defaultVisible: false, defaultWidth: 110 },
-  { id: 'avgViews',        label: 'Avg Views',         defaultVisible: false, defaultWidth: 110 },
-  { id: 'fitScore',        label: 'Fit Score',         defaultVisible: false, defaultWidth: 100 },
-  { id: 'linkedin',        label: 'LinkedIn',          defaultVisible: false, defaultWidth: 100 },
-  { id: 'contentNiche',    label: 'Content Niche',     defaultVisible: false, defaultWidth: 130 },
-  { id: 'phone',           label: 'Phone',             defaultVisible: false, defaultWidth: 130 },
-  { id: 'dealValue',       label: 'Deal Value',        defaultVisible: false, defaultWidth: 110 },
-  { id: 'contractSent',    label: 'Contract Sent',     defaultVisible: false, defaultWidth: 110 },
-  { id: 'meetingScheduled',label: 'Meeting Scheduled', defaultVisible: false, defaultWidth: 150 },
-]
-
-const DEFAULT_OUTREACH_COLS: OutreachColConfig[] = ALL_OUTREACH_COLS.map(c => ({ ...c, visible: c.defaultVisible, width: c.defaultWidth }))
-
-const DEFAULT_COLS: ColConfig[] = [
-  { id: 'fitScore',    label: 'Fit Score',   visible: true  },
-  { id: 'avgViews',    label: 'Avg Views',   visible: true  },
-  { id: 'subscribers', label: 'Subscribers', visible: true  },
-  { id: 'lastPosted',  label: 'Last Posted', visible: true  },
-  { id: 'email',       label: 'Email',       visible: true  },
-  { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
-  { id: 'website',     label: 'Website',     visible: false },
-  { id: 'instagram',   label: 'Instagram',   visible: false },
-  { id: 'twitter',     label: 'X',            visible: false },
-  { id: 'tiktok',      label: 'TikTok',      visible: false },
-]
-
-const REGIONS: { code: string; flag: string; label: string }[] = [
-  { code: 'US', flag: '🇺🇸', label: 'United States' },
-  { code: 'GB', flag: '🇬🇧', label: 'United Kingdom' },
-  { code: 'CA', flag: '🇨🇦', label: 'Canada' },
-  { code: 'AU', flag: '🇦🇺', label: 'Australia' },
-  { code: 'NZ', flag: '🇳🇿', label: 'New Zealand' },
-  { code: 'IE', flag: '🇮🇪', label: 'Ireland' },
-  { code: 'IN', flag: '🇮🇳', label: 'India' },
-  { code: 'PH', flag: '🇵🇭', label: 'Philippines' },
-  { code: 'SG', flag: '🇸🇬', label: 'Singapore' },
-  { code: 'NG', flag: '🇳🇬', label: 'Nigeria' },
-  { code: 'ZA', flag: '🇿🇦', label: 'South Africa' },
-  { code: 'AE', flag: '🇦🇪', label: 'UAE' },
-  { code: 'DE', flag: '🇩🇪', label: 'Germany' },
-  { code: 'FR', flag: '🇫🇷', label: 'France' },
-  { code: 'ES', flag: '🇪🇸', label: 'Spain' },
-  { code: 'BR', flag: '🇧🇷', label: 'Brazil' },
-  { code: 'MX', flag: '🇲🇽', label: 'Mexico' },
-  { code: 'JP', flag: '🇯🇵', label: 'Japan' },
-  { code: 'KR', flag: '🇰🇷', label: 'South Korea' },
-  { code: 'ID', flag: '🇮🇩', label: 'Indonesia' },
-]
-
-const PLATFORM_CONFIGS: PlatformConfig[] = [
-  { id: 'youtube',   label: 'YouTube',    emoji: '▶️',  activeBg: 'bg-red-700 border-red-600 text-white',      condition: null,           column: null,        chipLabel: '',                   chipWeight: 0  },
-  { id: 'instagram', label: 'Instagram',  emoji: '📸',  activeBg: 'bg-pink-700 border-pink-500 text-white',    condition: 'has_instagram', column: 'instagram', chipLabel: 'Active on Instagram', chipWeight: 20 },
-  { id: 'tiktok',    label: 'TikTok',     emoji: '🎵',  activeBg: 'bg-cyan-700 border-cyan-500 text-white',    condition: 'has_tiktok',   column: 'tiktok',    chipLabel: 'Active on TikTok',    chipWeight: 20 },
-  { id: 'twitter',   label: 'X',           emoji: '🐦', activeBg: 'bg-gray-800 border-gray-500 text-white',    condition: 'has_twitter',  column: 'twitter',   chipLabel: 'Active on X',         chipWeight: 20 },
-  { id: 'linkedin',  label: 'LinkedIn',   emoji: '💼',  activeBg: 'bg-blue-800 border-blue-600 text-white',    condition: 'has_linkedin', column: 'linkedin',  chipLabel: 'Has LinkedIn',        chipWeight: 20 },
-]
-
-const PLATFORM_LOCK_ID = '__platform__'
-
-const YOUTUBE_ONLY_COL_IDS: ColId[] = ['avgViews', 'subscribers', 'lastPosted']
-
-const COL_SORT: Partial<Record<ColId, SortCol>> = {
-  fitScore: 'fitScore', avgViews: 'avgViews', subscribers: 'subscribers', lastPosted: 'lastPosted',
-  email: 'email', linkedin: 'linkedin', website: 'website',
-  instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
-}
 
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
