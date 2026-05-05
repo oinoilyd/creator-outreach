@@ -37,6 +37,7 @@ import { HamburgerMenu } from '@/components/HamburgerMenu'
 import { ScoreSettingsModal } from '@/components/ScoreSettingsModal'
 import { OnboardingModal } from '@/components/OnboardingModal'
 import { ProfileModal } from '@/components/ProfileModal'
+import { MigrationPromptModal } from '@/components/MigrationPromptModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
@@ -45,9 +46,12 @@ import {
   savePlatformWeights, savePlatformNarrative,
   savePlatformGuidance, clearPlatformGuidance,
   loadPlatformState,
-  migrateLocalStorageToSupabase,
   hasMigrationBackup,
   retryMigrationFromBackup,
+  getPendingMigrationCounts,
+  getMigrationSkipped,
+  setMigrationSkipped,
+  runManualMigration,
 } from '@/lib/storage'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 
@@ -752,6 +756,8 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [hasBackup, setHasBackup] = useState(false)
+  // Manual migration prompt state
+  const [pendingMigration, setPendingMigration] = useState<{ outreach: number; dismissed: number } | null>(null)
 
   // Derive the active platform config
   const platformConfig = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
@@ -848,11 +854,15 @@ export default function Home() {
         }
       }
 
-      // One-time migration: pull anything from this browser's localStorage
-      // into the user's Supabase row (no-op if already migrated or no local data)
-      await migrateLocalStorageToSupabase()
-      // Check if a migration backup was created — controls whether the
-      // "Retry data migration" item shows up in the hamburger menu
+      // Check if there's localStorage data waiting to be imported. If so,
+      // show the manual migration prompt — never auto-migrate so the user
+      // always sees what's happening.
+      const pending = getPendingMigrationCounts()
+      if (pending.hasAny && !getMigrationSkipped()) {
+        setPendingMigration({ outreach: pending.outreach, dismissed: pending.dismissed })
+      }
+      // The "Retry data migration" item in the hamburger menu shows up when
+      // a backup blob exists (created the first time we run a migration).
       setHasBackup(hasMigrationBackup())
 
       const storedOutreach = await getOutreach()
@@ -1754,6 +1764,22 @@ export default function Home() {
           initial={profile ?? { fullName: '', linkedinUrl: '', pitchLine: '' }}
           onSave={(next) => setProfile(next)}
           onClose={() => setShowProfile(false)}
+        />
+      )}
+
+      {pendingMigration && userId && !showOnboarding && (
+        <MigrationPromptModal
+          outreachCount={pendingMigration.outreach}
+          dismissedCount={pendingMigration.dismissed}
+          onMigrate={async () => {
+            const result = await runManualMigration()
+            if (result.ok) setPendingMigration(null)
+            return result
+          }}
+          onSkip={() => {
+            setMigrationSkipped()
+            setPendingMigration(null)
+          }}
         />
       )}
     </main>

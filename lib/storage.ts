@@ -340,6 +340,155 @@ export function hasMigrationBackup(): boolean {
   try { return !!localStorage.getItem(BACKUP_KEY) } catch { return false }
 }
 
+const SKIP_PROMPT_KEY = 'creator-supabase-migration-prompt-skipped'
+
+export function getMigrationSkipped(): boolean {
+  if (!isClient()) return false
+  try { return localStorage.getItem(SKIP_PROMPT_KEY) === '1' } catch { return false }
+}
+
+export function setMigrationSkipped(): void {
+  if (!isClient()) return
+  try { localStorage.setItem(SKIP_PROMPT_KEY, '1') } catch { /* ignore */ }
+}
+
+/**
+ * Count what's in localStorage waiting to be migrated. Used by the manual
+ * "Import your saved data?" prompt. Returns zero counts if nothing's there.
+ */
+export function getPendingMigrationCounts(): { outreach: number; dismissed: number; hasAny: boolean } {
+  if (!isClient()) return { outreach: 0, dismissed: 0, hasAny: false }
+  let outreach = 0, dismissed = 0
+  try {
+    const o = lsGet('creator-outreach')
+    if (o) {
+      const arr = JSON.parse(o)
+      if (Array.isArray(arr)) outreach = arr.length
+    }
+  } catch { /* ignore */ }
+  try {
+    const d = lsGet('creator-dismissed')
+    if (d) {
+      const arr = JSON.parse(d)
+      if (Array.isArray(arr)) dismissed = arr.length
+    }
+  } catch { /* ignore */ }
+  // hasAny also covers other migrate-able keys (preferences, platform state)
+  let hasOther = false
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k) continue
+      if (k === BACKUP_KEY || k === SKIP_PROMPT_KEY) continue
+      if (k.startsWith('creator-') || k.startsWith('outreach-')) {
+        hasOther = true
+        break
+      }
+    }
+  } catch { /* ignore */ }
+  return { outreach, dismissed, hasAny: outreach > 0 || dismissed > 0 || hasOther }
+}
+
+/**
+ * The user-triggered version of the migration. Same logic as the auto
+ * migration but always runs (no "skip if Supabase has data" check),
+ * called from the manual prompt. Returns a status the modal can display.
+ */
+export async function runManualMigration(): Promise<{ ok: boolean; message: string }> {
+  const uid = await userId()
+  if (!uid) return { ok: false, message: 'Not signed in.' }
+  if (!isClient()) return { ok: false, message: 'Not running in a browser.' }
+
+  // Take a backup first (no-op if one already exists)
+  createMigrationBackup()
+
+  let outreachSaved = 0, dismissedSaved = 0
+  let messages: string[] = []
+
+  try {
+    const raw = lsGet('creator-outreach')
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr) && arr.length > 0) {
+        await saveOutreach(arr as OutreachEntry[])
+        outreachSaved = arr.length
+      }
+    }
+  } catch (e: any) { messages.push(`Outreach error: ${e?.message || e}`) }
+
+  try {
+    const raw = lsGet('creator-dismissed')
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr) && arr.length > 0) {
+        await saveDismissed(arr as Creator[])
+        dismissedSaved = arr.length
+      }
+    }
+  } catch (e: any) { messages.push(`Dismissed error: ${e?.message || e}`) }
+
+  try {
+    const raw = lsGet('creator-col-config')
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr)) await saveColConfig(arr as ColConfig[])
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const raw = lsGet('outreach-col-config')
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr)) await saveOutreachColConfig(arr as OutreachColConfig[])
+    }
+  } catch { /* ignore */ }
+
+  // Per-platform state
+  const newPs: Record<string, any> = {}
+  const legacyW = lsGet('creator-score-weights')
+  const legacyN = lsGet('creator-score-narrative')
+  const legacyG = lsGet('creator-guidance-entries')
+  if (legacyW || legacyN || legacyG) {
+    newPs.youtube = newPs.youtube ?? {}
+    if (legacyW) try { newPs.youtube.weights = JSON.parse(legacyW) } catch {}
+    if (legacyN) newPs.youtube.narrative = legacyN
+    if (legacyG) try {
+      const g = JSON.parse(legacyG)
+      if (Array.isArray(g)) newPs.youtube.guidance = g
+    } catch {}
+  }
+  for (const p of PLATFORMS) {
+    const w = lsGet(`creator-score-weights-${p}`)
+    const n = lsGet(`creator-score-narrative-${p}`)
+    const g = lsGet(`creator-guidance-entries-${p}`)
+    if (!w && !n && !g) continue
+    newPs[p] = newPs[p] ?? {}
+    if (w) try { newPs[p].weights = JSON.parse(w) } catch {}
+    if (n) newPs[p].narrative = n
+    if (g) try {
+      const arr = JSON.parse(g)
+      if (Array.isArray(arr)) newPs[p].guidance = arr
+    } catch {}
+  }
+  if (Object.keys(newPs).length > 0) {
+    try { await setPlatformState(uid, newPs) } catch { /* ignore */ }
+  }
+
+  // Mark prompt as handled so it doesn't pop again
+  setMigrationSkipped()
+
+  if (messages.length > 0) {
+    return { ok: false, message: messages.join('; ') }
+  }
+  const parts: string[] = []
+  if (outreachSaved > 0) parts.push(`${outreachSaved} outreach`)
+  if (dismissedSaved > 0) parts.push(`${dismissedSaved} dismissed`)
+  return {
+    ok: true,
+    message: parts.length > 0 ? `Imported ${parts.join(' + ')}.` : 'Settings imported.',
+  }
+}
+
 export async function migrateLocalStorageToSupabase(): Promise<void> {
   const uid = await userId()
   if (!uid) {
