@@ -177,3 +177,16 @@ CREATE TRIGGER outreach_entries_touch BEFORE UPDATE ON public.outreach_entries
 
 CREATE TRIGGER user_preferences_touch BEFORE UPDATE ON public.user_preferences
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+
+
+-- ---------------------------------------------------------------------
+-- 7. Grant table access to the `authenticated` role
+-- ---------------------------------------------------------------------
+-- Required because the project has "Automatically expose new tables"
+-- disabled (manual control). RLS policies above narrow access to the
+-- current user; these GRANTs let RLS evaluate at all.
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_profile TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.outreach_entries TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.dismissed_creators TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_preferences TO authenticated;
