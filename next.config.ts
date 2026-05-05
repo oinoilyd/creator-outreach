@@ -23,7 +23,8 @@ const securityHeaders = [
       "img-src 'self' data: https:",
       // API calls go to self + Supabase (auth, database) + Google (OAuth) + Vercel feedback API
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://vercel.live",
-      "font-src 'self'",
+      "font-src 'self' https://vercel.live",
+      "frame-src https://vercel.live",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
