@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { isSafeExternalUrl, clampString } from '@/lib/security'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -246,6 +247,8 @@ async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials:
   const allEmails: string[] = []
   const url = normalizeUrl(rawUrl)
   if (!url || SOCIAL_DOMAIN.test(url)) return { emails: allEmails, socials }
+  // SSRF guard: never fetch private/loopback addresses
+  if (!isSafeExternalUrl(url)) return { emails: allEmails, socials }
 
   const base = url.replace(/\/$/, '')
   const pagesToTry = [url, `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/work-with-me`]
@@ -270,11 +273,17 @@ async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials:
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const channelId = searchParams.get('channelId') || ''
-  const websiteParam = searchParams.get('website') || ''
-  const instagramParam = searchParams.get('instagram') || ''
-  const tiktokParam = searchParams.get('tiktok') || ''
-  const description = searchParams.get('description') || ''
+
+  // Validate channelId — YouTube channel IDs are always "UC" + 22 base64 chars
+  const channelId = clampString(searchParams.get('channelId'), 30)
+  if (!channelId || !/^UC[\w-]{22}$/.test(channelId)) {
+    return NextResponse.json({ error: 'Invalid channelId' }, { status: 400 })
+  }
+
+  const websiteParam  = clampString(searchParams.get('website'), 200)
+  const instagramParam = clampString(searchParams.get('instagram'), 200)
+  const tiktokParam   = clampString(searchParams.get('tiktok'), 200)
+  const description   = clampString(searchParams.get('description'), 2000)
 
   const descEmails = extractEmails(description)
 

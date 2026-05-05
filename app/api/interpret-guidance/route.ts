@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { clampString } from '@/lib/security'
 
 const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
 
@@ -34,7 +35,10 @@ CONTENT PERFORMANCE  ← use these for "gets views", "viral", "consistent views"
 `
 
 export async function POST(req: NextRequest) {
-  const { text } = await req.json() as { text: string }
+  const body = await req.json() as { text: string }
+
+  // Cap text to prevent prompt injection / token exhaustion
+  const text = clampString(body.text, 500)
 
   if (!text?.trim()) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400 })

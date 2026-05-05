@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 
 export async function POST(req: NextRequest) {
-  const { entries } = await req.json()
+  const body = await req.json()
+  const entries: any[] = Array.isArray(body.entries) ? body.entries.slice(0, 1000) : []
 
   const rows = entries.map((e: any) => ({
     'Channel Name': e.channelName,

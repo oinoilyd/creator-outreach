@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Innertube } from 'youtubei.js'
+import { clampString, clampInt } from '@/lib/security'
 
 const TOPIC_MAP: Record<string, string[]> = {
   basketball: ['basketball coach', 'basketball trainer', 'basketball analyst', 'NBA agent', 'basketball recruiter', 'basketball content creator', 'basketball skills trainer', 'youth basketball coach', 'basketball player'],
@@ -41,7 +42,7 @@ const GENERIC_ROLES = ['coach', 'expert', 'content creator', 'consultant', 'educ
 
 // Country name to append to every query for geographic signal
 const REGION_SUFFIX: Record<string, string> = {
-  IN: 'india', GB: 'uk', CA: 'canada', AU: 'australia', NZ: 'new zealand',
+  US: 'usa', IN: 'india', GB: 'uk', CA: 'canada', AU: 'australia', NZ: 'new zealand',
   IE: 'ireland', PH: 'philippines', SG: 'singapore', NG: 'nigeria',
   ZA: 'south africa', AE: 'dubai uae', DE: 'germany', FR: 'france',
   ES: 'spain', BR: 'brasil', MX: 'mexico', JP: 'japan', KR: 'korea', ID: 'indonesia',
@@ -401,6 +402,22 @@ function buildLanguageQueries(gl: string, keyword: string): string[] {
 
 // Deep local market terminology per region per topic category
 const REGION_TOPIC_EXTRAS: Record<string, Record<string, string[]>> = {
+  // ── UNITED STATES ────────────────────────────────────────────────────────────
+  US: {
+    finance:    ['personal finance usa', 'financial independence usa', '401k roth IRA explained', 'high yield savings usa', 'index fund vanguard fidelity', 'budget money usa', 'dave ramsey style', 'FIRE movement usa'],
+    trading:    ['stock trading usa', 'NYSE NASDAQ trading', 'options trading usa', 'day trading america', 'robinhood webull usa', 'technical analysis usa', 'swing trading usa'],
+    investing:  ['investing usa beginners', 'S&P 500 index fund', 'ETF usa vanguard', 'dividend investing usa', 'passive income usa', 'FIRE retire early usa', 'index investing america'],
+    economics:  ['us economy explained', 'federal reserve interest rates', 'inflation usa', 'american economy', 'GDP usa', 'recession usa', 'wall street economics'],
+    crypto:     ['crypto usa', 'bitcoin usd', 'SEC crypto regulation', 'coinbase usa', 'ethereum usa investment'],
+    business:   ['small business usa', 'LLC formation usa', 'side hustle america', 'ecommerce usa', 'amazon fba usa', 'shopify usa seller', 'startup america founder', 'entrepreneur usa'],
+    realestate: ['real estate investing usa', 'rental property usa', 'house hacking usa', 'multifamily investing america', 'real estate wholesaling usa', 'BRRRR method usa', 'real estate agent usa'],
+    fitness:    ['fitness usa', 'gym workout america', 'personal trainer usa', 'bodybuilding usa', 'powerlifting america'],
+    health:     ['health usa', 'nutrition america', 'mental health usa', 'wellness usa', 'american doctor advice'],
+    marketing:  ['digital marketing usa', 'social media marketing america', 'content creator usa', 'youtube growth usa', 'SEO america'],
+    mindset:    ['motivation usa', 'entrepreneur mindset america', 'productivity usa', 'self improvement usa'],
+    law:        ['business law usa', 'contract law explained usa', 'legal advice america', 'law firm usa', 'attorney usa content'],
+    sports:     ['sports coach usa', 'sports agent america', 'college recruiting usa', 'athletic trainer usa', 'sports performance usa'],
+  },
   // ── INDIA ────────────────────────────────────────────────────────────────────
   IN: {
     finance:    ['share market india', 'personal finance hindi', 'mutual fund sip india', 'paisa kaise kamaye', 'financial planning india', 'money management india', 'zerodha groww india', 'demat account kaise khole', 'NSE BSE india investor'],
@@ -798,11 +815,14 @@ async function runBatched(yt: any, queries: string[]): Promise<VideoHit[]> {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const keyword = searchParams.get('keyword')
-  const maxResults = parseInt(searchParams.get('maxResults') || '100')
-  const minViews = parseInt(searchParams.get('minViews') || '0')
-  const maxViews = parseInt(searchParams.get('maxViews') || '200000')
-  const gl = searchParams.get('gl') || ''
+
+  const keyword = clampString(searchParams.get('keyword'), 200)
+  const maxResults = clampInt(searchParams.get('maxResults'), 1, 150, 100)
+  const minViews   = clampInt(searchParams.get('minViews'), 0, 1_000_000_000, 0)
+  const maxViews   = clampInt(searchParams.get('maxViews'), 0, 1_000_000_000, 200_000)
+  // gl must be a 2-letter country code or empty
+  const glRaw = searchParams.get('gl') || ''
+  const gl = /^[A-Z]{2}$/.test(glRaw.toUpperCase()) ? glRaw.toUpperCase() : ''
 
   if (!keyword) return NextResponse.json({ error: 'keyword is required' }, { status: 400 })
 
