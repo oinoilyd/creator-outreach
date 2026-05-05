@@ -39,6 +39,7 @@ import { OnboardingModal } from '@/components/OnboardingModal'
 import { ProfileModal } from '@/components/ProfileModal'
 import { MigrationPromptModal } from '@/components/MigrationPromptModal'
 import { ImportOutreachModal } from '@/components/ImportOutreachModal'
+import { ImportDismissedModal } from '@/components/ImportDismissedModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
@@ -53,7 +54,6 @@ import {
   getMigrationSkipped,
   setMigrationSkipped,
   runManualMigration,
-  resetForTesting,
 } from '@/lib/storage'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 
@@ -761,6 +761,7 @@ export default function Home() {
   // Manual migration prompt state
   const [pendingMigration, setPendingMigration] = useState<{ outreach: number; dismissed: number } | null>(null)
   const [showImport, setShowImport] = useState(false)
+  const [showImportDismissed, setShowImportDismissed] = useState(false)
 
   // Derive the active platform config
   const platformConfig = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
@@ -1293,17 +1294,12 @@ export default function Home() {
             userFullName={profile?.fullName || null}
             onOpenScoreSettings={() => setShowScoreSettings(true)}
             onOpenProfile={() => setShowProfile(true)}
-            onOpenImport={() => setShowImport(true)}
+            onImportOutreach={() => setShowImport(true)}
+            onImportDismissed={() => setShowImportDismissed(true)}
             showRetryMigration={hasBackup}
             onRetryMigration={async () => {
               const result = await retryMigrationFromBackup()
               alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
-              if (result.ok) window.location.reload()
-            }}
-            onResetForTesting={async () => {
-              if (!confirm('Wipe your Supabase outreach + dismissed + onboarding flag? (Auth account stays.)')) return
-              const result = await resetForTesting()
-              alert(result.ok ? `✓ ${result.message}` : `Reset failed: ${result.message}`)
               if (result.ok) window.location.reload()
             }}
           />
@@ -1804,7 +1800,6 @@ export default function Home() {
               seen.add(e.channelId)
               return true
             })
-            // Await the actual Supabase write so the fetch below sees committed data
             await persistOutreach(deduped)
             const fresh = await getOutreach()
             setOutreach(fresh)
@@ -1812,6 +1807,27 @@ export default function Home() {
             setShowImport(false)
           }}
           onClose={() => setShowImport(false)}
+        />
+      )}
+
+      {showImportDismissed && (
+        <ImportDismissedModal
+          onImport={async (items) => {
+            // Merge + de-dupe by channelId
+            const merged = [...items, ...dismissed]
+            const seen = new Set<string>()
+            const deduped = merged.filter(c => {
+              if (seen.has(c.channelId)) return false
+              seen.add(c.channelId)
+              return true
+            })
+            await persistDismissed(deduped)
+            const fresh = await getDismissed()
+            setDismissed(fresh)
+            setDismissedIds(new Set(fresh.map(c => c.channelId)))
+            setShowImportDismissed(false)
+          }}
+          onClose={() => setShowImportDismissed(false)}
         />
       )}
     </main>
