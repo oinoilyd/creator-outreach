@@ -7,15 +7,19 @@ export function HamburgerMenu({
   userFullName,
   onOpenScoreSettings,
   onOpenProfile,
+  onOpenImport,
   showRetryMigration,
   onRetryMigration,
+  onResetForTesting,
 }: {
   userEmail: string | null
   userFullName: string | null
   onOpenScoreSettings: () => void
   onOpenProfile: () => void
+  onOpenImport?: () => void
   showRetryMigration?: boolean
   onRetryMigration?: () => void
+  onResetForTesting?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -55,6 +59,12 @@ export function HamburgerMenu({
       onClick: () => { onOpenProfile(); setOpen(false) },
       dividerAfter: true,
     },
+    ...(onOpenImport ? [{
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>,
+      label: 'Import outreach (.xlsx)',
+      sublabel: 'Upload an Excel export',
+      onClick: () => { onOpenImport(); setOpen(false) },
+    }] : []),
     {
       icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
       label: 'Contact Us',
@@ -67,6 +77,13 @@ export function HamburgerMenu({
       label: 'Retry data migration',
       sublabel: "If your old data didn't appear",
       onClick: () => { onRetryMigration(); setOpen(false) },
+      dividerAfter: true,
+    }] : []),
+    ...(onResetForTesting ? [{
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" /></svg>,
+      label: '🧪 Reset for testing',
+      sublabel: 'Wipe my Supabase data + onboarding flag',
+      onClick: () => { onResetForTesting(); setOpen(false) },
       dividerAfter: true,
     }] : []),
     {

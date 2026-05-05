@@ -394,6 +394,48 @@ export function getPendingMigrationCounts(): { outreach: number; dismissed: numb
  * migration but always runs (no "skip if Supabase has data" check),
  * called from the manual prompt. Returns a status the modal can display.
  */
+/**
+ * TESTING ONLY: wipe the current user's outreach + dismissed + preferences
+ * + onboarding flag from Supabase. Also clears the migration backup blob and
+ * the "skipped migration" flag from this browser's localStorage so the
+ * onboarding modal + migration prompt re-trigger on next sign-in.
+ *
+ * Doesn't delete the user's auth account. Doesn't touch other users' data.
+ * RLS scopes the deletes to the current user.
+ */
+export async function resetForTesting(): Promise<{ ok: boolean; message: string }> {
+  const uid = await userId()
+  if (!uid) return { ok: false, message: 'Not signed in.' }
+  const supabase = createClient()
+
+  const errors: string[] = []
+  const { error: e1 } = await supabase.from('outreach_entries').delete().eq('user_id', uid)
+  if (e1) errors.push(`outreach: ${e1.message}`)
+  const { error: e2 } = await supabase.from('dismissed_creators').delete().eq('user_id', uid)
+  if (e2) errors.push(`dismissed: ${e2.message}`)
+  const { error: e3 } = await supabase
+    .from('user_preferences')
+    .update({ col_config: null, outreach_col_config: null, platform_state: {} })
+    .eq('user_id', uid)
+  if (e3) errors.push(`preferences: ${e3.message}`)
+  const { error: e4 } = await supabase
+    .from('user_profile')
+    .update({ onboarded: false, full_name: '', linkedin_url: '', pitch_line: '' })
+    .eq('user_id', uid)
+  if (e4) errors.push(`profile: ${e4.message}`)
+
+  // Clear test-only flags so modals re-trigger
+  if (isClient()) {
+    try {
+      localStorage.removeItem(BACKUP_KEY)
+      localStorage.removeItem(SKIP_PROMPT_KEY)
+    } catch { /* ignore */ }
+  }
+
+  if (errors.length > 0) return { ok: false, message: `Some resets failed: ${errors.join(' | ')}` }
+  return { ok: true, message: 'Reset complete. Reloading…' }
+}
+
 export async function runManualMigration(): Promise<{ ok: boolean; message: string }> {
   const uid = await userId()
   if (!uid) return { ok: false, message: 'Not signed in.' }

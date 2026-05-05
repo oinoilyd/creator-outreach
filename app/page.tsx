@@ -38,6 +38,7 @@ import { ScoreSettingsModal } from '@/components/ScoreSettingsModal'
 import { OnboardingModal } from '@/components/OnboardingModal'
 import { ProfileModal } from '@/components/ProfileModal'
 import { MigrationPromptModal } from '@/components/MigrationPromptModal'
+import { ImportOutreachModal } from '@/components/ImportOutreachModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
@@ -52,6 +53,7 @@ import {
   getMigrationSkipped,
   setMigrationSkipped,
   runManualMigration,
+  resetForTesting,
 } from '@/lib/storage'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 
@@ -758,6 +760,7 @@ export default function Home() {
   const [hasBackup, setHasBackup] = useState(false)
   // Manual migration prompt state
   const [pendingMigration, setPendingMigration] = useState<{ outreach: number; dismissed: number } | null>(null)
+  const [showImport, setShowImport] = useState(false)
 
   // Derive the active platform config
   const platformConfig = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
@@ -1290,10 +1293,17 @@ export default function Home() {
             userFullName={profile?.fullName || null}
             onOpenScoreSettings={() => setShowScoreSettings(true)}
             onOpenProfile={() => setShowProfile(true)}
+            onOpenImport={() => setShowImport(true)}
             showRetryMigration={hasBackup}
             onRetryMigration={async () => {
               const result = await retryMigrationFromBackup()
               alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
+              if (result.ok) window.location.reload()
+            }}
+            onResetForTesting={async () => {
+              if (!confirm('Wipe your Supabase outreach + dismissed + onboarding flag? (Auth account stays.)')) return
+              const result = await resetForTesting()
+              alert(result.ok ? `✓ ${result.message}` : `Reset failed: ${result.message}`)
               if (result.ok) window.location.reload()
             }}
           />
@@ -1780,6 +1790,29 @@ export default function Home() {
             setMigrationSkipped()
             setPendingMigration(null)
           }}
+        />
+      )}
+
+      {showImport && (
+        <ImportOutreachModal
+          onImport={async (entries) => {
+            // Merge with existing outreach (don't overwrite — append)
+            const merged = [...entries, ...outreach]
+            // De-dupe by channelId (prefer the imported one)
+            const seen = new Set<string>()
+            const deduped = merged.filter(e => {
+              if (seen.has(e.channelId)) return false
+              seen.add(e.channelId)
+              return true
+            })
+            saveOutreach(deduped)
+            setShowImport(false)
+            // Force a fresh fetch so UI reflects Supabase truth
+            const fresh = await getOutreach()
+            setOutreach(fresh)
+            setOutreachIds(new Set(fresh.map(e => e.channelId)))
+          }}
+          onClose={() => setShowImport(false)}
         />
       )}
     </main>
