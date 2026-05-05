@@ -19,15 +19,23 @@ function SignInForm() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const supabase = createClient()
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
-    if (err) {
-      setError(err.message)
+    console.log('[signin] env URL=', !!process.env.NEXT_PUBLIC_SUPABASE_URL, 'KEY=', !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+    try {
+      const supabase = createClient()
+      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+      console.log('[signin] result:', { hasSession: !!data?.session, errMessage: err?.message })
+      if (err) {
+        setError(err.message)
+        setLoading(false)
+        return
+      }
+      router.push(next)
+      router.refresh()
+    } catch (caught: any) {
+      console.error('[signin] threw:', caught)
+      setError(caught?.message || 'Sign in failed (see browser console)')
       setLoading(false)
-      return
     }
-    router.push(next)
-    router.refresh()
   }
 
   return (
