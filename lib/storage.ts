@@ -107,7 +107,10 @@ export async function getOutreach(): Promise<OutreachEntry[]> {
 
 export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
   const uid = await userId()
-  if (!uid) return
+  if (!uid) {
+    console.warn('[saveOutreach] no user; skipping')
+    return
+  }
   const supabase = createClient()
   const newIds = new Set(entries.map(e => e.id))
 
@@ -118,14 +121,16 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
     .eq('user_id', uid)
   const toDelete = (existing ?? []).filter(r => !newIds.has(r.id)).map(r => r.id)
   if (toDelete.length > 0) {
-    await supabase.from('outreach_entries').delete().in('id', toDelete)
+    const { error: delErr } = await supabase.from('outreach_entries').delete().in('id', toDelete)
+    if (delErr) console.error('[saveOutreach] delete failed:', delErr.message)
   }
 
   // Upsert the rest
   if (entries.length > 0) {
-    await supabase
+    const { error: upErr } = await supabase
       .from('outreach_entries')
       .upsert(entries.map(e => outreachToRow(e, uid)), { onConflict: 'id' })
+    if (upErr) console.error('[saveOutreach] upsert failed:', upErr.message, upErr)
   }
 }
 
@@ -162,12 +167,13 @@ export async function saveDismissed(items: Creator[]): Promise<void> {
   }
 
   if (items.length > 0) {
-    await supabase
+    const { error: upErr } = await supabase
       .from('dismissed_creators')
       .upsert(
         items.map(c => ({ user_id: uid, channel_id: c.channelId, data: c })),
         { onConflict: 'user_id,channel_id' },
       )
+    if (upErr) console.error('[saveDismissed] upsert failed:', upErr.message, upErr)
   }
 }
 
@@ -292,16 +298,25 @@ function lsGet(key: string): string | null {
 
 export async function migrateLocalStorageToSupabase(): Promise<void> {
   const uid = await userId()
-  if (!uid) return
+  if (!uid) {
+    console.warn('[migration] no authenticated user; skipping')
+    return
+  }
   const supabase = createClient()
 
   // Skip if user already has data in Supabase
-  const { data: existingOutreach } = await supabase
+  const { data: existingOutreach, error: existErr } = await supabase
     .from('outreach_entries')
     .select('id')
     .eq('user_id', uid)
     .limit(1)
-  if (existingOutreach && existingOutreach.length > 0) return
+  if (existErr) {
+    console.warn('[migration] read check failed:', existErr.message)
+  }
+  if (existingOutreach && existingOutreach.length > 0) {
+    console.info('[migration] supabase already has outreach rows; skipping')
+    return
+  }
 
   const { data: prefRow } = await supabase
     .from('user_preferences')
@@ -309,38 +324,44 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
     .eq('user_id', uid)
     .single()
   const psNotEmpty = prefRow?.platform_state && Object.keys(prefRow.platform_state).length > 0
-  if (psNotEmpty) return
+  if (psNotEmpty) {
+    console.info('[migration] supabase already has platform state; skipping')
+    return
+  }
+  console.info('[migration] running localStorage → Supabase migration')
 
   // Outreach
   try {
     const raw = lsGet('creator-outreach')
     const parsed = raw ? JSON.parse(raw) : []
     if (Array.isArray(parsed) && parsed.length > 0) {
+      console.info(`[migration] migrating ${parsed.length} outreach entries`)
       await saveOutreach(parsed as OutreachEntry[])
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[migration] outreach failed:', e) }
 
   // Dismissed
   try {
     const raw = lsGet('creator-dismissed')
     const parsed = raw ? JSON.parse(raw) : []
     if (Array.isArray(parsed) && parsed.length > 0) {
+      console.info(`[migration] migrating ${parsed.length} dismissed creators`)
       await saveDismissed(parsed as Creator[])
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[migration] dismissed failed:', e) }
 
   // Column configs
   try {
     const raw = lsGet('creator-col-config')
     const parsed = raw ? JSON.parse(raw) : null
     if (Array.isArray(parsed)) await saveColConfig(parsed as ColConfig[])
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[migration] col config failed:', e) }
 
   try {
     const raw = lsGet('outreach-col-config')
     const parsed = raw ? JSON.parse(raw) : null
     if (Array.isArray(parsed)) await saveOutreachColConfig(parsed as OutreachColConfig[])
-  } catch { /* ignore */ }
+  } catch (e) { console.warn('[migration] outreach col config failed:', e) }
 
   // Per-platform state — handle both legacy un-suffixed keys (assume youtube)
   // and the current per-platform-suffixed keys.
@@ -376,8 +397,10 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
   }
 
   if (Object.keys(newPs).length > 0) {
+    console.info(`[migration] migrating platform state for ${Object.keys(newPs).join(', ')}`)
     await setPlatformState(uid, newPs)
   }
+  console.info('[migration] complete')
 }
 
 // Legacy alias kept so existing callers don't break — now a no-op since

@@ -32,7 +32,8 @@ CREATE POLICY "user_profile_self" ON public.user_profile
 -- 2. outreach_entries  — many rows per user; CRM tracker
 -- ---------------------------------------------------------------------
 CREATE TABLE public.outreach_entries (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- App-generated string ID (e.g. "UCxyz-1234567890") — not UUID
+  id                TEXT PRIMARY KEY,
   user_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
 
   channel_id        TEXT NOT NULL,
