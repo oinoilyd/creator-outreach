@@ -1,11 +1,15 @@
 /**
- * All persistence calls go through this module so the storage backend can be
- * swapped (localStorage today, Supabase later) without changing call sites.
+ * Persistence layer.
  *
- * Every function is async — even though localStorage is synchronous — so the
- * Supabase migration becomes a one-file change rather than a sprawling refactor.
+ * All read/write of user data goes through here. Backend: Supabase.
+ * Public function signatures match the original localStorage-backed
+ * version, so call sites in page.tsx don't need to change.
+ *
+ * On first sign-in, migrateLocalStorageToSupabase() seeds the user's
+ * Supabase row with anything found in their browser's localStorage.
  */
 
+import { createClient } from './supabase/client'
 import type {
   OutreachEntry, Creator, ScoreWeights, GuidanceEntry,
   ColConfig, OutreachColConfig, PlatformId,
@@ -14,95 +18,248 @@ import { DEFAULT_WEIGHTS } from './scoring'
 
 const isClient = () => typeof window !== 'undefined'
 
-function safeGet(key: string): string | null {
+async function userId(): Promise<string | null> {
   if (!isClient()) return null
-  try { return localStorage.getItem(key) } catch { return null }
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.id ?? null
 }
 
-function safeSet(key: string, value: string): void {
-  if (!isClient()) return
-  try { localStorage.setItem(key, value) } catch { /* ignore quota/incognito errors */ }
+// ── OutreachEntry mapping (camelCase ↔ snake_case) ─────────────────────────
+
+function rowToOutreach(r: any): OutreachEntry {
+  return {
+    id: r.id,
+    channelId: r.channel_id,
+    channelName: r.channel_name,
+    channelUrl: r.channel_url,
+    description: r.description ?? '',
+    email: r.email ?? '',
+    product: r.product ?? '',
+    reachedOut: !!r.reached_out,
+    medium: (r.medium ?? '') as OutreachEntry['medium'],
+    mediumOther: r.medium_other ?? '',
+    headerUsed: r.header_used ?? '',
+    status: (r.status ?? '') as OutreachEntry['status'],
+    addedAt: Number(r.added_at) || 0,
+    notes: r.notes ?? '',
+    followUpDate: r.follow_up_date ?? '',
+    dateReachedOut: r.date_reached_out ?? '',
+    touchpoints: r.touchpoints ?? '',
+    responseDate: r.response_date ?? '',
+    subscribers: r.subscribers ?? '',
+    avgViews: r.avg_views ?? 0,
+    fitScore: r.fit_score ?? 0,
+    linkedin: r.linkedin ?? '',
+    contentNiche: r.content_niche ?? '',
+    phone: r.phone ?? '',
+    dealValue: r.deal_value ?? '',
+    contractSent: !!r.contract_sent,
+    meetingScheduled: r.meeting_scheduled ?? '',
+  }
 }
 
-function safeRemove(key: string): void {
-  if (!isClient()) return
-  try { localStorage.removeItem(key) } catch { /* ignore */ }
+function outreachToRow(e: OutreachEntry, uid: string) {
+  return {
+    id: e.id,
+    user_id: uid,
+    channel_id: e.channelId,
+    channel_name: e.channelName,
+    channel_url: e.channelUrl,
+    description: e.description,
+    email: e.email,
+    product: e.product,
+    reached_out: e.reachedOut,
+    medium: e.medium,
+    medium_other: e.mediumOther,
+    header_used: e.headerUsed,
+    status: e.status,
+    notes: e.notes,
+    follow_up_date: e.followUpDate,
+    date_reached_out: e.dateReachedOut,
+    touchpoints: e.touchpoints,
+    response_date: e.responseDate,
+    subscribers: e.subscribers,
+    avg_views: e.avgViews,
+    fit_score: e.fitScore,
+    linkedin: e.linkedin,
+    content_niche: e.contentNiche,
+    phone: e.phone,
+    deal_value: e.dealValue,
+    contract_sent: e.contractSent,
+    meeting_scheduled: e.meetingScheduled,
+    added_at: e.addedAt,
+  }
 }
 
 // ── Outreach entries ────────────────────────────────────────────────────────
 
 export async function getOutreach(): Promise<OutreachEntry[]> {
-  const raw = safeGet('creator-outreach')
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch { return [] }
+  const uid = await userId()
+  if (!uid) return []
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('outreach_entries')
+    .select('*')
+    .order('added_at', { ascending: false })
+  return (data ?? []).map(rowToOutreach)
 }
 
 export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
-  safeSet('creator-outreach', JSON.stringify(entries))
+  const uid = await userId()
+  if (!uid) return
+  const supabase = createClient()
+  const newIds = new Set(entries.map(e => e.id))
+
+  // Delete rows no longer in the list
+  const { data: existing } = await supabase
+    .from('outreach_entries')
+    .select('id')
+    .eq('user_id', uid)
+  const toDelete = (existing ?? []).filter(r => !newIds.has(r.id)).map(r => r.id)
+  if (toDelete.length > 0) {
+    await supabase.from('outreach_entries').delete().in('id', toDelete)
+  }
+
+  // Upsert the rest
+  if (entries.length > 0) {
+    await supabase
+      .from('outreach_entries')
+      .upsert(entries.map(e => outreachToRow(e, uid)), { onConflict: 'id' })
+  }
 }
 
 // ── Dismissed creators ──────────────────────────────────────────────────────
 
 export async function getDismissed(): Promise<Creator[]> {
-  const raw = safeGet('creator-dismissed')
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch { return [] }
+  const uid = await userId()
+  if (!uid) return []
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('dismissed_creators')
+    .select('data, dismissed_at')
+    .order('dismissed_at', { ascending: false })
+  return (data ?? []).map(r => r.data as Creator)
 }
 
 export async function saveDismissed(items: Creator[]): Promise<void> {
-  safeSet('creator-dismissed', JSON.stringify(items))
+  const uid = await userId()
+  if (!uid) return
+  const supabase = createClient()
+  const newIds = new Set(items.map(c => c.channelId))
+
+  const { data: existing } = await supabase
+    .from('dismissed_creators')
+    .select('channel_id')
+    .eq('user_id', uid)
+  const toDelete = (existing ?? []).filter(r => !newIds.has(r.channel_id)).map(r => r.channel_id)
+  if (toDelete.length > 0) {
+    await supabase
+      .from('dismissed_creators')
+      .delete()
+      .eq('user_id', uid)
+      .in('channel_id', toDelete)
+  }
+
+  if (items.length > 0) {
+    await supabase
+      .from('dismissed_creators')
+      .upsert(
+        items.map(c => ({ user_id: uid, channel_id: c.channelId, data: c })),
+        { onConflict: 'user_id,channel_id' },
+      )
+  }
 }
 
 // ── Column configurations ───────────────────────────────────────────────────
 
 export async function getColConfig(): Promise<ColConfig[] | null> {
-  const raw = safeGet('creator-col-config')
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : null
-  } catch { return null }
+  const uid = await userId()
+  if (!uid) return null
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('user_preferences')
+    .select('col_config')
+    .eq('user_id', uid)
+    .single()
+  return (data?.col_config as ColConfig[] | null) ?? null
 }
 
 export async function saveColConfig(config: ColConfig[]): Promise<void> {
-  safeSet('creator-col-config', JSON.stringify(config))
+  const uid = await userId()
+  if (!uid) return
+  const supabase = createClient()
+  await supabase.from('user_preferences').update({ col_config: config }).eq('user_id', uid)
 }
 
 export async function getOutreachColConfig(): Promise<OutreachColConfig[] | null> {
-  const raw = safeGet('outreach-col-config')
-  if (!raw) return null
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : null
-  } catch { return null }
+  const uid = await userId()
+  if (!uid) return null
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('user_preferences')
+    .select('outreach_col_config')
+    .eq('user_id', uid)
+    .single()
+  return (data?.outreach_col_config as OutreachColConfig[] | null) ?? null
 }
 
 export async function saveOutreachColConfig(config: OutreachColConfig[]): Promise<void> {
-  safeSet('outreach-col-config', JSON.stringify(config))
+  const uid = await userId()
+  if (!uid) return
+  const supabase = createClient()
+  await supabase.from('user_preferences').update({ outreach_col_config: config }).eq('user_id', uid)
 }
 
-// ── Per-platform scoring state ──────────────────────────────────────────────
+// ── Per-platform scoring state (read-modify-write on platform_state JSONB) ──
+
+async function getPlatformState(uid: string): Promise<Record<string, { weights?: ScoreWeights; narrative?: string; guidance?: GuidanceEntry[] }>> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('user_preferences')
+    .select('platform_state')
+    .eq('user_id', uid)
+    .single()
+  return (data?.platform_state as any) ?? {}
+}
+
+async function setPlatformState(uid: string, ps: Record<string, any>): Promise<void> {
+  const supabase = createClient()
+  await supabase.from('user_preferences').update({ platform_state: ps }).eq('user_id', uid)
+}
 
 export async function savePlatformWeights(platform: PlatformId, weights: ScoreWeights): Promise<void> {
-  safeSet(`creator-score-weights-${platform}`, JSON.stringify(weights))
+  const uid = await userId()
+  if (!uid) return
+  const ps = await getPlatformState(uid)
+  ps[platform] = { ...(ps[platform] ?? {}), weights }
+  await setPlatformState(uid, ps)
 }
 
 export async function savePlatformNarrative(platform: PlatformId, narrative: string): Promise<void> {
-  safeSet(`creator-score-narrative-${platform}`, narrative)
+  const uid = await userId()
+  if (!uid) return
+  const ps = await getPlatformState(uid)
+  ps[platform] = { ...(ps[platform] ?? {}), narrative }
+  await setPlatformState(uid, ps)
 }
 
 export async function savePlatformGuidance(platform: PlatformId, entries: GuidanceEntry[]): Promise<void> {
-  safeSet(`creator-guidance-entries-${platform}`, JSON.stringify(entries))
+  const uid = await userId()
+  if (!uid) return
+  const ps = await getPlatformState(uid)
+  ps[platform] = { ...(ps[platform] ?? {}), guidance: entries }
+  await setPlatformState(uid, ps)
 }
 
 export async function clearPlatformGuidance(platform: PlatformId): Promise<void> {
-  safeRemove(`creator-guidance-entries-${platform}`)
+  const uid = await userId()
+  if (!uid) return
+  const ps = await getPlatformState(uid)
+  if (ps[platform]) {
+    ps[platform] = { ...ps[platform], guidance: [] }
+    await setPlatformState(uid, ps)
+  }
 }
 
 export async function loadPlatformState(platform: PlatformId): Promise<{
@@ -110,42 +267,121 @@ export async function loadPlatformState(platform: PlatformId): Promise<{
   narrative: string
   guidance: GuidanceEntry[]
 }> {
-  let weights: ScoreWeights = DEFAULT_WEIGHTS
-  let narrative = ''
-  let guidance: GuidanceEntry[] = []
-  try {
-    const raw = safeGet(`creator-score-weights-${platform}`)
-    const w = raw ? JSON.parse(raw) : null
-    if (w) weights = w
-  } catch { /* ignore */ }
-  narrative = safeGet(`creator-score-narrative-${platform}`) || ''
-  try {
-    const raw = safeGet(`creator-guidance-entries-${platform}`)
-    const g = raw ? JSON.parse(raw) : null
-    if (Array.isArray(g)) guidance = g
-  } catch { /* ignore */ }
-  return { weights, narrative, guidance }
+  const uid = await userId()
+  if (!uid) return { weights: DEFAULT_WEIGHTS, narrative: '', guidance: [] }
+  const ps = await getPlatformState(uid)
+  const slot = ps[platform] ?? {}
+  return {
+    weights: (slot.weights as ScoreWeights | undefined) ?? DEFAULT_WEIGHTS,
+    narrative: slot.narrative ?? '',
+    guidance: (slot.guidance as GuidanceEntry[] | undefined) ?? [],
+  }
 }
 
-// ── One-time legacy key migration ───────────────────────────────────────────
-// Pre-platform-toggle, the keys had no platform suffix. Migrate them to the
-// "youtube" namespace once on first load so existing users don't lose data.
+// ── One-time localStorage → Supabase migration ──────────────────────────────
+// Runs once per user on first sign-in. If the user already has Supabase data
+// (any outreach row, or platform_state with content), we skip — they've
+// already migrated or are starting fresh on a new device.
 
+const PLATFORMS: PlatformId[] = ['youtube', 'instagram', 'tiktok', 'twitter', 'linkedin']
+
+function lsGet(key: string): string | null {
+  if (!isClient()) return null
+  try { return localStorage.getItem(key) } catch { return null }
+}
+
+export async function migrateLocalStorageToSupabase(): Promise<void> {
+  const uid = await userId()
+  if (!uid) return
+  const supabase = createClient()
+
+  // Skip if user already has data in Supabase
+  const { data: existingOutreach } = await supabase
+    .from('outreach_entries')
+    .select('id')
+    .eq('user_id', uid)
+    .limit(1)
+  if (existingOutreach && existingOutreach.length > 0) return
+
+  const { data: prefRow } = await supabase
+    .from('user_preferences')
+    .select('platform_state')
+    .eq('user_id', uid)
+    .single()
+  const psNotEmpty = prefRow?.platform_state && Object.keys(prefRow.platform_state).length > 0
+  if (psNotEmpty) return
+
+  // Outreach
+  try {
+    const raw = lsGet('creator-outreach')
+    const parsed = raw ? JSON.parse(raw) : []
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      await saveOutreach(parsed as OutreachEntry[])
+    }
+  } catch { /* ignore */ }
+
+  // Dismissed
+  try {
+    const raw = lsGet('creator-dismissed')
+    const parsed = raw ? JSON.parse(raw) : []
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      await saveDismissed(parsed as Creator[])
+    }
+  } catch { /* ignore */ }
+
+  // Column configs
+  try {
+    const raw = lsGet('creator-col-config')
+    const parsed = raw ? JSON.parse(raw) : null
+    if (Array.isArray(parsed)) await saveColConfig(parsed as ColConfig[])
+  } catch { /* ignore */ }
+
+  try {
+    const raw = lsGet('outreach-col-config')
+    const parsed = raw ? JSON.parse(raw) : null
+    if (Array.isArray(parsed)) await saveOutreachColConfig(parsed as OutreachColConfig[])
+  } catch { /* ignore */ }
+
+  // Per-platform state — handle both legacy un-suffixed keys (assume youtube)
+  // and the current per-platform-suffixed keys.
+  const newPs: Record<string, any> = {}
+
+  // Legacy keys → youtube
+  const legacyW = lsGet('creator-score-weights')
+  const legacyN = lsGet('creator-score-narrative')
+  const legacyG = lsGet('creator-guidance-entries')
+  if (legacyW || legacyN || legacyG) {
+    newPs.youtube = newPs.youtube ?? {}
+    if (legacyW) try { newPs.youtube.weights = JSON.parse(legacyW) } catch {}
+    if (legacyN) newPs.youtube.narrative = legacyN
+    if (legacyG) try {
+      const g = JSON.parse(legacyG)
+      if (Array.isArray(g)) newPs.youtube.guidance = g
+    } catch {}
+  }
+
+  // Current per-platform keys
+  for (const p of PLATFORMS) {
+    const w = lsGet(`creator-score-weights-${p}`)
+    const n = lsGet(`creator-score-narrative-${p}`)
+    const g = lsGet(`creator-guidance-entries-${p}`)
+    if (!w && !n && !g) continue
+    newPs[p] = newPs[p] ?? {}
+    if (w) try { newPs[p].weights = JSON.parse(w) } catch {}
+    if (n) newPs[p].narrative = n
+    if (g) try {
+      const arr = JSON.parse(g)
+      if (Array.isArray(arr)) newPs[p].guidance = arr
+    } catch {}
+  }
+
+  if (Object.keys(newPs).length > 0) {
+    await setPlatformState(uid, newPs)
+  }
+}
+
+// Legacy alias kept so existing callers don't break — now a no-op since
+// migration is handled in migrateLocalStorageToSupabase.
 export async function migrateLegacyKeys(): Promise<void> {
-  if (!isClient()) return
-  const legacyWeights = safeGet('creator-score-weights')
-  if (legacyWeights && !safeGet('creator-score-weights-youtube')) {
-    safeSet('creator-score-weights-youtube', legacyWeights)
-    safeRemove('creator-score-weights')
-  }
-  const legacyNarrative = safeGet('creator-score-narrative')
-  if (legacyNarrative && !safeGet('creator-score-narrative-youtube')) {
-    safeSet('creator-score-narrative-youtube', legacyNarrative)
-    safeRemove('creator-score-narrative')
-  }
-  const legacyGuidance = safeGet('creator-guidance-entries')
-  if (legacyGuidance && !safeGet('creator-guidance-entries-youtube')) {
-    safeSet('creator-guidance-entries-youtube', legacyGuidance)
-    safeRemove('creator-guidance-entries')
-  }
+  // intentionally empty
 }

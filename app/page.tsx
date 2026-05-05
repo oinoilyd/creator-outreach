@@ -45,7 +45,7 @@ import {
   savePlatformWeights, savePlatformNarrative,
   savePlatformGuidance, clearPlatformGuidance,
   loadPlatformState,
-  migrateLegacyKeys,
+  migrateLocalStorageToSupabase,
 } from '@/lib/storage'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 
@@ -823,8 +823,9 @@ export default function Home() {
         }
       }
 
-      // Migrate any pre-platform-toggle keys before reading
-      await migrateLegacyKeys()
+      // One-time migration: pull anything from this browser's localStorage
+      // into the user's Supabase row (no-op if already migrated or no local data)
+      await migrateLocalStorageToSupabase()
 
       const storedOutreach = await getOutreach()
       setOutreach(storedOutreach)
