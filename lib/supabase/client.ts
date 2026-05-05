@@ -9,5 +9,10 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
  * Row Level Security on the database is what actually enforces access.
  */
 export function createClient() {
-  return createBrowserClient(supabaseUrl!, supabaseKey!)
+  if (!supabaseUrl || !supabaseKey) {
+    const missing = [!supabaseUrl && 'NEXT_PUBLIC_SUPABASE_URL', !supabaseKey && 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY']
+      .filter(Boolean).join(', ')
+    throw new Error(`Supabase env var(s) missing in build: ${missing}. Check Vercel → Settings → Environment Variables.`)
+  }
+  return createBrowserClient(supabaseUrl, supabaseKey)
 }
