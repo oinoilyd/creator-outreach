@@ -1254,6 +1254,7 @@ export default function Home() {
           </div>
           <HamburgerMenu
             userEmail={userEmail}
+            userFullName={profile?.fullName || null}
             onOpenScoreSettings={() => setShowScoreSettings(true)}
             onOpenProfile={() => setShowProfile(true)}
           />
