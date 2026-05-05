@@ -46,6 +46,8 @@ import {
   savePlatformGuidance, clearPlatformGuidance,
   loadPlatformState,
   migrateLocalStorageToSupabase,
+  hasMigrationBackup,
+  retryMigrationFromBackup,
 } from '@/lib/storage'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 
@@ -749,6 +751,7 @@ export default function Home() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [hasBackup, setHasBackup] = useState(false)
 
   // Derive the active platform config
   const platformConfig = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
@@ -848,6 +851,9 @@ export default function Home() {
       // One-time migration: pull anything from this browser's localStorage
       // into the user's Supabase row (no-op if already migrated or no local data)
       await migrateLocalStorageToSupabase()
+      // Check if a migration backup was created — controls whether the
+      // "Retry data migration" item shows up in the hamburger menu
+      setHasBackup(hasMigrationBackup())
 
       const storedOutreach = await getOutreach()
       setOutreach(storedOutreach)
@@ -1274,6 +1280,12 @@ export default function Home() {
             userFullName={profile?.fullName || null}
             onOpenScoreSettings={() => setShowScoreSettings(true)}
             onOpenProfile={() => setShowProfile(true)}
+            showRetryMigration={hasBackup}
+            onRetryMigration={async () => {
+              const result = await retryMigrationFromBackup()
+              alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
+              if (result.ok) window.location.reload()
+            }}
           />
         </div>
 

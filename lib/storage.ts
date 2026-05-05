@@ -300,10 +300,44 @@ export async function loadPlatformState(platform: PlatformId): Promise<{
 // already migrated or are starting fresh on a new device.
 
 const PLATFORMS: PlatformId[] = ['youtube', 'instagram', 'tiktok', 'twitter', 'linkedin']
+const BACKUP_KEY = 'creator-supabase-migration-backup'
 
 function lsGet(key: string): string | null {
   if (!isClient()) return null
   try { return localStorage.getItem(key) } catch { return null }
+}
+
+/**
+ * Snapshot all relevant localStorage keys into a single backup blob.
+ * Stored under BACKUP_KEY so the original data is recoverable even if
+ * migration fails halfway.
+ */
+function createMigrationBackup(): { snapshot: Record<string, string>; backupExists: boolean } {
+  if (!isClient()) return { snapshot: {}, backupExists: false }
+  const snapshot: Record<string, string> = {}
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k) continue
+      if (k === BACKUP_KEY) continue
+      if (!k.startsWith('creator-') && !k.startsWith('outreach-')) continue
+      const v = localStorage.getItem(k)
+      if (v != null) snapshot[k] = v
+    }
+    if (Object.keys(snapshot).length > 0) {
+      const existing = localStorage.getItem(BACKUP_KEY)
+      // Only overwrite backup if we don't already have one — first backup is safest
+      if (!existing) {
+        localStorage.setItem(BACKUP_KEY, JSON.stringify(snapshot))
+      }
+    }
+  } catch { /* ignore */ }
+  return { snapshot, backupExists: !!localStorage.getItem(BACKUP_KEY) }
+}
+
+export function hasMigrationBackup(): boolean {
+  if (!isClient()) return false
+  try { return !!localStorage.getItem(BACKUP_KEY) } catch { return false }
 }
 
 export async function migrateLocalStorageToSupabase(): Promise<void> {
@@ -313,6 +347,12 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
     return
   }
   const supabase = createClient()
+
+  // SAFETY NET 1: snapshot localStorage before any save in case migration fails
+  const { snapshot } = createMigrationBackup()
+  if (Object.keys(snapshot).length > 0) {
+    console.info(`[migration] backup created: ${Object.keys(snapshot).length} keys preserved under "${BACKUP_KEY}"`)
+  }
 
   // Skip if user already has data in Supabase
   const { data: existingOutreach, error: existErr } = await supabase
@@ -340,11 +380,16 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
   }
   console.info('[migration] running localStorage → Supabase migration')
 
+  // Track expected vs. actual counts for SAFETY NET 2 (verification)
+  let expectedOutreach = 0
+  let expectedDismissed = 0
+
   // Outreach
   try {
     const raw = lsGet('creator-outreach')
     const parsed = raw ? JSON.parse(raw) : []
     if (Array.isArray(parsed) && parsed.length > 0) {
+      expectedOutreach = parsed.length
       console.info(`[migration] migrating ${parsed.length} outreach entries`)
       await saveOutreach(parsed as OutreachEntry[])
     }
@@ -355,6 +400,7 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
     const raw = lsGet('creator-dismissed')
     const parsed = raw ? JSON.parse(raw) : []
     if (Array.isArray(parsed) && parsed.length > 0) {
+      expectedDismissed = parsed.length
       console.info(`[migration] migrating ${parsed.length} dismissed creators`)
       await saveDismissed(parsed as Creator[])
     }
@@ -410,7 +456,101 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
     console.info(`[migration] migrating platform state for ${Object.keys(newPs).join(', ')}`)
     await setPlatformState(uid, newPs)
   }
+
+  // SAFETY NET 2: verify counts in Supabase match what we expected
+  try {
+    const { count: actualOutreach } = await supabase
+      .from('outreach_entries').select('id', { count: 'exact', head: true })
+    const { count: actualDismissed } = await supabase
+      .from('dismissed_creators').select('channel_id', { count: 'exact', head: true })
+    if (expectedOutreach !== (actualOutreach ?? 0) || expectedDismissed !== (actualDismissed ?? 0)) {
+      console.error(
+        `[migration] count mismatch! outreach: expected ${expectedOutreach}, got ${actualOutreach ?? 0}; ` +
+        `dismissed: expected ${expectedDismissed}, got ${actualDismissed ?? 0}. ` +
+        `Backup preserved under "${BACKUP_KEY}" — use "Retry migration" in the menu.`,
+      )
+    } else {
+      console.info(`[migration] verified: outreach=${actualOutreach}, dismissed=${actualDismissed}`)
+    }
+  } catch (e) {
+    console.warn('[migration] verification check failed:', e)
+  }
+
   console.info('[migration] complete')
+}
+
+/**
+ * SAFETY NET 3: manual retry from the backup snapshot we made before migration.
+ * Use this if the auto-migration silently failed (e.g. data didn't show up).
+ * Reads from the backup blob (not live localStorage) so it's idempotent.
+ */
+export async function retryMigrationFromBackup(): Promise<{ ok: boolean; message: string }> {
+  const uid = await userId()
+  if (!uid) return { ok: false, message: 'Not signed in.' }
+  if (!isClient()) return { ok: false, message: 'Not running in a browser.' }
+
+  let backup: Record<string, string>
+  try {
+    const raw = localStorage.getItem(BACKUP_KEY)
+    if (!raw) return { ok: false, message: 'No backup found. Migration was never run on this browser.' }
+    backup = JSON.parse(raw)
+  } catch {
+    return { ok: false, message: 'Backup is corrupted and unreadable.' }
+  }
+
+  let restored: string[] = []
+
+  try {
+    if (backup['creator-outreach']) {
+      const arr = JSON.parse(backup['creator-outreach'])
+      if (Array.isArray(arr) && arr.length > 0) {
+        await saveOutreach(arr as OutreachEntry[])
+        restored.push(`${arr.length} outreach`)
+      }
+    }
+    if (backup['creator-dismissed']) {
+      const arr = JSON.parse(backup['creator-dismissed'])
+      if (Array.isArray(arr) && arr.length > 0) {
+        await saveDismissed(arr as Creator[])
+        restored.push(`${arr.length} dismissed`)
+      }
+    }
+    if (backup['creator-col-config']) {
+      const arr = JSON.parse(backup['creator-col-config'])
+      if (Array.isArray(arr)) await saveColConfig(arr as ColConfig[])
+    }
+    if (backup['outreach-col-config']) {
+      const arr = JSON.parse(backup['outreach-col-config'])
+      if (Array.isArray(arr)) await saveOutreachColConfig(arr as OutreachColConfig[])
+    }
+
+    // Per-platform state from backup
+    const ps: Record<string, any> = {}
+    for (const p of PLATFORMS) {
+      const w = backup[`creator-score-weights-${p}`]
+      const n = backup[`creator-score-narrative-${p}`]
+      const g = backup[`creator-guidance-entries-${p}`]
+      if (!w && !n && !g) continue
+      ps[p] = ps[p] ?? {}
+      if (w) try { ps[p].weights = JSON.parse(w) } catch {}
+      if (n) ps[p].narrative = n
+      if (g) try {
+        const arr = JSON.parse(g)
+        if (Array.isArray(arr)) ps[p].guidance = arr
+      } catch {}
+    }
+    if (Object.keys(ps).length > 0) {
+      await setPlatformState(uid, ps)
+      restored.push('platform state')
+    }
+  } catch (e: any) {
+    return { ok: false, message: `Retry failed: ${e?.message || e}` }
+  }
+
+  return {
+    ok: true,
+    message: restored.length > 0 ? `Restored ${restored.join(', ')}.` : 'Backup was empty — nothing to restore.',
+  }
 }
 
 // Legacy alias kept so existing callers don't break — now a no-op since
