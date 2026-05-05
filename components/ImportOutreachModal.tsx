@@ -32,6 +32,7 @@ export function ImportOutreachModal({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<OutreachEntry[] | null>(null)
+  const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function extractChannelId(channelUrl: string): string {
@@ -40,11 +41,13 @@ export function ImportOutreachModal({
     return m ? m[1] : ''
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function processFile(file: File) {
     setError('')
     setPreview(null)
-    const file = e.target.files?.[0]
-    if (!file) return
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+      setError(`Need an Excel file (.xlsx or .xls). Got: ${file.name}`)
+      return
+    }
     setBusy(true)
     try {
       const buf = await file.arrayBuffer()
@@ -107,6 +110,31 @@ export function ImportOutreachModal({
     }
   }
 
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) await processFile(file)
+  }
+
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(true)
+  }
+
+  function onDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+  }
+
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) await processFile(file)
+  }
+
   async function confirmImport() {
     if (!preview) return
     setBusy(true)
@@ -141,13 +169,27 @@ export function ImportOutreachModal({
               onChange={handleFile}
               className="hidden"
             />
-            <button
+            <div
+              onDragOver={onDragOver}
+              onDragEnter={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
               onClick={() => inputRef.current?.click()}
-              disabled={busy}
-              className="w-full py-12 border-2 border-dashed border-gray-700 hover:border-gray-500 rounded-lg text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
+              role="button"
+              tabIndex={0}
+              className={`w-full py-12 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
+                dragOver
+                  ? 'border-blue-500 bg-blue-900/10 text-blue-300'
+                  : 'border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-200'
+              } ${busy ? 'opacity-50 pointer-events-none' : ''}`}
             >
-              {busy ? 'Reading file…' : '📁 Click to choose an .xlsx file'}
-            </button>
+              {busy
+                ? 'Reading file…'
+                : dragOver
+                  ? '📥 Drop the file to upload'
+                  : <>📁 <span className="block mt-1">Click or drag an <code className="text-gray-300">.xlsx</code> file here</span></>
+              }
+            </div>
             <p className="text-[11px] text-gray-600 mt-3">
               Required columns: <span className="text-gray-400">Channel Name</span>, <span className="text-gray-400">YouTube URL</span>. All other columns are optional.
             </p>
