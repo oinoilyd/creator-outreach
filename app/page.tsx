@@ -5,7 +5,7 @@ import type {
   Creator, SortCol, SortDir, ColId, ActiveTab, ScoreWeights,
   GuidanceCondition, GuidanceRule, GuidanceEntry, GuidancePreset, GuidanceContextType,
   OutreachEntry, OutreachColDef, OutreachColConfig,
-  ColConfig, PlatformId, PlatformConfig,
+  ColConfig, PlatformId, PlatformConfig, UserProfile,
 } from '@/lib/types'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
@@ -36,6 +36,7 @@ import { PlatformDropdown } from '@/components/PlatformDropdown'
 import { HamburgerMenu } from '@/components/HamburgerMenu'
 import { ScoreSettingsModal } from '@/components/ScoreSettingsModal'
 import { OnboardingModal } from '@/components/OnboardingModal'
+import { ProfileModal } from '@/components/ProfileModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
@@ -319,7 +320,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
   )
 }
 
-function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: string): React.ReactNode {
+function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: string, profile: UserProfile | null): React.ReactNode {
   switch (id) {
     case 'fitScore': {
       return <FitScoreCell key={id} c={c} weights={weights} narrative={narrative} />
@@ -333,7 +334,7 @@ function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: str
     )
     case 'email': return (
       <td key={id} className="px-4 py-3 text-xs">
-        {c.email ? <a href={buildOutreachEmail(c)} className="text-green-400 hover:underline">{c.email}</a>
+        {c.email ? <a href={buildOutreachEmail(c, profile)} className="text-green-400 hover:underline">{c.email}</a>
           : c.enriching ? <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span> : '—'}
       </td>
     )
@@ -346,7 +347,7 @@ function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: str
 }
 
 // priority: email=3, linkedin only=2, enriching=1, nothing=0
-function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void): React.ReactNode {
+function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void, profile: UserProfile | null): React.ReactNode {
   const id = col.id
   switch (id) {
     case 'channelName':
@@ -362,7 +363,7 @@ function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: 
     case 'email':
       return (
         <div className="flex flex-col gap-1">
-          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator)} className="text-green-400 hover:underline text-xs break-all">{e.email}</a>}
+          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} className="text-green-400 hover:underline text-xs break-all">{e.email}</a>}
           <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-gray-600' : 'text-gray-400'} />
         </div>
       )
@@ -429,13 +430,14 @@ function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: 
   }
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, profile }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onRemove: (id: string) => void
   onOpenCustomize: () => void
   onReorderCols: (newConfig: OutreachColConfig[]) => void
+  profile: UserProfile | null
 }) {
   const visibleCols = colConfig.filter(c => c.visible)
   const [widths, setWidths] = useState<Record<string, number>>(() =>
@@ -540,7 +542,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
               <tr key={e.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
-                    {renderOutreachCell(col, e, onUpdate)}
+                    {renderOutreachCell(col, e, onUpdate, profile)}
                   </td>
                 ))}
                 <td className="px-3 py-2 align-top" style={{ width: 36 }}>
@@ -555,7 +557,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -568,6 +570,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   scoreNarrative: string
   activePlatform: PlatformId
   totalUnfiltered: number
+  profile: UserProfile | null
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries), [creators, sortCol, sortDir, scoreWeights, guidanceEntries])
@@ -658,7 +661,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 </button>
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative))}
+              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile))}
             </tr>
           ))}
           {loadMoreBatch && loadMoreBatch.length > 0 && (
@@ -689,7 +692,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                     </button>
                   </td>
                   <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative))}
+                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile))}
                 </tr>
               ))}
             </>
@@ -743,6 +746,7 @@ export default function Home() {
   // Auth + profile
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
 
@@ -804,12 +808,19 @@ export default function Home() {
       if (user) {
         setUserId(user.id)
         setUserEmail(user.email ?? null)
-        const { data: profile } = await supabase
+        const { data: profileRow } = await supabase
           .from('user_profile')
-          .select('onboarded')
+          .select('full_name, linkedin_url, pitch_line, onboarded')
           .eq('user_id', user.id)
           .single()
-        if (profile && !profile.onboarded) setShowOnboarding(true)
+        if (profileRow) {
+          setProfile({
+            fullName: profileRow.full_name ?? '',
+            linkedinUrl: profileRow.linkedin_url ?? '',
+            pitchLine: profileRow.pitch_line ?? '',
+          })
+          if (!profileRow.onboarded) setShowOnboarding(true)
+        }
       }
 
       // Migrate any pre-platform-toggle keys before reading
@@ -1613,6 +1624,7 @@ export default function Home() {
             onRemove={removeOutreachEntry}
             onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
             onReorderCols={reorderOutreachCols}
+            profile={profile}
           />
         ) : activeTab === 'dismissed' ? (
           <DismissedTab dismissed={dismissed} onUndismiss={undismissCreator} />
@@ -1637,6 +1649,7 @@ export default function Home() {
               scoreNarrative={scoreNarrative}
               activePlatform={activePlatform}
               totalUnfiltered={creators.length}
+              profile={profile}
             />
             {activeTab === 'results' && (
               <div className="mt-5 flex flex-col items-center gap-2">
@@ -1683,7 +1696,28 @@ export default function Home() {
       {showOnboarding && userId && (
         <OnboardingModal
           userId={userId}
-          onComplete={() => setShowOnboarding(false)}
+          onComplete={() => {
+            setShowOnboarding(false)
+            // Re-fetch profile so the email template picks up the new name immediately
+            ;(async () => {
+              const supabase = createSupabaseClient()
+              const { data } = await supabase
+                .from('user_profile')
+                .select('full_name, linkedin_url, pitch_line')
+                .eq('user_id', userId)
+                .single()
+              if (data) setProfile({ fullName: data.full_name ?? '', linkedinUrl: data.linkedin_url ?? '', pitchLine: data.pitch_line ?? '' })
+            })()
+          }}
+        />
+      )}
+
+      {showProfile && userId && (
+        <ProfileModal
+          userId={userId}
+          initial={profile ?? { fullName: '', linkedinUrl: '', pitchLine: '' }}
+          onSave={(next) => setProfile(next)}
+          onClose={() => setShowProfile(false)}
         />
       )}
     </main>

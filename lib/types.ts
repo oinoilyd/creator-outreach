@@ -138,3 +138,9 @@ export interface PlatformConfig {
   chipLabel: string
   chipWeight: number
 }
+
+export interface UserProfile {
+  fullName: string
+  linkedinUrl: string
+  pitchLine: string
+}

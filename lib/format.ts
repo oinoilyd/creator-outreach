@@ -1,4 +1,4 @@
-import type { Creator } from './types'
+import type { Creator, UserProfile } from './types'
 
 export const ALL_OCCUPATIONS = [
   'fitness coach', 'personal trainer', 'nutritionist', 'life coach', 'business coach',
@@ -53,8 +53,8 @@ export function parseRelativeDays(text: string): number {
   return Infinity
 }
 
-export function buildOutreachEmail(c: Creator): string {
-  const firstName = c.channelName.split(/[\s,|–-]/)[0]
+export function buildOutreachEmail(c: Creator, profile?: UserProfile | null): string {
+  const recipientFirst = c.channelName.split(/[\s,|–-]/)[0]
 
   let contentRef = 'your content'
   if (c.videoTitles && c.videoTitles.length > 0) {
@@ -65,17 +65,31 @@ export function buildOutreachEmail(c: Creator): string {
     if (clean.length > 10) contentRef = `your ${clean.split(' ').slice(0, 5).join(' ')} content`
   }
 
+  const senderFull = (profile?.fullName || '').trim()
+  const senderFirst = senderFull.split(/\s+/)[0] || 'me'
+  const pitch = (profile?.pitchLine || '').trim()
+  const linkedin = (profile?.linkedinUrl || '').trim()
+
   const subject = `loved ${contentRef.startsWith('"') ? contentRef : 'your content'} — quick question`
-  const body = `Hey ${firstName},
 
-Came across your channel and watched ${contentRef} — good stuff.
+  const lines: string[] = [
+    `Hey ${recipientFirst},`,
+    ``,
+    `Came across your channel and watched ${contentRef} — good stuff.`,
+    ``,
+    senderFull
+      ? `I'm ${senderFull}.${pitch ? ' ' + pitch : ''}`
+      : pitch || `Quick reach-out from a fan of your work.`,
+    ``,
+    `Worth a quick chat to see if there's anything I could help with?`,
+    ``,
+  ]
+  if (linkedin) {
+    lines.push(`Feel free to connect on LinkedIn too: ${linkedin}`)
+    lines.push(``)
+  }
+  lines.push(senderFirst)
 
-I'm Ryan Gaynor. I work with YouTube creators on the full picture — editing, growth strategy, content direction. Basically helping people like you get more out of what you're already putting out.
-
-Worth a quick chat to see if there's anything I could help with?
-
-Feel free to connect on LinkedIn too: https://www.linkedin.com/in/ryan-gaynor-6bb934318/
-
-Ryan`
+  const body = lines.join('\n')
   return `mailto:${c.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
