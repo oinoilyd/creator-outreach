@@ -1796,21 +1796,20 @@ export default function Home() {
       {showImport && (
         <ImportOutreachModal
           onImport={async (entries) => {
-            // Merge with existing outreach (don't overwrite — append)
+            // Merge with existing outreach (don't overwrite — append + de-dupe by channelId)
             const merged = [...entries, ...outreach]
-            // De-dupe by channelId (prefer the imported one)
             const seen = new Set<string>()
             const deduped = merged.filter(e => {
               if (seen.has(e.channelId)) return false
               seen.add(e.channelId)
               return true
             })
-            saveOutreach(deduped)
-            setShowImport(false)
-            // Force a fresh fetch so UI reflects Supabase truth
+            // Await the actual Supabase write so the fetch below sees committed data
+            await persistOutreach(deduped)
             const fresh = await getOutreach()
             setOutreach(fresh)
             setOutreachIds(new Set(fresh.map(e => e.channelId)))
+            setShowImport(false)
           }}
           onClose={() => setShowImport(false)}
         />
