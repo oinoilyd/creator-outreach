@@ -35,6 +35,16 @@ import { DismissedTab } from '@/components/DismissedTab'
 import { PlatformDropdown } from '@/components/PlatformDropdown'
 import { HamburgerMenu } from '@/components/HamburgerMenu'
 import { ScoreSettingsModal } from '@/components/ScoreSettingsModal'
+import {
+  getOutreach, saveOutreach as persistOutreach,
+  getDismissed, saveDismissed as persistDismissed,
+  getColConfig, saveColConfig,
+  getOutreachColConfig, saveOutreachColConfig,
+  savePlatformWeights, savePlatformNarrative,
+  savePlatformGuidance, clearPlatformGuidance,
+  loadPlatformState,
+  migrateLegacyKeys,
+} from '@/lib/storage'
 
 const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
@@ -688,24 +698,6 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   )
 }
 
-// ─── Per-platform localStorage helpers ───────────────────────────────────────
-
-function loadPlatformState(platform: PlatformId): { weights: ScoreWeights; narrative: string; guidance: GuidanceEntry[] } {
-  let weights: ScoreWeights = DEFAULT_WEIGHTS
-  let narrative = ''
-  let guidance: GuidanceEntry[] = []
-  try {
-    const w = JSON.parse(localStorage.getItem(`creator-score-weights-${platform}`) || 'null')
-    if (w) weights = w
-  } catch { /* ignore */ }
-  try { narrative = localStorage.getItem(`creator-score-narrative-${platform}`) || '' } catch { /* ignore */ }
-  try {
-    const g = JSON.parse(localStorage.getItem(`creator-guidance-entries-${platform}`) || '[]')
-    if (Array.isArray(g)) guidance = g
-  } catch { /* ignore */ }
-  return { weights, narrative, guidance }
-}
-
 export default function Home() {
   const [keyword, setKeyword] = useState('')
   const maxResults = 100
@@ -797,56 +789,34 @@ export default function Home() {
 
   useEffect(() => {
     setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))
-    try {
-      const storedOutreach = JSON.parse(localStorage.getItem('creator-outreach') || '[]')
+    ;(async () => {
+      // Migrate any pre-platform-toggle keys before reading
+      await migrateLegacyKeys()
+
+      const storedOutreach = await getOutreach()
       setOutreach(storedOutreach)
-      setOutreachIds(new Set(storedOutreach.map((e: OutreachEntry) => e.channelId)))
-    } catch { /* no stored outreach */ }
-    try {
-      const storedOutreachCols = JSON.parse(localStorage.getItem('outreach-col-config') || 'null')
+      setOutreachIds(new Set(storedOutreach.map(e => e.channelId)))
+
+      const storedOutreachCols = await getOutreachColConfig()
       if (storedOutreachCols) {
         // merge stored config with any new columns added since last save
         const merged = ALL_OUTREACH_COLS.map(def => {
-          const stored = storedOutreachCols.find((s: OutreachColConfig) => s.id === def.id)
+          const stored = storedOutreachCols.find(s => s.id === def.id)
           return stored ? { ...def, visible: stored.visible, width: stored.width } : { ...def, visible: def.defaultVisible, width: def.defaultWidth }
         })
         setOutreachColConfig(merged)
         setDraftOutreachCols(merged)
       }
-    } catch { /* no stored outreach cols */ }
-    try {
-      const storedDismissed = JSON.parse(localStorage.getItem('creator-dismissed') || '[]')
-      setDismissed(storedDismissed)
-      setDismissedIds(new Set(storedDismissed.map((c: Creator) => c.channelId)))
-    } catch { /* no stored dismissed */ }
-    // Migrate legacy (non-platform-keyed) data into the youtube slot on first run
-    try {
-      const legacyWeights = localStorage.getItem('creator-score-weights')
-      if (legacyWeights && !localStorage.getItem('creator-score-weights-youtube')) {
-        localStorage.setItem('creator-score-weights-youtube', legacyWeights)
-        localStorage.removeItem('creator-score-weights')
-      }
-    } catch { /* ignore */ }
-    try {
-      const legacyNarrative = localStorage.getItem('creator-score-narrative')
-      if (legacyNarrative && !localStorage.getItem('creator-score-narrative-youtube')) {
-        localStorage.setItem('creator-score-narrative-youtube', legacyNarrative)
-        localStorage.removeItem('creator-score-narrative')
-      }
-    } catch { /* ignore */ }
-    try {
-      const legacyGuidance = localStorage.getItem('creator-guidance-entries')
-      if (legacyGuidance && !localStorage.getItem('creator-guidance-entries-youtube')) {
-        localStorage.setItem('creator-guidance-entries-youtube', legacyGuidance)
-        localStorage.removeItem('creator-guidance-entries')
-      }
-    } catch { /* ignore */ }
 
-    // Load initial platform state (youtube by default)
-    const { weights: w0, narrative: n0, guidance: g0 } = loadPlatformState('youtube')
-    setScoreWeights(w0)
-    setScoreNarrative(n0)
-    setGuidanceEntries(g0)
+      const storedDismissed = await getDismissed()
+      setDismissed(storedDismissed)
+      setDismissedIds(new Set(storedDismissed.map(c => c.channelId)))
+
+      const { weights: w0, narrative: n0, guidance: g0 } = await loadPlatformState('youtube')
+      setScoreWeights(w0)
+      setScoreNarrative(n0)
+      setGuidanceEntries(g0)
+    })()
   }, [])
 
   // elapsed timer while loading
@@ -868,13 +838,13 @@ export default function Home() {
   function saveOutreach(updated: OutreachEntry[]) {
     setOutreach(updated)
     setOutreachIds(new Set(updated.map(e => e.channelId)))
-    localStorage.setItem('creator-outreach', JSON.stringify(updated))
+    void persistOutreach(updated)
   }
 
   function addGuidanceEntry(entry: GuidanceEntry) {
     setGuidanceEntries(prev => {
       const updated = [...prev, entry]
-      localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(updated))
+      void savePlatformGuidance(activePlatform, updated)
       return updated
     })
   }
@@ -882,7 +852,7 @@ export default function Home() {
   function removeGuidanceEntry(id: string) {
     setGuidanceEntries(prev => {
       const updated = prev.filter(e => e.id !== id)
-      localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(updated))
+      void savePlatformGuidance(activePlatform, updated)
       return updated
     })
   }
@@ -890,14 +860,14 @@ export default function Home() {
   function updateGuidanceEntryWeight(id: string, weight: number) {
     setGuidanceEntries(prev => {
       const updated = prev.map(e => e.id === id ? { ...e, weight } : e)
-      localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(updated))
+      void savePlatformGuidance(activePlatform, updated)
       return updated
     })
   }
 
   function resetAllGuidance() {
     setGuidanceEntries([])
-    localStorage.removeItem(`creator-guidance-entries-${activePlatform}`)
+    void clearPlatformGuidance(activePlatform)
   }
 
   function addToOutreach(c: Creator) {
@@ -940,13 +910,13 @@ export default function Home() {
   function reorderResultCols(newConfig: ColConfig[]) {
     setColConfig(newConfig)
     setDraftCols(newConfig)
-    localStorage.setItem('creator-col-config', JSON.stringify(newConfig))
+    void saveColConfig(newConfig)
   }
 
   function reorderOutreachCols(newConfig: OutreachColConfig[]) {
     setOutreachColConfig(newConfig)
     setDraftOutreachCols(newConfig)
-    localStorage.setItem('outreach-col-config', JSON.stringify(newConfig))
+    void saveOutreachColConfig(newConfig)
   }
 
   function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
@@ -960,7 +930,7 @@ export default function Home() {
   function saveDismissed(updated: Creator[]) {
     setDismissed(updated)
     setDismissedIds(new Set(updated.map(c => c.channelId)))
-    localStorage.setItem('creator-dismissed', JSON.stringify(updated))
+    void persistDismissed(updated)
   }
 
   function dismissCreator(c: Creator) {
@@ -1228,13 +1198,13 @@ export default function Home() {
             <h1 className="text-3xl font-bold">Creator Outreach</h1>
             <p className="text-gray-400 mt-1 flex items-center gap-1.5 flex-wrap">
               Find
-              <PlatformDropdown activePlatform={activePlatform} onChange={(newPlatform) => {
+              <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                 // Save current platform's scoring state
-                localStorage.setItem(`creator-score-weights-${activePlatform}`, JSON.stringify(scoreWeights))
-                localStorage.setItem(`creator-score-narrative-${activePlatform}`, scoreNarrative)
-                localStorage.setItem(`creator-guidance-entries-${activePlatform}`, JSON.stringify(guidanceEntries))
+                void savePlatformWeights(activePlatform, scoreWeights)
+                void savePlatformNarrative(activePlatform, scoreNarrative)
+                void savePlatformGuidance(activePlatform, guidanceEntries)
                 // Load new platform's scoring state
-                const { weights, narrative, guidance } = loadPlatformState(newPlatform)
+                const { weights, narrative, guidance } = await loadPlatformState(newPlatform)
                 setScoreWeights(weights)
                 setScoreNarrative(narrative)
                 setGuidanceEntries(guidance)
@@ -1559,7 +1529,7 @@ export default function Home() {
                     }
                     setColConfig(saved)
                     setDraftCols(saved)
-                    localStorage.setItem('creator-col-config', JSON.stringify(saved))
+                    void saveColConfig(saved)
                     setShowCustomize(false)
                   }}
                   className="flex-1 px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 rounded transition-colors"
@@ -1601,7 +1571,7 @@ export default function Home() {
                 <button onClick={() => setDraftOutreachCols(DEFAULT_OUTREACH_COLS)} className="flex-1 px-4 py-2 text-sm text-gray-400 border border-gray-700 rounded hover:border-gray-500 hover:text-white transition-colors">Reset</button>
                 <button onClick={() => {
                   setOutreachColConfig(draftOutreachCols)
-                  localStorage.setItem('outreach-col-config', JSON.stringify(draftOutreachCols))
+                  void saveOutreachColConfig(draftOutreachCols)
                   setShowOutreachCustomize(false)
                 }} className="flex-1 px-4 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-700 rounded transition-colors">Save</button>
               </div>
@@ -1677,8 +1647,8 @@ export default function Home() {
           onSave={(w, n) => {
             setScoreWeights(w)
             setScoreNarrative(n)
-            localStorage.setItem(`creator-score-weights-${activePlatform}`, JSON.stringify(w))
-            localStorage.setItem(`creator-score-narrative-${activePlatform}`, n)
+            void savePlatformWeights(activePlatform, w)
+            void savePlatformNarrative(activePlatform, n)
           }}
           onClose={() => setShowScoreSettings(false)}
         />
