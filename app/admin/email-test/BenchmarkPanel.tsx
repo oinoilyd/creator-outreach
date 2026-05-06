@@ -46,6 +46,11 @@ interface RosterEntry {
   hasEmail: boolean
   email: string
   source: 'primary' | 'new_methodology' | 'educated_assumption' | null
+  linkedin?: string
+  instagram?: string
+  twitter?: string
+  tiktok?: string
+  website?: string
 }
 
 interface QueryRunSlot {
@@ -112,6 +117,11 @@ export function BenchmarkPanel() {
           hasEmail: r.hasEmail,
           email: r.email,
           source: r.source,
+          linkedin: r.linkedin,
+          instagram: r.instagram,
+          twitter: r.twitter,
+          tiktok: r.tiktok,
+          website: r.website,
         })),
       }
     } catch (e) {
@@ -174,21 +184,43 @@ export function BenchmarkPanel() {
     }
   }
 
-  // Aggregate across queries
+  // Aggregate across queries — including per-platform success rates.
   const aggregates = BENCH_BUCKETS.map(b => {
     let totalCreators = 0
     let totalEmails = 0
+    let totalLinkedIn = 0
+    let totalInstagram = 0
+    let totalTwitter = 0
+    let totalTiktok = 0
+    let totalWebsite = 0
     let runs = 0
     for (const row of rows) {
       const slot = row.results[b.id]
       if (slot && !slot.error) {
         totalCreators += slot.total
         totalEmails += slot.withEmail
+        for (const r of slot.roster) {
+          if (r.linkedin) totalLinkedIn += 1
+          if (r.instagram) totalInstagram += 1
+          if (r.twitter) totalTwitter += 1
+          if (r.tiktok) totalTiktok += 1
+          if (r.website) totalWebsite += 1
+        }
         runs += 1
       }
     }
-    const hitRate = totalCreators > 0 ? (totalEmails / totalCreators) * 100 : 0
-    return { ...b, totalCreators, totalEmails, runs, hitRate }
+    const pct = (n: number) => totalCreators > 0 ? (n / totalCreators) * 100 : 0
+    return {
+      ...b,
+      totalCreators, totalEmails, runs,
+      hitRate: pct(totalEmails),
+      linkedinRate: pct(totalLinkedIn),
+      instagramRate: pct(totalInstagram),
+      twitterRate: pct(totalTwitter),
+      tiktokRate: pct(totalTiktok),
+      websiteRate: pct(totalWebsite),
+      totalLinkedIn, totalInstagram, totalTwitter, totalTiktok, totalWebsite,
+    }
   })
   const winner = [...aggregates].sort((a, b) => b.hitRate - a.hitRate)[0]
   const margin = aggregates.length === 2 ? Math.abs(aggregates[0].hitRate - aggregates[1].hitRate) : 0
@@ -252,11 +284,18 @@ export function BenchmarkPanel() {
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">{a.label}</div>
                   {isWinner && <span className="text-emerald-700 dark:text-emerald-300 text-xs">★ winner</span>}
                 </div>
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 mb-3">
                   <div className="text-3xl font-bold tabular-nums">{a.hitRate.toFixed(1)}%</div>
-                  <div className="text-xs text-muted-foreground">{a.totalEmails}/{a.totalCreators}</div>
+                  <div className="text-xs text-muted-foreground">email · {a.totalEmails}/{a.totalCreators}</div>
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-1">{a.runs}/{BENCH_QUERIES.length} queries complete</div>
+                <div className="grid grid-cols-5 gap-2 pt-3 border-t border-border">
+                  <PlatformStat label="LinkedIn" rate={a.linkedinRate} count={a.totalLinkedIn} />
+                  <PlatformStat label="Instagram" rate={a.instagramRate} count={a.totalInstagram} />
+                  <PlatformStat label="Twitter" rate={a.twitterRate} count={a.totalTwitter} />
+                  <PlatformStat label="TikTok" rate={a.tiktokRate} count={a.totalTiktok} />
+                  <PlatformStat label="Website" rate={a.websiteRate} count={a.totalWebsite} />
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-3">{a.runs}/{BENCH_QUERIES.length} queries complete</div>
               </div>
             )
           })}
@@ -302,6 +341,16 @@ export function BenchmarkPanel() {
   )
 }
 
+function PlatformStat({ label, rate, count }: { label: string; rate: number; count: number }) {
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">{label}</div>
+      <div className="text-sm font-semibold tabular-nums">{rate.toFixed(0)}%</div>
+      <div className="text-[9px] text-muted-foreground tabular-nums">{count}</div>
+    </div>
+  )
+}
+
 function RosterColumn({
   label, slot, accent,
 }: {
@@ -344,13 +393,25 @@ function RosterColumn({
             const fromMethod = slot.roster.filter(r => r.source === 'new_methodology').length
             const fromAssumption = slot.roster.filter(r => r.source === 'educated_assumption').length
             const fallbackTotal = fromMethod + fromAssumption
+            const liCount = slot.roster.filter(r => r.linkedin).length
+            const igCount = slot.roster.filter(r => r.instagram).length
+            const twCount = slot.roster.filter(r => r.twitter).length
+            const ttCount = slot.roster.filter(r => r.tiktok).length
             return (
-              <div className="text-[10px] text-muted-foreground mb-2 flex items-center gap-2">
-                <span>primary: <span className="text-foreground tabular-nums">{fromPrimary}</span></span>
-                {fromMethod > 0 && <span className="text-fuchsia-700 dark:text-fuchsia-300">+method: {fromMethod}</span>}
-                {fromAssumption > 0 && <span className="text-purple-700 dark:text-purple-300">+assumption: {fromAssumption}</span>}
-                {fallbackTotal === 0 && slot.withEmail > 0 && <span className="text-muted-foreground/70">(fallback added 0)</span>}
-              </div>
+              <>
+                <div className="text-[10px] text-muted-foreground mb-1 flex items-center gap-2 flex-wrap">
+                  <span>primary: <span className="text-foreground tabular-nums">{fromPrimary}</span></span>
+                  {fromMethod > 0 && <span className="text-fuchsia-700 dark:text-fuchsia-300">+method: {fromMethod}</span>}
+                  {fromAssumption > 0 && <span className="text-purple-700 dark:text-purple-300">+assumption: {fromAssumption}</span>}
+                  {fallbackTotal === 0 && slot.withEmail > 0 && <span className="text-muted-foreground/70">(fallback added 0)</span>}
+                </div>
+                <div className="text-[10px] text-muted-foreground mb-2 flex items-center gap-2 flex-wrap">
+                  <span>LI: <span className="tabular-nums">{liCount}</span></span>
+                  <span>IG: <span className="tabular-nums">{igCount}</span></span>
+                  <span>TW: <span className="tabular-nums">{twCount}</span></span>
+                  <span>TT: <span className="tabular-nums">{ttCount}</span></span>
+                </div>
+              </>
             )
           })()}
           <ul className="space-y-1">

@@ -41,6 +41,13 @@ interface EnrichResult {
   confidence?: number
   evidence?: string
   durationMs: number
+  // Socials returned by /api/enrich — surfaced here so the benchmark
+  // can compute per-platform success rates without re-fetching.
+  linkedin?: string
+  instagram?: string
+  twitter?: string
+  tiktok?: string
+  website?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -160,6 +167,14 @@ export async function POST(req: NextRequest) {
         })
         const j = r.ok ? await r.json() : { email: '', website: '', instagram: '', twitter: '', tiktok: '', linkedin: '' }
 
+        const socials = {
+          linkedin: j.linkedin || '',
+          instagram: j.instagram || c.instagram || '',
+          twitter: j.twitter || '',
+          tiktok: j.tiktok || c.tiktok || '',
+          website: j.website || c.website || '',
+        }
+
         // If the primary pipeline found something, we're done.
         if (j.email) {
           return {
@@ -169,6 +184,7 @@ export async function POST(req: NextRequest) {
             email: j.email,
             source: 'primary' as const,
             durationMs: Date.now() - t0,
+            ...socials,
           }
         }
 
@@ -205,6 +221,7 @@ export async function POST(req: NextRequest) {
               method: top?.method,
               evidence: top?.evidence,
               durationMs: Date.now() - t0,
+              ...socials,
             }
           }
         }
@@ -239,6 +256,7 @@ export async function POST(req: NextRequest) {
               confidence: top?.confidence,
               evidence: top?.evidence,
               durationMs: Date.now() - t0,
+              ...socials,
             }
           }
         }
@@ -250,6 +268,7 @@ export async function POST(req: NextRequest) {
           email: '',
           source: null,
           durationMs: Date.now() - t0,
+          ...socials,
         }
       } catch {
         return {
