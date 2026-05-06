@@ -360,7 +360,14 @@ function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: str
 }
 
 // priority: email=3, linkedin only=2, enriching=1, nothing=0
-function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void, profile: UserProfile | null): React.ReactNode {
+function renderOutreachCell(
+  col: OutreachColConfig,
+  e: OutreachEntry,
+  onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void,
+  profile: UserProfile | null,
+  searching: boolean,
+  onSearchContacts: (id: string) => void,
+): React.ReactNode {
   const id = col.id
   switch (id) {
     case 'favorite':
@@ -391,6 +398,16 @@ function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: 
         <div className="flex flex-col gap-1">
           {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} className="text-green-400 hover:underline text-xs break-all">{e.email}</a>}
           <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-gray-600' : 'text-gray-400'} />
+          {!e.email && (
+            <button
+              onClick={() => onSearchContacts(e.id)}
+              disabled={searching}
+              title="Try to find an email + socials by re-scraping the channel"
+              className="self-start mt-0.5 text-[10px] text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
+            >
+              {searching ? 'Searching…' : '🔍 Search for email'}
+            </button>
+          )}
         </div>
       )
     case 'description':
@@ -706,7 +723,7 @@ function StackedBar({ segments, total }: { segments: { label: string; value: num
   )
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, profile, emptyVariant }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, profile, emptyVariant }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -714,6 +731,8 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   onOpenCustomize: () => void
   onReorderCols: (newConfig: OutreachColConfig[]) => void
   onOpenManualAdd: () => void
+  onSearchContacts: (id: string) => void
+  searchingIds: Set<string>
   profile: UserProfile | null
   emptyVariant?: 'all' | 'favorites'
 }) {
@@ -885,7 +904,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
               <tr key={e.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
-                    {renderOutreachCell(col, e, onUpdate, profile)}
+                    {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
                   </td>
                 ))}
                 <td className="px-3 py-2 align-top" style={{ width: 36 }}>
@@ -1352,6 +1371,49 @@ export default function Home() {
       }
       return updated
     }))
+  }
+
+  const [searchingContactIds, setSearchingContactIds] = useState<Set<string>>(new Set())
+
+  async function searchContactsForEntry(id: string) {
+    const entry = outreach.find(e => e.id === id)
+    if (!entry) return
+    setSearchingContactIds(s => new Set(s).add(id))
+    try {
+      const params = new URLSearchParams({
+        name: entry.channelName,
+        channelId: entry.channelId,
+        description: entry.description || '',
+      })
+      const r = await fetch(`/api/enrich?${params}`)
+      const extra = await r.json()
+      if (!r.ok) {
+        alert(`Search failed: ${extra.error || 'unknown'}`)
+        return
+      }
+      saveOutreach(outreach.map(e => {
+        if (e.id !== id) return e
+        // Only fill in fields that are currently empty so we don't overwrite
+        // anything the user has manually entered.
+        return {
+          ...e,
+          email: e.email || extra.email || '',
+          linkedin: e.linkedin || extra.linkedin || '',
+          subscribers: e.subscribers || extra.subscribers || '',
+          avgViews: e.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
+        }
+      }))
+      if (!extra.email) {
+        // Subtle feedback when search returned nothing useful — non-blocking.
+        console.log('[searchContacts] no email found for', entry.channelName)
+      }
+    } catch (err: any) {
+      alert(`Search failed: ${err?.message || err}`)
+    } finally {
+      setSearchingContactIds(s => {
+        const next = new Set(s); next.delete(id); return next
+      })
+    }
   }
 
   function removeOutreachEntry(id: string) {
@@ -2242,6 +2304,8 @@ export default function Home() {
                 onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
                 onReorderCols={reorderOutreachCols}
                 onOpenManualAdd={() => setShowManualAdd(true)}
+                onSearchContacts={searchContactsForEntry}
+                searchingIds={searchingContactIds}
                 profile={profile}
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
               />
