@@ -19,6 +19,7 @@
 
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { promises as dns } from 'dns'
 import { Innertube } from 'youtubei.js'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -279,11 +280,31 @@ async function fromCreatorPlatforms(input: MethodologyInput): Promise<string[]> 
   const handle = tokens[0] || ''
   if (!handle) return []
 
+  // Extended platform coverage: newsletters + memberships + tipping +
+  // bio-link aggregators. All public profile URLs that often expose the
+  // creator's contact email.
   const candidates = [
+    // Newsletters / memberships
     `https://${handle}.substack.com/about`,
     `https://www.patreon.com/${handle}`,
     `https://${handle}.beehiiv.com/about`,
     `https://${handle}.ck.page`,
+    // Tipping / coffee
+    `https://buymeacoffee.com/${handle}`,
+    `https://ko-fi.com/${handle}`,
+    `https://www.paypal.com/paypalme/${handle}`,
+    // Bio-link aggregators (long tail beyond Linktree)
+    `https://allmylinks.com/${handle}`,
+    `https://lnk.bio/${handle}`,
+    `https://bio.fm/${handle}`,
+    `https://solo.to/${handle}`,
+    `https://stan.store/${handle}`,
+    `https://pillar.io/${handle}`,
+    `https://about.me/${handle}`,
+    `https://contact.me/${handle}`,
+    `https://campsite.bio/${handle}`,
+    `https://msha.ke/${handle}`,
+    `https://withkoji.com/@${handle}`,
   ]
 
   const fetches = await Promise.all(candidates.map(u => safeFetch(u, 4000)))
@@ -292,6 +313,294 @@ async function fromCreatorPlatforms(input: MethodologyInput): Promise<string[]> 
     if (html && html.length > 200) sources.push(html)
   }
   return sources
+}
+
+// ---------- Method 6: Substack post-level scraping ----------
+// Profile pages don't always show the email, but recent posts often
+// have "reply to this email" footers or visible contact info.
+async function fromSubstackPosts(handle: string): Promise<string[]> {
+  if (!handle) return []
+  const archive = await safeFetch(`https://${handle}.substack.com/archive`, 4000)
+  if (!archive) return []
+  // Grab the first 3 post URLs from the archive page
+  const urlMatches = [...archive.matchAll(/href="(https:\/\/[^"]*?\.substack\.com\/p\/[^"]+)"/g)]
+  const postUrls = [...new Set(urlMatches.map(m => m[1]))].slice(0, 3)
+  if (postUrls.length === 0) return []
+  return Promise.all(postUrls.map(u => safeFetch(u, 4000)))
+}
+
+// ---------- Method 7: Podcast RSS feed itunes:email ----------
+// Apple Podcasts requires every show to expose <itunes:email> in its
+// RSS feed. If a creator has a podcast linked anywhere, this is the
+// single most reliable source.
+async function fromPodcastFeed(input: MethodologyInput): Promise<string[]> {
+  const haystack = [
+    input.description ?? '',
+    input.website ?? '',
+    input.instagram ?? '',
+    input.twitter ?? '',
+    input.tiktok ?? '',
+  ].join(' ')
+
+  // Find candidate podcast platform URLs
+  const podcastPatterns = [
+    /https?:\/\/podcasts\.apple\.com\/[^\s"'<>]+/g,
+    /https?:\/\/open\.spotify\.com\/show\/[^\s"'<>]+/g,
+    /https?:\/\/[^\s"'<>]*?(?:anchor\.fm|buzzsprout\.com|libsyn\.com|podbean\.com|simplecast\.com|transistor\.fm|captivate\.fm|spreaker\.com)\/[^\s"'<>]*/g,
+  ]
+  const candidates = new Set<string>()
+  for (const re of podcastPatterns) {
+    for (const m of haystack.matchAll(re)) candidates.add(m[0])
+  }
+  if (candidates.size === 0) return []
+
+  // For each platform URL, try to find/derive the RSS feed
+  const emails: string[] = []
+  for (const url of [...candidates].slice(0, 3)) {
+    let rssUrl: string | null = null
+    try {
+      // Apple Podcasts: scrape the show page for the rss link in JSON
+      if (/podcasts\.apple\.com/.test(url)) {
+        const html = await safeFetch(url, 4000)
+        const m = html.match(/"feedUrl"\s*:\s*"([^"]+)"/) || html.match(/feed[Uu]rl["']?[\s:=]+["']([^"']+)["']/)
+        if (m) rssUrl = m[1].replace(/\\\//g, '/')
+      }
+      // Spotify: harder, but show pages reference the RSS sometimes
+      else if (/open\.spotify\.com/.test(url)) {
+        const html = await safeFetch(url, 4000)
+        const m = html.match(/(https?:\/\/[^"'<>\s]+\.(?:rss|xml)[^"'<>\s]*)/i)
+        if (m) rssUrl = m[1]
+      }
+      // Anchor / Buzzsprout / Libsyn: append /rss or have known feed URL on page
+      else {
+        const html = await safeFetch(url, 4000)
+        const m = html.match(/(https?:\/\/[^"'<>\s]+(?:rss|feed|xml)[^"'<>\s]*)/i)
+        if (m) rssUrl = m[1]
+      }
+
+      if (rssUrl) {
+        const rss = await safeFetch(rssUrl, 4000)
+        // <itunes:email>x@y.com</itunes:email>
+        const itunesEmail = rss.match(/<itunes:email[^>]*>([^<]+)<\/itunes:email>/i)
+        if (itunesEmail) emails.push(itunesEmail[1].trim().toLowerCase())
+        // <managingEditor>x@y.com (Name)</managingEditor>
+        const editor = rss.match(/<managingEditor[^>]*>([^<]+)<\/managingEditor>/i)
+        if (editor) {
+          const email = editor[1].match(EMAIL_RE)
+          if (email) emails.push(email[0].toLowerCase())
+        }
+      }
+    } catch {
+      // skip individual failures
+    }
+  }
+  return [...new Set(emails)]
+}
+
+// ---------- Method 8: JSON-LD / schema.org markup ----------
+// Many sites embed `<script type="application/ld+json">{...}</script>`
+// for SEO. Person / Organization / WebSite schemas often include
+// "email": "...". We walk every JSON-LD block in every HTML we have.
+function fromJsonLd(htmls: string[]): string[] {
+  const out = new Set<string>()
+  for (const html of htmls) {
+    if (!html) continue
+    const matches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
+    for (const m of matches) {
+      try {
+        const data = JSON.parse(m[1].trim())
+        walkForEmail(data, out)
+      } catch {
+        // unparseable — try regex fallback on the raw block
+        const fallback = m[1].match(EMAIL_RE)
+        if (fallback) for (const e of fallback) out.add(e.toLowerCase())
+      }
+    }
+  }
+  return [...out]
+}
+
+function walkForEmail(node: unknown, out: Set<string>): void {
+  if (!node) return
+  if (typeof node === 'string') {
+    // Some schemas put email as a top-level string at the "email" key
+    if (node.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(node)) {
+      out.add(node.toLowerCase())
+    }
+    return
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) walkForEmail(item, out)
+    return
+  }
+  if (typeof node === 'object') {
+    for (const [key, val] of Object.entries(node as Record<string, unknown>)) {
+      if (key.toLowerCase().includes('email') && typeof val === 'string') {
+        const cleaned = val.replace(/^mailto:/i, '').trim().toLowerCase()
+        if (cleaned.includes('@')) out.add(cleaned)
+      } else {
+        walkForEmail(val, out)
+      }
+    }
+  }
+}
+
+// ---------- Method 9: Multi-TLD probing ----------
+// Creator's website is at joesmith.com — but they may also own
+// joesmith.{co, me, io, studio, net, xyz}. Some host their actual
+// "contact" or business presence on the alternate TLD.
+async function fromAlternateTlds(handle: string): Promise<string[]> {
+  if (!handle || handle.length < 3) return []
+  const tlds = ['co', 'me', 'io', 'studio', 'net', 'xyz', 'app', 'dev']
+  const candidates = tlds.map(tld => `https://${handle}.${tld}`)
+  const fetches = await Promise.all(candidates.map(u => safeFetch(u, 3000)))
+  return fetches.filter(html => html && html.length > 500)
+}
+
+// ---------- Method 10: Cert transparency log subdomain discovery ----------
+// crt.sh exposes every SSL cert ever issued for a domain. The cert SAN
+// list reveals subdomains we don't otherwise know about — e.g.
+// hire@speak.creator.com only exists if 'speak.creator.com' is findable.
+async function fromCertTransparency(domain: string): Promise<string[]> {
+  if (!domain) return []
+  try {
+    const resp = await axios.get(`https://crt.sh/?q=${encodeURIComponent(domain)}&output=json`, {
+      timeout: 6000,
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
+      validateStatus: () => true,
+    })
+    if (typeof resp.data === 'string' || !Array.isArray(resp.data)) return []
+    const subs = new Set<string>()
+    for (const row of resp.data as Array<{ name_value?: string; common_name?: string }>) {
+      const names = [...(row.name_value?.split(/\n/) ?? []), row.common_name ?? '']
+      for (const n of names) {
+        const clean = n.trim().toLowerCase()
+        if (!clean || clean.includes('*')) continue
+        if (clean === domain || !clean.endsWith('.' + domain)) continue
+        // Skip noisy infrastructure subdomains
+        if (/^(www|cpanel|webmail|mail|smtp|ftp|cdn|static|assets|api)\./.test(clean)) continue
+        subs.add(clean)
+      }
+    }
+    // Probe up to 5 most "promising" subdomains (shortest names typically)
+    const candidates = [...subs].sort((a, b) => a.length - b.length).slice(0, 5)
+    const htmls = await Promise.all(candidates.map(s => safeFetch(`https://${s}`, 4000)))
+    return htmls
+  } catch {
+    return []
+  }
+}
+
+// ---------- Method 11: Multi-snapshot Wayback ----------
+// Pre-GDPR (≤ 2018) site captures often had visible emails in places
+// the current site doesn't. Hits multiple snapshots over time so we
+// don't miss because of a single bad capture.
+async function fromMultiSnapshotWayback(domain: string): Promise<string[]> {
+  if (!domain) return []
+  const years = [2017, 2019, 2021]
+  const sources: string[] = []
+  for (const year of years) {
+    try {
+      const avail = await axios.get(
+        `https://archive.org/wayback/available?url=${encodeURIComponent(domain)}&timestamp=${year}0601`,
+        { timeout: 5000, headers: { 'User-Agent': UA }, validateStatus: () => true },
+      )
+      const snap = (avail.data as { archived_snapshots?: { closest?: { url?: string } } })?.archived_snapshots?.closest?.url
+      if (snap) {
+        const html = await safeFetch(snap, 4000)
+        if (html) sources.push(html)
+      }
+    } catch {
+      // skip
+    }
+  }
+  return sources
+}
+
+// ---------- Method 12: DNS TXT records (DMARC/SPF) ----------
+// DMARC TXT records often include `rua=mailto:dmarc-reports@domain.com`.
+// SPF records sometimes embed admin contacts. Real addresses, even if
+// not great for outreach.
+async function fromDnsTxt(domain: string): Promise<string[]> {
+  if (!domain) return []
+  const out = new Set<string>()
+  const lookups = [domain, `_dmarc.${domain}`]
+  for (const host of lookups) {
+    try {
+      const records = await dns.resolveTxt(host)
+      for (const segs of records) {
+        const joined = segs.join('')
+        for (const m of joined.matchAll(/mailto:([^,;\s]+@[^,;\s]+)/gi)) {
+          out.add(m[1].toLowerCase())
+        }
+      }
+    } catch {
+      // no records / NXDOMAIN
+    }
+  }
+  return [...out]
+}
+
+// ---------- Method 13: AI vision on channel banner ----------
+// Many creators put email in big text on their banner image to defeat
+// scrapers. Claude vision reads the banner directly. Same model the
+// AI extraction uses, just multimodal.
+async function fromBannerVision(channelId: string): Promise<string | null> {
+  const apiKey = process.env.AI_Score_Key
+  if (!apiKey) return null
+  try {
+    const yt = await Innertube.create({ retrieve_player: false })
+    const channel = await yt.getChannel(channelId)
+    // Pull banner URL from the channel header — different shapes across
+    // Innertube versions, so probe several
+    const raw = JSON.stringify(channel)
+    const bannerMatch = raw.match(/https?:\/\/yt3\.googleusercontent\.com\/[A-Za-z0-9_/=-]+(?:=w\d+)?[^"'\s]*/g)
+    const bannerUrl = bannerMatch?.find(u => u.includes('banner') || u.length > 80)
+    if (!bannerUrl) return null
+
+    // Fetch the image bytes so we can pass as base64 to Claude
+    const imgResp = await axios.get(bannerUrl, {
+      responseType: 'arraybuffer',
+      timeout: 5000,
+      headers: { 'User-Agent': UA },
+      validateStatus: () => true,
+    })
+    if (imgResp.status !== 200) return null
+    const buf = Buffer.from(imgResp.data as ArrayBuffer)
+    if (buf.length === 0 || buf.length > 5_000_000) return null
+
+    const client = new Anthropic({ apiKey })
+    const resp = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 100,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: String(imgResp.headers['content-type'] || '').includes('png') ? 'image/png' : 'image/jpeg',
+              data: buf.toString('base64'),
+            },
+          },
+          {
+            type: 'text',
+            text: `Look at this YouTube channel banner. Is there an email address visible in the image? Reply with strict JSON: {"email": "address@domain.com"} if you see one, or {"email": null} if not. Do not invent.`,
+          },
+        ],
+      }],
+    })
+
+    const text = resp.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
+    const m = text.match(/\{[\s\S]*?\}/)
+    if (!m) return null
+    const parsed = JSON.parse(m[0]) as { email: string | null }
+    if (parsed.email && parsed.email.includes('@')) return parsed.email.toLowerCase()
+    return null
+  } catch {
+    return null
+  }
 }
 
 // ---------- Method 4: Pinned community/comment content ----------
@@ -379,13 +688,47 @@ ${trimmed}`,
 
 // ---------- Orchestrator ----------
 export async function newMethodology(input: MethodologyInput): Promise<MethodologyOutput> {
-  // Run independent sources in parallel
-  const [videoDescs, sitemapHtmls, platformHtmls, communityChunks, websiteEmails] = await Promise.all([
+  const tokens = input.channelName.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(Boolean)
+  const handle = tokens[0] || ''
+  const websiteDomain = input.website ? extractDomain(input.website) : ''
+
+  // Run all the cheap sources in parallel — DNS, HTTP fetches, RSS,
+  // youtubei calls. ~13 methods firing simultaneously.
+  const [
+    videoDescs,
+    sitemapHtmls,
+    platformHtmls,
+    communityChunks,
+    websiteEmails,
+    podcastEmails,
+    altTldHtmls,
+    certHtmls,
+    waybackHtmls,
+    dnsTxtEmails,
+    substackPosts,
+  ] = await Promise.all([
     recentVideoDescriptions(input.channelId),
     input.website ? fromSitemap(input.website) : Promise.resolve<string[]>([]),
     fromCreatorPlatforms(input),
     fromCommunityTab(input.channelId),
     input.website ? fromCreatorWebsiteEnhanced(input.website) : Promise.resolve<string[]>([]),
+    fromPodcastFeed(input),
+    handle ? fromAlternateTlds(handle) : Promise.resolve<string[]>([]),
+    websiteDomain ? fromCertTransparency(websiteDomain) : Promise.resolve<string[]>([]),
+    websiteDomain ? fromMultiSnapshotWayback(websiteDomain) : Promise.resolve<string[]>([]),
+    websiteDomain ? fromDnsTxt(websiteDomain) : Promise.resolve<string[]>([]),
+    handle ? fromSubstackPosts(handle) : Promise.resolve<string[]>([]),
+  ])
+
+  // JSON-LD parsing across every HTML we fetched — sites embed
+  // person/org schemas with email fields directly, no scraping needed.
+  const jsonLdEmails = fromJsonLd([
+    ...sitemapHtmls,
+    ...platformHtmls,
+    ...altTldHtmls,
+    ...certHtmls,
+    ...waybackHtmls,
+    ...substackPosts,
   ])
 
   const hits: MethodologyHit[] = []
@@ -400,35 +743,47 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
     }
   }
 
-  // Plain text sources stay on extractEmails; HTML sources go through
-  // the three-pass extractor so Cloudflare-obfuscated and mailto-only
-  // addresses get pulled out.
+  // Highest-trust sources first (later inserts of the same email
+  // are dropped by the seen-set so the BEST evidence wins).
+  tryAdd(podcastEmails, 'podcast_feed', 'in <itunes:email> of an RSS feed')
+  tryAdd(jsonLdEmails, 'json_ld', 'in JSON-LD / schema.org markup')
   for (const d of videoDescs) tryAdd(extractEmails(d), 'video_description', 'in a recent video description')
+  tryAdd(websiteEmails, 'website_enhanced', 'on creator website (Cloudflare-decoded or mailto:)')
   for (const html of sitemapHtmls) tryAdd(extractEmailsFromHtml(html), 'sitemap_page', 'on a sitemap-discovered page')
-  for (const html of platformHtmls) tryAdd(extractEmailsFromHtml(html), 'creator_platform', 'on Substack/Patreon/etc. profile')
+  for (const html of platformHtmls) tryAdd(extractEmailsFromHtml(html), 'creator_platform', 'on Substack/Patreon/Ko-fi/etc. profile')
+  for (const html of substackPosts) tryAdd(extractEmailsFromHtml(html), 'substack_post', 'in a recent Substack post')
+  for (const html of altTldHtmls) tryAdd(extractEmailsFromHtml(html), 'alternate_tld', 'on a sibling-TLD domain')
+  for (const html of certHtmls) tryAdd(extractEmailsFromHtml(html), 'subdomain_discovery', 'on a subdomain found via cert transparency')
+  for (const html of waybackHtmls) tryAdd(extractEmailsFromHtml(html), 'wayback_snapshot', 'in an older Wayback snapshot')
+  tryAdd(dnsTxtEmails, 'dns_txt', 'in DMARC/SPF DNS record')
   for (const c of communityChunks) tryAdd(extractEmails(c), 'community_post', 'in a Community-tab post')
-  tryAdd(websiteEmails, 'website_enhanced', 'on creator website (Cloudflare-decoded or mailto: link)')
 
-  // Build the AI extraction corpus from everything we just collected
-  // plus the input description (covers cases where the obvious
-  // sources had something but in an obfuscated form).
+  // Build AI corpus + AI fallback (text-only, cheap)
   const corpus = [
     input.description || '',
     ...videoDescs,
-    ...sitemapHtmls.map(h => cheerio.load(h)('body').text().slice(0, 8000)),
-    ...platformHtmls.map(h => cheerio.load(h)('body').text().slice(0, 8000)),
+    ...sitemapHtmls.map(h => cheerio.load(h)('body').text().slice(0, 5000)),
+    ...platformHtmls.map(h => cheerio.load(h)('body').text().slice(0, 5000)),
+    ...altTldHtmls.map(h => cheerio.load(h)('body').text().slice(0, 5000)),
+    ...substackPosts.map(h => cheerio.load(h)('body').text().slice(0, 5000)),
     ...communityChunks,
   ].join('\n').slice(0, 20000)
 
-  // AI fallback only fires if the regex sources came up empty —
-  // saves money on creators we already found via cheaper means.
   if (hits.length === 0 && corpus.trim()) {
     const ai = await aiExtract(corpus)
-    if (ai) {
+    if (ai) hits.push({ email: ai.email, method: 'ai_extraction', evidence: ai.reasoning })
+  }
+
+  // Last-resort: AI vision on the channel banner. Only fires if every
+  // text-based method came up empty. Many creators put email in big
+  // text on their banner art specifically to defeat regex scrapers.
+  if (hits.length === 0) {
+    const visionEmail = await fromBannerVision(input.channelId)
+    if (visionEmail && isPlausibleEmail(visionEmail)) {
       hits.push({
-        email: ai.email,
-        method: 'ai_extraction',
-        evidence: ai.reasoning,
+        email: visionEmail,
+        method: 'banner_vision',
+        evidence: 'visible in channel banner image (AI vision)',
       })
     }
   }
@@ -437,5 +792,14 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
     email: hits[0]?.email ?? null,
     hits,
     bytesScanned: corpus.length,
+  }
+}
+
+function extractDomain(url: string): string {
+  try {
+    const u = new URL(url.startsWith('http') ? url : `https://${url}`)
+    return u.hostname.replace(/^www\./, '').toLowerCase()
+  } catch {
+    return ''
   }
 }
