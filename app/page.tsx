@@ -44,6 +44,7 @@ import { ImportOutreachModal } from '@/components/ImportOutreachModal'
 import { ImportDismissedModal } from '@/components/ImportDismissedModal'
 import { CustomMetricModal } from '@/components/CustomMetricModal'
 import { ManualAddOutreachModal } from '@/components/ManualAddOutreachModal'
+import { LeadDetailModal } from '@/components/LeadDetailModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
@@ -778,21 +779,48 @@ function CalCell({ label, sub, count, max, active, accent, onClick }: {
   accent: 'red' | 'yellow' | 'blue'
   onClick: () => void
 }) {
-  const heightPct = max > 0 ? Math.min(100, Math.max(count > 0 ? 18 : 0, (count / max) * 100)) : 0
-  const barColor = { red: 'bg-red-500/60', yellow: 'bg-yellow-500/70', blue: 'bg-blue-500/60' }[accent]
-  const ring = active ? 'ring-1 ring-purple-500/60' : ''
+  const has = count > 0
+  const intensity = has && max > 0 ? Math.min(1, count / max) : 0
+  const heightPct = has ? Math.max(28, intensity * 100) : 0
+
+  const accentMap = {
+    red: { bg: has ? 'bg-red-500/15 hover:bg-red-500/25' : 'bg-gray-800/40 hover:bg-gray-800/60',
+            border: has ? 'border-red-500/50' : 'border-gray-700/50',
+            text: has ? 'text-red-300' : 'text-gray-500',
+            count: has ? 'text-red-200' : 'text-gray-600',
+            bar: 'bg-red-500/70' },
+    yellow: { bg: has ? 'bg-yellow-500/15 hover:bg-yellow-500/25' : 'bg-gray-800/40 hover:bg-gray-800/60',
+              border: has ? 'border-yellow-500/50' : 'border-yellow-500/30',
+              text: 'text-yellow-300',
+              count: has ? 'text-yellow-200' : 'text-yellow-400/60',
+              bar: 'bg-yellow-500/80' },
+    blue: { bg: has ? 'bg-blue-500/15 hover:bg-blue-500/25' : 'bg-gray-800/40 hover:bg-gray-800/60',
+            border: has ? 'border-blue-500/40' : 'border-gray-700/50',
+            text: has ? 'text-blue-200' : 'text-gray-500',
+            count: has ? 'text-white' : 'text-gray-600',
+            bar: 'bg-blue-500/70' },
+  }[accent]
+
+  const ring = active ? 'ring-2 ring-purple-500/70' : ''
+
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 w-14 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 px-1.5 pt-2 pb-1.5 text-center transition-colors ${ring}`}
-      title={`${label} ${sub} · ${count} due`}
+      className={`shrink-0 w-16 rounded-lg border ${accentMap.bg} ${accentMap.border} px-1.5 pt-2 pb-2 text-center transition-colors ${ring}`}
+      title={has ? `${label} ${sub} · ${count} action${count === 1 ? '' : 's'}` : `${label} ${sub} · nothing due`}
     >
-      <div className="text-[9px] uppercase tracking-wider text-gray-500">{label}</div>
-      <div className="text-[10px] text-gray-300 leading-tight">{sub}</div>
-      <div className="h-8 mt-1 flex items-end justify-center">
-        {count > 0 && <div className={`w-2 ${barColor} rounded-t`} style={{ height: `${heightPct}%` }} />}
+      <div className={`text-[9px] uppercase tracking-wider ${accentMap.text}`}>{label}</div>
+      <div className={`text-[10px] leading-tight ${has ? 'text-white' : 'text-gray-400'}`}>{sub}</div>
+      <div className="h-9 mt-1.5 flex items-end justify-center">
+        {has ? (
+          <div className={`w-3 ${accentMap.bar} rounded-t shadow-[0_0_8px] shadow-current`} style={{ height: `${heightPct}%` }} />
+        ) : (
+          <div className="text-[10px] text-gray-700">·</div>
+        )}
       </div>
-      <div className="text-[10px] font-bold text-white tabular-nums">{count > 0 ? count : '·'}</div>
+      <div className={`mt-1 text-[12px] font-bold tabular-nums ${accentMap.count}`}>
+        {has ? count : '0'}
+      </div>
     </button>
   )
 }
@@ -1591,6 +1619,7 @@ export default function Home() {
   const [editingMetric, setEditingMetric] = useState<import('@/lib/types').CustomMetric | null>(null)
   const [showAddMetric, setShowAddMetric] = useState(false)
   const [showManualAdd, setShowManualAdd] = useState(false)
+  const [viewingLeadId, setViewingLeadId] = useState<string | null>(null)
   const [showAnalyticsCustomize, setShowAnalyticsCustomize] = useState(false)
   const [draftMetrics, setDraftMetrics] = useState<import('@/lib/types').CustomMetric[]>([])
   const [outreach, setOutreach] = useState<OutreachEntry[]>([])
@@ -2925,7 +2954,7 @@ export default function Home() {
               <OutreachFollowUps
                 entries={outreach}
                 onUpdate={updateOutreachEntry}
-                onOpenEntry={() => setOutreachSubTab('all')}
+                onOpenEntry={(id: string) => setViewingLeadId(id)}
               />
             ) : (
               <OutreachTab
@@ -3101,6 +3130,18 @@ export default function Home() {
           onClose={() => setShowImportDismissed(false)}
         />
       )}
+
+      {viewingLeadId && (() => {
+        const entry = outreach.find(e => e.id === viewingLeadId)
+        if (!entry) return null
+        return (
+          <LeadDetailModal
+            entry={entry}
+            onUpdate={updateOutreachEntry}
+            onClose={() => setViewingLeadId(null)}
+          />
+        )
+      })()}
 
       {showManualAdd && (
         <ManualAddOutreachModal

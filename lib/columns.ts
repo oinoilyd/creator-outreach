@@ -12,7 +12,7 @@ export const ALL_OUTREACH_COLS: OutreachColDef[] = [
   { id: 'headerUsed',      label: 'Subject Line',      defaultVisible: true,  defaultWidth: 210, tooltip: 'The subject line or opening hook you used.' },
   { id: 'status',          label: 'Status',            defaultVisible: true,  defaultWidth: 130, tooltip: 'Outcome of your outreach: Open, Successful, Rejected, or No Response.' },
   { id: 'notes',           label: 'Notes',             defaultVisible: true,  defaultWidth: 220, tooltip: 'Free-form notes about this lead.' },
-  { id: 'followUpDate',    label: 'Follow Up Date',    defaultVisible: false, defaultWidth: 140, tooltip: 'When to ping them again. Past dates with status Open show up under Stale follow-ups in Analytics.' },
+  { id: 'followUpDate',    label: 'Follow Up Date',    defaultVisible: true,  defaultWidth: 140, tooltip: 'When to ping them again. Auto-set to today + 14 days when you mark a row as Open or No Response. Past dates with status Open show as Overdue in the Follow-ups tab.' },
   { id: 'dateReachedOut',  label: 'Date Reached Out',  defaultVisible: false, defaultWidth: 145, tooltip: 'Date you sent the outreach. Used by the velocity stat.' },
   { id: 'touchpoints',     label: '# Touchpoints',     defaultVisible: false, defaultWidth: 110, tooltip: 'How many times you\'ve contacted this creator.' },
   { id: 'responseDate',    label: 'Response Date',     defaultVisible: false, defaultWidth: 140, tooltip: 'Date the creator responded.' },
