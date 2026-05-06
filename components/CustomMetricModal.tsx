@@ -57,8 +57,8 @@ export function CustomMetricModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
           <h2 className="text-lg font-bold text-foreground">{initial ? 'Edit metric' : 'New metric'}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>

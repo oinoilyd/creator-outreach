@@ -1,5 +1,6 @@
 'use client'
 
+import { motion } from 'motion/react'
 import type { OutreachEntry } from '@/lib/types'
 
 export function LeadDetailModal({ entry, onUpdate, onClose }: {
@@ -24,8 +25,19 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', bounce: 0.18, duration: 0.4 }}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-2xl max-h-[92vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-5 border-b border-border flex items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 text-white text-sm font-semibold flex items-center justify-center shrink-0">
@@ -156,7 +168,7 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
             Done
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

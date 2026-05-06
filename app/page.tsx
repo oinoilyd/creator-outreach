@@ -1585,7 +1585,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
       </div>
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="table-fixed text-sm border-collapse" style={{ width: totalWidth }}>
-          <thead className="bg-muted text-foreground/80">
+          <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border sticky top-[68px] z-10">
             <tr>
               {visibleCols.map((col, idx) => {
                 const colId = col.id as string
@@ -1655,7 +1655,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           </thead>
           <tbody>
             {entries.map((e, i) => (
-              <tr key={e.id} className={i % 2 === 0 ? 'bg-card' : 'bg-background'}>
+              <tr key={e.id} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
                     {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
@@ -1712,7 +1712,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-muted text-foreground/80">
+        <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border sticky top-[68px] z-10">
           <tr>
             <th className="px-2 py-3 text-center w-12" title="Skip — hide this creator from results">
               <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
@@ -1775,7 +1775,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
             </tr>
           )}
           {sorted.map((c, i) => (
-            <tr key={c.channelId} className={i % 2 === 0 ? 'bg-card' : 'bg-background'}>
+            <tr key={c.channelId} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
               <td className="px-2 py-3 text-center">
                 <button
                   onClick={() => onDismiss(c)}
@@ -1806,7 +1806,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 </td>
               </tr>
               {loadMoreBatch.map((c, i) => (
-                <tr key={`lm-${c.channelId}`} className={i % 2 === 0 ? 'bg-card' : 'bg-background'}>
+                <tr key={`lm-${c.channelId}`} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
                   <td className="px-2 py-3 text-center">
                     <button
                       onClick={() => onDismiss(c)}
@@ -2739,7 +2739,7 @@ export default function Home() {
               onClick={() => setShowExport(v => !v)}
               disabled={activeTab === 'outreach' ? outreach.length === 0 : activeTab === 'dismissed' ? true : currentList.length === 0}
               title="Export"
-              className="bg-card/60 border border-border hover:border-border/80 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2.5 rounded-lg flex items-center text-muted-foreground hover:text-foreground transition-colors"
+              className="bg-gradient-to-br from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2.5 rounded-lg flex items-center text-white shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -2769,7 +2769,7 @@ export default function Home() {
 
         {/* Filter panel — hidden by default */}
         {showFilter && (
-          <div className="flex flex-col gap-3 mb-3 p-3 bg-card rounded-lg border border-border">
+          <div className="flex flex-col gap-3 mb-3 p-4 bg-card border border-border rounded-xl shadow-sm shadow-black/5">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs text-muted-foreground w-20 shrink-0">Avg views:</span>
               <input type="number" min={0} value={minViews}
