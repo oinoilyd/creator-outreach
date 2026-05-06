@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 
+const ADMIN_EMAIL = 'dmeehanj@gmail.com'
+
 export function HamburgerMenu({
   userEmail,
   userFullName,
@@ -172,6 +174,25 @@ export function HamburgerMenu({
                   ))}
                 </div>
               )}
+            </>
+          )}
+
+          {userEmail === ADMIN_EMAIL && (
+            <>
+              <div className="mx-4 my-1 border-t border-gray-800" />
+              <a
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-800 transition-colors group"
+              >
+                <span className="text-gray-500 group-hover:text-gray-300 mt-0.5 shrink-0 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm text-gray-200 font-medium leading-tight">Admin</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5 truncate">Users + usage</div>
+                </div>
+              </a>
             </>
           )}
 
