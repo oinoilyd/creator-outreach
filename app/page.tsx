@@ -7,6 +7,7 @@ import type {
   OutreachEntry, OutreachColDef, OutreachColConfig,
   ColConfig, PlatformId, PlatformConfig, UserProfile,
 } from '@/lib/types'
+import { EMPTY_METRIC_FILTER } from '@/lib/types'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
   pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
@@ -41,6 +42,7 @@ import { MigrationPromptModal } from '@/components/MigrationPromptModal'
 import { ImportOutreachModal } from '@/components/ImportOutreachModal'
 import { ImportDismissedModal } from '@/components/ImportDismissedModal'
 import { CustomMetricModal } from '@/components/CustomMetricModal'
+import { ManualAddOutreachModal } from '@/components/ManualAddOutreachModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
@@ -482,11 +484,12 @@ function OutreachSubTabs({ active, onChange, favCount }: {
   )
 }
 
-function OutreachAnalytics({ entries, customMetrics, onEditMetric, onAddMetric }: {
+function OutreachAnalytics({ entries, customMetrics, onEditMetric, onAddMetric, onSaveMetric }: {
   entries: OutreachEntry[]
   customMetrics: import('@/lib/types').CustomMetric[]
   onEditMetric: (m: import('@/lib/types').CustomMetric) => void
   onAddMetric: () => void
+  onSaveMetric: (m: import('@/lib/types').CustomMetric) => Promise<void> | void
 }) {
   if (entries.length === 0) {
     return (
@@ -642,20 +645,79 @@ function OutreachAnalytics({ entries, customMetrics, onEditMetric, onAddMetric }
             onClick={onAddMetric}
             className="text-xs text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded-md px-3 py-1.5 transition-colors"
           >
-            + Add metric
+            + Add custom metric
           </button>
         </div>
-        {customMetrics.length === 0 ? (
-          <div className="border border-dashed border-gray-800 rounded-xl py-8 px-6 text-center text-xs text-gray-500">
-            Define your own metrics — e.g. "LinkedIn responses" or "Pipeline $ for favorites only".
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+
+        {/* Suggested presets — one-click adds. Hides each one once it exists. */}
+        <SuggestedMetrics existing={customMetrics} onPick={onSaveMetric} />
+
+        {customMetrics.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-3">
             {customMetrics.map(m => (
               <CustomMetricCard key={m.id} metric={m} entries={entries} onEdit={() => onEditMetric(m)} />
             ))}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+const SUGGESTED_METRICS: Omit<import('@/lib/types').CustomMetric, 'id'>[] = [
+  {
+    label: 'LinkedIn replies',
+    type: 'count',
+    filter: { ...EMPTY_METRIC_FILTER, medium: 'LinkedIn', status: 'Successful' },
+  },
+  {
+    label: 'Email replies',
+    type: 'count',
+    filter: { ...EMPTY_METRIC_FILTER, medium: 'Email', status: 'Successful' },
+  },
+  {
+    label: 'Total deal value',
+    type: 'sum',
+    sumField: 'dealValue',
+    filter: { ...EMPTY_METRIC_FILTER },
+  },
+  {
+    label: 'Favorites',
+    type: 'count',
+    filter: { ...EMPTY_METRIC_FILTER, favorite: 'yes' },
+  },
+  {
+    label: 'No response',
+    type: 'count',
+    filter: { ...EMPTY_METRIC_FILTER, status: 'No Response' },
+  },
+  {
+    label: 'Fresh leads (7d)',
+    type: 'count',
+    filter: { ...EMPTY_METRIC_FILTER, window: 'last7' },
+  },
+]
+
+function SuggestedMetrics({ existing, onPick }: {
+  existing: import('@/lib/types').CustomMetric[]
+  onPick: (m: import('@/lib/types').CustomMetric) => Promise<void> | void
+}) {
+  const existingLabels = new Set(existing.map(m => m.label.toLowerCase()))
+  const remaining = SUGGESTED_METRICS.filter(s => !existingLabels.has(s.label.toLowerCase()))
+  if (remaining.length === 0) return null
+  return (
+    <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-3.5">
+      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Suggested · click to add</div>
+      <div className="flex flex-wrap gap-2">
+        {remaining.map(s => (
+          <button
+            key={s.label}
+            onClick={() => onPick({ ...s, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })}
+            className="text-xs text-gray-300 hover:text-white bg-gray-800/60 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-md px-3 py-1.5 transition-colors"
+          >
+            + {s.label}
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -757,13 +819,14 @@ function StackedBar({ segments, total }: { segments: { label: string; value: num
   )
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, profile, emptyVariant }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, profile, emptyVariant }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onRemove: (id: string) => void
   onOpenCustomize: () => void
   onReorderCols: (newConfig: OutreachColConfig[]) => void
+  onOpenManualAdd: () => void
   profile: UserProfile | null
   emptyVariant?: 'all' | 'favorites'
 }) {
@@ -824,7 +887,10 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   if (entries.length === 0) {
     return (
       <div className="mt-4">
-        <div className="flex justify-end mb-3">
+        <div className="flex justify-end gap-2 mb-3">
+          <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+            <span className="text-base leading-none">+</span> Add manually
+          </button>
           <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             Customize Columns
@@ -864,7 +930,10 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
 
   return (
     <div>
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end gap-2 mb-3">
+        <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+          <span className="text-base leading-none">+</span> Add manually
+        </button>
         <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           Customize Columns
@@ -1109,6 +1178,7 @@ export default function Home() {
   const [customMetrics, setCustomMetrics] = useState<import('@/lib/types').CustomMetric[]>([])
   const [editingMetric, setEditingMetric] = useState<import('@/lib/types').CustomMetric | null>(null)
   const [showAddMetric, setShowAddMetric] = useState(false)
+  const [showManualAdd, setShowManualAdd] = useState(false)
   const [outreach, setOutreach] = useState<OutreachEntry[]>([])
   const [outreachIds, setOutreachIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -1426,6 +1496,82 @@ export default function Home() {
     seenChannelIds.current = new Set()
     setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
+
+    // If the input looks like a YouTube URL, treat it as a direct channel lookup.
+    const trimmed = kw.trim()
+    const looksLikeUrl = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(trimmed)
+    if (looksLikeUrl) {
+      setStatus('Resolving channel from URL...')
+      try {
+        const r = await fetch(`/api/lookup-channel?url=${encodeURIComponent(trimmed)}`)
+        const lookup = await r.json()
+        if (version !== searchVersion.current) return
+        if (!r.ok || !lookup.channelId) {
+          setStatus(`Could not resolve channel: ${lookup.error || 'unknown'}`)
+          return
+        }
+        if (dismissedIds.has(lookup.channelId) || outreachIds.has(lookup.channelId)) {
+          setStatus('That channel is already in your outreach or dismissed list.')
+          return
+        }
+        seenChannelIds.current.add(lookup.channelId)
+        const baseCreator: Creator = {
+          channelId: lookup.channelId,
+          channelName: lookup.channelName || '',
+          channelUrl: lookup.channelUrl,
+          avgViews: 0,
+          subscribers: '',
+          email: '',
+          website: '',
+          linkedin: '',
+          twitter: '',
+          instagram: '',
+          tiktok: '',
+          company: '',
+          matchedVia: 'url',
+          videoTitles: [],
+          videoDates: [],
+          description: lookup.description || '',
+          enriching: true,
+        }
+        setCreators([baseCreator])
+        setEnrichProgress({ current: 0, total: 1 })
+        setStatus('Channel found. Enriching contact info...')
+        try {
+          const params = new URLSearchParams({
+            name: baseCreator.channelName, channelId: baseCreator.channelId,
+            description: baseCreator.description,
+          })
+          const er = await fetch(`/api/enrich?${params}`)
+          const extra = await er.json()
+          if (version !== searchVersion.current) return
+          setCreators([{
+            ...baseCreator,
+            enriching: false,
+            email: extra.email || '',
+            subscribers: extra.subscribers || '',
+            videoDates: extra.videoDates || [],
+            avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : 0,
+            linkedin: extra.linkedin || '',
+            instagram: extra.instagram || '',
+            twitter: extra.twitter || '',
+            tiktok: extra.tiktok || '',
+            website: extra.website || '',
+          }])
+          setEnrichProgress({ current: 1, total: 1 })
+          setStatus('Done. Click + to add to Outreach.')
+        } catch {
+          setCreators([{ ...baseCreator, enriching: false }])
+          setStatus('Done (could not fetch extra contact info).')
+        }
+      } catch (err: any) {
+        setStatus(`Lookup failed: ${err?.message || err}`)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     setStatus('Searching YouTube...')
 
     try {
@@ -2073,6 +2219,12 @@ export default function Home() {
                 customMetrics={customMetrics}
                 onAddMetric={() => setShowAddMetric(true)}
                 onEditMetric={(m) => setEditingMetric(m)}
+                onSaveMetric={async (m) => {
+                  const exists = customMetrics.some(x => x.id === m.id)
+                  const next = exists ? customMetrics.map(x => x.id === m.id ? m : x) : [...customMetrics, m]
+                  setCustomMetrics(next)
+                  await saveCustomMetrics(next)
+                }}
               />
             ) : (
               <OutreachTab
@@ -2082,6 +2234,7 @@ export default function Home() {
                 onRemove={removeOutreachEntry}
                 onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
                 onReorderCols={reorderOutreachCols}
+                onOpenManualAdd={() => setShowManualAdd(true)}
                 profile={profile}
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
               />
@@ -2237,6 +2390,20 @@ export default function Home() {
             setShowImportDismissed(false)
           }}
           onClose={() => setShowImportDismissed(false)}
+        />
+      )}
+
+      {showManualAdd && (
+        <ManualAddOutreachModal
+          existingChannelIds={outreachIds}
+          onAdd={async (entry) => {
+            const next = [entry, ...outreach]
+            await persistOutreach(next)
+            const fresh = await getOutreach()
+            setOutreach(fresh)
+            setOutreachIds(new Set(fresh.map(e => e.channelId)))
+          }}
+          onClose={() => setShowManualAdd(false)}
         />
       )}
 
