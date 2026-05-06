@@ -588,6 +588,8 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
 
   // Top stats
   const pipelineValue = open.reduce((s, e) => s + dealValueNum(e), 0)
+  const atRiskValue = groups.high.reduce((s, e) => s + dealValueNum(e), 0)
+  const totalTouches = open.reduce((s, e) => s + (parseInt(e.touchpoints || '0', 10) || 0), 0)
 
   // Headline summary line — single sentence
   const headline = (() => {
@@ -632,13 +634,46 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
 
   return (
     <div className="space-y-6">
-      {/* Headline + 3 stats */}
+      {/* Headline + 4 priority-aware stats */}
       <div>
         <p className="text-sm text-gray-300">{headline}</p>
-        <div className="grid grid-cols-3 gap-3 mt-3">
-          <FUStat label="High priority" value={groups.high.length} accent={groups.high.length > 0 ? 'red' : 'gray'} sub={groups.high.length > 0 ? 'overdue or due today' : 'none right now'} />
-          <FUStat label="Medium" value={groups.medium.length} accent={groups.medium.length > 0 ? 'yellow' : 'gray'} sub={groups.medium.length > 0 ? 'due this week' : 'nothing this week'} />
-          <FUStat label="Pipeline $" value={pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : '—'} accent="green" sub={open.length > 0 ? `${open.length} active leads` : undefined} />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+          <FUStat
+            label="High priority"
+            value={groups.high.length}
+            accent={groups.high.length > 0 ? 'red' : 'gray'}
+            sub={
+              open.length > 0
+                ? `${Math.round((groups.high.length / open.length) * 100)}% of queue`
+                : 'none right now'
+            }
+          />
+          <FUStat
+            label="Medium"
+            value={groups.medium.length}
+            accent={groups.medium.length > 0 ? 'yellow' : 'gray'}
+            sub={groups.medium.length > 0 ? 'due this week' : 'nothing this week'}
+          />
+          <FUStat
+            label="At-risk $"
+            value={atRiskValue > 0 ? `$${atRiskValue.toLocaleString()}` : '—'}
+            accent={atRiskValue > 0 ? 'red' : 'gray'}
+            sub={
+              atRiskValue > 0
+                ? `${groups.high.length} high-priority lead${groups.high.length === 1 ? '' : 's'}`
+                : 'nothing urgent in pipeline'
+            }
+          />
+          <FUStat
+            label="Pipeline $"
+            value={pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : '—'}
+            accent="green"
+            sub={
+              open.length > 0
+                ? `${open.length} active · ${totalTouches} touch${totalTouches === 1 ? '' : 'es'}`
+                : undefined
+            }
+          />
         </div>
       </div>
 
