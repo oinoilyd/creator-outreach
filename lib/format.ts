@@ -41,6 +41,27 @@ export function formatSubscribers(s: string): string {
   return n.toLocaleString()
 }
 
+// Parse subscriber strings like "10K", "1.2M", "550 subscribers" → number.
+// Returns null when the input is empty or unparseable so callers can decide
+// how to treat unknowns.
+export function parseSubscriberCount(s: string): number | null {
+  if (!s) return null
+  const cleaned = String(s).replace(/,/g, '').trim().toLowerCase()
+  if (!cleaned) return null
+  // Try plain number first.
+  const plain = Number(cleaned)
+  if (!isNaN(plain)) return plain
+  const match = cleaned.match(/([\d.]+)\s*([kmb])?/)
+  if (!match) return null
+  const n = parseFloat(match[1])
+  if (isNaN(n)) return null
+  const suffix = match[2]
+  if (suffix === 'k') return Math.round(n * 1_000)
+  if (suffix === 'm') return Math.round(n * 1_000_000)
+  if (suffix === 'b') return Math.round(n * 1_000_000_000)
+  return Math.round(n)
+}
+
 export function parseRelativeDays(text: string): number {
   if (!text) return Infinity
   const t = text.toLowerCase()

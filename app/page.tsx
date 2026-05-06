@@ -19,7 +19,7 @@ import { motion } from 'motion/react'
 import { CadencePopover, FollowedUpPopover } from '@/components/CadencePopover'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
-  pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
+  pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount, buildOutreachEmail,
 } from '@/lib/format'
 import {
   DEFAULT_GUIDANCE_WEIGHT, GUIDANCE_PRESETS,
@@ -1980,6 +1980,8 @@ export default function Home() {
   const maxResults = 100
   const [minViews, setMinViews] = useState(0)
   const [maxViews, setMaxViews] = useState(200000)
+  const [minSubs, setMinSubs] = useState(0)
+  const [maxSubs, setMaxSubs] = useState(0) // 0 = no upper limit
   const [maxAgeDays, setMaxAgeDays] = useState<number>(Infinity)
   const [showFilter, setShowFilter] = useState(false)
   const [creators, setCreators] = useState<Creator[]>([])
@@ -2960,6 +2962,14 @@ export default function Home() {
   const baseList = creators
   const currentList = baseList
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
+    .filter(c => {
+      if (minSubs === 0 && maxSubs === 0) return true
+      const n = parseSubscriberCount(c.subscribers)
+      if (n == null) return minSubs === 0 // unknown subs only pass when there's no min
+      if (minSubs > 0 && n < minSubs) return false
+      if (maxSubs > 0 && n > maxSubs) return false
+      return true
+    })
     .filter(c => maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
     .filter(c => !emailOnly || !!c.email)
     .filter(c => {
@@ -3117,6 +3127,31 @@ export default function Home() {
               {VIEW_PRESETS.map(p => (
                 <button key={p.label} onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
                   className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 flex-wrap border-t border-border pt-3">
+              <span className="text-xs text-muted-foreground w-20 shrink-0">Subscribers:</span>
+              <input type="number" min={0} value={minSubs || ''}
+                onChange={e => setMinSubs(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-28 bg-muted border border-border rounded px-3 py-1 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                placeholder="Min" />
+              <span className="text-muted-foreground/70 text-xs">to</span>
+              <input type="number" min={0} value={maxSubs || ''}
+                onChange={e => setMaxSubs(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-28 bg-muted border border-border rounded px-3 py-1 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                placeholder="Max" />
+              <span className="text-muted-foreground/70 text-xs">|</span>
+              {[
+                { label: 'Any', min: 0, max: 0 },
+                { label: '1K–10K', min: 1_000, max: 10_000 },
+                { label: '10K–100K', min: 10_000, max: 100_000 },
+                { label: '100K–1M', min: 100_000, max: 1_000_000 },
+                { label: '1M+', min: 1_000_000, max: 0 },
+              ].map(p => (
+                <button key={p.label} onClick={() => { setMinSubs(p.min); setMaxSubs(p.max) }}
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${minSubs === p.min && maxSubs === p.max ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
                   {p.label}
                 </button>
               ))}
