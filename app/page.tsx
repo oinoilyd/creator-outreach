@@ -490,10 +490,11 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
   }
 
   const total = entries.length
-  // "Reached out" here means outreach that actually completed — i.e. produced
-  // a clear response (Successful or Rejected). Open / No Response / blank
-  // status don't count yet.
-  const reachedOut = entries.filter(e => e.status === 'Successful' || e.status === 'Rejected').length
+  // "Reached out" = the user sent the outreach (regardless of outcome).
+  // "Response received" = creator replied either way (Successful or Rejected).
+  // No Response = reached out but never heard back; still counts as reached out.
+  const reachedOut = entries.filter(e => e.reachedOut).length
+  const responseReceived = entries.filter(e => e.status === 'Successful' || e.status === 'Rejected').length
   const successful = entries.filter(e => e.status === 'Successful').length
   const rejected = entries.filter(e => e.status === 'Rejected').length
   const open = entries.filter(e => e.status === 'Open' || e.status === '').length
@@ -514,10 +515,10 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
     return isFinite(t) && t < todayMs
   }).length
 
-  // Response rate: completed outreach (Successful + Rejected) ÷ pipeline.
-  const responseRate = total > 0 ? Math.round((reachedOut / total) * 100) : 0
-  // Win rate: of completed outreach, what fraction was Successful.
-  const winRate = reachedOut > 0 ? Math.round((successful / reachedOut) * 100) : 0
+  // Response rate: of those you reached out to, who responded either way.
+  const responseRate = reachedOut > 0 ? Math.round((responseReceived / reachedOut) * 100) : 0
+  // Win rate: of those who responded, what fraction was Successful.
+  const winRate = responseReceived > 0 ? Math.round((successful / responseReceived) * 100) : 0
 
   const SEVEN_D_AGO = Date.now() - 7 * 24 * 60 * 60 * 1000
   const addedLast7 = entries.filter(e => e.addedAt > SEVEN_D_AGO).length
@@ -545,11 +546,12 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
   return (
     <div className="space-y-6">
       {/* Top stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
         <AStat label="In pipeline" value={total} />
-        <AStat label="Reached out" value={reachedOut} sub="Successful + Rejected" />
-        <AStat label="Response rate" value={`${responseRate}%`} sub={`${reachedOut} of ${total} pipeline`} />
-        <AStat label="Win rate" value={`${winRate}%`} sub={`${successful} of ${reachedOut} responded`} />
+        <AStat label="Reached out" value={reachedOut} sub={total > 0 ? `${Math.round(reachedOut / total * 100)}% of pipeline` : undefined} />
+        <AStat label="Response received" value={responseReceived} sub="Successful + Rejected" />
+        <AStat label="Response rate" value={`${responseRate}%`} sub={`${responseReceived} of ${reachedOut} reached out`} />
+        <AStat label="Win rate" value={`${winRate}%`} sub={`${successful} of ${responseReceived} responses`} />
         <AStat label="Pipeline $" value={pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : '—'} sub="non-rejected" />
         <AStat label="Stale follow-ups" value={stale} highlight={stale > 0} />
       </div>
