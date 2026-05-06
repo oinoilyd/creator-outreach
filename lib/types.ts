@@ -91,7 +91,7 @@ export interface OutreachEntry {
   medium: 'Email' | 'LinkedIn' | 'Other' | ''
   mediumOther: string
   headerUsed: string
-  status: 'Open' | 'Rejected' | 'Successful' | 'No Response' | ''
+  status: 'Not Outreached' | 'Open' | 'Rejected' | 'Successful' | 'No Response' | ''
   addedAt: number
   notes: string
   followUpDate: string

@@ -41,7 +41,9 @@ function rowToOutreach(r: any): OutreachEntry {
     medium: (r.medium ?? '') as OutreachEntry['medium'],
     mediumOther: r.medium_other ?? '',
     headerUsed: r.header_used ?? '',
-    status: (r.status ?? '') as OutreachEntry['status'],
+    // Old rows may have blank status; backfill to a meaningful default
+    // based on whether they were marked reached-out.
+    status: ((r.status as OutreachEntry['status']) || (r.reached_out ? 'Open' : 'Not Outreached')),
     addedAt: Number(r.added_at) || 0,
     notes: r.notes ?? '',
     followUpDate: r.follow_up_date ?? '',

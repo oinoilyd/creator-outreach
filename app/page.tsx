@@ -410,9 +410,9 @@ function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: 
       return <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-gray-200" />
     case 'status':
       return (
-        <select value={e.status} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
-          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-300' : e.status === 'No Response' ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>
-          <option value="">—</option>
+        <select value={e.status || 'Not Outreached'} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
+          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-300' : e.status === 'No Response' ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>
+          <option value="Not Outreached">Not Outreached</option>
           <option value="Open">Open</option>
           <option value="No Response">No Response</option>
           <option value="Successful">Successful</option>
@@ -497,8 +497,9 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
   const responseReceived = entries.filter(e => e.status === 'Successful' || e.status === 'Rejected').length
   const successful = entries.filter(e => e.status === 'Successful').length
   const rejected = entries.filter(e => e.status === 'Rejected').length
-  const open = entries.filter(e => e.status === 'Open' || e.status === '').length
+  const open = entries.filter(e => e.status === 'Open').length
   const noResponse = entries.filter(e => e.status === 'No Response').length
+  const notOutreached = entries.filter(e => e.status === 'Not Outreached' || e.status === '').length
 
   const pipelineValue = entries
     .filter(e => e.status !== 'Rejected')
@@ -510,7 +511,7 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayMs = today.getTime()
   const stale = entries.filter(e => {
-    if (!e.followUpDate || (e.status !== 'Open' && e.status !== '')) return false
+    if (!e.followUpDate || e.status !== 'Open') return false
     const t = new Date(e.followUpDate).getTime()
     return isFinite(t) && t < todayMs
   }).length
@@ -565,6 +566,7 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
             { label: 'Open', value: open, color: 'bg-blue-500' },
             { label: 'No Response', value: noResponse, color: 'bg-gray-500' },
             { label: 'Rejected', value: rejected, color: 'bg-red-500' },
+            { label: 'Not Outreached', value: notOutreached, color: 'bg-gray-700' },
           ]}
           total={total}
         />
@@ -1245,7 +1247,7 @@ export default function Home() {
       medium: '',
       mediumOther: '',
       headerUsed: '',
-      status: '',
+      status: 'Not Outreached',
       addedAt: Date.now(),
       notes: '',
       followUpDate: '',
@@ -1278,7 +1280,16 @@ export default function Home() {
   }
 
   function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
-    saveOutreach(outreach.map(e => e.id === id ? { ...e, [field]: value } : e))
+    saveOutreach(outreach.map(e => {
+      if (e.id !== id) return e
+      const updated = { ...e, [field]: value }
+      // Status is the source of truth for reachedOut. Anything other than
+      // "Not Outreached" / "" implies the user has actually reached out.
+      if (field === 'status') {
+        updated.reachedOut = value !== 'Not Outreached' && value !== ''
+      }
+      return updated
+    }))
   }
 
   function removeOutreachEntry(id: string) {

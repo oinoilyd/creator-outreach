@@ -78,7 +78,13 @@ export function ImportOutreachModal({
           medium: (String(r['Medium'] || '') as OutreachEntry['medium']) || '',
           mediumOther: '',
           headerUsed: String(r['Subject Line'] || ''),
-          status: (String(r['Status'] || '') as OutreachEntry['status']) || '',
+          status: ((): OutreachEntry['status'] => {
+            const raw = (String(r['Status'] || '') as OutreachEntry['status']) || ''
+            if (raw) return raw
+            // No explicit status from the sheet — derive a reasonable default.
+            const hasReached = reachedOutRaw === 'yes' || reachedOutRaw === 'true'
+            return hasReached ? 'Open' : 'Not Outreached'
+          })(),
           addedAt: now + i,
           notes: '',
           followUpDate: '',
