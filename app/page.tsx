@@ -136,7 +136,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 <div className="bg-muted/70 rounded-lg p-2.5 space-y-2 border border-border/40">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground font-medium">Score contribution</span>
-                    <span className={`font-bold font-mono text-sm ${guidanceActualPts > 0 ? 'text-purple-300' : 'text-muted-foreground'}`}>
+                    <span className={`font-bold font-mono text-sm ${guidanceActualPts > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-muted-foreground'}`}>
                       {guidanceActualPts} <span className="text-muted-foreground/70 font-normal text-[10px]">/ {guidanceMaxPts} pts</span>
                     </span>
                   </div>
@@ -184,7 +184,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                             <div className="text-muted-foreground text-[10px] italic leading-snug break-words">"{entry.text}"</div>
                             {entry.summary && (
                               <div className="text-foreground/80 text-[11px] mt-1 leading-snug break-words">
-                                <span className="text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
+                                <span className="text-purple-700 dark:text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
                               </div>
                             )}
                           </div>
@@ -200,7 +200,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                                     <div className="flex items-center gap-1.5">
                                       <span className="text-green-500 shrink-0">✓</span>
                                       <span className="flex-1 text-foreground font-medium leading-snug break-words">{f.ruleLabel}</span>
-                                      <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-green-400' : 'text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
+                                      <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-green-400' : 'text-red-700 dark:text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
                                     </div>
                                     {evidence && (
                                       <div className="ml-4 text-[10px] text-green-700 leading-snug break-words bg-green-900/20 rounded px-1.5 py-0.5">
@@ -239,7 +239,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 <span className="text-[10px] text-muted-foreground/70">Manage criteria in Score Settings</span>
                 <button
                   onClick={() => { setOpen(false); setGuidanceView(false) }}
-                  className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-0.5"
+                  className="text-[10px] text-purple-700 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 transition-colors flex items-center gap-0.5"
                 >
                   Done
                 </button>
@@ -259,12 +259,12 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 <div className="space-y-1.5">
                   {items.map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className={`w-6 text-right font-mono font-bold shrink-0 leading-snug ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
+                      <span className={`w-6 text-right font-mono font-bold shrink-0 leading-snug ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
                         {item.pts > 0 ? '+' : ''}{item.pts}
                       </span>
                       <div className="flex-1 min-w-0">
                         {item.isGuidance ? (
-                          <button onClick={() => setGuidanceView(true)} className="text-purple-400 hover:text-purple-300 flex items-center gap-1 text-left">
+                          <button onClick={() => setGuidanceView(true)} className="text-purple-700 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 flex items-center gap-1 text-left">
                             <span>✨ Your Criteria</span>
                             <span className="text-muted-foreground/70">/ {item.max}</span>
                             <span className="text-muted-foreground text-[10px] ml-0.5">view →</span>
@@ -303,7 +303,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                     <div className="mt-3 pt-2 border-t border-border space-y-2">
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">
                         <span>Score breakdown</span>
-                        {chipMode ? <span className="text-purple-400 normal-case font-normal">✨ Your criteria</span> : <span className="text-muted-foreground/50 normal-case font-normal">Default</span>}
+                        {chipMode ? <span className="text-purple-700 dark:text-purple-400 normal-case font-normal">✨ Your criteria</span> : <span className="text-muted-foreground/50 normal-case font-normal">Default</span>}
                       </div>
                       {/* Stacked bar */}
                       <div className="flex h-1.5 rounded-full overflow-hidden gap-px bg-muted">
@@ -325,7 +325,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                           return (
                             <div key={seg.key} className="flex items-center gap-1 min-w-0">
                               <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: chipMode ? 'rgb(168,85,247)' : 'rgb(99,102,241)', opacity: pct === 0 ? 0.3 : 1 }} />
-                              <span className={`text-[9px] truncate ${chipMode ? 'text-purple-400' : 'text-muted-foreground/70'}`}>{seg.label.split(' ').slice(0,2).join(' ')} {pct}%</span>
+                              <span className={`text-[9px] truncate ${chipMode ? 'text-purple-700 dark:text-purple-400' : 'text-muted-foreground/70'}`}>{seg.label.split(' ').slice(0,2).join(' ')} {pct}%</span>
                             </div>
                           )
                         })}
@@ -373,18 +373,18 @@ function renderCell(
             onClick={() => onDeepSearch(c.channelId)}
             disabled={searching}
             title="Deep search — checks website (incl. /press, /partnerships, /sponsor), Linktree-style bio pages, social bios, and multiple DDG queries. Takes 10-20s."
-            className="text-[10px] text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
+            className="text-[10px] text-purple-700 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
           >
             {searching ? 'Searching…' : '🔍 Find email'}
           </button>
         )}
       </td>
     )
-    case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-    case 'website':   return <td key={id} className="px-4 py-3">{c.website   ? <a href={c.website}   target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-    case 'instagram': return <td key={id} className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-    case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
-    case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'website':   return <td key={id} className="px-4 py-3">{c.website   ? <a href={c.website}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'instagram': return <td key={id} className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
   }
 }
 
@@ -418,10 +418,10 @@ function FollowUpDateCell({ entry, onUpdate }: {
   const pillClass = isUnset
     ? 'bg-muted/50 text-muted-foreground border-border hover:border-border'
     : isOverdue
-      ? 'bg-red-500/15 text-red-300 border-red-500/40 hover:border-red-400'
+      ? 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/40 hover:border-red-400'
       : isToday
-        ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40 hover:border-yellow-400'
-        : 'bg-blue-500/10 text-blue-300 border-blue-500/30 hover:border-blue-400'
+        ? 'bg-yellow-500/15 text-amber-700 dark:text-yellow-300 border-yellow-500/40 hover:border-yellow-400'
+        : 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 hover:border-blue-400'
 
   const label = isUnset
     ? '+ set'
@@ -458,7 +458,7 @@ function FollowUpDateCell({ entry, onUpdate }: {
             title="Set to today + the smart cadence step based on this lead's current touch count"
           >
             <span>Use cadence</span>
-            <span className="text-[10px] text-purple-300/80">+{cadenceDays}d (touch {tps + 1})</span>
+            <span className="text-[10px] text-purple-700 dark:text-purple-300/80">+{cadenceDays}d (touch {tps + 1})</span>
           </button>
 
           {/* Quick presets */}
@@ -495,7 +495,7 @@ function FollowUpDateCell({ entry, onUpdate }: {
           {!isUnset && (
             <button
               onClick={() => setDate('')}
-              className="w-full mt-2 px-3 py-1 text-[11px] text-muted-foreground hover:text-red-300 border border-border hover:border-red-500/50 rounded transition-colors"
+              className="w-full mt-2 px-3 py-1 text-[11px] text-muted-foreground hover:text-red-700 dark:text-red-300 border border-border hover:border-red-500/50 rounded transition-colors"
             >
               Clear date
             </button>
@@ -522,7 +522,7 @@ function renderOutreachCell(
         <button
           onClick={() => onUpdate(e.id, 'favorite', !e.favorite)}
           title={e.favorite ? 'Unstar' : 'Mark as favorite'}
-          className={`mt-0.5 transition-colors ${e.favorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-muted-foreground/50 hover:text-yellow-500'}`}
+          className={`mt-0.5 transition-colors ${e.favorite ? 'text-amber-700 dark:text-yellow-400 hover:text-amber-700 dark:text-yellow-300' : 'text-muted-foreground/50 hover:text-yellow-500'}`}
           aria-label={e.favorite ? 'Unstar' : 'Mark as favorite'}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 20 20" fill={e.favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6}>
@@ -531,7 +531,7 @@ function renderOutreachCell(
         </button>
       )
     case 'channelName':
-      return <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-400 font-medium" />
+      return <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-800 dark:text-blue-400 font-medium" />
     case 'channelUrl':
       return (
         <a href={e.channelUrl} target="_blank" className="mt-0.5 block">
@@ -550,7 +550,7 @@ function renderOutreachCell(
               onClick={() => onSearchContacts(e.id)}
               disabled={searching}
               title="Deep search — checks website (incl. /press, /partnerships, /sponsor), Linktree-style bio pages, social bios, and multiple DDG queries. Takes 10-20s."
-              className="self-start mt-0.5 text-[10px] text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
+              className="self-start mt-0.5 text-[10px] text-purple-700 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
               {searching ? 'Searching…' : '🔍 Find email'}
             </button>
@@ -580,7 +580,7 @@ function renderOutreachCell(
     case 'status':
       return (
         <select value={e.status || 'Not Outreached'} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
-          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-300' : e.status === 'No Response' ? 'bg-muted border-border text-muted-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
+          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-700 dark:text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-700 dark:text-red-300' : e.status === 'No Response' ? 'bg-muted border-border text-muted-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
           <option value="Not Outreached">Not Outreached</option>
           <option value="Open">Open</option>
           <option value="No Response">No Response</option>
@@ -607,7 +607,7 @@ function renderOutreachCell(
       return <span className={`text-xs font-bold ${color}`}>{e.fitScore || 0} <span className="font-normal opacity-70">{label}</span></span>
     }
     case 'linkedin':
-      return e.linkedin ? <a href={e.linkedin} target="_blank" className="text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-muted-foreground" />
+      return e.linkedin ? <a href={e.linkedin} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-muted-foreground" />
     case 'contentNiche':
       return <AutoTextarea value={e.contentNiche || ''} onChange={v => onUpdate(e.id, 'contentNiche', v)} placeholder="e.g. golf, finance..." className="text-foreground" />
     case 'phone':
@@ -630,8 +630,8 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
   type SubTabId = 'all' | 'favorites' | 'analytics' | 'followups'
   const tabs: { id: SubTabId; label: React.ReactNode }[] = [
     { id: 'all', label: 'All' },
-    { id: 'favorites', label: <>★ Favorites {favCount > 0 && <span className="ml-1 text-yellow-400/70">({favCount})</span>}</> },
-    { id: 'followups', label: <>⏰ Follow-ups {dueCount > 0 && <span className="ml-1 text-red-400/80">({dueCount})</span>}</> },
+    { id: 'favorites', label: <>★ Favorites {favCount > 0 && <span className="ml-1 text-amber-700 dark:text-yellow-400/70">({favCount})</span>}</> },
+    { id: 'followups', label: <>⏰ Follow-ups {dueCount > 0 && <span className="ml-1 text-red-700 dark:text-red-400/80">({dueCount})</span>}</> },
     { id: 'analytics', label: '📊 Analytics' },
   ]
   return (
@@ -748,13 +748,13 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     return (
       <div className="border border-dashed border-border rounded-xl py-16 px-6 text-center">
         <div className="mx-auto w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-blue-800 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
         <h3 className="text-base font-semibold text-foreground mb-1">No follow-ups yet</h3>
         <p className="text-muted-foreground text-sm max-w-md mx-auto">
-          Once you reach out to a creator and set their status to <span className="text-blue-400">Open</span>, they'll appear here with a follow-up date 3 days out — then 7, 14, 21 as you keep pinging.
+          Once you reach out to a creator and set their status to <span className="text-blue-800 dark:text-blue-400">Open</span>, they'll appear here with a follow-up date 3 days out — then 7, 14, 21 as you keep pinging.
         </p>
       </div>
     )
@@ -814,7 +814,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
         {priorityFilter !== 'all' && (
           <div className="flex items-center gap-2 mt-3 text-[11px] text-muted-foreground">
             <span>Showing only <span className="text-foreground font-medium">{priorityFilter} priority</span> leads.</span>
-            <button onClick={() => setPriorityFilter('all')} className="text-purple-400 hover:text-purple-300 underline-offset-2 hover:underline">Clear filter</button>
+            <button onClick={() => setPriorityFilter('all')} className="text-purple-700 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 underline-offset-2 hover:underline">Clear filter</button>
           </div>
         )}
       </div>
@@ -975,7 +975,7 @@ function Section({ title, accent, count, subtitle, icon, children }: {
   icon?: React.ReactNode
   children: React.ReactNode
 }) {
-  const accentText = { red: 'text-red-300', yellow: 'text-yellow-300', blue: 'text-blue-300', green: 'text-emerald-300' }[accent]
+  const accentText = { red: 'text-red-700 dark:text-red-300', yellow: 'text-amber-700 dark:text-yellow-300', blue: 'text-blue-700 dark:text-blue-300', green: 'text-emerald-700 dark:text-emerald-300' }[accent]
   const accentBorder = { red: 'border-red-500/40', yellow: 'border-yellow-500/40', blue: 'border-blue-500/30', green: 'border-emerald-500/30' }[accent]
   return (
     <section>
@@ -1025,8 +1025,8 @@ function FUStat({ label, value, accent, sub, onClick, active }: {
   active?: boolean
 }) {
   const accentText = {
-    red: 'text-red-400', yellow: 'text-yellow-400', blue: 'text-foreground',
-    green: 'text-emerald-400', gray: 'text-foreground',
+    red: 'text-red-700 dark:text-red-400', yellow: 'text-amber-700 dark:text-yellow-400', blue: 'text-foreground',
+    green: 'text-emerald-700 dark:text-emerald-400', gray: 'text-foreground',
   }[accent]
   const accentBorder = {
     red: 'border-red-500/30', yellow: 'border-yellow-500/30', blue: 'border-border',
@@ -1055,7 +1055,7 @@ function FUStat({ label, value, accent, sub, onClick, active }: {
         <div className="relative">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center justify-between">
             <span>{label}</span>
-            {active && <span className="text-purple-300 text-[10px]">filtered</span>}
+            {active && <span className="text-purple-700 dark:text-purple-300 text-[10px]">filtered</span>}
           </div>
           <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
             {typeof value === 'number' ? <NumberTicker value={value} /> : value}
@@ -1093,9 +1093,9 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
 
   const dotColor = { red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500', gray: 'bg-gray-500' }[accent]
   const datePillClass = {
-    red: 'bg-red-500/15 text-red-300 border-red-500/40',
-    yellow: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40',
-    blue: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+    red: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/40',
+    yellow: 'bg-yellow-500/15 text-amber-700 dark:text-yellow-300 border-yellow-500/40',
+    blue: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30',
     gray: 'bg-muted/30 text-muted-foreground border-border',
   }[accent]
 
@@ -1145,9 +1145,9 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
         <button onClick={() => onOpen(e.id)} className="flex-1 min-w-0 text-left" title="Open lead details">
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-medium text-foreground truncate">{e.channelName}</span>
-            {e.favorite && <span className="text-[10px] text-yellow-400 shrink-0">★</span>}
-            {e.email && <span className="text-[10px] text-emerald-400/80 shrink-0" title="Has email">✉</span>}
-            {e.linkedin && <span className="text-[10px] font-bold text-blue-300 shrink-0" title="Has LinkedIn">in</span>}
+            {e.favorite && <span className="text-[10px] text-amber-700 dark:text-yellow-400 shrink-0">★</span>}
+            {e.email && <span className="text-[10px] text-emerald-700 dark:text-emerald-400/80 shrink-0" title="Has email">✉</span>}
+            {e.linkedin && <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 shrink-0" title="Has LinkedIn">in</span>}
           </div>
           <div className="text-[10px] text-muted-foreground truncate">
             <span className="text-foreground/80">{stageHint}</span>
@@ -1158,7 +1158,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
 
         {/* Pipeline value chip */}
         {dealValue > 0 && (
-          <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0" title="Deal value">
+          <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0" title="Deal value">
             ${dealValue.toLocaleString()}
           </span>
         )}
@@ -1190,14 +1190,14 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
               <button
                 onClick={() => onUpdate(e.id, 'status', 'Open')}
                 title="Re-engage — moves back to active queue with a fresh date"
-                className="text-[10px] font-medium text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
+                className="text-[10px] font-medium text-purple-800 dark:text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
               >
                 Re-engage
               </button>
               <button
                 onClick={() => onUpdate(e.id, 'status', 'Rejected')}
                 title="Confirm dead lead"
-                className="w-5 h-5 flex items-center justify-center text-[10px] text-red-400 hover:text-foreground border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
+                className="w-5 h-5 flex items-center justify-center text-[10px] text-red-700 dark:text-red-400 hover:text-foreground border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
               >✕</button>
             </>
           ) : (
@@ -1207,7 +1207,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
                 <button
                   onClick={() => setFollowedUpOpen(v => !v)}
                   title="Confirm follow-up: pick next date + status"
-                  className="text-[10px] font-medium text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
+                  className="text-[10px] font-medium text-purple-800 dark:text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
                 >
                   Followed up
                 </button>
@@ -1238,7 +1238,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
                 <button
                   onClick={() => onUpdate(e.id, 'status', 'Successful')}
                   title="They said yes"
-                  className="w-5 h-5 flex items-center justify-center text-[10px] text-emerald-400 hover:text-foreground border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500 rounded transition-colors"
+                  className="w-5 h-5 flex items-center justify-center text-[10px] text-emerald-700 dark:text-emerald-400 hover:text-foreground border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500 rounded transition-colors"
                 >✓</button>
                 <button
                   onClick={() => onUpdate(e.id, 'status', 'No Response')}
@@ -1514,7 +1514,7 @@ function AStat({ label, value, sub, highlight }: { label: string; value: number 
       className={`relative bg-card/60 border rounded-xl p-4 shadow-sm shadow-black/5 hover:border-border/80 transition-colors ${highlight ? 'border-red-500/40' : 'border-border'}`}
     >
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
-      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-foreground'}`}>
+      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-700 dark:text-red-400' : 'text-foreground'}`}>
         {typeof value === 'number' ? <NumberTicker value={value} /> : value}
       </div>
       {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
@@ -1664,26 +1664,26 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           {emptyVariant === 'favorites' ? (
             <>
               <div className="mx-auto w-14 h-14 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-amber-700 dark:text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.363 1.118l1.287 3.957c.3.922-.755 1.688-1.54 1.118l-3.366-2.445a1 1 0 00-1.176 0l-3.366 2.445c-.784.57-1.838-.196-1.539-1.118l1.287-3.957a1 1 0 00-.363-1.118L2.046 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.302-3.957z" />
                 </svg>
               </div>
               <h3 className="text-base font-semibold text-foreground mb-1">No favorites yet</h3>
               <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-                Click the <span className="text-yellow-400">★</span> next to any outreach entry to mark it as a favorite. Starred entries show up here.
+                Click the <span className="text-amber-700 dark:text-yellow-400">★</span> next to any outreach entry to mark it as a favorite. Starred entries show up here.
               </p>
             </>
           ) : (
             <>
               <div className="mx-auto w-14 h-14 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-purple-700 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
                 </svg>
               </div>
               <h3 className="text-base font-semibold text-foreground mb-1">Your outreach list is empty</h3>
               <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-                Run a search in <span className="text-foreground/80">Results</span>, then click the <span className="text-purple-400">+</span> icon on any creator to add them here. Or use the menu &rarr; Import to upload an Excel of past outreach.
+                Run a search in <span className="text-foreground/80">Results</span>, then click the <span className="text-purple-700 dark:text-purple-400">+</span> icon on any creator to add them here. Or use the menu &rarr; Import to upload an Excel of past outreach.
               </p>
             </>
           )}
@@ -1733,7 +1733,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                       <div ref={favTooltipRef} className="relative" data-no-sort>
                         <button
                           onClick={(e) => { e.stopPropagation(); setShowFavTooltip(v => !v) }}
-                          className="text-yellow-400 hover:text-yellow-300 text-base leading-none"
+                          className="text-amber-700 dark:text-yellow-400 hover:text-amber-700 dark:text-yellow-300 text-base leading-none"
                           aria-label="What is the favorites column?"
                           title="What is this?"
                         >
@@ -1741,7 +1741,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                         </button>
                         {showFavTooltip && (
                           <div className="absolute left-0 top-7 z-30 w-56 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
-                            Click the star next to any row to favorite it. View only your favorites in <span className="text-yellow-400">Outreach &rarr; Favorites</span>.
+                            Click the star next to any row to favorite it. View only your favorites in <span className="text-amber-700 dark:text-yellow-400">Outreach &rarr; Favorites</span>.
                           </div>
                         )}
                       </div>
@@ -1753,7 +1753,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                         {!isLocked && <span className="text-muted-foreground/70 text-xs">⠿</span>}
                         {col.label}
                         {sort.col === col.id && (
-                          <span className="text-purple-400 text-[10px] ml-0.5" aria-label={sort.dir}>
+                          <span className="text-purple-700 dark:text-purple-400 text-[10px] ml-0.5" aria-label={sort.dir}>
                             {sort.dir === 'desc' ? '↓' : '↑'}
                           </span>
                         )}
@@ -1768,7 +1768,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                               draggable={false}
                               onDragStart={(ev) => ev.preventDefault()}
                               title={`Refresh emails for ${pending} row${pending === 1 ? '' : 's'} still missing one. ~10s each, 3 in parallel.`}
-                              className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded text-purple-400 hover:text-foreground hover:bg-purple-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                              className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded text-purple-700 dark:text-purple-400 hover:text-foreground hover:bg-purple-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
                               aria-label={`Refresh ${pending} missing emails`}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 ${bulkRunning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1797,7 +1797,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                   </td>
                 ))}
                 <td className="px-3 py-2 align-top" style={{ width: 36 }}>
-                  <button onClick={() => onRemove(e.id)} className="text-muted-foreground/50 hover:text-red-400 transition-colors"><TrashIcon /></button>
+                  <button onClick={() => onRemove(e.id)} className="text-muted-foreground/50 hover:text-red-700 dark:text-red-400 transition-colors"><TrashIcon /></button>
                 </td>
               </AnimatedRow>
             ))}
@@ -1889,7 +1889,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                         disabled={bulkRunning}
                         title={`Refresh emails for ${pending} row${pending === 1 ? '' : 's'} still missing one. ~10s each, 3 in parallel.`}
                         aria-label={`Refresh ${pending} missing emails`}
-                        className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded text-purple-400 hover:text-foreground hover:bg-purple-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                        className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded text-purple-700 dark:text-purple-400 hover:text-foreground hover:bg-purple-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 ${bulkRunning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1918,7 +1918,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 <button
                   onClick={() => onDismiss(c)}
                   title="Skip — hide this creator from results"
-                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-muted-foreground hover:text-red-400'}`}
+                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground hover:text-red-700 dark:text-red-400'}`}
                 >
                   <DismissIcon active={dismissedIds.has(c.channelId)} />
                 </button>
@@ -1927,12 +1927,12 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 <button
                   onClick={() => onAddToOutreach(c)}
                   title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
-                  className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-muted-foreground hover:text-purple-400'}`}
+                  className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-700 dark:text-purple-400' : 'text-muted-foreground hover:text-purple-700 dark:text-purple-400'}`}
                 >
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
               </td>
-              <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
+              <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch))}
             </AnimatedRow>
           ))}
@@ -1949,7 +1949,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                     <button
                       onClick={() => onDismiss(c)}
                       title="Skip — hide this creator from results"
-                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-muted-foreground hover:text-red-400'}`}
+                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground hover:text-red-700 dark:text-red-400'}`}
                     >
                       <DismissIcon active={dismissedIds.has(c.channelId)} />
                     </button>
@@ -1958,12 +1958,12 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                     <button
                       onClick={() => onAddToOutreach(c)}
                       title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
-                      className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-muted-foreground/70 hover:text-purple-400'}`}
+                      className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-700 dark:text-purple-400' : 'text-muted-foreground/70 hover:text-purple-700 dark:text-purple-400'}`}
                     >
                       <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                     </button>
                   </td>
-                  <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
+                  <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
                   {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch))}
                 </tr>
               ))}
@@ -2909,10 +2909,10 @@ export default function Home() {
       <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className={`${activeTab === 'outreach' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-baseline gap-3 min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Creator Outreach</h1>
-              <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
-                <span>Find</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent leading-none">Creator Outreach</h1>
+              <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground leading-none">
+                <span className="leading-none">Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                   void savePlatformWeights(activePlatform, scoreWeights)
                   void savePlatformNarrative(activePlatform, scoreNarrative)
@@ -2923,7 +2923,7 @@ export default function Home() {
                   setGuidanceEntries(guidance)
                   setActivePlatform(newPlatform)
                 }} />
-                <span>creators</span>
+                <span className="leading-none">creators</span>
               </div>
             </div>
             <HamburgerMenu
@@ -2951,7 +2951,7 @@ export default function Home() {
         <div className="flex gap-2 mb-2 flex-wrap">
           <div className="flex-1 min-w-64 relative group">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-muted-foreground group-focus-within:text-purple-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-muted-foreground group-focus-within:text-purple-700 dark:text-purple-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
@@ -3179,11 +3179,11 @@ export default function Home() {
               },
               {
                 id: 'outreach',
-                label: <>Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}</>,
+                label: <>Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-700 dark:text-purple-400">({outreach.length})</span>}</>,
               },
               {
                 id: 'dismissed',
-                label: <>Dismissed {dismissed.length > 0 && <span className="ml-1 text-xs text-red-400">({dismissed.length})</span>}</>,
+                label: <>Dismissed {dismissed.length > 0 && <span className="ml-1 text-xs text-red-700 dark:text-red-400">({dismissed.length})</span>}</>,
               },
             ]}
             active={activeTab}
@@ -3321,7 +3321,7 @@ export default function Home() {
                             >
                               <div className="flex items-center justify-between mb-1">
                                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground truncate" title={s.label}>{s.label}</div>
-                                <span className="text-[10px] text-muted-foreground/70 group-hover:text-purple-400 transition-colors">+ Add</span>
+                                <span className="text-[10px] text-muted-foreground/70 group-hover:text-purple-700 dark:text-purple-400 transition-colors">+ Add</span>
                               </div>
                               <div className="text-xl font-bold text-foreground tabular-nums">{value}</div>
                               <div className="text-[10px] text-muted-foreground capitalize mt-0.5">{typeLabel}</div>
@@ -3337,7 +3337,7 @@ export default function Home() {
                 <div>
                   <button
                     onClick={() => setShowAddMetric(true)}
-                    className="w-full text-xs text-purple-300 hover:text-purple-200 border border-purple-500/30 hover:border-purple-500/60 rounded-md px-3 py-2 transition-colors"
+                    className="w-full text-xs text-purple-700 dark:text-purple-300 hover:text-purple-800 dark:text-purple-200 border border-purple-500/30 hover:border-purple-500/60 rounded-md px-3 py-2 transition-colors"
                   >
                     + Build a custom metric
                   </button>
@@ -3382,7 +3382,7 @@ export default function Home() {
                               >✎</button>
                               <button
                                 onClick={() => setDraftMetrics(d => d.filter(x => x.id !== m.id))}
-                                className="text-muted-foreground hover:text-red-400 px-1"
+                                className="text-muted-foreground hover:text-red-700 dark:text-red-400 px-1"
                                 title="Remove"
                               >✕</button>
                             </div>
