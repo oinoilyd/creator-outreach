@@ -181,7 +181,12 @@ function extractEmailsFromHtml(html: string): string[] {
 
 // Filter junk (image filenames misread as emails, platform-owned infra
 // addresses, hash-shaped DSN local parts, etc.)
-function isPlausibleEmail(email: string): boolean {
+// Exported so the admin email-test orchestrator can apply the same
+// blocklist to emails coming out of the production /api/enrich pipeline
+// (which has its own simpler regex-based extraction without platform
+// awareness). Production app stays untouched; only the admin sandbox
+// validates uniformly.
+export function isPlausibleEmail(email: string): boolean {
   if (email.length < 6 || email.length > 80) return false
   if (/\.(png|jpg|jpeg|gif|svg|webp|css|js)$/.test(email)) return false
   if (/^[0-9.@-]+$/.test(email)) return false

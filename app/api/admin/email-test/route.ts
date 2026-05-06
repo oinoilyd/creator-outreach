@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isPlausibleEmail } from '@/lib/newMethodology'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -175,8 +176,13 @@ export async function POST(req: NextRequest) {
           website: j.website || c.website || '',
         }
 
-        // If the primary pipeline found something, we're done.
-        if (j.email) {
+        // If the primary pipeline found a real email, we're done.
+        // Validate first — production /api/enrich extracts emails with a
+        // plain regex and has no platform-domain blocklist, so it can
+        // surface junk like friends@stanwith.me from a Linktree-expanded
+        // Stan profile page. We strip those here and let the fallbacks
+        // try instead.
+        if (j.email && isPlausibleEmail(String(j.email).toLowerCase())) {
           return {
             channelName: c.channelName,
             channelId: c.channelId,
@@ -245,7 +251,7 @@ export async function POST(req: NextRequest) {
             }),
           })
           const ea = eaResp.ok ? await eaResp.json() : { email: null, candidates: [] }
-          if (ea.email) {
+          if (ea.email && isPlausibleEmail(String(ea.email).toLowerCase())) {
             const top = ea.candidates?.[0]
             return {
               channelName: c.channelName,
