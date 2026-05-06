@@ -103,21 +103,34 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Light-mode designer canvas: faint violet-blue radial wash sitting
-   behind everything. Adds depth without pulling focus from content. */
+/* Light-mode designer canvas: violet/blue/pink radial washes that
+   slowly drift, giving the page ambient depth without distracting
+   from content. Three blobs at different speeds + slight position
+   shifts create a subtle aurora. */
 :root body::before {
   content: '';
   position: fixed;
-  inset: 0;
+  inset: -10%;
   z-index: -1;
   background:
-    radial-gradient(ellipse 70% 50% at 15% 0%, oklch(0.92 0.10 295 / 0.55), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 100% 100%, oklch(0.93 0.09 250 / 0.45), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 50% 100%, oklch(0.95 0.08 320 / 0.35), transparent 65%);
+    radial-gradient(ellipse 60% 50% at 12% 8%,  oklch(0.88 0.14 295 / 0.65), transparent 62%),
+    radial-gradient(ellipse 55% 45% at 92% 92%, oklch(0.90 0.13 250 / 0.55), transparent 62%),
+    radial-gradient(ellipse 45% 40% at 55% 95%, oklch(0.92 0.12 330 / 0.45), transparent 65%),
+    radial-gradient(ellipse 40% 35% at 85% 18%, oklch(0.93 0.10 280 / 0.40), transparent 65%);
   pointer-events: none;
+  animation: aurora-drift 32s ease-in-out infinite alternate;
+  filter: blur(8px);
 }
 .dark body::before {
   display: none;
+}
+@keyframes aurora-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(2%, -2%, 0) scale(1.04); }
+  100% { transform: translate3d(-1%, 1%, 0) scale(1.02); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root body::before { animation: none; }
 }
 
 /* Animated gradient beam traveling along a card border. */
@@ -143,28 +156,3 @@ body {
   animation: shimmer 3.5s linear infinite;
 }
 
-/* View Transitions API — circle reveal from sign-in click point.
-   Used when transitioning from the dark auth shell to the light app
-   interior. Falls back to instant swap in browsers that don't support
-   the API (Firefox at time of writing). */
-::view-transition-old(root) {
-  animation: none;
-  z-index: 1;
-}
-::view-transition-new(root) {
-  animation: circle-reveal 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  z-index: 2;
-}
-@keyframes circle-reveal {
-  from {
-    clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 50%));
-  }
-  to {
-    clip-path: circle(var(--vt-radius, 150vmax) at var(--vt-x, 50%) var(--vt-y, 50%));
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-new(root) {
-    animation: none;
-  }
-}

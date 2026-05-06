@@ -431,6 +431,17 @@ export async function GET(req: NextRequest) {
   const niche         = clampString(searchParams.get('niche'), 80)
   const aggressive    = searchParams.get('aggressive') === 'true'
 
+  // Strategy toggle — comma-separated list of enabled enrichment sources
+  // for the admin email-test harness. When absent, every source runs
+  // (production behavior). Recognized keys:
+  //   web_scrape, biolink, bio_pages, ddg, wayback, domain_guess
+  // (yt_about and description-extract always run — they're free.)
+  const strategyParam = searchParams.get('strategy')
+  const isEnabled = (key: string): boolean => {
+    if (strategyParam == null) return true
+    return strategyParam.split(',').map(s => s.trim()).includes(key)
+  }
+
   const descEmails = extractEmails(description)
 
   // Phase 1: About page — discovers description emails, all social/website
@@ -443,25 +454,25 @@ export async function GET(req: NextRequest) {
   const tiktok = yt.socials.tiktok || tiktokParam
   const channelName = searchParams.get('name') || searchParams.get('channelName') || ''
 
-  // Phase 2: every email-finding source in parallel. The previous "deep"
-  // gate is gone — every enrichment now runs the full set: RSS + multi-page
-  // website scrape + Linktree-style biolink expansion + DDG LinkedIn +
-  // DDG email (with 13+ query variations).
+  // Phase 2: email-finding sources in parallel, gated by strategy.
+  // Methods that are disabled return their no-op default so downstream
+  // merging logic stays unchanged.
+  const noWeb = { emails: [] as string[], socials: {} as Record<string, string> }
   const [ytVideosResult, webResult, ddgLinkedInResult, ddgEmailResult, biolinkResult] = await Promise.allSettled([
     fromYouTubeVideos(channelId),
-    fromWebsite(website),
+    isEnabled('web_scrape') ? fromWebsite(website) : Promise.resolve(noWeb),
     fromDDGLinkedIn(channelName),
-    fromDDGEmail(channelName, website, niche, aggressive),
-    fromBioLink(website),
+    isEnabled('ddg') ? fromDDGEmail(channelName, website, niche, aggressive) : Promise.resolve([] as string[]),
+    isEnabled('biolink') ? fromBioLink(website) : Promise.resolve(noWeb),
   ])
 
   const ytVideos = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : { dates: [], avgViews: NaN }
   const videoDates = ytVideos.dates
   const avgViews = isNaN(ytVideos.avgViews) ? undefined : ytVideos.avgViews
-  const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [] as string[], socials: {} as Record<string, string> }
+  const web = webResult.status === 'fulfilled' ? webResult.value : noWeb
   const ddgLinkedIn = ddgLinkedInResult.status === 'fulfilled' ? ddgLinkedInResult.value : ''
   const ddgEmails = ddgEmailResult.status === 'fulfilled' ? ddgEmailResult.value : []
-  const biolink = biolinkResult.status === 'fulfilled' ? biolinkResult.value : { emails: [] as string[], socials: {} as Record<string, string> }
+  const biolink = biolinkResult.status === 'fulfilled' ? biolinkResult.value : noWeb
 
   const socials = {
     instagram: instagram || web.socials.instagram || biolink.socials.instagram || '',
@@ -474,18 +485,19 @@ export async function GET(req: NextRequest) {
   // Phase 3: scrape each known social bio + try Wayback for the website if
   // we got nothing from the live site. Done after Phase 2 so we have the
   // discovered socials to crawl.
-  const wayBackNeeded = web.emails.length === 0 && !!website
+  const wayBackNeeded = isEnabled('wayback') && web.emails.length === 0 && !!website
   const [bioEmailsResult, waybackEmailsResult] = await Promise.allSettled([
-    fromBioPages(socials),
+    isEnabled('bio_pages') ? fromBioPages(socials) : Promise.resolve([] as string[]),
     wayBackNeeded ? fromWayback(website) : Promise.resolve([] as string[]),
   ])
   const bioEmails = bioEmailsResult.status === 'fulfilled' ? bioEmailsResult.value : []
   const waybackEmails = waybackEmailsResult.status === 'fulfilled' ? waybackEmailsResult.value : []
 
   const realEmails = [...descEmails, ...yt.emails, ...web.emails, ...biolink.emails, ...ddgEmails, ...bioEmails, ...waybackEmails]
-  // Aggressive last-resort: domain pattern guesses, only if no real
-  // email surfaced anywhere AND we have a website domain to anchor to.
-  const guessEmails = aggressive ? await fromDomainGuesses(website, realEmails).catch(() => []) : []
+  // Domain pattern guesses — only if every real source came up empty
+  // AND domain_guess is enabled (also requires aggressive in production).
+  const wantGuess = isEnabled('domain_guess') && (strategyParam != null || aggressive)
+  const guessEmails = wantGuess ? await fromDomainGuesses(website, realEmails).catch(() => []) : []
   const allEmails = [...realEmails, ...guessEmails]
   const email = bestEmail(allEmails)
 
