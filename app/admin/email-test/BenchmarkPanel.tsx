@@ -338,16 +338,46 @@ function RosterColumn({
       {slot.roster.length === 0 ? (
         <div className="text-xs text-muted-foreground">no creators</div>
       ) : (
-        <ul className="space-y-1">
-          {slot.roster.map(r => (
-            <li key={r.channelId} className="flex items-center justify-between gap-2 text-xs">
-              <span className="truncate text-foreground">{r.channelName}</span>
-              {r.hasEmail
-                ? <span className="font-mono text-[10px] text-emerald-700 dark:text-emerald-400 break-all text-right shrink-0 max-w-[60%]">{r.email}</span>
-                : <span className="text-muted-foreground/60 text-[10px]">—</span>}
-            </li>
-          ))}
-        </ul>
+        <>
+          {(() => {
+            const fromPrimary = slot.roster.filter(r => r.source === 'primary').length
+            const fromMethod = slot.roster.filter(r => r.source === 'new_methodology').length
+            const fromAssumption = slot.roster.filter(r => r.source === 'educated_assumption').length
+            const fallbackTotal = fromMethod + fromAssumption
+            return (
+              <div className="text-[10px] text-muted-foreground mb-2 flex items-center gap-2">
+                <span>primary: <span className="text-foreground tabular-nums">{fromPrimary}</span></span>
+                {fromMethod > 0 && <span className="text-fuchsia-700 dark:text-fuchsia-300">+method: {fromMethod}</span>}
+                {fromAssumption > 0 && <span className="text-purple-700 dark:text-purple-300">+assumption: {fromAssumption}</span>}
+                {fallbackTotal === 0 && slot.withEmail > 0 && <span className="text-muted-foreground/70">(fallback added 0)</span>}
+              </div>
+            )
+          })()}
+          <ul className="space-y-1">
+            {slot.roster.map(r => (
+              <li key={r.channelId} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-foreground flex items-center gap-1.5 min-w-0">
+                  {r.source === 'primary' && (
+                    <span className="text-[8px] uppercase px-1 py-px rounded bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 shrink-0">P</span>
+                  )}
+                  {r.source === 'new_methodology' && (
+                    <span className="text-[8px] uppercase px-1 py-px rounded bg-fuchsia-100 dark:bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300 shrink-0" title="new methodology">N</span>
+                  )}
+                  {r.source === 'educated_assumption' && (
+                    <span className="text-[8px] uppercase px-1 py-px rounded bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 shrink-0" title="educated assumption">A</span>
+                  )}
+                  {!r.source && (
+                    <span className="text-[8px] uppercase px-1 py-px rounded bg-muted text-muted-foreground shrink-0">·</span>
+                  )}
+                  <span className="truncate">{r.channelName}</span>
+                </span>
+                {r.hasEmail
+                  ? <span className="font-mono text-[10px] text-emerald-700 dark:text-emerald-400 break-all text-right shrink-0 max-w-[55%]">{r.email}</span>
+                  : <span className="text-muted-foreground/60 text-[10px]">—</span>}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   )
