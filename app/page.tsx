@@ -525,7 +525,10 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
   )
 }
 
-type FUBucket = 'overdue' | 'today' | 'week' | 'later' | 'unset' | 'ghosted'
+// Priority bucketing — derived from how close the follow-up date is.
+// High = overdue or due today. Medium = 1-7 days out. Low = 8+ days out.
+// `unset` and `ghosted` are special states, not priorities.
+type FUBucket = 'high' | 'medium' | 'low' | 'unset' | 'ghosted'
 
 function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
   entries: OutreachEntry[]
@@ -551,10 +554,9 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     if (!d) return 'unset'
     const tDay = new Date(d); tDay.setHours(0, 0, 0, 0)
     const diffDays = Math.round((tDay.getTime() - todayMs) / DAY)
-    if (diffDays < 0) return 'overdue'
-    if (diffDays === 0) return 'today'
-    if (diffDays <= 7) return 'week'
-    return 'later'
+    if (diffDays <= 0) return 'high'   // overdue OR due today
+    if (diffDays <= 7) return 'medium' // due in next week
+    return 'low'                        // 8+ days out
   }
 
   function dealValueNum(e: OutreachEntry): number {
@@ -578,29 +580,25 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
 
   // Group rows up front
   const groups: Record<FUBucket, OutreachEntry[]> = {
-    overdue: [], today: [], week: [], later: [], unset: [], ghosted: [],
+    high: [], medium: [], low: [], unset: [], ghosted: [],
   }
   for (const e of open) groups[bucketOf(e)].push(e)
   for (const e of ghosted) groups.ghosted.push(e)
   for (const k of Object.keys(groups) as FUBucket[]) groups[k] = applySort(groups[k])
-
-  const actNow = [...groups.overdue, ...groups.today]
 
   // Top stats
   const pipelineValue = open.reduce((s, e) => s + dealValueNum(e), 0)
 
   // Headline summary line — single sentence
   const headline = (() => {
-    const o = groups.overdue.length, t = groups.today.length, w = groups.week.length
-    if (o === 0 && t === 0 && w === 0 && groups.unset.length === 0) {
-      return open.length === 0 ? "You don't have any active follow-ups yet." : "All caught up — nothing's due in the next 7 days."
-    }
+    const h = groups.high.length, m = groups.medium.length, u = groups.unset.length
+    if (open.length === 0) return "You don't have any active follow-ups yet."
+    if (h === 0 && m === 0 && u === 0) return "All caught up — nothing high or medium priority right now."
     const parts: string[] = []
-    if (o > 0) parts.push(`${o} overdue`)
-    if (t > 0) parts.push(`${t} due today`)
-    if (parts.length === 0 && w > 0) parts.push(`${w} due this week`)
-    if (parts.length === 0 && groups.unset.length > 0) parts.push(`${groups.unset.length} without a date`)
-    return parts.length > 0 ? `Act on ${parts.join(' · ')} first.` : "All caught up."
+    if (h > 0) parts.push(`${h} high priority`)
+    if (m > 0) parts.push(`${m} medium`)
+    if (parts.length === 0 && u > 0) parts.push(`${u} without a date`)
+    return parts.length > 0 ? `${parts.join(' · ')} need your attention.` : 'All caught up.'
   })()
 
   function snooze(e: OutreachEntry, days: number) {
@@ -638,8 +636,8 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
       <div>
         <p className="text-sm text-gray-300">{headline}</p>
         <div className="grid grid-cols-3 gap-3 mt-3">
-          <FUStat label="Overdue" value={groups.overdue.length} accent={groups.overdue.length > 0 ? 'red' : 'gray'} sub={groups.overdue.length > 0 ? 'past their date' : 'none'} />
-          <FUStat label="Due today" value={groups.today.length} accent={groups.today.length > 0 ? 'yellow' : 'gray'} sub={groups.today.length > 0 ? 'send today' : 'nothing today'} />
+          <FUStat label="High priority" value={groups.high.length} accent={groups.high.length > 0 ? 'red' : 'gray'} sub={groups.high.length > 0 ? 'overdue or due today' : 'none right now'} />
+          <FUStat label="Medium" value={groups.medium.length} accent={groups.medium.length > 0 ? 'yellow' : 'gray'} sub={groups.medium.length > 0 ? 'due this week' : 'nothing this week'} />
           <FUStat label="Pipeline $" value={pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : '—'} accent="green" sub={open.length > 0 ? `${open.length} active leads` : undefined} />
         </div>
       </div>
@@ -666,20 +664,20 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
         </div>
       </div>
 
-      {/* Section: Act on now (overdue + today) */}
-      {actNow.length > 0 ? (
+      {/* Section: High priority (overdue + today) */}
+      {groups.high.length > 0 ? (
         <Section
-          title="Act on now"
+          title="High priority"
           accent="red"
-          count={actNow.length}
-          subtitle="Overdue + due today, sorted by most urgent"
+          count={groups.high.length}
+          subtitle="Overdue or due today — act first"
           icon={<span className="text-base">🔥</span>}
         >
-          {applySort(actNow).map(e => (
+          {groups.high.map(e => (
             <FollowUpRow
               key={e.id}
               entry={e}
-              bucket={bucketOf(e)}
+              bucket="high"
               onUpdate={onUpdate}
               onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
@@ -688,25 +686,27 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
           ))}
         </Section>
       ) : (
-        <Section title="Act on now" accent="green" count={0} icon={<span className="text-base">✓</span>}>
-          <div className="text-xs text-gray-500 italic px-1 py-2">Nothing urgent. Coming up: {groups.week.length} this week.</div>
+        <Section title="High priority" accent="green" count={0} icon={<span className="text-base">✓</span>}>
+          <div className="text-xs text-gray-500 italic px-1 py-2">
+            Nothing urgent. {groups.medium.length > 0 ? `${groups.medium.length} medium-priority lead${groups.medium.length === 1 ? '' : 's'} below.` : 'You\'re fully caught up.'}
+          </div>
         </Section>
       )}
 
-      {/* Section: Coming up this week */}
-      {groups.week.length > 0 && (
+      {/* Section: Medium priority (1-7 days out) */}
+      {groups.medium.length > 0 && (
         <Section
-          title="Coming up this week"
-          accent="blue"
-          count={groups.week.length}
-          subtitle="Due in the next 7 days"
+          title="Medium priority"
+          accent="yellow"
+          count={groups.medium.length}
+          subtitle="Due in the next 7 days — plan for these"
           icon={<span className="text-base">📅</span>}
         >
-          {groups.week.map(e => (
+          {groups.medium.map(e => (
             <FollowUpRow
               key={e.id}
               entry={e}
-              bucket="week"
+              bucket="medium"
               onUpdate={onUpdate}
               onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
@@ -716,20 +716,20 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
         </Section>
       )}
 
-      {/* Section: Later (collapsed) */}
-      {groups.later.length > 0 && (
+      {/* Section: Low priority (8+ days out, collapsed) */}
+      {groups.low.length > 0 && (
         <CollapsibleSection
-          title="Later"
-          count={groups.later.length}
-          subtitle="More than a week out"
+          title="Low priority"
+          count={groups.low.length}
+          subtitle="More than a week out — no action needed yet"
           open={showLater}
           onToggle={() => setShowLater(v => !v)}
         >
-          {groups.later.map(e => (
+          {groups.low.map(e => (
             <FollowUpRow
               key={e.id}
               entry={e}
-              bucket="later"
+              bucket="low"
               onUpdate={onUpdate}
               onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
@@ -790,14 +790,14 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
 
 function Section({ title, accent, count, subtitle, icon, children }: {
   title: string
-  accent: 'red' | 'blue' | 'green'
+  accent: 'red' | 'yellow' | 'blue' | 'green'
   count: number
   subtitle?: string
   icon?: React.ReactNode
   children: React.ReactNode
 }) {
-  const accentText = { red: 'text-red-300', blue: 'text-blue-300', green: 'text-emerald-300' }[accent]
-  const accentBorder = { red: 'border-red-500/40', blue: 'border-blue-500/30', green: 'border-emerald-500/30' }[accent]
+  const accentText = { red: 'text-red-300', yellow: 'text-yellow-300', blue: 'text-blue-300', green: 'text-emerald-300' }[accent]
+  const accentBorder = { red: 'border-red-500/40', yellow: 'border-yellow-500/40', blue: 'border-blue-500/30', green: 'border-emerald-500/30' }[accent]
   return (
     <section>
       <div className="flex items-center gap-2 mb-3">
@@ -878,9 +878,9 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
 
   // Per-bucket styling
   const accent: 'red' | 'yellow' | 'blue' | 'gray' =
-    bucket === 'overdue' ? 'red'
-    : bucket === 'today' ? 'yellow'
-    : bucket === 'week' ? 'blue'
+    bucket === 'high' ? 'red'
+    : bucket === 'medium' ? 'yellow'
+    : bucket === 'low' ? 'blue'
     : 'gray'
 
   const dotColor = { red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500', gray: 'bg-gray-500' }[accent]
@@ -891,14 +891,24 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
     gray: 'bg-gray-700/30 text-gray-400 border-gray-700',
   }[accent]
 
-  // Smart date label — depends on the bucket
-  const dateLabel =
-    bucket === 'overdue' ? `${daysAgo(e.followUpDate)} late`
-    : bucket === 'today' ? 'due today'
-    : bucket === 'week' ? `in ${daysFromNow(e.followUpDate)}d`
-    : bucket === 'later' ? `in ${daysFromNow(e.followUpDate)}d`
-    : bucket === 'ghosted' ? 'ghosted'
-    : 'no date'
+  // Smart date label per bucket. For high-priority, distinguish overdue vs today.
+  const dateLabel = (() => {
+    if (bucket === 'ghosted') return 'ghosted'
+    if (bucket === 'unset') return 'no date'
+    const days = daysFromNow(e.followUpDate)
+    if (bucket === 'high') {
+      // Either overdue or due today — daysFromNow returns 0 for both, so we
+      // need to check directly with parseLocalDate.
+      const d = parseLocalDate(e.followUpDate)
+      if (d) {
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        d.setHours(0, 0, 0, 0)
+        if (d.getTime() < today.getTime()) return `${daysAgo(e.followUpDate)} late`
+      }
+      return 'due today'
+    }
+    return `in ${days}d`
+  })()
 
   // What action does this row prompt?
   const stageHint = bucket === 'ghosted'
