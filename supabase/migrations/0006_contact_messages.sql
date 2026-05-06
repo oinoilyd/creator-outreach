@@ -38,3 +38,9 @@ CREATE POLICY "admin can update contact"
 
 CREATE INDEX IF NOT EXISTS idx_contact_messages_created_at
   ON public.contact_messages (created_at DESC);
+
+-- Supabase doesn't auto-grant table privileges to anon/authenticated for
+-- tables created via the SQL editor — RLS policies alone aren't enough,
+-- the underlying GRANT must be present too.
+GRANT INSERT ON public.contact_messages TO anon, authenticated;
+GRANT SELECT, UPDATE ON public.contact_messages TO authenticated;
