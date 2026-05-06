@@ -2494,7 +2494,7 @@ export default function Home() {
         website: c.website || '',
         instagram: c.instagram || '',
         tiktok: c.tiktok || '',
-        deep: 'true',
+        aggressive: 'true',
       })
       const r = await fetch(`/api/enrich?${params}`)
       const extra = await r.json()
@@ -2529,7 +2529,7 @@ export default function Home() {
         name: entry.channelName,
         channelId: entry.channelId,
         description: entry.description || '',
-        deep: 'true',
+        aggressive: 'true',
       })
       const r = await fetch(`/api/enrich?${params}`)
       const extra = await r.json()

@@ -226,8 +226,9 @@ async function fromDDGLinkedIn(name: string): Promise<string> {
 
 // SOURCE 4: DuckDuckGo — find email for a creator by name. Now always runs
 // the full set of queries (used to be gated on a `deep` flag) so every
-// enrichment gets the broader email coverage.
-async function fromDDGEmail(name: string, website: string, niche?: string): Promise<string[]> {
+// enrichment gets the broader email coverage. `aggressive` adds another
+// pass with brand / partnership-focused angles for a deeper retry.
+async function fromDDGEmail(name: string, website: string, niche?: string, aggressive: boolean = false): Promise<string[]> {
   if (!name) return []
   const allEmails: string[] = []
   try {
@@ -253,10 +254,28 @@ async function fromDDGEmail(name: string, website: string, niche?: string): Prom
       queries.push(`"${name}" ${niche} email`)
       queries.push(`"${name}" ${niche} contact`)
     }
+    if (aggressive) {
+      queries.push(
+        `"${name}" press kit`,
+        `"${name}" media kit`,
+        `"${name}" rate card`,
+        `"${name}" brand partnerships`,
+        `"${name}" collab inquiries`,
+        `"${name}" "@yahoo.com"`,
+        `"${name}" "@outlook.com"`,
+        `"${name}" "@icloud.com"`,
+      )
+      if (site) {
+        queries.push(`site:${site} "@" press`)
+        queries.push(`site:${site} sponsor`)
+        queries.push(`site:${site} partnership`)
+      }
+    }
     await Promise.allSettled(queries.map(async (query) => {
       try {
         const q = encodeURIComponent(query)
-        const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${q}`, 6000)
+        const timeout = aggressive ? 9000 : 6000
+        const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${q}`, timeout)
         allEmails.push(...extractEmails(html))
       } catch { /* failed */ }
     }))
@@ -369,14 +388,26 @@ async function fromWayback(rawUrl: string): Promise<string[]> {
   }
 }
 
-// SOURCE 9: Common email-pattern guesses against the website domain. Only
-// emits patterns that actually appear in DDG / website / wayback content;
-// we never fabricate. The trick is: many creators publish info@/hello@/
-// contact@<domain> on their site as plain text — these get captured by
-// extractEmails — but having an explicit pass means we surface them
-// reliably even if the live website blocks scraping. This function is a
-// no-op since the patterns are caught by extractEmails on raw HTML; kept
-// as a placeholder for future structured guessing if we want to add it.
+// SOURCE 9 (aggressive only): explicit email-pattern guesses against the
+// website domain. Only used when the refresh icon is clicked AND no email
+// has been found yet. These are common standard role addresses (info@,
+// hello@, contact@, press@, etc.) — they're plausible but unverified.
+// We mark them with a leading "[guess] " prefix in the source array so
+// bestEmail() picks a verified one over a guess if both exist.
+async function fromDomainGuesses(website: string, foundEmails: string[]): Promise<string[]> {
+  if (!website) return []
+  if (foundEmails.length > 0) return [] // skip if we already have real emails
+  try {
+    const u = new URL(website.startsWith('http') ? website : `https://${website}`)
+    const domain = u.hostname.replace(/^www\./, '')
+    if (!domain || domain.includes('.') === false) return []
+    if (SOCIAL_DOMAIN.test(domain)) return []
+    const patterns = ['info', 'hello', 'contact', 'press', 'business', 'partnerships', 'sponsor', 'team', 'hi']
+    return patterns.map(p => `${p}@${domain}`)
+  } catch {
+    return []
+  }
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireUser()
@@ -398,6 +429,7 @@ export async function GET(req: NextRequest) {
   const tiktokParam   = clampString(searchParams.get('tiktok'), 200)
   const description   = clampString(searchParams.get('description'), 2000)
   const niche         = clampString(searchParams.get('niche'), 80)
+  const aggressive    = searchParams.get('aggressive') === 'true'
 
   const descEmails = extractEmails(description)
 
@@ -419,7 +451,7 @@ export async function GET(req: NextRequest) {
     fromYouTubeVideos(channelId),
     fromWebsite(website),
     fromDDGLinkedIn(channelName),
-    fromDDGEmail(channelName, website, niche),
+    fromDDGEmail(channelName, website, niche, aggressive),
     fromBioLink(website),
   ])
 
@@ -450,7 +482,11 @@ export async function GET(req: NextRequest) {
   const bioEmails = bioEmailsResult.status === 'fulfilled' ? bioEmailsResult.value : []
   const waybackEmails = waybackEmailsResult.status === 'fulfilled' ? waybackEmailsResult.value : []
 
-  const allEmails = [...descEmails, ...yt.emails, ...web.emails, ...biolink.emails, ...ddgEmails, ...bioEmails, ...waybackEmails]
+  const realEmails = [...descEmails, ...yt.emails, ...web.emails, ...biolink.emails, ...ddgEmails, ...bioEmails, ...waybackEmails]
+  // Aggressive last-resort: domain pattern guesses, only if no real
+  // email surfaced anywhere AND we have a website domain to anchor to.
+  const guessEmails = aggressive ? await fromDomainGuesses(website, realEmails).catch(() => []) : []
+  const allEmails = [...realEmails, ...guessEmails]
   const email = bestEmail(allEmails)
 
   return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, avgViews, ...socials })
