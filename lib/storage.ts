@@ -28,6 +28,11 @@ async function userId(): Promise<string | null> {
 // ── OutreachEntry mapping (camelCase ↔ snake_case) ─────────────────────────
 
 function rowToOutreach(r: any): OutreachEntry {
+  // Status is the source of truth for reachedOut; the boolean column is kept
+  // for back-compat but always derived from status on read.
+  const status: OutreachEntry['status'] =
+    (r.status as OutreachEntry['status']) || (r.reached_out ? 'Open' : 'Not Outreached')
+  const reachedOut = status !== 'Not Outreached'
   return {
     id: r.id,
     channelId: r.channel_id,
@@ -37,13 +42,11 @@ function rowToOutreach(r: any): OutreachEntry {
     email: r.email ?? '',
     product: r.product ?? '',
     favorite: !!r.favorite,
-    reachedOut: !!r.reached_out,
+    reachedOut,
     medium: (r.medium ?? '') as OutreachEntry['medium'],
     mediumOther: r.medium_other ?? '',
     headerUsed: r.header_used ?? '',
-    // Old rows may have blank status; backfill to a meaningful default
-    // based on whether they were marked reached-out.
-    status: ((r.status as OutreachEntry['status']) || (r.reached_out ? 'Open' : 'Not Outreached')),
+    status,
     addedAt: Number(r.added_at) || 0,
     notes: r.notes ?? '',
     followUpDate: r.follow_up_date ?? '',

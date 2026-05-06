@@ -490,10 +490,11 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
   }
 
   const total = entries.length
-  // "Reached out" = the user sent the outreach (regardless of outcome).
+  // "Reached out" = anything but "Not Outreached" / blank status.
   // "Response received" = creator replied either way (Successful or Rejected).
   // No Response = reached out but never heard back; still counts as reached out.
-  const reachedOut = entries.filter(e => e.reachedOut).length
+  const isReachedOut = (e: OutreachEntry) => e.status !== 'Not Outreached' && e.status !== ''
+  const reachedOut = entries.filter(isReachedOut).length
   const responseReceived = entries.filter(e => e.status === 'Successful' || e.status === 'Rejected').length
   const successful = entries.filter(e => e.status === 'Successful').length
   const rejected = entries.filter(e => e.status === 'Rejected').length
@@ -531,7 +532,7 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
 
   const [mediumScope, setMediumScope] = useState<'all' | 'successful' | 'rejected'>('all')
   const mediumPool = entries.filter(e => {
-    if (!e.reachedOut) return false
+    if (!isReachedOut(e)) return false
     if (mediumScope === 'successful') return e.status === 'Successful'
     if (mediumScope === 'rejected') return e.status === 'Rejected'
     return true
