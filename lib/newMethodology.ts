@@ -26,24 +26,52 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
 
-// Emails at these domains are infrastructure / platform-owned, NOT
-// creator contact addresses. We hit these scraping creator-platform
-// profile pages (Patreon's own guidelines@patreon.com is the obvious
-// offender, but every creator-tooling domain has equivalents).
-const PLATFORM_DOMAINS = new Set([
+// Emails at these domains (or their subdomains) are infrastructure /
+// platform / telemetry — never creator contact addresses. Embedded
+// Sentry DSNs (hash@o123.ingest.us.sentry.io) and creator-platform
+// boilerplate (guidelines@patreon.com) were the worst offenders.
+const PLATFORM_DOMAIN_SUFFIXES = [
+  // Creator/membership platforms
   'patreon.com', 'substack.com', 'beehiiv.com', 'ck.page',
   'convertkit.com', 'mailchimp.com', 'gumroad.com', 'kajabi.com',
   'teachable.com', 'thinkific.com', 'memberstack.com', 'circle.so',
-  'discord.com', 'discordapp.com', 'telegram.org',
+  // Bio-link tools
   'linktr.ee', 'beacons.ai', 'stan.store', 'campsite.bio',
-  'youtube.com', 'youtu.be', 'youtubei.googleapis.com',
+  // Socials + their CDNs
+  'youtube.com', 'youtu.be', 'googleapis.com',
   'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
   'tiktok.com', 'linkedin.com', 'snapchat.com', 'threads.net',
+  'cdninstagram.com', 'fbcdn.net',
+  // Site builders + CMSs
   'shopify.com', 'wix.com', 'squarespace.com', 'wordpress.com',
-  'medium.com', 'cdninstagram.com', 'fbcdn.net',
+  'medium.com', 'webflow.com',
+  // Streaming + audio
   'spotify.com', 'apple.com', 'soundcloud.com',
+  // Payments
   'stripe.com', 'paypal.com', 'square.com',
-])
+  // Chat/community
+  'discord.com', 'discordapp.com', 'telegram.org', 'slack.com',
+  // Error/observability/analytics — these are the Sentry-DSN
+  // class of false positives, embedded in site source as DSN URLs
+  'sentry.io', 'bugsnag.com', 'rollbar.com', 'logrocket.com',
+  'datadoghq.com', 'newrelic.com', 'mixpanel.com', 'amplitude.com',
+  'segment.com', 'segment.io', 'heap.io', 'hotjar.com',
+  'fullstory.com', 'google-analytics.com', 'googletagmanager.com',
+  'cloudflareinsights.com', 'cloudflare.com',
+  // Common CDNs / cloud
+  'amazonaws.com', 'cloudfront.net', 'azureedge.net', 'akamai.net',
+  'fastly.net', 'jsdelivr.net', 'unpkg.com', 'github.io',
+  // Email service providers (their own domains, not customer mail)
+  'sendgrid.net', 'mailgun.net', 'postmarkapp.com', 'resend.com',
+]
+
+function isPlatformDomain(domain: string): boolean {
+  const d = domain.toLowerCase()
+  for (const suffix of PLATFORM_DOMAIN_SUFFIXES) {
+    if (d === suffix || d.endsWith('.' + suffix)) return true
+  }
+  return false
+}
 
 export interface MethodologyInput {
   channelId: string
@@ -90,16 +118,25 @@ function extractEmails(text: string): string[] {
 }
 
 // Filter junk (image filenames misread as emails, platform-owned infra
-// addresses, etc.)
+// addresses, hash-shaped DSN local parts, etc.)
 function isPlausibleEmail(email: string): boolean {
   if (email.length < 6 || email.length > 80) return false
   if (/\.(png|jpg|jpeg|gif|svg|webp|css|js)$/.test(email)) return false
   if (/^[0-9.@-]+$/.test(email)) return false
-  const domain = email.split('@')[1]?.toLowerCase()
-  if (!domain) return false
-  if (PLATFORM_DOMAINS.has(domain)) return false
-  // Common noreply patterns even on creator domains — useless for outreach
-  if (/^(no-?reply|donot-?reply|notifications?|alerts?|automated|system)@/i.test(email)) return false
+
+  const [local, domain] = email.split('@')
+  if (!local || !domain) return false
+
+  // Platform / infrastructure domain (subdomain-aware)
+  if (isPlatformDomain(domain)) return false
+
+  // Hash-shaped local parts: Sentry DSNs, API keys, token captures.
+  // Real emails almost never have a 16+ pure-hex local part.
+  if (/^[a-f0-9]{16,}$/i.test(local)) return false
+
+  // Common noreply patterns
+  if (/^(no-?reply|donot-?reply|notifications?|alerts?|automated|system)$/i.test(local)) return false
+
   return true
 }
 
