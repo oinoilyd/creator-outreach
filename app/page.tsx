@@ -1573,6 +1573,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   const resizing = useRef<{ id: string; startX: number; startW: number } | null>(null)
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const [sort, setSort] = useState<{ col: keyof OutreachEntry | null; dir: 'asc' | 'desc' }>({ col: null, dir: 'desc' })
   const [showFavTooltip, setShowFavTooltip] = useState(false)
   const favTooltipRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -1611,6 +1612,41 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   }
 
   const totalWidth = visibleCols.reduce((sum, c) => sum + (widths[c.id as string] ?? c.defaultWidth), 0) + 36
+
+  // Sort entries by the active column. Empty values always go to the bottom.
+  const sortedEntries = (() => {
+    if (!sort.col) return entries
+    const col = sort.col
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const numericCols: (keyof OutreachEntry)[] = ['avgViews', 'fitScore', 'addedAt', 'touchpoints']
+    return [...entries].sort((a, b) => {
+      const va = a[col]
+      const vb = b[col]
+      const aEmpty = va == null || va === '' || va === false
+      const bEmpty = vb == null || vb === '' || vb === false
+      if (aEmpty && bEmpty) return 0
+      if (aEmpty) return 1
+      if (bEmpty) return -1
+      if (typeof va === 'boolean' || typeof vb === 'boolean') {
+        return (Number(vb) - Number(va)) * dir
+      }
+      if (numericCols.includes(col) || (!isNaN(Number(va)) && !isNaN(Number(vb)) && va !== '' && vb !== '')) {
+        const na = typeof va === 'number' ? va : parseFloat(String(va).replace(/[^0-9.\-]/g, '')) || 0
+        const nb = typeof vb === 'number' ? vb : parseFloat(String(vb).replace(/[^0-9.\-]/g, '')) || 0
+        return (na - nb) * dir
+      }
+      return String(va).localeCompare(String(vb)) * dir
+    })
+  })()
+
+  function handleHeaderClick(colId: keyof OutreachEntry) {
+    if (colId === 'favorite') return // Favorite header is the click-tooltip
+    setSort(prev => {
+      if (prev.col !== colId) return { col: colId, dir: 'desc' } // first click
+      if (prev.dir === 'desc') return { col: colId, dir: 'asc' } // second click → asc
+      return { col: null, dir: 'desc' } // third click → unsorted
+    })
+  }
 
   if (entries.length === 0) {
     return (
@@ -1685,10 +1721,16 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                     onDragLeave={() => setDragOverIdx(null)}
                     onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
                     onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
-                    className={`relative text-left px-3 py-3 select-none font-medium transition-colors ${!isLocked ? 'cursor-grab' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
+                    onClick={(e) => {
+                      // ignore clicks bubbling from the resize handle / favorite tooltip
+                      const target = e.target as HTMLElement
+                      if (target.closest('[data-no-sort]')) return
+                      handleHeaderClick(col.id)
+                    }}
+                    className={`relative text-left px-3 py-3 select-none font-medium transition-colors ${!isLocked ? 'cursor-grab' : ''} ${sort.col === col.id ? 'text-foreground bg-muted/30' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
                   >
                     {colId === 'favorite' ? (
-                      <div ref={favTooltipRef} className="relative">
+                      <div ref={favTooltipRef} className="relative" data-no-sort>
                         <button
                           onClick={(e) => { e.stopPropagation(); setShowFavTooltip(v => !v) }}
                           className="text-yellow-400 hover:text-yellow-300 text-base leading-none"
@@ -1706,15 +1748,21 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                     ) : (
                       <span
                         className="truncate flex items-center gap-1"
-                        title={col.tooltip}
+                        title={col.tooltip ? `${col.tooltip} · click header to sort` : 'Click header to sort'}
                       >
                         {!isLocked && <span className="text-muted-foreground/70 text-xs">⠿</span>}
                         {col.label}
+                        {sort.col === col.id && (
+                          <span className="text-purple-400 text-[10px] ml-0.5" aria-label={sort.dir}>
+                            {sort.dir === 'desc' ? '↓' : '↑'}
+                          </span>
+                        )}
                         {colId === 'email' && (() => {
                           const pending = entries.filter(e => !e.email).length
                           if (pending === 0 && !bulkRunning) return null
                           return (
                             <button
+                              data-no-sort
                               onClick={(ev) => { ev.stopPropagation(); onSearchAll() }}
                               disabled={bulkRunning}
                               draggable={false}
@@ -1731,7 +1779,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                         })()}
                       </span>
                     )}
-                    <div onMouseDown={e => startResize(e, colId)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center">
+                    <div data-no-sort onMouseDown={e => startResize(e, colId)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center">
                       <div className="w-px h-4 bg-gray-600 group-hover:bg-blue-400 transition-colors" />
                     </div>
                   </th>
@@ -1741,7 +1789,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
             </tr>
           </thead>
           <tbody>
-            {entries.map((e, i) => (
+            {sortedEntries.map((e, i) => (
               <AnimatedRow key={e.id} index={i} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
