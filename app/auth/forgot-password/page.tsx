@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell>
-      <div className="w-full max-w-sm bg-gray-900/85 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+      <div className="w-full max-w-sm bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-2xl">
         <h1 className="text-2xl font-bold text-white mb-1">Reset your password</h1>
         <p className="text-gray-500 text-sm mb-6">
           {sent

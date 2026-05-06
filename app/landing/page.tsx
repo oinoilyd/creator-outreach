@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3 } from 'lucide-react'
 import { Aurora } from '@/components/landing/Aurora'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { TextGenerateEffect } from '@/components/landing/TextGenerateEffect'
 import { AppPreview } from '@/components/landing/AppPreview'
 import {
@@ -15,18 +16,19 @@ export const metadata = {
 
 export default function LandingPage() {
   return (
-    <main className="relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
+    <main className="relative min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-white overflow-x-hidden transition-colors">
       {/* Header */}
       <header className="relative z-20 px-6 py-5 flex items-center justify-between max-w-6xl w-full mx-auto">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold">C</div>
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold text-white">C</div>
           <span className="font-semibold tracking-tight">Creator Outreach</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/auth/signin" className="text-sm text-gray-300 hover:text-white">Sign in</Link>
+          <ThemeToggle />
+          <Link href="/auth/signin" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">Sign in</Link>
           <Link
             href="/auth/signup"
-            className="text-sm bg-white text-gray-950 hover:bg-gray-200 px-4 py-2 rounded-lg font-medium transition-colors"
+            className="text-sm bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200 px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Get started
           </Link>
@@ -37,27 +39,27 @@ export default function LandingPage() {
       <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-20">
         <Aurora className="z-0" />
         <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-gray-300 mb-7">
-            <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900/5 dark:bg-white/5 border border-gray-900/10 dark:border-white/10 backdrop-blur-md text-xs text-gray-700 dark:text-gray-300 mb-7">
+            <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-300" />
             <span>YouTube outreach, end to end</span>
           </div>
           <TextGenerateEffect
             words="Find them. Score them. Pitch them. Close them."
-            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-white via-white to-gray-400 bg-clip-text text-transparent leading-[1.05]"
+            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-500 dark:from-white dark:via-white dark:to-gray-400 bg-clip-text text-transparent leading-[1.05]"
           />
-          <p className="text-base md:text-lg text-gray-400 max-w-xl mx-auto mb-9 leading-relaxed">
+          <p className="text-base md:text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto mb-9 leading-relaxed">
             Search YouTube, score creators by fit, and run your whole outreach pipeline — without the spreadsheet circus.
           </p>
           <div className="flex items-center justify-center gap-3">
             <Link
               href="/auth/signup"
-              className="bg-white text-gray-950 hover:bg-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors shadow-[0_0_60px_-12px_rgba(168,85,247,0.6)]"
+              className="bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors shadow-[0_0_60px_-12px_rgba(168,85,247,0.6)]"
             >
               Get started — free
             </Link>
             <Link
               href="/auth/signin"
-              className="px-6 py-3 rounded-lg font-medium text-gray-300 hover:text-white border border-white/10 hover:border-white/30 backdrop-blur-sm transition-colors"
+              className="px-6 py-3 rounded-lg font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white border border-gray-900/10 dark:border-white/10 hover:border-gray-900/30 dark:hover:border-white/30 backdrop-blur-sm transition-colors"
             >
               Sign in
             </Link>
@@ -74,11 +76,11 @@ export default function LandingPage() {
       <section className="relative px-6 pb-20 md:pb-28 z-10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-purple-300/80 mb-3">Built for outreach</div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 dark:text-purple-300/80 mb-3">Built for outreach</div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
               Everything you need, nothing you don't.
             </h2>
-            <p className="text-gray-400 max-w-xl mx-auto">
+            <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
               One tool replaces YouTube discovery, a spreadsheet, a CRM, and a cadence reminder.
             </p>
           </div>
@@ -134,7 +136,7 @@ export default function LandingPage() {
 
       {/* CTA strip — softer, less marketing-bro */}
       <section className="relative px-6 pb-20 z-10">
-        <div className="max-w-3xl mx-auto rounded-2xl border border-white/5 bg-gray-900/40 p-8 md:p-10 text-center backdrop-blur-sm">
+        <div className="max-w-3xl mx-auto rounded-2xl border border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-gray-900/40 p-8 md:p-10 text-center backdrop-blur-sm">
           <h3 className="text-xl md:text-2xl font-bold tracking-tight mb-2">
             Stop emailing the wrong creators.
           </h3>
@@ -143,15 +145,15 @@ export default function LandingPage() {
           </p>
           <Link
             href="/auth/signup"
-            className="inline-block bg-white text-gray-950 hover:bg-gray-200 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+            className="inline-block bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
           >
             Get started
           </Link>
         </div>
       </section>
 
-      <footer className="relative z-10 px-6 py-6 border-t border-white/5 text-center text-xs text-gray-600">
-        © {new Date().getFullYear()} Creator Outreach. <a href="mailto:dmeehanj@gmail.com" className="hover:text-gray-400">Contact</a>
+      <footer className="relative z-10 px-6 py-6 border-t border-gray-200 dark:border-white/5 text-center text-xs text-gray-500 dark:text-gray-600">
+        © {new Date().getFullYear()} Creator Outreach. <a href="mailto:dmeehanj@gmail.com" className="hover:text-gray-700 dark:hover:text-gray-400">Contact</a>
       </footer>
     </main>
   )

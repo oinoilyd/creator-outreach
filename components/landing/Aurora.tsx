@@ -71,8 +71,8 @@ export function Aurora({ className = '' }: { className?: string }) {
           backgroundSize: '64px 64px',
         }}
       />
-      {/* Soft fade to gray at the bottom so the hero blends into the next section */}
-      <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-gray-950" />
+      {/* Soft fade to surface color at the bottom so the hero blends into the next section */}
+      <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-white dark:to-gray-950" />
     </div>
   )
 }

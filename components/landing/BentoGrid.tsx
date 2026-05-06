@@ -33,7 +33,7 @@ export function BentoCard({
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.6, delay, ease: 'easeOut' }}
       whileHover={{ y: -3 }}
-      className={`group relative overflow-hidden rounded-2xl bg-gray-900/50 border border-white/5 hover:border-white/10 transition-colors flex flex-col ${className}`}
+      className={`group relative overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 transition-colors flex flex-col ${className}`}
     >
       {/* Soft hover glow */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10" />
@@ -42,12 +42,12 @@ export function BentoCard({
 
       <div className="relative px-5 pb-5 pt-3 flex-1">
         <div className="flex items-center gap-2.5 mb-2">
-          <div className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-purple-300">
+          <div className="w-7 h-7 rounded-md bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center text-purple-600 dark:text-purple-300">
             {icon}
           </div>
-          <h3 className="text-sm font-semibold text-white tracking-tight">{title}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white tracking-tight">{title}</h3>
         </div>
-        <p className="text-[13px] text-gray-400 leading-relaxed">{description}</p>
+        <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed">{description}</p>
       </div>
     </motion.div>
   )

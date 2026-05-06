@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
+import { useTheme } from 'next-themes'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -26,6 +27,9 @@ export function HamburgerMenu({
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const { theme, setTheme } = useTheme()
+  const [themeMounted, setThemeMounted] = useState(false)
+  useEffect(() => setThemeMounted(true), [])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -194,6 +198,28 @@ export function HamburgerMenu({
                 </div>
               </a>
             </>
+          )}
+
+          <div className="mx-4 my-1 border-t border-gray-800" />
+
+          {/* Theme toggle */}
+          {themeMounted && (
+            <button
+              onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setOpen(false) }}
+              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-800 transition-colors group"
+            >
+              <span className="text-gray-500 group-hover:text-gray-300 mt-0.5 shrink-0 transition-colors">
+                {theme === 'dark' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="4" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" /></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm text-gray-200 font-medium leading-tight">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</div>
+                <div className="text-[11px] text-gray-500 mt-0.5 truncate">Switch interface theme</div>
+              </div>
+            </button>
           )}
 
           <div className="mx-4 my-1 border-t border-gray-800" />

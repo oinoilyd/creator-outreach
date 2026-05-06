@@ -9,6 +9,9 @@ import type {
 } from '@/lib/types'
 import { EMPTY_METRIC_FILTER } from '@/lib/types'
 import { computeMetric, metricTypeLabel, SUGGESTED_METRICS } from '@/lib/metrics'
+import { toast } from 'sonner'
+import { celebrateSuccess } from '@/lib/celebrate'
+import { NumberTicker } from '@/components/NumberTicker'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
   pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
@@ -1009,7 +1012,7 @@ function FUStat({ label, value, accent, sub }: {
     <div className={`bg-gray-900/40 border ${accentBorder} rounded-xl p-4`}>
       <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</div>
       <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
-        {typeof value === 'number' ? value.toLocaleString() : value}
+        {typeof value === 'number' ? <NumberTicker value={value} /> : value}
       </div>
       {sub && <div className="text-[11px] text-gray-500 mt-1">{sub}</div>}
     </div>
@@ -1425,7 +1428,9 @@ function AStat({ label, value, sub, highlight }: { label: string; value: number 
   return (
     <div className={`bg-gray-900/40 border rounded-xl p-4 ${highlight ? 'border-red-500/40' : 'border-gray-800'}`}>
       <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</div>
-      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-white'}`}>{typeof value === 'number' ? value.toLocaleString() : value}</div>
+      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-white'}`}>
+        {typeof value === 'number' ? <NumberTicker value={value} /> : value}
+      </div>
       {sub && <div className="text-[11px] text-gray-500 mt-1">{sub}</div>}
     </div>
   )
@@ -2132,6 +2137,16 @@ export default function Home() {
       const updated = { ...e, [field]: value }
 
       if (field === 'status') {
+        // Celebrate first-time conversions, lighter feedback for other transitions.
+        if (value === 'Successful' && e.status !== 'Successful') {
+          celebrateSuccess()
+          toast.success(`🎉 ${e.channelName} converted!`, { description: 'Marked as Successful' })
+        } else if (value === 'Rejected' && e.status !== 'Rejected') {
+          toast(`${e.channelName} marked as Rejected`, { description: 'Removed from active queue' })
+        } else if (value === 'No Response' && e.status !== 'No Response') {
+          toast(`${e.channelName} ghosted`, { description: 'Moved to No Response' })
+        }
+
         // Status drives reachedOut: anything past "Not Outreached" / "" counts.
         updated.reachedOut = value !== 'Not Outreached' && value !== ''
 
@@ -2222,7 +2237,7 @@ export default function Home() {
       const r = await fetch(`/api/enrich?${params}`)
       const extra = await r.json()
       if (!r.ok) {
-        alert(`Search failed: ${extra.error || 'unknown'}`)
+        toast.error(`Search failed: ${extra.error || 'unknown'}`)
         return
       }
       setCreators(list => list.map(x => x.channelId === channelId ? {
@@ -2237,7 +2252,7 @@ export default function Home() {
         avgViews: x.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
       } : x))
     } catch (err: any) {
-      alert(`Search failed: ${err?.message || err}`)
+      toast.error(`Search failed: ${err?.message || err}`)
     } finally {
       setDeepSearchingResultIds(s => { const n = new Set(s); n.delete(channelId); return n })
     }
@@ -2257,7 +2272,7 @@ export default function Home() {
       const r = await fetch(`/api/enrich?${params}`)
       const extra = await r.json()
       if (!r.ok) {
-        alert(`Search failed: ${extra.error || 'unknown'}`)
+        toast.error(`Search failed: ${extra.error || 'unknown'}`)
         return
       }
       saveOutreach(outreach.map(e => {
@@ -2277,7 +2292,7 @@ export default function Home() {
         console.log('[searchContacts] no email found for', entry.channelName)
       }
     } catch (err: any) {
-      alert(`Search failed: ${err?.message || err}`)
+      toast.error(`Search failed: ${err?.message || err}`)
     } finally {
       setSearchingContactIds(s => {
         const next = new Set(s); next.delete(id); return next

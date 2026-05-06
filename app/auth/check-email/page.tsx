@@ -10,7 +10,7 @@ export default async function CheckEmailPage({
 
   return (
     <AuthShell>
-      <div className="w-full max-w-sm bg-gray-900/85 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center">
+      <div className="w-full max-w-sm bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-2xl text-center">
         <div className="text-5xl mb-4">📬</div>
         <h1 className="text-2xl font-bold text-white mb-2">Check your email</h1>
         <p className="text-gray-400 text-sm mb-6">

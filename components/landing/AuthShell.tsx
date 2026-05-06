@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import { Aurora } from './Aurora'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 // Shared shell for all auth pages (signin / signup / forgot / reset /
 // check-email). Same Aurora background as the landing page so signing
@@ -10,15 +11,16 @@ import { Aurora } from './Aurora'
 // with the wordmark.
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="relative min-h-screen flex flex-col bg-gray-950 text-white overflow-hidden">
+    <main className="relative min-h-screen flex flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-white overflow-hidden transition-colors">
       <Aurora className="z-0" />
 
       {/* Tiny header — links back to the landing on the wordmark */}
       <header className="relative z-10 px-6 py-5 flex items-center justify-between max-w-6xl w-full mx-auto">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold">C</div>
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold text-white">C</div>
           <span className="font-semibold tracking-tight">Creator Outreach</span>
         </Link>
+        <ThemeToggle />
       </header>
 
       {/* Form area */}
