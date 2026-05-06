@@ -73,6 +73,7 @@ export function ImportOutreachModal({
           description: String(r['Description'] || ''),
           email: String(r['Email'] || ''),
           product: String(r['Product'] || ''),
+          favorite: false,
           reachedOut: reachedOutRaw === 'yes' || reachedOutRaw === 'true',
           medium: (String(r['Medium'] || '') as OutreachEntry['medium']) || '',
           mediumOther: '',

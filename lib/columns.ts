@@ -1,6 +1,7 @@
 import type { ColId, ColConfig, OutreachColDef, OutreachColConfig, SortCol } from './types'
 
 export const ALL_OUTREACH_COLS: OutreachColDef[] = [
+  { id: 'favorite',        label: '★',                 defaultVisible: true,  defaultWidth: 38  },
   { id: 'channelName',     label: 'Channel',           defaultVisible: true,  defaultWidth: 160 },
   { id: 'channelUrl',      label: 'YT',                defaultVisible: true,  defaultWidth: 42  },
   { id: 'email',           label: 'Email',             defaultVisible: true,  defaultWidth: 190 },

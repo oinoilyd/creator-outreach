@@ -86,6 +86,7 @@ export interface OutreachEntry {
   description: string
   email: string
   product: string
+  favorite: boolean
   reachedOut: boolean
   medium: 'Email' | 'LinkedIn' | 'Other' | ''
   mediumOther: string

@@ -358,6 +358,19 @@ function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: str
 function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void, profile: UserProfile | null): React.ReactNode {
   const id = col.id
   switch (id) {
+    case 'favorite':
+      return (
+        <button
+          onClick={() => onUpdate(e.id, 'favorite', !e.favorite)}
+          title={e.favorite ? 'Unstar' : 'Mark as favorite'}
+          className={`mt-0.5 transition-colors ${e.favorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-700 hover:text-yellow-500'}`}
+          aria-label={e.favorite ? 'Unstar' : 'Mark as favorite'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 20 20" fill={e.favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.363 1.118l1.287 3.957c.3.922-.755 1.688-1.54 1.118l-3.366-2.445a1 1 0 00-1.176 0l-3.366 2.445c-.784.57-1.838-.196-1.539-1.118l1.287-3.957a1 1 0 00-.363-1.118L2.046 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.302-3.957z" />
+          </svg>
+        </button>
+      )
     case 'channelName':
       return <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-400 font-medium" />
     case 'channelUrl':
@@ -438,7 +451,181 @@ function renderOutreachCell(col: OutreachColConfig, e: OutreachEntry, onUpdate: 
   }
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, profile }: {
+function OutreachSubTabs({ active, onChange, favCount }: {
+  active: 'all' | 'favorites' | 'analytics'
+  onChange: (v: 'all' | 'favorites' | 'analytics') => void
+  favCount: number
+}) {
+  const tabs: { id: 'all' | 'favorites' | 'analytics'; label: React.ReactNode }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'favorites', label: <>★ Favorites {favCount > 0 && <span className="ml-1 text-yellow-400/70">({favCount})</span>}</> },
+    { id: 'analytics', label: '📊 Analytics' },
+  ]
+  return (
+    <div className="flex gap-1 mb-4 border-b border-gray-800 pb-2">
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className={`px-3.5 py-1.5 text-xs font-medium rounded-full transition-colors ${
+            active === t.id
+              ? 'bg-gray-800 text-white border border-gray-700'
+              : 'text-gray-500 hover:text-gray-200 border border-transparent'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
+  if (entries.length === 0) {
+    return (
+      <div className="border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
+        <p className="text-gray-500 text-sm">No outreach yet — add some entries first to see analytics.</p>
+      </div>
+    )
+  }
+
+  const total = entries.length
+  const reachedOut = entries.filter(e => e.reachedOut).length
+  const responded = entries.filter(e => e.reachedOut && (e.status === 'Successful' || e.status === 'Rejected')).length
+  const successful = entries.filter(e => e.status === 'Successful').length
+  const rejected = entries.filter(e => e.status === 'Rejected').length
+  const open = entries.filter(e => e.status === 'Open' || e.status === '').length
+  const noResponse = entries.filter(e => e.status === 'No Response').length
+
+  const pipelineValue = entries
+    .filter(e => e.status !== 'Rejected')
+    .reduce((sum, e) => {
+      const num = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, ''))
+      return sum + (isFinite(num) ? num : 0)
+    }, 0)
+
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const todayMs = today.getTime()
+  const stale = entries.filter(e => {
+    if (!e.followUpDate || (e.status !== 'Open' && e.status !== '')) return false
+    const t = new Date(e.followUpDate).getTime()
+    return isFinite(t) && t < todayMs
+  }).length
+
+  const responseRate = reachedOut > 0 ? Math.round((responded / reachedOut) * 100) : 0
+  const winRate = reachedOut > 0 ? Math.round((successful / reachedOut) * 100) : 0
+
+  const SEVEN_D_AGO = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const addedLast7 = entries.filter(e => e.addedAt > SEVEN_D_AGO).length
+  const reachedLast7 = entries.filter(e => {
+    if (!e.dateReachedOut) return false
+    const t = new Date(e.dateReachedOut).getTime()
+    return isFinite(t) && t > SEVEN_D_AGO
+  }).length
+
+  const mediumCounts = { Email: 0, LinkedIn: 0, Other: 0 }
+  entries.forEach(e => {
+    if (!e.reachedOut) return
+    if (e.medium === 'Email') mediumCounts.Email++
+    else if (e.medium === 'LinkedIn') mediumCounts.LinkedIn++
+    else if (e.medium === 'Other' || e.medium === '') mediumCounts.Other++
+  })
+  const totalMedium = mediumCounts.Email + mediumCounts.LinkedIn + mediumCounts.Other
+
+  return (
+    <div className="space-y-6">
+      {/* Top stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <AStat label="In pipeline" value={total} />
+        <AStat label="Reached out" value={reachedOut} sub={total > 0 ? `${Math.round(reachedOut / total * 100)}% of pipeline` : undefined} />
+        <AStat label="Response rate" value={`${responseRate}%`} sub={`${responded} responded`} />
+        <AStat label="Win rate" value={`${winRate}%`} sub={`${successful} successful`} />
+        <AStat label="Pipeline $" value={pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : '—'} sub="non-rejected" />
+        <AStat label="Stale follow-ups" value={stale} highlight={stale > 0} />
+      </div>
+
+      {/* Status breakdown */}
+      <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
+        <div className="text-sm font-semibold text-white mb-3">Status breakdown</div>
+        <StackedBar
+          segments={[
+            { label: 'Successful', value: successful, color: 'bg-green-500' },
+            { label: 'Open', value: open, color: 'bg-blue-500' },
+            { label: 'No Response', value: noResponse, color: 'bg-gray-500' },
+            { label: 'Rejected', value: rejected, color: 'bg-red-500' },
+          ]}
+          total={total}
+        />
+      </div>
+
+      {/* Velocity + medium */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
+          <div className="text-sm font-semibold text-white mb-3">Velocity (last 7 days)</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-2xl font-bold text-white tabular-nums">{addedLast7}</div>
+              <div className="text-[11px] text-gray-500">added</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-white tabular-nums">{reachedLast7}</div>
+              <div className="text-[11px] text-gray-500">reached out</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
+          <div className="text-sm font-semibold text-white mb-3">Outreach by medium</div>
+          {totalMedium > 0 ? (
+            <StackedBar
+              segments={[
+                { label: 'Email', value: mediumCounts.Email, color: 'bg-purple-500' },
+                { label: 'LinkedIn', value: mediumCounts.LinkedIn, color: 'bg-blue-500' },
+                { label: 'Other', value: mediumCounts.Other, color: 'bg-gray-500' },
+              ]}
+              total={totalMedium}
+            />
+          ) : (
+            <div className="text-xs text-gray-500">Nothing reached out yet.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
+  return (
+    <div className={`bg-gray-900/40 border rounded-xl p-4 ${highlight ? 'border-red-500/40' : 'border-gray-800'}`}>
+      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</div>
+      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-white'}`}>{typeof value === 'number' ? value.toLocaleString() : value}</div>
+      {sub && <div className="text-[11px] text-gray-500 mt-1">{sub}</div>}
+    </div>
+  )
+}
+
+function StackedBar({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
+  return (
+    <div>
+      <div className="flex h-3 rounded-full overflow-hidden bg-gray-800">
+        {segments.map(s => s.value > 0 && (
+          <div key={s.label} className={s.color} style={{ width: `${(s.value / total) * 100}%` }} title={`${s.label}: ${s.value}`} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+        {segments.map(s => (
+          <div key={s.label} className="flex items-center gap-1.5 text-xs">
+            <span className={`w-2.5 h-2.5 rounded-sm ${s.color}`} />
+            <span className="text-gray-400">{s.label}</span>
+            <span className="text-gray-200 tabular-nums">{s.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, profile, emptyVariant }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -446,6 +633,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   onOpenCustomize: () => void
   onReorderCols: (newConfig: OutreachColConfig[]) => void
   profile: UserProfile | null
+  emptyVariant?: 'all' | 'favorites'
 }) {
   const visibleCols = colConfig.filter(c => c.visible)
   const [widths, setWidths] = useState<Record<string, number>>(() =>
@@ -462,10 +650,21 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   const resizing = useRef<{ id: string; startX: number; startW: number } | null>(null)
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const [showFavTooltip, setShowFavTooltip] = useState(false)
+  const favTooltipRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function onClick(ev: MouseEvent) {
+      if (favTooltipRef.current && !favTooltipRef.current.contains(ev.target as Node)) {
+        setShowFavTooltip(false)
+      }
+    }
+    if (showFavTooltip) document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [showFavTooltip])
 
   function handleColDrop(targetIdx: number) {
     const from = dragIdx.current
-    // index 0 is channelName — always locked
+    // index 0 is the leftmost locked column (★ favorite)
     if (from === null || from === 0 || targetIdx === 0 || from === targetIdx) { setDragOverIdx(null); return }
     const newVisible = [...visibleCols]
     const [moved] = newVisible.splice(from, 1)
@@ -500,16 +699,32 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           </button>
         </div>
         <div className="mt-2 border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
-          <div className="mx-auto w-14 h-14 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
-            </svg>
-          </div>
-          <h3 className="text-base font-semibold text-white mb-1">Your outreach list is empty</h3>
-          <p className="text-gray-500 text-sm max-w-sm mx-auto">
-            Run a search in <span className="text-gray-300">Results</span>, then click the <span className="text-purple-400">+</span> icon on any creator to add them here. Or use the menu &rarr; Import to upload an Excel of past outreach.
-          </p>
+          {emptyVariant === 'favorites' ? (
+            <>
+              <div className="mx-auto w-14 h-14 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.363 1.118l1.287 3.957c.3.922-.755 1.688-1.54 1.118l-3.366-2.445a1 1 0 00-1.176 0l-3.366 2.445c-.784.57-1.838-.196-1.539-1.118l1.287-3.957a1 1 0 00-.363-1.118L2.046 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.302-3.957z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold text-white mb-1">No favorites yet</h3>
+              <p className="text-gray-500 text-sm max-w-sm mx-auto">
+                Click the <span className="text-yellow-400">★</span> next to any outreach entry to mark it as a favorite. Starred entries show up here.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto w-14 h-14 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
+                </svg>
+              </div>
+              <h3 className="text-base font-semibold text-white mb-1">Your outreach list is empty</h3>
+              <p className="text-gray-500 text-sm max-w-sm mx-auto">
+                Run a search in <span className="text-gray-300">Results</span>, then click the <span className="text-purple-400">+</span> icon on any creator to add them here. Or use the menu &rarr; Import to upload an Excel of past outreach.
+              </p>
+            </>
+          )}
         </div>
       </div>
     )
@@ -543,10 +758,28 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                     onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
                     className={`relative text-left px-3 py-3 select-none font-medium transition-colors ${!isLocked ? 'cursor-grab' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-gray-700' : ''}`}
                   >
-                    <span className="truncate flex items-center gap-1">
-                      {!isLocked && <span className="text-gray-600 text-xs">⠿</span>}
-                      {col.label}
-                    </span>
+                    {colId === 'favorite' ? (
+                      <div ref={favTooltipRef} className="relative">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowFavTooltip(v => !v) }}
+                          className="text-yellow-400 hover:text-yellow-300 text-base leading-none"
+                          aria-label="What is the favorites column?"
+                          title="What is this?"
+                        >
+                          ★
+                        </button>
+                        {showFavTooltip && (
+                          <div className="absolute left-0 top-7 z-30 w-56 rounded-lg border border-gray-700 bg-gray-900 shadow-xl p-3 text-xs text-gray-300 normal-case font-normal">
+                            Click the star next to any row to favorite it. View only your favorites in <span className="text-yellow-400">Outreach &rarr; Favorites</span>.
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="truncate flex items-center gap-1">
+                        {!isLocked && <span className="text-gray-600 text-xs">⠿</span>}
+                        {col.label}
+                      </span>
+                    )}
                     <div onMouseDown={e => startResize(e, colId)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center">
                       <div className="w-px h-4 bg-gray-600 group-hover:bg-blue-400 transition-colors" />
                     </div>
@@ -737,6 +970,7 @@ export default function Home() {
   const [sortCol, setSortCol] = useState<SortCol>('fitScore')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [activeTab, setActiveTab] = useState<ActiveTab>('results')
+  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics'>('all')
   const [outreach, setOutreach] = useState<OutreachEntry[]>([])
   const [outreachIds, setOutreachIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -970,6 +1204,7 @@ export default function Home() {
       description: c.description || '',
       email: c.email || '',
       product: '',
+      favorite: false,
       reachedOut: false,
       medium: '',
       mediumOther: '',
@@ -1680,15 +1915,23 @@ export default function Home() {
         )}
 
         {activeTab === 'outreach' ? (
-          <OutreachTab
-            entries={outreach}
-            colConfig={outreachColConfig}
-            onUpdate={updateOutreachEntry}
-            onRemove={removeOutreachEntry}
-            onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
-            onReorderCols={reorderOutreachCols}
-            profile={profile}
-          />
+          <>
+            <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} />
+            {outreachSubTab === 'analytics' ? (
+              <OutreachAnalytics entries={outreach} />
+            ) : (
+              <OutreachTab
+                entries={outreachSubTab === 'favorites' ? outreach.filter(e => e.favorite) : outreach}
+                colConfig={outreachColConfig}
+                onUpdate={updateOutreachEntry}
+                onRemove={removeOutreachEntry}
+                onOpenCustomize={() => { setDraftOutreachCols(outreachColConfig); setShowOutreachCustomize(true) }}
+                onReorderCols={reorderOutreachCols}
+                profile={profile}
+                emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
+              />
+            )}
+          </>
         ) : activeTab === 'dismissed' ? (
           <DismissedTab dismissed={dismissed} onUndismiss={undismissCreator} />
         ) : (
