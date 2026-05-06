@@ -16,6 +16,7 @@ import { AnimatedTabs } from '@/components/AnimatedTabs'
 import { AnimatedRow } from '@/components/AnimatedRow'
 import { BorderBeam } from '@/components/BorderBeam'
 import { motion } from 'motion/react'
+import { CadencePopover, FollowedUpPopover } from '@/components/CadencePopover'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
   pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
@@ -659,6 +660,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
   const [sort, setSort] = useState<'urgency' | 'pipeline' | 'touchpoints'>('urgency')
   const [showLater, setShowLater] = useState(false)
   const [showUnset, setShowUnset] = useState(false)
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium'>('all')
   const [showGhosted, setShowGhosted] = useState(false)
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -729,12 +731,17 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     base.setDate(base.getDate() + days)
     onUpdate(e.id, 'followUpDate', `${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`)
   }
-  function markFollowedUp(e: OutreachEntry) {
-    // Increment touchpoints, push date by progressive cadence.
+  function markFollowedUp(e: OutreachEntry, opts?: { date?: string; status?: string }) {
+    // Increment touchpoints, push date (use override if provided), update status.
     const next = (parseInt(e.touchpoints || '0', 10) || 0) + 1
     onUpdate(e.id, 'touchpoints', String(next))
-    onUpdate(e.id, 'followUpDate', isoDaysFromNow(nextFollowUpDays(next)))
     onUpdate(e.id, 'dateReachedOut', todayIso())
+    if (opts?.status && opts.status !== e.status) {
+      onUpdate(e.id, 'status', opts.status)
+    }
+    // followUpDate last so it doesn't get clobbered by status auto-set rules.
+    const newDate = opts?.date ?? isoDaysFromNow(nextFollowUpDays(next))
+    onUpdate(e.id, 'followUpDate', newDate)
   }
 
   if (open.length === 0 && ghosted.length === 0) {
@@ -768,12 +775,16 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
                 ? `${Math.round((groups.high.length / open.length) * 100)}% of queue`
                 : 'none right now'
             }
+            onClick={() => setPriorityFilter(f => f === 'high' ? 'all' : 'high')}
+            active={priorityFilter === 'high'}
           />
           <FUStat
             label="Medium"
             value={groups.medium.length}
             accent={groups.medium.length > 0 ? 'yellow' : 'gray'}
             sub={groups.medium.length > 0 ? 'due this week' : 'nothing this week'}
+            onClick={() => setPriorityFilter(f => f === 'medium' ? 'all' : 'medium')}
+            active={priorityFilter === 'medium'}
           />
           <FUStat
             label="At-risk $"
@@ -784,6 +795,8 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
                 ? `${groups.high.length} high-priority lead${groups.high.length === 1 ? '' : 's'}`
                 : 'nothing urgent in pipeline'
             }
+            onClick={() => setPriorityFilter(f => f === 'high' ? 'all' : 'high')}
+            active={priorityFilter === 'high'}
           />
           <FUStat
             label="Pipeline $"
@@ -794,8 +807,16 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
                 ? `${open.length} active · ${totalTouches} touch${totalTouches === 1 ? '' : 'es'}`
                 : undefined
             }
+            onClick={() => setPriorityFilter('all')}
+            active={priorityFilter === 'all'}
           />
         </div>
+        {priorityFilter !== 'all' && (
+          <div className="flex items-center gap-2 mt-3 text-[11px] text-muted-foreground">
+            <span>Showing only <span className="text-foreground font-medium">{priorityFilter} priority</span> leads.</span>
+            <button onClick={() => setPriorityFilter('all')} className="text-purple-400 hover:text-purple-300 underline-offset-2 hover:underline">Clear filter</button>
+          </div>
+        )}
       </div>
 
       {/* Sort control — minimal */}
@@ -821,36 +842,38 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
       </div>
 
       {/* Section: High priority (overdue + today) */}
-      {groups.high.length > 0 ? (
-        <Section
-          title="High priority"
-          accent="red"
-          count={groups.high.length}
-          subtitle="Overdue or due today — act first"
-          icon={<span className="text-base">🔥</span>}
-        >
-          {groups.high.map(e => (
-            <FollowUpRow
-              key={e.id}
-              entry={e}
-              bucket="high"
-              onUpdate={onUpdate}
-              onSnooze={snooze}
-              onMarkFollowedUp={markFollowedUp}
-              onOpen={onOpenEntry}
-            />
-          ))}
-        </Section>
-      ) : (
-        <Section title="High priority" accent="green" count={0} icon={<span className="text-base">✓</span>}>
-          <div className="text-xs text-muted-foreground italic px-1 py-2">
-            Nothing urgent. {groups.medium.length > 0 ? `${groups.medium.length} medium-priority lead${groups.medium.length === 1 ? '' : 's'} below.` : 'You\'re fully caught up.'}
-          </div>
-        </Section>
+      {(priorityFilter === 'all' || priorityFilter === 'high') && (
+        groups.high.length > 0 ? (
+          <Section
+            title="High priority"
+            accent="red"
+            count={groups.high.length}
+            subtitle="Overdue or due today — act first"
+            icon={<span className="text-base">🔥</span>}
+          >
+            {groups.high.map(e => (
+              <FollowUpRow
+                key={e.id}
+                entry={e}
+                bucket="high"
+                onUpdate={onUpdate}
+                onSnooze={snooze}
+                onMarkFollowedUp={markFollowedUp}
+                onOpen={onOpenEntry}
+              />
+            ))}
+          </Section>
+        ) : (
+          <Section title="High priority" accent="green" count={0} icon={<span className="text-base">✓</span>}>
+            <div className="text-xs text-muted-foreground italic px-1 py-2">
+              Nothing urgent. {groups.medium.length > 0 ? `${groups.medium.length} medium-priority lead${groups.medium.length === 1 ? '' : 's'} below.` : 'You\'re fully caught up.'}
+            </div>
+          </Section>
+        )
       )}
 
       {/* Section: Medium priority (1-7 days out) */}
-      {groups.medium.length > 0 && (
+      {(priorityFilter === 'all' || priorityFilter === 'medium') && groups.medium.length > 0 && (
         <Section
           title="Medium priority"
           accent="yellow"
@@ -872,8 +895,8 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
         </Section>
       )}
 
-      {/* Section: Low priority (8+ days out, collapsed) */}
-      {groups.low.length > 0 && (
+      {/* Section: Low priority (8+ days out, collapsed) — hidden during filter */}
+      {priorityFilter === 'all' && groups.low.length > 0 && (
         <CollapsibleSection
           title="Low priority"
           count={groups.low.length}
@@ -896,7 +919,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
       )}
 
       {/* Section: No follow-up date set (collapsed) */}
-      {groups.unset.length > 0 && (
+      {priorityFilter === 'all' && groups.unset.length > 0 && (
         <CollapsibleSection
           title="No follow-up date"
           count={groups.unset.length}
@@ -919,7 +942,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
       )}
 
       {/* Section: Ghosted leads (No Response) — separate from main queue */}
-      {groups.ghosted.length > 0 && (
+      {priorityFilter === 'all' && groups.ghosted.length > 0 && (
         <CollapsibleSection
           title="Ghosted"
           count={groups.ghosted.length}
@@ -993,11 +1016,13 @@ function CollapsibleSection({ title, count, subtitle, open, onToggle, children }
   )
 }
 
-function FUStat({ label, value, accent, sub }: {
+function FUStat({ label, value, accent, sub, onClick, active }: {
   label: string
   value: number | string
   accent: 'red' | 'yellow' | 'blue' | 'green' | 'gray'
   sub?: string
+  onClick?: () => void
+  active?: boolean
 }) {
   const accentText = {
     red: 'text-red-400', yellow: 'text-yellow-400', blue: 'text-foreground',
@@ -1013,22 +1038,32 @@ function FUStat({ label, value, accent, sub }: {
   }[accent]
   // High-priority "red" stat card gets the animated beam to scream urgency.
   const showBeam = accent === 'red' && typeof value === 'number' && value > 0
+  const isClickable = !!onClick
+  const Wrapper = isClickable ? 'button' : 'div'
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '0px' }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className={`relative bg-card/60 border ${accentBorder} rounded-xl p-4 shadow-sm shadow-black/5 overflow-hidden before:absolute before:inset-0 before:pointer-events-none ${accentGlow} hover:border-border/80 transition-colors`}
+      whileHover={isClickable ? { y: -2 } : undefined}
     >
-      <div className="relative">
-        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
-        <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
-          {typeof value === 'number' ? <NumberTicker value={value} /> : value}
+      <Wrapper
+        {...(isClickable ? { onClick, type: 'button' } : {})}
+        className={`relative w-full text-left bg-card/60 border ${accentBorder} rounded-xl p-4 shadow-sm shadow-black/5 overflow-hidden before:absolute before:inset-0 before:pointer-events-none ${accentGlow} ${isClickable ? 'cursor-pointer hover:border-border/80 hover:shadow-md hover:shadow-black/10' : 'hover:border-border/80'} transition-all ${active ? 'ring-2 ring-purple-500/60 border-purple-500/60' : ''}`}
+      >
+        <div className="relative">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center justify-between">
+            <span>{label}</span>
+            {active && <span className="text-purple-300 text-[10px]">filtered</span>}
+          </div>
+          <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
+            {typeof value === 'number' ? <NumberTicker value={value} /> : value}
+          </div>
+          {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
         </div>
-        {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
-      </div>
-      {showBeam && <BorderBeam size={120} duration={6} colorFrom="#ef4444" colorTo="#a855f7" />}
+        {showBeam && <BorderBeam size={120} duration={6} colorFrom="#ef4444" colorTo="#a855f7" />}
+      </Wrapper>
     </motion.div>
   )
 }
@@ -1038,9 +1073,11 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
   bucket: FUBucket
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onSnooze: (e: OutreachEntry, days: number) => void
-  onMarkFollowedUp: (e: OutreachEntry) => void
+  onMarkFollowedUp: (e: OutreachEntry, opts?: { date?: string; status?: string }) => void
   onOpen: (id: string) => void
 }) {
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false)
+  const [followedUpOpen, setFollowedUpOpen] = useState(false)
   const initials = (e.channelName || '?')
     .trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() ?? '').join('') || '?'
 
@@ -1126,10 +1163,25 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
           </span>
         )}
 
-        {/* Date pill */}
-        <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${datePillClass}`}>
-          {dateLabel}
-        </span>
+        {/* Date pill — clickable to open cadence popover */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setDatePopoverOpen(v => !v)}
+            title="Click to change follow-up date"
+            className={`text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shadow-sm transition-all hover:scale-105 ${datePillClass}`}
+          >
+            {dateLabel}
+          </button>
+          {datePopoverOpen && (
+            <CadencePopover
+              currentDate={e.followUpDate || ''}
+              touchpoints={tps}
+              onPick={(iso) => { onUpdate(e.id, 'followUpDate', iso); setDatePopoverOpen(false) }}
+              onClose={() => setDatePopoverOpen(false)}
+              align="right"
+            />
+          )}
+        </div>
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
@@ -1150,14 +1202,28 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
             </>
           ) : (
             <>
-              {/* Primary action — always visible */}
-              <button
-                onClick={() => onMarkFollowedUp(e)}
-                title={`Bumps to touch ${tps + 1} · auto-pushes date ${nextFollowUpDays(tps + 1)}d out`}
-                className="text-[10px] font-medium text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
-              >
-                Followed up
-              </button>
+              {/* Primary action — opens confirm popover with date + status */}
+              <div className="relative">
+                <button
+                  onClick={() => setFollowedUpOpen(v => !v)}
+                  title="Confirm follow-up: pick next date + status"
+                  className="text-[10px] font-medium text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
+                >
+                  Followed up
+                </button>
+                {followedUpOpen && (
+                  <FollowedUpPopover
+                    touchpoints={tps}
+                    currentStatus={e.status}
+                    onConfirm={({ date, status }) => {
+                      onMarkFollowedUp(e, { date, status })
+                      setFollowedUpOpen(false)
+                    }}
+                    onClose={() => setFollowedUpOpen(false)}
+                    align="right"
+                  />
+                )}
+              </div>
               {/* Snooze — always visible, icon only */}
               <button
                 onClick={() => onSnooze(e, snoozeDays)}
