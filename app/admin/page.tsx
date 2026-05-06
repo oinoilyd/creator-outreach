@@ -29,6 +29,12 @@ export default async function AdminPage() {
   const { data, error } = await supabase.rpc('admin_user_summary')
   const rows = (data || []) as UserRow[]
 
+  // Unread contact messages — for the inbox badge in the header.
+  const { count: unresolvedContact } = await supabase
+    .from('contact_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('resolved', false)
+
   // ---- Aggregates ----
   const now = Date.now()
   const DAY_MS = 24 * 60 * 60 * 1000
@@ -56,9 +62,24 @@ export default async function AdminPage() {
               {total} user{total === 1 ? '' : 's'} signed up.
             </p>
           </div>
-          <Link href="/" className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors">
-            Back to app
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/contact"
+              className={`text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border ${
+                (unresolvedContact ?? 0) > 0
+                  ? 'border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/10'
+                  : 'border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white'
+              }`}
+            >
+              <span>📨 Contact</span>
+              {(unresolvedContact ?? 0) > 0 && (
+                <span className="text-xs font-mono bg-yellow-500/20 px-1.5 py-0.5 rounded">{unresolvedContact}</span>
+              )}
+            </Link>
+            <Link href="/" className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors">
+              Back to app
+            </Link>
+          </div>
         </div>
 
         {error && (

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useState, useMemo, useEffect, useCallback, useRef, useContext } from 'react'
 import type {
   Creator, SortCol, SortDir, ColId, ActiveTab, ScoreWeights,
@@ -2990,7 +2991,9 @@ export default function Home() {
         <div className={`${activeTab === 'outreach' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent leading-none">Creator Outreach</h1>
+              <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity">
+                <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent leading-none">Creator Outreach</h1>
+              </Link>
               <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground leading-none">
                 <span className="leading-none">Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
