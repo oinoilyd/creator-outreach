@@ -4,6 +4,59 @@ import { isPlausibleEmail } from '@/lib/newMethodology'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
+// Hard-coded final scrub. This is belt-and-suspenders defense — every
+// email-emitting code path SHOULD already filter via isPlausibleEmail,
+// but if any of them is broken (deploy lag, missed source path,
+// regression), this catches it as the absolute last step before the
+// response leaves the server.
+//
+// If something keeps showing up despite the upstream blocklist,
+// add the pattern here. Can't be bypassed.
+const HARD_BLOCK_PATTERNS: RegExp[] = [
+  /@stanwith\.me$/i,
+  /@stan\.store$/i,
+  /@patreon\.com$/i,
+  /@buymeacoffee\.com$/i,
+  /@ko-?fi\.com$/i,
+  /@.+\.sentry\.io$/i,
+  /@sentry\.io$/i,
+  /@allmylinks\.com$/i,
+  /@about\.me$/i,
+  /@bio\.fm$/i,
+  /@solo\.to$/i,
+  /@pillar\.io$/i,
+  /@lnk\.bio$/i,
+  /@msha\.ke$/i,
+  /@withkoji\.com$/i,
+  /@campsite\.bio$/i,
+  /@beehiiv\.com$/i,
+  /@substack\.com$/i,
+  /@convertkit\.com$/i,
+  /@mailchimp\.com$/i,
+  /@gumroad\.com$/i,
+]
+
+function isBlockedEmail(email: string): boolean {
+  if (!email) return true
+  const lc = email.toLowerCase().trim()
+  if (HARD_BLOCK_PATTERNS.some(re => re.test(lc))) return true
+  if (!isPlausibleEmail(lc)) return true
+  return false
+}
+
+function scrubResult<T extends { hasEmail: boolean; email: string; source: 'primary' | 'new_methodology' | 'educated_assumption' | null }>(r: T): T {
+  if (!r.hasEmail || !r.email) return r
+  if (isBlockedEmail(r.email)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[email-test scrub] dropping ${r.email} (source=${r.source})`)
+    } else {
+      console.warn(`[email-test scrub] dropped junk email source=${r.source}`)
+    }
+    return { ...r, hasEmail: false, email: '', source: null }
+  }
+  return r
+}
+
 // All recognized toggle keys, in canonical order. Keys ending with the
 // /api/enrich-recognized set are sent through; new_methodology and
 // verify_deliverability are admin-side post-process toggles handled
@@ -288,6 +341,17 @@ export async function POST(req: NextRequest) {
       }
     }),
   )
+
+  // FINAL SCRUB — the last line of defense. Every per-creator result
+  // gets re-validated through the hard blocklist + isPlausibleEmail.
+  // If anything slipped past the source-level filters, it dies here.
+  const scrubbedResults = results.map(scrubResult)
+
+  // Replace the working set so all aggregates downstream see the
+  // scrubbed values too.
+  for (let i = 0; i < results.length; i++) {
+    Object.assign(results[i], scrubbedResults[i])
+  }
 
   const total = results.length
   const withEmail = results.filter(r => r.hasEmail).length
