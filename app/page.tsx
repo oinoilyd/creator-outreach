@@ -490,8 +490,10 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
   }
 
   const total = entries.length
-  const reachedOut = entries.filter(e => e.reachedOut).length
-  const responded = entries.filter(e => e.reachedOut && (e.status === 'Successful' || e.status === 'Rejected')).length
+  // "Reached out" here means outreach that actually completed — i.e. produced
+  // a clear response (Successful or Rejected). Open / No Response / blank
+  // status don't count yet.
+  const reachedOut = entries.filter(e => e.status === 'Successful' || e.status === 'Rejected').length
   const successful = entries.filter(e => e.status === 'Successful').length
   const rejected = entries.filter(e => e.status === 'Rejected').length
   const open = entries.filter(e => e.status === 'Open' || e.status === '').length
@@ -512,7 +514,9 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
     return isFinite(t) && t < todayMs
   }).length
 
-  const responseRate = reachedOut > 0 ? Math.round((responded / reachedOut) * 100) : 0
+  // Response rate: completed outreach (Successful + Rejected) ÷ pipeline.
+  const responseRate = total > 0 ? Math.round((reachedOut / total) * 100) : 0
+  // Win rate: of completed outreach, what fraction was Successful.
   const winRate = reachedOut > 0 ? Math.round((successful / reachedOut) * 100) : 0
 
   const SEVEN_D_AGO = Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -523,9 +527,15 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
     return isFinite(t) && t > SEVEN_D_AGO
   }).length
 
+  const [mediumScope, setMediumScope] = useState<'all' | 'successful' | 'rejected'>('all')
+  const mediumPool = entries.filter(e => {
+    if (!e.reachedOut) return false
+    if (mediumScope === 'successful') return e.status === 'Successful'
+    if (mediumScope === 'rejected') return e.status === 'Rejected'
+    return true
+  })
   const mediumCounts = { Email: 0, LinkedIn: 0, Other: 0 }
-  entries.forEach(e => {
-    if (!e.reachedOut) return
+  mediumPool.forEach(e => {
     if (e.medium === 'Email') mediumCounts.Email++
     else if (e.medium === 'LinkedIn') mediumCounts.LinkedIn++
     else if (e.medium === 'Other' || e.medium === '') mediumCounts.Other++
@@ -537,9 +547,9 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
       {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <AStat label="In pipeline" value={total} />
-        <AStat label="Reached out" value={reachedOut} sub={total > 0 ? `${Math.round(reachedOut / total * 100)}% of pipeline` : undefined} />
-        <AStat label="Response rate" value={`${responseRate}%`} sub={`${responded} responded`} />
-        <AStat label="Win rate" value={`${winRate}%`} sub={`${successful} successful`} />
+        <AStat label="Reached out" value={reachedOut} sub="Successful + Rejected" />
+        <AStat label="Response rate" value={`${responseRate}%`} sub={`${reachedOut} of ${total} pipeline`} />
+        <AStat label="Win rate" value={`${winRate}%`} sub={`${successful} of ${reachedOut} responded`} />
         <AStat label="Pipeline $" value={pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : '—'} sub="non-rejected" />
         <AStat label="Stale follow-ups" value={stale} highlight={stale > 0} />
       </div>
@@ -575,7 +585,26 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
         </div>
 
         <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
-          <div className="text-sm font-semibold text-white mb-3">Outreach by medium</div>
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <div className="text-sm font-semibold text-white">Outreach by medium</div>
+            <div className="flex bg-gray-800/60 rounded-md p-0.5">
+              {([
+                { id: 'all', label: 'All' },
+                { id: 'successful', label: 'Successful' },
+                { id: 'rejected', label: 'Rejected' },
+              ] as { id: 'all' | 'successful' | 'rejected'; label: string }[]).map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setMediumScope(opt.id)}
+                  className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+                    mediumScope === opt.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           {totalMedium > 0 ? (
             <StackedBar
               segments={[
@@ -586,7 +615,9 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
               total={totalMedium}
             />
           ) : (
-            <div className="text-xs text-gray-500">Nothing reached out yet.</div>
+            <div className="text-xs text-gray-500">
+              {mediumScope === 'all' ? 'Nothing reached out yet.' : `No ${mediumScope} outreach yet.`}
+            </div>
           )}
         </div>
       </div>
