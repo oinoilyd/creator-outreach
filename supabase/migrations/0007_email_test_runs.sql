@@ -25,19 +25,19 @@ DROP POLICY IF EXISTS "admin can insert email_test_runs" ON public.email_test_ru
 CREATE POLICY "admin can insert email_test_runs"
   ON public.email_test_runs FOR INSERT
   TO authenticated
-  WITH CHECK ((SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com');
+  WITH CHECK ((auth.jwt() ->> 'email') = 'dmeehanj@gmail.com');
 
 DROP POLICY IF EXISTS "admin can read email_test_runs" ON public.email_test_runs;
 CREATE POLICY "admin can read email_test_runs"
   ON public.email_test_runs FOR SELECT
   TO authenticated
-  USING ((SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com');
+  USING ((auth.jwt() ->> 'email') = 'dmeehanj@gmail.com');
 
 DROP POLICY IF EXISTS "admin can delete email_test_runs" ON public.email_test_runs;
 CREATE POLICY "admin can delete email_test_runs"
   ON public.email_test_runs FOR DELETE
   TO authenticated
-  USING ((SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com');
+  USING ((auth.jwt() ->> 'email') = 'dmeehanj@gmail.com');
 
 CREATE INDEX IF NOT EXISTS idx_email_test_runs_created_at
   ON public.email_test_runs (created_at DESC);

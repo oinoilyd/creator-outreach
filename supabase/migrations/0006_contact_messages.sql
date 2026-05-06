@@ -27,14 +27,14 @@ DROP POLICY IF EXISTS "admin can read contact" ON public.contact_messages;
 CREATE POLICY "admin can read contact"
   ON public.contact_messages FOR SELECT
   TO authenticated
-  USING ((SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com');
+  USING ((auth.jwt() ->> 'email') = 'dmeehanj@gmail.com');
 
 -- Admin-only update (for marking resolved).
 DROP POLICY IF EXISTS "admin can update contact" ON public.contact_messages;
 CREATE POLICY "admin can update contact"
   ON public.contact_messages FOR UPDATE
   TO authenticated
-  USING ((SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com');
+  USING ((auth.jwt() ->> 'email') = 'dmeehanj@gmail.com');
 
 CREATE INDEX IF NOT EXISTS idx_contact_messages_created_at
   ON public.contact_messages (created_at DESC);
