@@ -36,8 +36,14 @@ const PLATFORM_DOMAIN_SUFFIXES = [
   'patreon.com', 'substack.com', 'beehiiv.com', 'ck.page',
   'convertkit.com', 'mailchimp.com', 'gumroad.com', 'kajabi.com',
   'teachable.com', 'thinkific.com', 'memberstack.com', 'circle.so',
-  // Bio-link tools
-  'linktr.ee', 'beacons.ai', 'stan.store', 'campsite.bio',
+  // Bio-link tools (and their team-side email domains where they
+  // differ from the public-facing one — e.g. Stan Store mails from
+  // stanwith.me, not stan.store)
+  'linktr.ee', 'beacons.ai', 'stan.store', 'stanwith.me', 'campsite.bio',
+  'allmylinks.com', 'lnk.bio', 'bio.fm', 'solo.to', 'pillar.io',
+  'about.me', 'contact.me', 'msha.ke', 'withkoji.com',
+  'buymeacoffee.com', 'ko-fi.com', 'kofi.com', 'paypalme.com',
+  'tipjar.com', 'flowcode.com', 'koji.to', 'milkshake.app',
   // Socials + their CDNs
   'youtube.com', 'youtu.be', 'googleapis.com',
   'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
