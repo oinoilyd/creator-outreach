@@ -1,16 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import type { CustomMetric, MetricFilter, MetricStatusFilter, MetricMediumFilter, MetricTristate, MetricWindow, MetricSumField } from '@/lib/types'
+import { useState, useMemo } from 'react'
+import type { CustomMetric, MetricFilter, MetricStatusFilter, MetricMediumFilter, MetricTristate, MetricWindow, MetricSumField, OutreachEntry } from '@/lib/types'
 import { EMPTY_METRIC_FILTER } from '@/lib/types'
+import { computeMetric } from '@/lib/metrics'
 
 export function CustomMetricModal({
   initial,
+  entries,
   onSave,
   onClose,
   onDelete,
 }: {
   initial?: CustomMetric
+  entries: OutreachEntry[]
   onSave: (metric: CustomMetric) => Promise<void> | void
   onClose: () => void
   onDelete?: () => Promise<void> | void
@@ -21,6 +24,17 @@ export function CustomMetricModal({
   const [denomFilter, setDenomFilter] = useState<MetricFilter>(initial?.denomFilter || EMPTY_METRIC_FILTER)
   const [sumField, setSumField] = useState<MetricSumField>(initial?.sumField || 'dealValue')
   const [busy, setBusy] = useState(false)
+
+  const draftMetric: CustomMetric = useMemo(() => ({
+    id: initial?.id || 'preview',
+    label: label.trim() || 'Untitled metric',
+    type,
+    filter,
+    ...(type === 'percentage' ? { denomFilter } : {}),
+    ...(type === 'sum' ? { sumField } : {}),
+  }), [label, type, filter, denomFilter, sumField, initial?.id])
+
+  const previewValue = useMemo(() => computeMetric(draftMetric, entries), [draftMetric, entries])
 
   async function submit() {
     if (!label.trim()) return
@@ -49,7 +63,18 @@ export function CustomMetricModal({
           <h2 className="text-lg font-bold text-white">{initial ? 'Edit metric' : 'New metric'}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
         </div>
-        <p className="text-gray-500 text-xs mb-5">Define what to count. The metric appears as a card on the Analytics tab.</p>
+        <p className="text-gray-500 text-xs mb-4">Define what to count. The metric appears as a card on the Analytics tab.</p>
+
+        {/* Live preview — updates as the form changes */}
+        <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3.5 mb-5">
+          <div className="flex items-baseline justify-between mb-1">
+            <div className="text-[10px] uppercase tracking-wider text-purple-400/80">Live preview</div>
+            <div className="text-[10px] text-gray-500 capitalize">{type === 'sum' && sumField ? `Σ ${sumField}` : type}</div>
+          </div>
+          <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1.5 truncate">{draftMetric.label}</div>
+          <div className="text-2xl font-bold text-white tabular-nums">{previewValue}</div>
+          <div className="text-[10px] text-gray-500 mt-1">Updates live as you change the filter below.</div>
+        </div>
 
         <div className="space-y-3.5">
           {/* Label */}

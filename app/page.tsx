@@ -8,6 +8,7 @@ import type {
   ColConfig, PlatformId, PlatformConfig, UserProfile,
 } from '@/lib/types'
 import { EMPTY_METRIC_FILTER } from '@/lib/types'
+import { computeMetric, SUGGESTED_METRICS } from '@/lib/metrics'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
   pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
@@ -660,40 +661,6 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
   )
 }
 
-export const SUGGESTED_METRICS: Omit<import('@/lib/types').CustomMetric, 'id'>[] = [
-  {
-    label: 'LinkedIn replies',
-    type: 'count',
-    filter: { ...EMPTY_METRIC_FILTER, medium: 'LinkedIn', status: 'Successful' },
-  },
-  {
-    label: 'Email replies',
-    type: 'count',
-    filter: { ...EMPTY_METRIC_FILTER, medium: 'Email', status: 'Successful' },
-  },
-  {
-    label: 'Total deal value',
-    type: 'sum',
-    sumField: 'dealValue',
-    filter: { ...EMPTY_METRIC_FILTER },
-  },
-  {
-    label: 'Favorites',
-    type: 'count',
-    filter: { ...EMPTY_METRIC_FILTER, favorite: 'yes' },
-  },
-  {
-    label: 'No response',
-    type: 'count',
-    filter: { ...EMPTY_METRIC_FILTER, status: 'No Response' },
-  },
-  {
-    label: 'Fresh leads (7d)',
-    type: 'count',
-    filter: { ...EMPTY_METRIC_FILTER, window: 'last7' },
-  },
-]
-
 function CustomMetricCard({ metric, entries }: {
   metric: import('@/lib/types').CustomMetric
   entries: OutreachEntry[]
@@ -706,49 +673,6 @@ function CustomMetricCard({ metric, entries }: {
       <div className="text-[11px] text-gray-500 mt-1 capitalize">{metric.type === 'sum' && metric.sumField ? `Σ ${metric.sumField}` : metric.type}</div>
     </div>
   )
-}
-
-function matchesMetricFilter(e: OutreachEntry, f: import('@/lib/types').MetricFilter): boolean {
-  const reachedOut = e.status !== 'Not Outreached' && e.status !== ''
-  if (f.status !== 'any' && e.status !== f.status) return false
-  if (f.medium !== 'any' && e.medium !== f.medium) return false
-  if (f.hasEmail === 'yes' && !e.email) return false
-  if (f.hasEmail === 'no' && !!e.email) return false
-  if (f.hasLinkedin === 'yes' && !e.linkedin) return false
-  if (f.hasLinkedin === 'no' && !!e.linkedin) return false
-  if (f.favorite === 'yes' && !e.favorite) return false
-  if (f.favorite === 'no' && e.favorite) return false
-  if (f.reachedOut === 'yes' && !reachedOut) return false
-  if (f.reachedOut === 'no' && reachedOut) return false
-  if (f.window === 'last7' && e.addedAt < Date.now() - 7 * 86_400_000) return false
-  if (f.window === 'last30' && e.addedAt < Date.now() - 30 * 86_400_000) return false
-  return true
-}
-
-function computeMetric(m: import('@/lib/types').CustomMetric, entries: OutreachEntry[]): string {
-  const num = entries.filter(e => matchesMetricFilter(e, m.filter))
-  if (m.type === 'count') {
-    return num.length.toLocaleString()
-  }
-  if (m.type === 'percentage') {
-    const denom = entries.filter(e => matchesMetricFilter(e, m.denomFilter || m.filter))
-    if (denom.length === 0) return '—'
-    return `${Math.round((num.length / denom.length) * 100)}%`
-  }
-  if (m.type === 'sum') {
-    const total = num.reduce((s, e) => {
-      const f = m.sumField
-      let v = 0
-      if (f === 'dealValue') v = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
-      else if (f === 'avgViews') v = e.avgViews || 0
-      else if (f === 'fitScore') v = e.fitScore || 0
-      else if (f === 'touchpoints') v = parseFloat(String(e.touchpoints || '').replace(/[^0-9.]/g, '')) || 0
-      return s + (isFinite(v) ? v : 0)
-    }, 0)
-    if (m.sumField === 'dealValue') return total > 0 ? `$${total.toLocaleString()}` : '—'
-    return total > 0 ? total.toLocaleString() : '—'
-  }
-  return '—'
 }
 
 function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
@@ -2148,24 +2072,37 @@ export default function Home() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-                {/* Suggested */}
+                {/* Suggested — live preview cards with your real data */}
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Suggested · tap to add</div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <div className="text-[11px] uppercase tracking-wider text-gray-500">Suggested · live preview</div>
+                    <div className="text-[10px] text-gray-600">click any to add</div>
+                  </div>
                   {(() => {
                     const existingLabels = new Set(draftMetrics.map(m => m.label.toLowerCase()))
                     const remaining = SUGGESTED_METRICS.filter(s => !existingLabels.has(s.label.toLowerCase()))
                     if (remaining.length === 0) return <div className="text-xs text-gray-600 italic">All suggestions added.</div>
                     return (
-                      <div className="flex flex-wrap gap-2">
-                        {remaining.map(s => (
-                          <button
-                            key={s.label}
-                            onClick={() => setDraftMetrics(d => [...d, { ...s, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }])}
-                            className="text-xs text-gray-300 hover:text-white bg-gray-800/60 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-md px-3 py-1.5 transition-colors"
-                          >
-                            + {s.label}
-                          </button>
-                        ))}
+                      <div className="grid grid-cols-2 gap-2">
+                        {remaining.map(s => {
+                          const previewMetric = { ...s, id: `preview-${s.label}` } as import('@/lib/types').CustomMetric
+                          const value = computeMetric(previewMetric, outreach)
+                          const typeLabel = s.type === 'sum' && s.sumField ? `Σ ${s.sumField}` : s.type
+                          return (
+                            <button
+                              key={s.label}
+                              onClick={() => setDraftMetrics(d => [...d, { ...s, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }])}
+                              className="group text-left bg-gray-800/40 hover:bg-gray-800 border border-gray-700 hover:border-purple-500/60 rounded-lg p-3 transition-colors"
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="text-[10px] uppercase tracking-wider text-gray-500 truncate" title={s.label}>{s.label}</div>
+                                <span className="text-[10px] text-gray-600 group-hover:text-purple-400 transition-colors">+ Add</span>
+                              </div>
+                              <div className="text-xl font-bold text-white tabular-nums">{value}</div>
+                              <div className="text-[10px] text-gray-500 capitalize mt-0.5">{typeLabel}</div>
+                            </button>
+                          )
+                        })}
                       </div>
                     )
                   })()}
@@ -2183,41 +2120,50 @@ export default function Home() {
 
                 {/* Your metrics list */}
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Your metrics</div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <div className="text-[11px] uppercase tracking-wider text-gray-500">Your metrics</div>
+                    <div className="text-[10px] text-gray-600">{draftMetrics.length} card{draftMetrics.length === 1 ? '' : 's'}</div>
+                  </div>
                   {draftMetrics.length === 0 ? (
-                    <div className="text-xs text-gray-600 italic py-4 text-center">No metrics yet.</div>
+                    <div className="text-xs text-gray-600 italic py-4 text-center">No metrics yet — add a suggestion or build your own above.</div>
                   ) : (
-                    <div className="space-y-1">
-                      {draftMetrics.map((m, idx) => (
-                        <div key={m.id} className="flex items-center gap-2 py-2 px-3 rounded hover:bg-gray-800 group">
-                          <span className="flex-1 text-sm text-gray-200 truncate">{m.label}</span>
-                          <span className="text-[10px] text-gray-500 capitalize">{m.type === 'sum' && m.sumField ? `Σ ${m.sumField}` : m.type}</span>
-                          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              disabled={idx === 0}
-                              onClick={() => setDraftMetrics(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })}
-                              className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
-                              title="Move up"
-                            >↑</button>
-                            <button
-                              disabled={idx === draftMetrics.length - 1}
-                              onClick={() => setDraftMetrics(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })}
-                              className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
-                              title="Move down"
-                            >↓</button>
-                            <button
-                              onClick={() => setEditingMetric(m)}
-                              className="text-gray-500 hover:text-white px-1"
-                              title="Edit"
-                            >✎</button>
-                            <button
-                              onClick={() => setDraftMetrics(d => d.filter(x => x.id !== m.id))}
-                              className="text-gray-500 hover:text-red-400 px-1"
-                              title="Remove"
-                            >✕</button>
+                    <div className="space-y-1.5">
+                      {draftMetrics.map((m, idx) => {
+                        const value = computeMetric(m, outreach)
+                        return (
+                          <div key={m.id} className="flex items-center gap-2 py-2 px-3 rounded bg-gray-800/40 hover:bg-gray-800 border border-gray-800 group">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-gray-200 truncate">{m.label}</div>
+                              <div className="text-[10px] text-gray-500 capitalize">{m.type === 'sum' && m.sumField ? `Σ ${m.sumField}` : m.type}</div>
+                            </div>
+                            <span className="text-sm font-bold text-white tabular-nums">{value}</span>
+                            <div className="flex gap-0.5">
+                              <button
+                                disabled={idx === 0}
+                                onClick={() => setDraftMetrics(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })}
+                                className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                                title="Move up"
+                              >↑</button>
+                              <button
+                                disabled={idx === draftMetrics.length - 1}
+                                onClick={() => setDraftMetrics(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })}
+                                className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                                title="Move down"
+                              >↓</button>
+                              <button
+                                onClick={() => setEditingMetric(m)}
+                                className="text-gray-500 hover:text-white px-1"
+                                title="Edit"
+                              >✎</button>
+                              <button
+                                onClick={() => setDraftMetrics(d => d.filter(x => x.id !== m.id))}
+                                className="text-gray-500 hover:text-red-400 px-1"
+                                title="Remove"
+                              >✕</button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -2471,6 +2417,7 @@ export default function Home() {
       {(showAddMetric || editingMetric) && (
         <CustomMetricModal
           initial={editingMetric ?? undefined}
+          entries={outreach}
           onSave={async (m) => {
             // Always mutate the draft — user clicks Save in the drawer to commit.
             setDraftMetrics(d => {
