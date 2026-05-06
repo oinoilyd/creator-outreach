@@ -62,9 +62,9 @@ export default async function AdminPage() {
         </div>
 
         {error && (
-          <div className="bg-red-900/20 border border-red-900/40 rounded-lg p-4 mb-6">
-            <div className="text-sm text-red-300 font-medium mb-1">Could not load user summary</div>
-            <div className="text-xs text-red-400/80 mb-2">{error.message}</div>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg p-4 mb-6">
+            <div className="text-sm text-red-800 dark:text-red-300 font-medium mb-1">Could not load user summary</div>
+            <div className="text-xs text-red-700/80 dark:text-red-400/80 mb-2">{error.message}</div>
             <div className="text-xs text-gray-400">
               Run <code className="text-gray-300">supabase/migrations/0003_admin_summary_v2.sql</code> in the Supabase SQL editor to enable this view.
             </div>

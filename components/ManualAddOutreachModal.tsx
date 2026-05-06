@@ -163,7 +163,7 @@ export function ManualAddOutreachModal({
           </label>
 
           {status && <div className="text-xs text-muted-foreground">{status}</div>}
-          {error && <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/40 rounded px-3 py-2">{error}</div>}
+          {error && <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-3 py-2">{error}</div>}
 
           <div className="flex items-center justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} disabled={busy} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50">Cancel</button>

@@ -198,12 +198,12 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                                 return (
                                   <div key={fi} className="space-y-0.5">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-green-500 shrink-0">✓</span>
+                                      <span className="text-emerald-600 dark:text-green-500 shrink-0">✓</span>
                                       <span className="flex-1 text-foreground font-medium leading-snug break-words">{f.ruleLabel}</span>
-                                      <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-green-400' : 'text-red-700 dark:text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
+                                      <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-emerald-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
                                     </div>
                                     {evidence && (
-                                      <div className="ml-4 text-[10px] text-green-700 leading-snug break-words bg-green-900/20 rounded px-1.5 py-0.5">
+                                      <div className="ml-4 text-[10px] text-emerald-800 dark:text-green-300 leading-snug break-words bg-emerald-50 dark:bg-green-900/20 border border-emerald-200 dark:border-transparent rounded px-1.5 py-0.5">
                                         {evidence}
                                       </div>
                                     )}
@@ -217,7 +217,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                                   <span className="font-mono shrink-0 text-muted-foreground/50">{m.pts > 0 ? '+' : ''}{m.pts}</span>
                                 </div>
                               ))}
-                              <div className={`text-[10px] font-medium pt-0.5 border-t border-border/50 ${allMatch ? 'text-green-400' : noneMatch ? 'text-muted-foreground/70' : 'text-yellow-500'}`}>
+                              <div className={`text-[10px] font-medium pt-0.5 border-t border-border/50 ${allMatch ? 'text-emerald-700 dark:text-green-400' : noneMatch ? 'text-muted-foreground/70' : 'text-amber-700 dark:text-yellow-500'}`}>
                                 {allMatch ? '✓ Fully matched' : noneMatch ? '✗ Not matched' : `⚡ Partial — ${entryFired.length}/${entry.rules.length} rules hit`}
                               </div>
                             </div>
@@ -259,7 +259,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 <div className="space-y-1.5">
                   {items.map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className={`w-6 text-right font-mono font-bold shrink-0 leading-snug ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
+                      <span className={`w-6 text-right font-mono font-bold shrink-0 leading-snug ${item.pts > 0 ? 'text-emerald-700 dark:text-green-400' : item.pts < 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
                         {item.pts > 0 ? '+' : ''}{item.pts}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -365,7 +365,7 @@ function renderCell(
     case 'email': return (
       <td key={id} className="px-4 py-3 text-xs">
         {c.email ? (
-          <a href={buildOutreachEmail(c, profile)} className="text-green-400 hover:underline">{c.email}</a>
+          <a href={buildOutreachEmail(c, profile)} className="text-emerald-700 dark:text-green-400 hover:underline">{c.email}</a>
         ) : c.enriching ? (
           <span className="flex items-center gap-1 text-muted-foreground"><Spinner />looking...</span>
         ) : (
@@ -418,10 +418,10 @@ function FollowUpDateCell({ entry, onUpdate }: {
   const pillClass = isUnset
     ? 'bg-muted/50 text-muted-foreground border-border hover:border-border'
     : isOverdue
-      ? 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/40 hover:border-red-400'
+      ? 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40 hover:border-red-300 dark:hover:border-red-400'
       : isToday
-        ? 'bg-yellow-500/15 text-amber-700 dark:text-yellow-300 border-yellow-500/40 hover:border-yellow-400'
-        : 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 hover:border-blue-400'
+        ? 'bg-amber-50 dark:bg-yellow-500/15 text-amber-800 dark:text-yellow-300 border-amber-200 dark:border-yellow-500/40 hover:border-amber-300 dark:hover:border-yellow-400'
+        : 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30 hover:border-blue-300 dark:hover:border-blue-400'
 
   const label = isUnset
     ? '+ set'
@@ -543,7 +543,7 @@ function renderOutreachCell(
     case 'email':
       return (
         <div className="flex flex-col gap-1">
-          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} className="text-green-400 hover:underline text-xs break-all">{e.email}</a>}
+          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all">{e.email}</a>}
           <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-muted-foreground/70' : 'text-muted-foreground'} />
           {!e.email && (
             <button
@@ -580,7 +580,7 @@ function renderOutreachCell(
     case 'status':
       return (
         <select value={e.status || 'Not Outreached'} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
-          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-700 dark:text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-700 dark:text-red-300' : e.status === 'No Response' ? 'bg-muted border-border text-muted-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
+          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300' : e.status === 'Open' ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300' : e.status === 'Rejected' ? 'bg-red-50 dark:bg-red-900/40 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300' : e.status === 'No Response' ? 'bg-muted border-border text-muted-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
           <option value="Not Outreached">Not Outreached</option>
           <option value="Open">Open</option>
           <option value="No Response">No Response</option>
@@ -975,8 +975,8 @@ function Section({ title, accent, count, subtitle, icon, children }: {
   icon?: React.ReactNode
   children: React.ReactNode
 }) {
-  const accentText = { red: 'text-red-700 dark:text-red-300', yellow: 'text-amber-700 dark:text-yellow-300', blue: 'text-blue-700 dark:text-blue-300', green: 'text-emerald-700 dark:text-emerald-300' }[accent]
-  const accentBorder = { red: 'border-red-500/40', yellow: 'border-yellow-500/40', blue: 'border-blue-500/30', green: 'border-emerald-500/30' }[accent]
+  const accentText = { red: 'text-red-700 dark:text-red-300', yellow: 'text-amber-800 dark:text-yellow-300', blue: 'text-blue-700 dark:text-blue-300', green: 'text-emerald-700 dark:text-emerald-300' }[accent]
+  const accentBorder = { red: 'border-red-200 dark:border-red-500/40', yellow: 'border-amber-200 dark:border-yellow-500/40', blue: 'border-blue-200 dark:border-blue-500/30', green: 'border-emerald-200 dark:border-emerald-500/30' }[accent]
   return (
     <section>
       <div className="flex items-center gap-2 mb-3">
@@ -1029,8 +1029,8 @@ function FUStat({ label, value, accent, sub, onClick, active }: {
     green: 'text-emerald-700 dark:text-emerald-400', gray: 'text-foreground',
   }[accent]
   const accentBorder = {
-    red: 'border-red-500/30', yellow: 'border-yellow-500/30', blue: 'border-border',
-    green: 'border-emerald-500/30', gray: 'border-border',
+    red: 'border-red-200 dark:border-red-500/30', yellow: 'border-amber-200 dark:border-yellow-500/30', blue: 'border-border',
+    green: 'border-emerald-200 dark:border-emerald-500/30', gray: 'border-border',
   }[accent]
   const accentGlow = {
     red: 'before:bg-red-500/[0.04]', yellow: 'before:bg-yellow-500/[0.04]',
@@ -1093,9 +1093,9 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
 
   const dotColor = { red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500', gray: 'bg-gray-500' }[accent]
   const datePillClass = {
-    red: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/40',
-    yellow: 'bg-yellow-500/15 text-amber-700 dark:text-yellow-300 border-yellow-500/40',
-    blue: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30',
+    red: 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40',
+    yellow: 'bg-amber-50 dark:bg-yellow-500/15 text-amber-800 dark:text-yellow-300 border-amber-200 dark:border-yellow-500/40',
+    blue: 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30',
     gray: 'bg-muted/30 text-muted-foreground border-border',
   }[accent]
 
@@ -1158,7 +1158,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
 
         {/* Pipeline value chip */}
         {dealValue > 0 && (
-          <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0" title="Deal value">
+          <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 shrink-0" title="Deal value">
             ${dealValue.toLocaleString()}
           </span>
         )}
@@ -3126,7 +3126,7 @@ export default function Home() {
               <span className="text-muted-foreground/70 text-xs">|</span>
               {VIEW_PRESETS.map(p => (
                 <button key={p.label} onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
-                  className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
                   {p.label}
                 </button>
               ))}
@@ -3151,7 +3151,7 @@ export default function Home() {
                 { label: '1M+', min: 1_000_000, max: 0 },
               ].map(p => (
                 <button key={p.label} onClick={() => { setMinSubs(p.min); setMaxSubs(p.max) }}
-                  className={`text-xs px-3 py-1 rounded border transition-colors ${minSubs === p.min && maxSubs === p.max ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${minSubs === p.min && maxSubs === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
                   {p.label}
                 </button>
               ))}
@@ -3166,7 +3166,7 @@ export default function Home() {
                 { label: 'Any time', days: Infinity },
               ].map(p => (
                 <button key={p.label} onClick={() => setMaxAgeDays(p.days)}
-                  className={`text-xs px-3 py-1 rounded border transition-colors ${maxAgeDays === p.days ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${maxAgeDays === p.days ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
                   {p.label}
                 </button>
               ))}
@@ -3175,7 +3175,7 @@ export default function Home() {
               <span className="text-xs text-muted-foreground w-20 shrink-0">Show only:</span>
               <button
                 onClick={() => setEmailOnly(v => !v)}
-                className={`text-xs px-3 py-1 rounded border transition-colors ${emailOnly ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
+                className={`text-xs px-3 py-1 rounded border transition-colors ${emailOnly ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
               >
                 Has email
               </button>
@@ -3190,7 +3190,7 @@ export default function Home() {
                 <button
                   onClick={() => setRegions([])}
                   title="No regional filter — English-language creators only"
-                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === 0 ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === 0 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                 >
                   <span>🌐</span>
                   <span>English</span>
@@ -3199,7 +3199,7 @@ export default function Home() {
                 <button
                   onClick={() => setRegions(REGIONS.map(r => r.code))}
                   title="Search across all countries simultaneously — slower but surfaces creators from every region"
-                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === REGIONS.length ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === REGIONS.length ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                 >
                   <span>🗺️</span>
                   <span>Global</span>
@@ -3208,7 +3208,7 @@ export default function Home() {
                   <button
                     key={r.code}
                     onClick={() => setRegions(prev => regions.includes(r.code) ? prev.filter(c => c !== r.code) : [...prev, r.code])}
-                    className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.includes(r.code) ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
+                    className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.includes(r.code) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                   >
                     <span>{r.flag}</span>
                     <span>{r.label}</span>

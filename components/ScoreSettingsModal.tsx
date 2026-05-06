@@ -75,7 +75,7 @@ export function ScoreSettingsModal({ weights, narrative, guidanceEntries, active
                     onClick={() => togglePreset(preset)}
                     className={`flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all ${
                       active
-                        ? 'bg-purple-900/40 border-purple-600 text-foreground'
+                        ? 'bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-600 text-purple-900 dark:text-foreground'
                         : 'bg-muted/60 border-border text-muted-foreground hover:border-border hover:text-foreground'
                     }`}
                   >
@@ -94,7 +94,7 @@ export function ScoreSettingsModal({ weights, narrative, guidanceEntries, active
                 <button
                   key={entry.id}
                   onClick={() => onRemoveGuidance(entry.id)}
-                  className="flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all bg-purple-900/40 border-purple-600 text-foreground hover:border-red-500/60 group"
+                  className="flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-600 text-purple-900 dark:text-foreground hover:border-red-500/60 group"
                   title="Click to remove"
                 >
                   <span className="text-base shrink-0 mt-0.5">✏️</span>
