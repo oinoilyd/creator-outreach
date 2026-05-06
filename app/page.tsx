@@ -1603,7 +1603,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
       </div>
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="table-fixed text-sm border-collapse" style={{ width: totalWidth }}>
-          <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border sticky top-[68px] z-10">
+          <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
             <tr>
               {visibleCols.map((col, idx) => {
                 const colId = col.id as string
@@ -1730,7 +1730,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border sticky top-[68px] z-10">
+        <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
           <tr>
             <th className="px-2 py-3 text-center w-12" title="Skip — hide this creator from results">
               <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
@@ -2214,7 +2214,7 @@ export default function Home() {
   async function seedTestData() {
     if (!confirm('Add ~100 real creators to your Outreach with random statuses + dates? This calls the real /api/search endpoint. Cleanup later by deleting rows where notes = "[seed]".')) return
     const keywords = ['fitness coach', 'cooking', 'gardening', 'tech founder', 'travel vlogger', 'gaming', 'finance content creator', 'photography']
-    toast.info(`Seeding ~100 creators across ${keywords.length} topics…`, { duration: 5000 })
+    const seedToastId = toast.loading(`Seeding 0 / ~100 creators…`, { duration: 120_000 })
     let added = 0
     const newEntries: OutreachEntry[] = []
     const seenIds = new Set<string>(outreach.map(o => o.channelId))
@@ -2222,11 +2222,23 @@ export default function Home() {
 
     for (const kw of keywords) {
       try {
-        const r = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=15&minViews=0&maxViews=999999999`)
-        if (!r.ok) continue
+        const url = `/api/search?keyword=${encodeURIComponent(kw)}&maxResults=15&minViews=0&maxViews=999999999`
+        console.log('[seedTestData] fetching', url)
+        const r = await fetch(url)
+        if (!r.ok) {
+          const errText = await r.text().catch(() => '')
+          console.warn('[seedTestData] search failed', kw, r.status, errText)
+          toast.warning(`Search "${kw}" failed: ${r.status}`)
+          continue
+        }
         const data = await r.json()
-        const channels = (data.channels || []).slice(0, 14) as Creator[]
-        for (const c of channels) {
+        const channels = (data.channels || []) as Creator[]
+        console.log('[seedTestData] keyword', kw, 'returned', channels.length, 'channels')
+        if (channels.length === 0) {
+          toast.warning(`No results for "${kw}"`)
+          continue
+        }
+        for (const c of channels.slice(0, 14)) {
           if (seenIds.has(c.channelId) || added >= 100) continue
           seenIds.add(c.channelId)
 
@@ -2295,22 +2307,30 @@ export default function Home() {
           })
           added++
         }
-      } catch (err) {
+        toast.loading(`Seeding ${added} / ~100 creators…`, { id: seedToastId, duration: 120_000 })
+      } catch (err: any) {
         console.warn('[seedTestData] keyword failed:', kw, err)
+        toast.warning(`"${kw}" errored: ${err?.message || err}`)
       }
       if (added >= 100) break
     }
 
+    toast.dismiss(seedToastId)
     if (newEntries.length === 0) {
-      toast.error('No creators found. Make sure search is working.')
+      toast.error('No creators added — every search returned 0 or failed. Check console.')
       return
     }
-    const merged = [...newEntries, ...outreach]
-    await persistOutreach(merged)
-    const fresh = await getOutreach()
-    setOutreach(fresh)
-    setOutreachIds(new Set(fresh.map(e => e.channelId)))
-    toast.success(`Seeded ${newEntries.length} real creators 🎉`, { description: 'Statuses + dates + deal values randomized. Cleanup later by deleting rows with notes="[seed]".' })
+    try {
+      const merged = [...newEntries, ...outreach]
+      await persistOutreach(merged)
+      const fresh = await getOutreach()
+      setOutreach(fresh)
+      setOutreachIds(new Set(fresh.map(e => e.channelId)))
+      toast.success(`Seeded ${newEntries.length} real creators 🎉`, { description: 'Refreshing your queue. Cleanup later by deleting rows where notes="[seed]".' })
+    } catch (err: any) {
+      console.error('[seedTestData] persist failed', err)
+      toast.error(`Persist failed: ${err?.message || err}`)
+    }
   }
 
   async function deepSearchAllOutreach() {
