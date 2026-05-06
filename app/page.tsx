@@ -2330,6 +2330,76 @@ export default function Home() {
   const [searchingContactIds, setSearchingContactIds] = useState<Set<string>>(new Set())
   const [outreachBulkRunning, setOutreachBulkRunning] = useState(false)
   const [resultsBulkRunning, setResultsBulkRunning] = useState(false)
+  const [dismissedBulkRunning, setDismissedBulkRunning] = useState(false)
+  const [dismissedSearchingIds, setDismissedSearchingIds] = useState<Set<string>>(new Set())
+
+  // Aggressive single-row email search for a Dismissed creator. Saves the
+  // updated record back to dismissed_creators in Supabase so re-opens of
+  // the tab keep the found email.
+  async function deepSearchDismissedEmail(channelId: string) {
+    const c = dismissed.find(x => x.channelId === channelId)
+    if (!c) return
+    setDismissedSearchingIds(s => new Set(s).add(channelId))
+    try {
+      const params = new URLSearchParams({
+        name: c.channelName,
+        channelId: c.channelId,
+        description: c.description || '',
+        website: c.website || '',
+        instagram: c.instagram || '',
+        tiktok: c.tiktok || '',
+        aggressive: 'true',
+      })
+      const r = await fetch(`/api/enrich?${params}`)
+      const extra = await r.json()
+      if (!r.ok) {
+        toast.error(`Search failed: ${extra.error || 'unknown'}`)
+        return
+      }
+      const merged: Creator = {
+        ...c,
+        email: c.email || extra.email || '',
+        linkedin: c.linkedin || extra.linkedin || '',
+        instagram: c.instagram || extra.instagram || '',
+        twitter: c.twitter || extra.twitter || '',
+        tiktok: c.tiktok || extra.tiktok || '',
+        website: c.website || extra.website || '',
+        subscribers: c.subscribers || extra.subscribers || '',
+        avgViews: c.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
+      }
+      const next = dismissed.map(x => x.channelId === channelId ? merged : x)
+      setDismissed(next)
+      void persistDismissed(next)
+      if (extra.email && !c.email) toast.success(`Found email for ${c.channelName}`)
+    } catch (err: any) {
+      toast.error(`Search failed: ${err?.message || err}`)
+    } finally {
+      setDismissedSearchingIds(s => { const n = new Set(s); n.delete(channelId); return n })
+    }
+  }
+
+  // Bulk aggressive search across every Dismissed creator missing an email.
+  // Keeps running in the background as the user navigates other tabs (the
+  // SPA stays mounted, the toast tracks progress globally).
+  async function deepSearchAllDismissed() {
+    const targets = dismissed.filter(c => !c.email).map(c => c.channelId)
+    if (targets.length === 0 || dismissedBulkRunning) return
+    setDismissedBulkRunning(true)
+    const toastId = toast.loading(`Deep-searching emails: 0 / ${targets.length} dismissed`, { duration: 600_000 })
+    try {
+      const CONCURRENCY = 3
+      let done = 0
+      for (let i = 0; i < targets.length; i += CONCURRENCY) {
+        const batch = targets.slice(i, i + CONCURRENCY)
+        await Promise.all(batch.map(id => deepSearchDismissedEmail(id)))
+        done += batch.length
+        toast.loading(`Deep-searching emails: ${done} / ${targets.length} dismissed`, { id: toastId, duration: 600_000 })
+      }
+      toast.success(`Done. ${done} dismissed creators rechecked.`, { id: toastId })
+    } finally {
+      setDismissedBulkRunning(false)
+    }
+  }
 
   async function seedTestData() {
     if (!confirm('Add ~100 real creators to your Outreach with random statuses + dates? This calls the real /api/search endpoint. Cleanup later by deleting rows where notes = "[seed]".')) return
@@ -3495,7 +3565,14 @@ export default function Home() {
             )}
           </>
         ) : activeTab === 'dismissed' ? (
-          <DismissedTab dismissed={dismissed} onUndismiss={undismissCreator} />
+          <DismissedTab
+            dismissed={dismissed}
+            onUndismiss={undismissCreator}
+            onDeepSearch={deepSearchDismissedEmail}
+            deepSearchingIds={dismissedSearchingIds}
+            onSearchAll={deepSearchAllDismissed}
+            bulkRunning={dismissedBulkRunning}
+          />
         ) : (
           <>
             <CreatorTable
