@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useTheme } from 'next-themes'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
@@ -92,8 +93,15 @@ export function HamburgerMenu({
         <span className="block w-5 h-px bg-current rounded" />
       </button>
 
+      <AnimatePresence>
       {open && (
-        <div className="absolute right-0 top-11 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+        <motion.div
+          initial={{ opacity: 0, y: -8, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.96 }}
+          transition={{ type: 'spring', bounce: 0.18, duration: 0.3 }}
+          className="absolute right-0 top-11 w-64 bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden py-1"
+        >
           {(userEmail || userFullName) && (
             <>
               <div className="flex items-center gap-3 px-4 py-3">
@@ -252,8 +260,9 @@ export function HamburgerMenu({
               <div className="text-sm text-foreground font-medium leading-tight">Sign out</div>
             </div>
           </button>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   )
 }

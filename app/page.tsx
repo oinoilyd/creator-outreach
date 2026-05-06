@@ -13,6 +13,9 @@ import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
 import { NumberTicker } from '@/components/NumberTicker'
 import { AnimatedTabs } from '@/components/AnimatedTabs'
+import { AnimatedRow } from '@/components/AnimatedRow'
+import { BorderBeam } from '@/components/BorderBeam'
+import { motion } from 'motion/react'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
   pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
@@ -1008,8 +1011,16 @@ function FUStat({ label, value, accent, sub }: {
     red: 'before:bg-red-500/[0.04]', yellow: 'before:bg-yellow-500/[0.04]',
     blue: 'before:bg-transparent', green: 'before:bg-emerald-500/[0.04]', gray: 'before:bg-transparent',
   }[accent]
+  // High-priority "red" stat card gets the animated beam to scream urgency.
+  const showBeam = accent === 'red' && typeof value === 'number' && value > 0
   return (
-    <div className={`relative bg-card/60 border ${accentBorder} rounded-xl p-4 shadow-sm shadow-black/5 overflow-hidden before:absolute before:inset-0 before:pointer-events-none ${accentGlow} hover:border-border/80 transition-colors`}>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '0px' }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className={`relative bg-card/60 border ${accentBorder} rounded-xl p-4 shadow-sm shadow-black/5 overflow-hidden before:absolute before:inset-0 before:pointer-events-none ${accentGlow} hover:border-border/80 transition-colors`}
+    >
       <div className="relative">
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
         <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
@@ -1017,7 +1028,8 @@ function FUStat({ label, value, accent, sub }: {
         </div>
         {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
       </div>
-    </div>
+      {showBeam && <BorderBeam size={120} duration={6} colorFrom="#ef4444" colorTo="#a855f7" />}
+    </motion.div>
   )
 }
 
@@ -1428,13 +1440,19 @@ function CustomMetricCard({ metric, entries }: {
 
 function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`relative bg-card/60 border rounded-xl p-4 shadow-sm shadow-black/5 hover:border-border/80 transition-colors ${highlight ? 'border-red-500/40' : 'border-border'}`}>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '0px' }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className={`relative bg-card/60 border rounded-xl p-4 shadow-sm shadow-black/5 hover:border-border/80 transition-colors ${highlight ? 'border-red-500/40' : 'border-border'}`}
+    >
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
       <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-foreground'}`}>
         {typeof value === 'number' ? <NumberTicker value={value} /> : value}
       </div>
       {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
-    </div>
+    </motion.div>
   )
 }
 
@@ -1655,7 +1673,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           </thead>
           <tbody>
             {entries.map((e, i) => (
-              <tr key={e.id} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
+              <AnimatedRow key={e.id} index={i} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
                     {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
@@ -1664,7 +1682,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                 <td className="px-3 py-2 align-top" style={{ width: 36 }}>
                   <button onClick={() => onRemove(e.id)} className="text-muted-foreground/50 hover:text-red-400 transition-colors"><TrashIcon /></button>
                 </td>
-              </tr>
+              </AnimatedRow>
             ))}
           </tbody>
         </table>
@@ -1775,7 +1793,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
             </tr>
           )}
           {sorted.map((c, i) => (
-            <tr key={c.channelId} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
+            <AnimatedRow key={c.channelId} index={i} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
               <td className="px-2 py-3 text-center">
                 <button
                   onClick={() => onDismiss(c)}
@@ -1796,7 +1814,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch))}
-            </tr>
+            </AnimatedRow>
           ))}
           {loadMoreBatch && loadMoreBatch.length > 0 && (
             <>
@@ -2731,8 +2749,9 @@ export default function Home() {
               </span>
             )}
           </button>
-          <button onClick={handleSearch} disabled={loading} className="bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30">
-            {loading ? 'Searching...' : 'Search'}
+          <button onClick={handleSearch} disabled={loading} className="relative bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30 overflow-hidden">
+            <span className="relative z-10">{loading ? 'Searching...' : 'Search'}</span>
+            <span className="absolute inset-0 shimmer-bg rounded-lg pointer-events-none" aria-hidden />
           </button>
           <div className="relative">
             <button
