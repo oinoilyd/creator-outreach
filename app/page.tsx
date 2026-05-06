@@ -493,14 +493,16 @@ function renderOutreachCell(
   }
 }
 
-function OutreachSubTabs({ active, onChange, favCount }: {
-  active: 'all' | 'favorites' | 'analytics'
-  onChange: (v: 'all' | 'favorites' | 'analytics') => void
+function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
+  active: 'all' | 'favorites' | 'analytics' | 'followups'
+  onChange: (v: 'all' | 'favorites' | 'analytics' | 'followups') => void
   favCount: number
+  dueCount: number
 }) {
-  const tabs: { id: 'all' | 'favorites' | 'analytics'; label: React.ReactNode }[] = [
+  const tabs: { id: 'all' | 'favorites' | 'analytics' | 'followups'; label: React.ReactNode }[] = [
     { id: 'all', label: 'All' },
     { id: 'favorites', label: <>★ Favorites {favCount > 0 && <span className="ml-1 text-yellow-400/70">({favCount})</span>}</> },
+    { id: 'followups', label: <>⏰ Follow-ups {dueCount > 0 && <span className="ml-1 text-red-400/80">({dueCount})</span>}</> },
     { id: 'analytics', label: '📊 Analytics' },
   ]
   return (
@@ -520,6 +522,232 @@ function OutreachSubTabs({ active, onChange, favCount }: {
       ))}
     </div>
   )
+}
+
+function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
+  entries: OutreachEntry[]
+  onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
+  onOpenEntry: (id: string) => void
+}) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const todayMs = today.getTime()
+  const SEVEN_D = 7 * 86_400_000
+
+  // Active = waiting for a response (Open / No Response)
+  const active = entries.filter(e => e.status === 'Open' || e.status === 'No Response')
+
+  function bucketOf(e: OutreachEntry): 'overdue' | 'today' | 'thisWeek' | 'later' | 'unset' {
+    if (!e.followUpDate) return 'unset'
+    const t = new Date(e.followUpDate).getTime()
+    if (!isFinite(t)) return 'unset'
+    const tDay = new Date(t); tDay.setHours(0, 0, 0, 0)
+    const tMs = tDay.getTime()
+    if (tMs < todayMs) return 'overdue'
+    if (tMs === todayMs) return 'today'
+    if (tMs - todayMs <= SEVEN_D) return 'thisWeek'
+    return 'later'
+  }
+
+  const grouped: Record<'overdue' | 'today' | 'thisWeek' | 'later' | 'unset', OutreachEntry[]> = {
+    overdue: [], today: [], thisWeek: [], later: [], unset: [],
+  }
+  for (const e of active) grouped[bucketOf(e)].push(e)
+  for (const k of Object.keys(grouped) as (keyof typeof grouped)[]) {
+    grouped[k].sort((a, b) => {
+      const ta = a.followUpDate ? new Date(a.followUpDate).getTime() : Infinity
+      const tb = b.followUpDate ? new Date(b.followUpDate).getTime() : Infinity
+      return ta - tb
+    })
+  }
+
+  function snooze(e: OutreachEntry, days: number) {
+    const base = e.followUpDate && isFinite(new Date(e.followUpDate).getTime())
+      ? new Date(e.followUpDate)
+      : new Date()
+    base.setDate(base.getDate() + days)
+    onUpdate(e.id, 'followUpDate', base.toISOString().slice(0, 10))
+  }
+  function markDoneNow(e: OutreachEntry) {
+    // user just followed up — bump touchpoints, push date out 14 days
+    const next = (parseInt(e.touchpoints || '0', 10) || 0) + 1
+    onUpdate(e.id, 'touchpoints', String(next))
+    snooze(e, 14)
+  }
+
+  if (active.length === 0) {
+    return (
+      <div className="border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
+        <div className="mx-auto w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 className="text-base font-semibold text-white mb-1">No follow-ups pending</h3>
+        <p className="text-gray-500 text-sm max-w-sm mx-auto">
+          Set a status of <span className="text-blue-400">Open</span> or <span className="text-gray-400">No Response</span> on any outreach entry — it'll show up here with an auto follow-up date 14 days out.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <FollowUpGroup
+        title="Overdue"
+        accent="red"
+        entries={grouped.overdue}
+        onSnooze={snooze}
+        onMarkDone={markDoneNow}
+        onUpdate={onUpdate}
+        onOpenEntry={onOpenEntry}
+        formatBadge={(e) => `${daysAgo(e.followUpDate)} ago`}
+      />
+      <FollowUpGroup
+        title="Today"
+        accent="yellow"
+        entries={grouped.today}
+        onSnooze={snooze}
+        onMarkDone={markDoneNow}
+        onUpdate={onUpdate}
+        onOpenEntry={onOpenEntry}
+        formatBadge={() => 'today'}
+      />
+      <FollowUpGroup
+        title="This week"
+        accent="blue"
+        entries={grouped.thisWeek}
+        onSnooze={snooze}
+        onMarkDone={markDoneNow}
+        onUpdate={onUpdate}
+        onOpenEntry={onOpenEntry}
+        formatBadge={(e) => `in ${daysFromNow(e.followUpDate)}d`}
+      />
+      <FollowUpGroup
+        title="Later"
+        accent="gray"
+        entries={grouped.later}
+        onSnooze={snooze}
+        onMarkDone={markDoneNow}
+        onUpdate={onUpdate}
+        onOpenEntry={onOpenEntry}
+        formatBadge={(e) => `in ${daysFromNow(e.followUpDate)}d`}
+      />
+      <FollowUpGroup
+        title="No follow-up date set"
+        accent="gray"
+        entries={grouped.unset}
+        onSnooze={snooze}
+        onMarkDone={markDoneNow}
+        onUpdate={onUpdate}
+        onOpenEntry={onOpenEntry}
+        formatBadge={() => '—'}
+      />
+    </div>
+  )
+}
+
+function FollowUpGroup({ title, accent, entries, onSnooze, onMarkDone, onUpdate, onOpenEntry, formatBadge }: {
+  title: string
+  accent: 'red' | 'yellow' | 'blue' | 'gray'
+  entries: OutreachEntry[]
+  onSnooze: (e: OutreachEntry, days: number) => void
+  onMarkDone: (e: OutreachEntry) => void
+  onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
+  onOpenEntry: (id: string) => void
+  formatBadge: (e: OutreachEntry) => string
+}) {
+  if (entries.length === 0) return null
+  const accentClass = {
+    red: 'text-red-400 bg-red-500/10 border-red-500/30',
+    yellow: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
+    blue: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+    gray: 'text-gray-400 bg-gray-500/10 border-gray-500/30',
+  }[accent]
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${accentClass}`}>{entries.length}</span>
+      </div>
+      <div className="space-y-2">
+        {entries.map(e => (
+          <div key={e.id} className="flex items-center gap-3 bg-gray-900/40 border border-gray-800 rounded-lg p-3 hover:border-gray-700 transition-colors">
+            <button
+              onClick={() => onOpenEntry(e.id)}
+              className="flex-1 min-w-0 text-left"
+              title="Jump to this entry in the All tab"
+            >
+              <div className="text-sm font-medium text-white truncate">{e.channelName}</div>
+              <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 truncate">
+                <span>{e.status}</span>
+                {e.dateReachedOut && <span>· reached out {daysAgo(e.dateReachedOut)} ago</span>}
+                {e.touchpoints && <span>· {e.touchpoints} touchpoint{Number(e.touchpoints) === 1 ? '' : 's'}</span>}
+              </div>
+            </button>
+            <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border ${accentClass} shrink-0`}>{formatBadge(e)}</span>
+            <input
+              type="date"
+              value={e.followUpDate || ''}
+              onChange={ev => onUpdate(e.id, 'followUpDate', ev.target.value)}
+              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-purple-500 shrink-0"
+              title="Edit follow-up date"
+            />
+            <div className="flex gap-1 shrink-0">
+              <button
+                onClick={() => onMarkDone(e)}
+                title="I followed up — bump touchpoints + push date 14 days"
+                className="text-[11px] text-purple-300 hover:text-white border border-purple-500/30 hover:bg-purple-600/30 hover:border-purple-500 rounded px-2 py-1 transition-colors"
+              >
+                Followed up
+              </button>
+              <button
+                onClick={() => onSnooze(e, 7)}
+                title="Push 7 days"
+                className="text-[11px] text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+              >
+                Snooze 7d
+              </button>
+              <button
+                onClick={() => onUpdate(e.id, 'status', 'No Response')}
+                title="Mark as ghosted"
+                className="text-[11px] text-gray-500 hover:text-gray-300 border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+              >
+                Ghost
+              </button>
+              <button
+                onClick={() => onUpdate(e.id, 'status', 'Successful')}
+                title="They said yes"
+                className="text-[11px] text-green-400 hover:text-white border border-green-500/30 hover:bg-green-600/30 hover:border-green-500 rounded px-2 py-1 transition-colors"
+              >
+                ✓
+              </button>
+              <button
+                onClick={() => onUpdate(e.id, 'status', 'Rejected')}
+                title="They said no"
+                className="text-[11px] text-red-400 hover:text-white border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded px-2 py-1 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function daysAgo(iso: string): string {
+  if (!iso) return '?'
+  const d = new Date(iso); if (isNaN(d.getTime())) return '?'
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+  if (days <= 0) return 'today'
+  return `${days}d`
+}
+
+function daysFromNow(iso: string): number {
+  if (!iso) return 0
+  const d = new Date(iso); if (isNaN(d.getTime())) return 0
+  return Math.max(0, Math.ceil((d.getTime() - Date.now()) / 86_400_000))
 }
 
 function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
@@ -1102,7 +1330,7 @@ export default function Home() {
   const [sortCol, setSortCol] = useState<SortCol>('fitScore')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [activeTab, setActiveTab] = useState<ActiveTab>('results')
-  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics'>('all')
+  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups'>('all')
   const [customMetrics, setCustomMetrics] = useState<import('@/lib/types').CustomMetric[]>([])
   const [editingMetric, setEditingMetric] = useState<import('@/lib/types').CustomMetric | null>(null)
   const [showAddMetric, setShowAddMetric] = useState(false)
@@ -1390,6 +1618,18 @@ export default function Home() {
       // "Not Outreached" / "" implies the user has actually reached out.
       if (field === 'status') {
         updated.reachedOut = value !== 'Not Outreached' && value !== ''
+        // Auto-suggest a follow-up 14 days out when the status moves to
+        // "I'm waiting on them" (Open / No Response) and the user hasn't
+        // already set a date. Don't overwrite manual entries.
+        if ((value === 'Open' || value === 'No Response') && !e.followUpDate) {
+          const d = new Date(); d.setDate(d.getDate() + 14)
+          updated.followUpDate = d.toISOString().slice(0, 10)
+          if (!e.dateReachedOut) updated.dateReachedOut = new Date().toISOString().slice(0, 10)
+        }
+        // Terminal statuses → no further follow-up needed.
+        if (value === 'Successful' || value === 'Rejected' || value === 'Not Outreached') {
+          updated.followUpDate = ''
+        }
       }
       return updated
     }))
@@ -2350,12 +2590,25 @@ export default function Home() {
 
         {activeTab === 'outreach' ? (
           <>
-            <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} />
+            {(() => {
+              const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() })()
+              const dueCount = outreach.filter(e =>
+                (e.status === 'Open' || e.status === 'No Response') &&
+                e.followUpDate && new Date(e.followUpDate).getTime() <= todayMs
+              ).length
+              return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} dueCount={dueCount} />
+            })()}
             {outreachSubTab === 'analytics' ? (
               <OutreachAnalytics
                 entries={outreach}
                 customMetrics={customMetrics}
                 onOpenCustomize={() => { setDraftMetrics(customMetrics); setShowAnalyticsCustomize(true) }}
+              />
+            ) : outreachSubTab === 'followups' ? (
+              <OutreachFollowUps
+                entries={outreach}
+                onUpdate={updateOutreachEntry}
+                onOpenEntry={() => setOutreachSubTab('all')}
               />
             ) : (
               <OutreachTab
