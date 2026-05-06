@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
-// All recognized strategy keys, in canonical order. The admin UI maps
-// 1:1 to this list; storing them sorted keeps "strategy" comparisons
-// across runs deterministic.
+// All recognized toggle keys, in canonical order. Keys ending with the
+// /api/enrich-recognized set are sent through; new_methodology and
+// verify_deliverability are admin-side post-process toggles handled
+// here in the orchestrator.
 const STRATEGY_KEYS = [
   'web_scrape',
   'biolink',
@@ -13,7 +14,10 @@ const STRATEGY_KEYS = [
   'ddg',
   'wayback',
   'domain_guess',
+  'new_methodology',
 ] as const
+
+const ENRICH_KEYS = ['web_scrape', 'biolink', 'bio_pages', 'ddg', 'wayback'] as const
 
 type StrategyKey = typeof STRATEGY_KEYS[number]
 
@@ -32,7 +36,8 @@ interface EnrichResult {
   channelId: string
   hasEmail: boolean
   email: string
-  source: 'primary' | 'educated_assumption' | null
+  source: 'primary' | 'new_methodology' | 'educated_assumption' | null
+  method?: string
   confidence?: number
   evidence?: string
   durationMs: number
@@ -75,14 +80,24 @@ export async function POST(req: NextRequest) {
     ? STRATEGY_KEYS.filter(k => requested.includes(k))
     : [...STRATEGY_KEYS]
 
-  // The "domain_guess" toggle in the admin harness now means
-  // "run the educated-assumption fallback for creators that came up
-  // empty after primary enrichment" — NOT the old blunt pattern blast.
-  // We strip it from what we send to /api/enrich (production still
-  // uses the dumb version when given the same key, so we explicitly
-  // exclude it here) and trigger the smart fallback ourselves below.
+  // The "domain_guess" toggle means "run the educated-assumption
+  // fallback for creators with no email after primary".
   const useEducatedAssumption = strategy.includes('domain_guess')
-  const enrichStrategy = strategy.filter(k => k !== 'domain_guess')
+
+  // The "new_methodology" toggle means "after primary enrichment, run
+  // the bundle of new email-discovery methods (recent video desc,
+  // sitemap, creator platforms, community posts, AI extraction) for
+  // any creator still empty". When on, every primary strategy is
+  // forced on regardless of individual toggles — the point is to
+  // measure the upper bound of what's possible.
+  const useNewMethodology = strategy.includes('new_methodology' as StrategyKey)
+
+  // Enrichment strategy: only the /api/enrich-recognized keys. When
+  // new_methodology is on, we force every enrich method on regardless
+  // of individual toggles (the point is to measure upper-bound yield).
+  const enrichStrategy = useNewMethodology
+    ? [...ENRICH_KEYS]
+    : ENRICH_KEYS.filter(k => strategy.includes(k as StrategyKey))
   const strategyCsv = enrichStrategy.join(',')
 
   const start = Date.now()
@@ -157,10 +172,44 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Empty primary result + admin asked for educated assumption
-        // → second pass cross-references social bios + website +
-        // Linktree against generated patterns to find evidence-backed
-        // emails the regex didn't catch (obfuscated forms, etc.).
+        // Second pass — new methodology bundle. Fires BEFORE educated
+        // assumption because it has access to more sources (recent
+        // video descriptions, sitemap pages, creator-platform profiles,
+        // community posts, AI extraction). If anything here lands, we
+        // skip educated assumption entirely.
+        if (useNewMethodology) {
+          const nmResp = await fetch(`${origin}/api/admin/new-methodology`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', cookie },
+            cache: 'no-store',
+            body: JSON.stringify({
+              channelId: c.channelId,
+              channelName: c.channelName || '',
+              description: c.description,
+              website: j.website || c.website,
+              instagram: j.instagram || c.instagram,
+              twitter: j.twitter,
+              tiktok: j.tiktok || c.tiktok,
+              linkedin: j.linkedin,
+            }),
+          })
+          const nm = nmResp.ok ? await nmResp.json() : { email: null, hits: [] }
+          if (nm.email) {
+            const top = nm.hits?.[0]
+            return {
+              channelName: c.channelName,
+              channelId: c.channelId,
+              hasEmail: true,
+              email: nm.email,
+              source: 'new_methodology' as const,
+              method: top?.method,
+              evidence: top?.evidence,
+              durationMs: Date.now() - t0,
+            }
+          }
+        }
+
+        // Third pass — educated assumption (evidence-only pattern matching).
         if (useEducatedAssumption) {
           const eaUrl = `${origin}/api/admin/educated-assumption`
           const eaResp = await fetch(eaUrl, {
@@ -220,10 +269,11 @@ export async function POST(req: NextRequest) {
   const hitRate = total > 0 ? Number(((withEmail / total) * 100).toFixed(2)) : 0
   const tookMs = Date.now() - start
 
-  // Track how many of the wins came from the educated-assumption fallback
-  // — that's the lift number Dylan wants to see.
+  // Track which fallback (if any) was responsible for each win — useful
+  // for understanding where the lift is coming from.
   const fromAssumption = results.filter(r => r.source === 'educated_assumption').length
-  const fromPrimary = withEmail - fromAssumption
+  const fromMethodology = results.filter(r => r.source === 'new_methodology').length
+  const fromPrimary = withEmail - fromAssumption - fromMethodology
 
   // 3) Save the run record. Saved strategy reflects what was REQUESTED
   // (including domain_guess) so the runs table is honest about what
@@ -257,6 +307,7 @@ export async function POST(req: NextRequest) {
     total,
     withEmail,
     fromPrimary,
+    fromMethodology,
     fromAssumption,
     hitRate,
     tookMs,

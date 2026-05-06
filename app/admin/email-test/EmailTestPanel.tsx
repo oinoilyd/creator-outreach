@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const STRATEGY_OPTIONS = [
-  { key: 'web_scrape',          label: 'Website scrape',        hint: '17 paths: /, /contact, /about, …' },
-  { key: 'biolink',             label: 'Linktree expand',       hint: 'Linktree, Beacons, Stan, etc.' },
-  { key: 'bio_pages',           label: 'Social bios',           hint: 'Twitter / IG / TikTok og:description' },
-  { key: 'ddg',                 label: 'DDG search',            hint: '13+ DuckDuckGo email queries' },
-  { key: 'wayback',             label: 'Wayback fallback',      hint: 'Archive.org if live site is empty' },
-  { key: 'domain_guess',        label: 'Educated assumption',   hint: 'For empty results: cross-references social bios + website for evidence-backed guesses' },
+  { key: 'web_scrape',            label: 'Website scrape',        hint: '17 paths: /, /contact, /about, …' },
+  { key: 'biolink',               label: 'Linktree expand',       hint: 'Linktree, Beacons, Stan, etc.' },
+  { key: 'bio_pages',             label: 'Social bios',           hint: 'Twitter / IG / TikTok og:description' },
+  { key: 'ddg',                   label: 'DDG search',            hint: '13+ DuckDuckGo email queries' },
+  { key: 'wayback',               label: 'Wayback fallback',      hint: 'Archive.org if live site is empty' },
+  { key: 'domain_guess',          label: 'Educated assumption',   hint: 'For empty results: cross-references social bios + website for evidence-backed guesses' },
+  { key: 'new_methodology',       label: 'New methodology',       hint: 'On top of the production pipeline: recent video descriptions, sitemap discovery, Substack/Patreon profiles, Community-tab posts, plus an AI extraction pass for empty results. Forces every primary strategy on.' },
   { key: 'verify_deliverability', label: 'Verify deliverability', hint: 'After enrichment: DNS MX, disposable blocklist, role-address flag. Tags each email deliverable / risky / invalid.' },
 ] as const
 
@@ -28,7 +29,8 @@ interface RunResult {
   channelId: string
   hasEmail: boolean
   email: string
-  source: 'primary' | 'educated_assumption' | null
+  source: 'primary' | 'new_methodology' | 'educated_assumption' | null
+  method?: string
   confidence?: number
   evidence?: string
   durationMs: number
@@ -45,6 +47,7 @@ interface RunResponse {
   total: number
   withEmail: number
   fromPrimary: number
+  fromMethodology: number
   fromAssumption: number
   hitRate: number
   tookMs: number
@@ -68,7 +71,7 @@ export function EmailTestPanel() {
   const [max, setMax] = useState(15)
   const [notes, setNotes] = useState('')
   const [enabled, setEnabled] = useState<Record<string, boolean>>({
-    web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: false, verify_deliverability: true,
+    web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: false, new_methodology: false, verify_deliverability: true,
   })
   const [running, setRunning] = useState(false)
   const [verifying, setVerifying] = useState(false)
@@ -79,13 +82,15 @@ export function EmailTestPanel() {
     setEnabled(s => ({ ...s, [key]: !s[key] }))
   }
 
-  function preset(name: 'all-on' | 'minimal' | 'no-ddg') {
+  function preset(name: 'all-on' | 'minimal' | 'no-ddg' | 'new') {
     if (name === 'all-on') {
-      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: true, verify_deliverability: true })
+      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: true, new_methodology: false, verify_deliverability: true })
     } else if (name === 'minimal') {
-      setEnabled({ web_scrape: false, biolink: false, bio_pages: false, ddg: false, wayback: false, domain_guess: false, verify_deliverability: false })
+      setEnabled({ web_scrape: false, biolink: false, bio_pages: false, ddg: false, wayback: false, domain_guess: false, new_methodology: false, verify_deliverability: false })
     } else if (name === 'no-ddg') {
-      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: false, wayback: true, domain_guess: false, verify_deliverability: true })
+      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: false, wayback: true, domain_guess: false, new_methodology: false, verify_deliverability: true })
+    } else if (name === 'new') {
+      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: true, new_methodology: true, verify_deliverability: true })
     }
   }
 
@@ -219,6 +224,7 @@ export function EmailTestPanel() {
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs uppercase tracking-wider text-muted-foreground">Enrichment strategy</div>
           <div className="flex gap-1.5">
+            <button onClick={() => preset('new')} className="text-[10px] px-2 py-0.5 rounded border border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-colors">New methodology</button>
             <button onClick={() => preset('all-on')} className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors">All on</button>
             <button onClick={() => preset('no-ddg')} className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors">No DDG</button>
             <button onClick={() => preset('minimal')} className="text-[10px] px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors">Minimal</button>
@@ -275,9 +281,15 @@ export function EmailTestPanel() {
             const verified = result.results.filter(r => r.verdict).length
             const deliverable = result.results.filter(r => r.verdict === 'deliverable').length
             return (
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-4">
                 <Stat label="Total" value={result.total} />
                 <Stat label="From primary" value={result.fromPrimary} />
+                <Stat
+                  label="From new methodology"
+                  value={`+${result.fromMethodology}`}
+                  accent={result.fromMethodology > 0}
+                  hint={result.fromMethodology > 0 ? 'lift over primary' : 'no lift'}
+                />
                 <Stat
                   label="From assumption"
                   value={`+${result.fromAssumption}`}
@@ -332,6 +344,14 @@ export function EmailTestPanel() {
                     <td className="px-3 py-2">
                       {r.source === 'primary' && (
                         <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300">primary</span>
+                      )}
+                      {r.source === 'new_methodology' && (
+                        <span
+                          className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-fuchsia-200 dark:border-fuchsia-500/30 bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300"
+                          title={r.evidence ? `${r.method ?? 'new method'}: ${r.evidence}` : r.method}
+                        >
+                          new · {(r.method ?? 'method').replace(/_/g, ' ')}
+                        </span>
                       )}
                       {r.source === 'educated_assumption' && (
                         <span
