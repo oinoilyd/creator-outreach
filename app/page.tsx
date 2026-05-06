@@ -543,10 +543,9 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
   const active = entries.filter(e => e.status === 'Open' || e.status === 'No Response')
 
   function bucketOf(e: OutreachEntry): FilterBucket {
-    if (!e.followUpDate) return 'unset'
-    const t = new Date(e.followUpDate).getTime()
-    if (!isFinite(t)) return 'unset'
-    const tDay = new Date(t); tDay.setHours(0, 0, 0, 0)
+    const d = parseLocalDate(e.followUpDate)
+    if (!d) return 'unset'
+    const tDay = new Date(d); tDay.setHours(0, 0, 0, 0)
     const diffDays = Math.round((tDay.getTime() - todayMs) / DAY)
     if (diffDays < 0) return 'overdue'
     if (diffDays === 0) return 'today'
@@ -566,13 +565,13 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     if (sort === 'pipeline') return dealValueNum(b) - dealValueNum(a)
     if (sort === 'touchpoints') return (Number(b.touchpoints) || 0) - (Number(a.touchpoints) || 0)
     if (sort === 'reached') {
-      const ta = a.dateReachedOut ? new Date(a.dateReachedOut).getTime() : 0
-      const tb = b.dateReachedOut ? new Date(b.dateReachedOut).getTime() : 0
+      const ta = parseLocalDate(a.dateReachedOut)?.getTime() ?? 0
+      const tb = parseLocalDate(b.dateReachedOut)?.getTime() ?? 0
       return ta - tb // oldest reach-out first
     }
     // default: by follow-up date ascending; unset goes last
-    const ta = a.followUpDate ? new Date(a.followUpDate).getTime() : Infinity
-    const tb = b.followUpDate ? new Date(b.followUpDate).getTime() : Infinity
+    const ta = parseLocalDate(a.followUpDate)?.getTime() ?? Infinity
+    const tb = parseLocalDate(b.followUpDate)?.getTime() ?? Infinity
     return ta - tb
   })
 
@@ -582,10 +581,9 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     const d = new Date(today.getTime() + i * DAY)
     const ms = d.getTime()
     const count = active.filter(e => {
-      if (!e.followUpDate) return false
-      const t = new Date(e.followUpDate).getTime()
-      if (!isFinite(t)) return false
-      const td = new Date(t); td.setHours(0,0,0,0)
+      const dd = parseLocalDate(e.followUpDate)
+      if (!dd) return false
+      const td = new Date(dd); td.setHours(0,0,0,0)
       return td.getTime() === ms
     }).length
     strip.push({ date: d, count, isToday: i === 0 })
@@ -610,10 +608,14 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
   // Pipeline value still in flight
   const pipelineValue = active.reduce((s, e) => s + dealValueNum(e), 0)
   const avgDaysSinceReach = (() => {
-    const days = active
-      .filter(e => e.dateReachedOut)
-      .map(e => Math.floor((Date.now() - new Date(e.dateReachedOut).getTime()) / DAY))
-      .filter(d => isFinite(d) && d >= 0)
+    const days: number[] = []
+    for (const e of active) {
+      const d = parseLocalDate(e.dateReachedOut)
+      if (!d) continue
+      d.setHours(0, 0, 0, 0)
+      const n = Math.round((todayMs - d.getTime()) / DAY)
+      if (isFinite(n) && n >= 0) days.push(n)
+    }
     if (days.length === 0) return null
     return Math.round(days.reduce((a, b) => a + b, 0) / days.length)
   })()
@@ -847,7 +849,7 @@ function FollowUpRow({ entry: e, bucket, expanded, onToggleExpand, onUpdate, onS
             {e.linkedin && <span className="text-[10px] text-blue-400/80 shrink-0">in</span>}
           </div>
           <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 truncate">
-            <span className="text-gray-400">{e.status}</span>
+            <span className="text-gray-400">{e.status || 'Not Outreached'}</span>
             {e.medium && <span>· via {e.medium}</span>}
             {e.dateReachedOut && <span>· reached {daysAgo(e.dateReachedOut)} ago</span>}
             {tps > 0 && (
@@ -856,7 +858,7 @@ function FollowUpRow({ entry: e, bucket, expanded, onToggleExpand, onUpdate, onS
                 {Array.from({ length: Math.min(tps, 5) }).map((_, i) => (
                   <span key={i} className="w-1 h-1 rounded-full bg-gray-500" />
                 ))}
-                <span className="ml-0.5">{tps}</span>
+                <span className="ml-0.5">{tps} {tps === 1 ? 'touch' : 'touches'}</span>
               </span>
             )}
           </div>
@@ -941,18 +943,33 @@ function FollowUpRow({ entry: e, bucket, expanded, onToggleExpand, onUpdate, onS
   )
 }
 
+// Parse "YYYY-MM-DD" as LOCAL midnight (not UTC midnight, which is what
+// `new Date("YYYY-MM-DD")` does and bumps the bucket by a day in negative
+// timezones). Falls back to native parsing for ISO strings with a time.
+function parseLocalDate(s: string): Date | null {
+  if (!s) return null
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]))
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
 function daysAgo(iso: string): string {
   if (!iso) return '?'
-  const d = new Date(iso); if (isNaN(d.getTime())) return '?'
-  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+  const d = parseLocalDate(iso); if (!d) return '?'
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const that = new Date(d); that.setHours(0, 0, 0, 0)
+  const days = Math.round((today.getTime() - that.getTime()) / 86_400_000)
   if (days <= 0) return 'today'
   return `${days}d`
 }
 
 function daysFromNow(iso: string): number {
   if (!iso) return 0
-  const d = new Date(iso); if (isNaN(d.getTime())) return 0
-  return Math.max(0, Math.ceil((d.getTime() - Date.now()) / 86_400_000))
+  const d = parseLocalDate(iso); if (!d) return 0
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const that = new Date(d); that.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.round((that.getTime() - today.getTime()) / 86_400_000))
 }
 
 function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
@@ -1853,23 +1870,51 @@ export default function Home() {
     saveOutreach(outreach.map(e => {
       if (e.id !== id) return e
       const updated = { ...e, [field]: value }
-      // Status is the source of truth for reachedOut. Anything other than
-      // "Not Outreached" / "" implies the user has actually reached out.
+
       if (field === 'status') {
+        // Status drives reachedOut: anything past "Not Outreached" / "" counts.
         updated.reachedOut = value !== 'Not Outreached' && value !== ''
-        // Auto-suggest a follow-up 14 days out when the status moves to
-        // "I'm waiting on them" (Open / No Response) and the user hasn't
-        // already set a date. Don't overwrite manual entries.
-        if ((value === 'Open' || value === 'No Response') && !e.followUpDate) {
-          const d = new Date(); d.setDate(d.getDate() + 14)
-          updated.followUpDate = d.toISOString().slice(0, 10)
-          if (!e.dateReachedOut) updated.dateReachedOut = new Date().toISOString().slice(0, 10)
+
+        const isActive = value === 'Open' || value === 'No Response'
+        const isTerminal = value === 'Successful' || value === 'Rejected' || value === 'Not Outreached'
+        const todayIso = (() => {
+          const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+        })()
+
+        if (isActive) {
+          // First time the user actually reaches out → log the date + 1st touchpoint
+          if (e.status === 'Not Outreached' || e.status === '') {
+            if (!e.dateReachedOut) updated.dateReachedOut = todayIso
+            const tps = parseInt(e.touchpoints || '0', 10) || 0
+            if (tps === 0) updated.touchpoints = '1'
+          }
+
+          // Auto-suggest follow-up 14 days out when one isn't set yet.
+          if (!e.followUpDate) {
+            const d = new Date(); d.setDate(d.getDate() + 14)
+            updated.followUpDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+          } else {
+            // If the existing follow-up date is already past, push it forward
+            // so the row doesn't sit perpetually "overdue" after re-engaging.
+            const existing = parseLocalDate(e.followUpDate)
+            const today = new Date(); today.setHours(0,0,0,0)
+            if (existing && existing.getTime() < today.getTime()) {
+              const next = new Date(); next.setDate(next.getDate() + (value === 'No Response' ? 7 : 14))
+              updated.followUpDate = `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-${String(next.getDate()).padStart(2,'0')}`
+            }
+          }
         }
-        // Terminal statuses → no further follow-up needed.
-        if (value === 'Successful' || value === 'Rejected' || value === 'Not Outreached') {
+
+        if (isTerminal) {
+          // Done with this lead — drop them out of the follow-up queue.
           updated.followUpDate = ''
+          if (value === 'Successful' || value === 'Rejected') {
+            // Stamp response date when there isn't one already.
+            if (!e.responseDate) updated.responseDate = todayIso
+          }
         }
       }
+
       return updated
     }))
   }
@@ -2861,10 +2906,13 @@ export default function Home() {
           <>
             {(() => {
               const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() })()
-              const dueCount = outreach.filter(e =>
-                (e.status === 'Open' || e.status === 'No Response') &&
-                e.followUpDate && new Date(e.followUpDate).getTime() <= todayMs
-              ).length
+              const dueCount = outreach.filter(e => {
+                if (e.status !== 'Open' && e.status !== 'No Response') return false
+                const d = parseLocalDate(e.followUpDate)
+                if (!d) return false
+                d.setHours(0, 0, 0, 0)
+                return d.getTime() <= todayMs
+              }).length
               return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} dueCount={dueCount} />
             })()}
             {outreachSubTab === 'analytics' ? (
