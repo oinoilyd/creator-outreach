@@ -971,7 +971,7 @@ function StackedBar({ segments, total }: { segments: { label: string; value: num
   )
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, profile, emptyVariant }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -981,6 +981,8 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   onOpenManualAdd: () => void
   onSearchContacts: (id: string) => void
   searchingIds: Set<string>
+  onSearchAll: () => void
+  bulkRunning: boolean
   profile: UserProfile | null
   emptyVariant?: 'all' | 'favorites'
 }) {
@@ -1136,6 +1138,22 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                       >
                         {!isLocked && <span className="text-gray-600 text-xs">⠿</span>}
                         {col.label}
+                        {colId === 'email' && (() => {
+                          const pending = entries.filter(e => !e.email).length
+                          if (pending === 0 && !bulkRunning) return null
+                          return (
+                            <button
+                              onClick={(ev) => { ev.stopPropagation(); onSearchAll() }}
+                              disabled={bulkRunning}
+                              draggable={false}
+                              onDragStart={(ev) => ev.preventDefault()}
+                              title={`Deep-search every row that's still missing an email (${pending}). 10-20s per row, 3 in parallel.`}
+                              className="ml-1.5 text-[10px] text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-1.5 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
+                            >
+                              {bulkRunning ? '…' : `🔍 all (${pending})`}
+                            </button>
+                          )
+                        })()}
                       </span>
                     )}
                     <div onMouseDown={e => startResize(e, colId)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center">
@@ -1167,7 +1185,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -1183,6 +1201,8 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   profile: UserProfile | null
   onDeepSearch: (channelId: string) => void
   deepSearchingIds: Set<string>
+  onDeepSearchAll: () => void
+  bulkRunning: boolean
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries), [creators, sortCol, sortDir, scoreWeights, guidanceEntries])
@@ -1237,6 +1257,20 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                   <span className="mr-1 text-gray-600 text-xs">⠿</span>
                   {col.label}
                   {sc && <SortIndicator col={sc} sortCol={sortCol} sortDir={sortDir} />}
+                  {col.id === 'email' && (() => {
+                    const pending = sorted.filter(c => !c.email && !c.enriching).length
+                    if (pending === 0 && !bulkRunning) return null
+                    return (
+                      <button
+                        onClick={(ev) => { ev.stopPropagation(); onDeepSearchAll() }}
+                        disabled={bulkRunning}
+                        title={`Deep-search every row that's still missing an email (${pending}). 10-20s per row, 3 in parallel.`}
+                        className="ml-2 text-[10px] text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
+                      >
+                        {bulkRunning ? 'Searching all…' : `🔍 Deep search all (${pending})`}
+                      </button>
+                    )
+                  })()}
                 </th>
               )
             })}
@@ -1636,6 +1670,36 @@ export default function Home() {
   }
 
   const [searchingContactIds, setSearchingContactIds] = useState<Set<string>>(new Set())
+  const [outreachBulkRunning, setOutreachBulkRunning] = useState(false)
+  const [resultsBulkRunning, setResultsBulkRunning] = useState(false)
+
+  async function deepSearchAllOutreach() {
+    const targets = outreach.filter(e => !e.email).map(e => e.id)
+    if (targets.length === 0 || outreachBulkRunning) return
+    setOutreachBulkRunning(true)
+    try {
+      const CONCURRENCY = 3
+      for (let i = 0; i < targets.length; i += CONCURRENCY) {
+        await Promise.all(targets.slice(i, i + CONCURRENCY).map(id => searchContactsForEntry(id)))
+      }
+    } finally {
+      setOutreachBulkRunning(false)
+    }
+  }
+
+  async function deepSearchAllResults() {
+    const targets = creators.filter(c => !c.email && !c.enriching).map(c => c.channelId)
+    if (targets.length === 0 || resultsBulkRunning) return
+    setResultsBulkRunning(true)
+    try {
+      const CONCURRENCY = 3
+      for (let i = 0; i < targets.length; i += CONCURRENCY) {
+        await Promise.all(targets.slice(i, i + CONCURRENCY).map(id => deepSearchResultEmail(id)))
+      }
+    } finally {
+      setResultsBulkRunning(false)
+    }
+  }
   const [deepSearchingResultIds, setDeepSearchingResultIds] = useState<Set<string>>(new Set())
 
   async function deepSearchResultEmail(channelId: string) {
@@ -2621,6 +2685,8 @@ export default function Home() {
                 onOpenManualAdd={() => setShowManualAdd(true)}
                 onSearchContacts={searchContactsForEntry}
                 searchingIds={searchingContactIds}
+                onSearchAll={deepSearchAllOutreach}
+                bulkRunning={outreachBulkRunning}
                 profile={profile}
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
               />
@@ -2652,6 +2718,8 @@ export default function Home() {
               profile={profile}
               onDeepSearch={deepSearchResultEmail}
               deepSearchingIds={deepSearchingResultIds}
+              onDeepSearchAll={deepSearchAllResults}
+              bulkRunning={resultsBulkRunning}
             />
             {activeTab === 'results' && (
               <div className="mt-5 flex flex-col items-center gap-2">
