@@ -524,41 +524,75 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
   )
 }
 
+type FilterBucket = 'all' | 'overdue' | 'today' | 'week' | 'later' | 'unset'
+
 function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
   entries: OutreachEntry[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onOpenEntry: (id: string) => void
 }) {
+  const [filter, setFilter] = useState<FilterBucket>('all')
+  const [sort, setSort] = useState<'date' | 'pipeline' | 'touchpoints' | 'reached'>('date')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayMs = today.getTime()
-  const SEVEN_D = 7 * 86_400_000
+  const DAY = 86_400_000
 
-  // Active = waiting for a response (Open / No Response)
+  // Active follow-ups = anything still awaiting response (Open / No Response)
   const active = entries.filter(e => e.status === 'Open' || e.status === 'No Response')
 
-  function bucketOf(e: OutreachEntry): 'overdue' | 'today' | 'thisWeek' | 'later' | 'unset' {
+  function bucketOf(e: OutreachEntry): FilterBucket {
     if (!e.followUpDate) return 'unset'
     const t = new Date(e.followUpDate).getTime()
     if (!isFinite(t)) return 'unset'
     const tDay = new Date(t); tDay.setHours(0, 0, 0, 0)
-    const tMs = tDay.getTime()
-    if (tMs < todayMs) return 'overdue'
-    if (tMs === todayMs) return 'today'
-    if (tMs - todayMs <= SEVEN_D) return 'thisWeek'
+    const diffDays = Math.round((tDay.getTime() - todayMs) / DAY)
+    if (diffDays < 0) return 'overdue'
+    if (diffDays === 0) return 'today'
+    if (diffDays <= 7) return 'week'
     return 'later'
   }
 
-  const grouped: Record<'overdue' | 'today' | 'thisWeek' | 'later' | 'unset', OutreachEntry[]> = {
-    overdue: [], today: [], thisWeek: [], later: [], unset: [],
+  const counts: Record<FilterBucket, number> = { all: active.length, overdue: 0, today: 0, week: 0, later: 0, unset: 0 }
+  for (const e of active) counts[bucketOf(e)]++
+
+  const filtered = active.filter(e => filter === 'all' || bucketOf(e) === filter)
+
+  function dealValueNum(e: OutreachEntry): number {
+    return parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
   }
-  for (const e of active) grouped[bucketOf(e)].push(e)
-  for (const k of Object.keys(grouped) as (keyof typeof grouped)[]) {
-    grouped[k].sort((a, b) => {
-      const ta = a.followUpDate ? new Date(a.followUpDate).getTime() : Infinity
-      const tb = b.followUpDate ? new Date(b.followUpDate).getTime() : Infinity
-      return ta - tb
-    })
+  const sorted = [...filtered].sort((a, b) => {
+    if (sort === 'pipeline') return dealValueNum(b) - dealValueNum(a)
+    if (sort === 'touchpoints') return (Number(b.touchpoints) || 0) - (Number(a.touchpoints) || 0)
+    if (sort === 'reached') {
+      const ta = a.dateReachedOut ? new Date(a.dateReachedOut).getTime() : 0
+      const tb = b.dateReachedOut ? new Date(b.dateReachedOut).getTime() : 0
+      return ta - tb // oldest reach-out first
+    }
+    // default: by follow-up date ascending; unset goes last
+    const ta = a.followUpDate ? new Date(a.followUpDate).getTime() : Infinity
+    const tb = b.followUpDate ? new Date(b.followUpDate).getTime() : Infinity
+    return ta - tb
+  })
+
+  // 14-day strip — counts per day
+  const strip: { date: Date; count: number; isToday: boolean }[] = []
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today.getTime() + i * DAY)
+    const ms = d.getTime()
+    const count = active.filter(e => {
+      if (!e.followUpDate) return false
+      const t = new Date(e.followUpDate).getTime()
+      if (!isFinite(t)) return false
+      const td = new Date(t); td.setHours(0,0,0,0)
+      return td.getTime() === ms
+    }).length
+    strip.push({ date: d, count, isToday: i === 0 })
   }
+  // overdue spillover — show as a single bucket on the left of the strip
+  const overdueCount = counts.overdue
+  const stripMaxCount = Math.max(1, ...strip.map(s => s.count), overdueCount)
 
   function snooze(e: OutreachEntry, days: number) {
     const base = e.followUpDate && isFinite(new Date(e.followUpDate).getTime())
@@ -568,11 +602,21 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     onUpdate(e.id, 'followUpDate', base.toISOString().slice(0, 10))
   }
   function markDoneNow(e: OutreachEntry) {
-    // user just followed up — bump touchpoints, push date out 14 days
     const next = (parseInt(e.touchpoints || '0', 10) || 0) + 1
     onUpdate(e.id, 'touchpoints', String(next))
     snooze(e, 14)
   }
+
+  // Pipeline value still in flight
+  const pipelineValue = active.reduce((s, e) => s + dealValueNum(e), 0)
+  const avgDaysSinceReach = (() => {
+    const days = active
+      .filter(e => e.dateReachedOut)
+      .map(e => Math.floor((Date.now() - new Date(e.dateReachedOut).getTime()) / DAY))
+      .filter(d => isFinite(d) && d >= 0)
+    if (days.length === 0) return null
+    return Math.round(days.reduce((a, b) => a + b, 0) / days.length)
+  })()
 
   if (active.length === 0) {
     return (
@@ -591,147 +635,308 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
   }
 
   return (
-    <div className="space-y-6">
-      <FollowUpGroup
-        title="Overdue"
-        accent="red"
-        entries={grouped.overdue}
-        onSnooze={snooze}
-        onMarkDone={markDoneNow}
-        onUpdate={onUpdate}
-        onOpenEntry={onOpenEntry}
-        formatBadge={(e) => `${daysAgo(e.followUpDate)} ago`}
-      />
-      <FollowUpGroup
-        title="Today"
-        accent="yellow"
-        entries={grouped.today}
-        onSnooze={snooze}
-        onMarkDone={markDoneNow}
-        onUpdate={onUpdate}
-        onOpenEntry={onOpenEntry}
-        formatBadge={() => 'today'}
-      />
-      <FollowUpGroup
-        title="This week"
-        accent="blue"
-        entries={grouped.thisWeek}
-        onSnooze={snooze}
-        onMarkDone={markDoneNow}
-        onUpdate={onUpdate}
-        onOpenEntry={onOpenEntry}
-        formatBadge={(e) => `in ${daysFromNow(e.followUpDate)}d`}
-      />
-      <FollowUpGroup
-        title="Later"
-        accent="gray"
-        entries={grouped.later}
-        onSnooze={snooze}
-        onMarkDone={markDoneNow}
-        onUpdate={onUpdate}
-        onOpenEntry={onOpenEntry}
-        formatBadge={(e) => `in ${daysFromNow(e.followUpDate)}d`}
-      />
-      <FollowUpGroup
-        title="No follow-up date set"
-        accent="gray"
-        entries={grouped.unset}
-        onSnooze={snooze}
-        onMarkDone={markDoneNow}
-        onUpdate={onUpdate}
-        onOpenEntry={onOpenEntry}
-        formatBadge={() => '—'}
-      />
+    <div className="space-y-5">
+      {/* Top stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <FUStat label="Overdue" value={counts.overdue} accent={counts.overdue > 0 ? 'red' : 'gray'} sub={counts.overdue > 0 ? 'act first' : 'all caught up'} />
+        <FUStat label="Due today" value={counts.today} accent={counts.today > 0 ? 'yellow' : 'gray'} />
+        <FUStat label="In queue" value={active.length} accent="blue" sub={avgDaysSinceReach != null ? `~${avgDaysSinceReach}d since reach-out` : undefined} />
+        <FUStat label="Pipeline $" value={pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : '—'} accent="green" sub={pipelineValue > 0 ? 'awaiting response' : undefined} />
+      </div>
+
+      {/* 14-day strip */}
+      <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4">
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="text-sm font-semibold text-white">Next 14 days</div>
+          <div className="text-[11px] text-gray-500">{filtered.length} shown · click a day to filter</div>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {overdueCount > 0 && (
+            <CalCell
+              label="Overdue"
+              sub={`${overdueCount}`}
+              count={overdueCount}
+              max={stripMaxCount}
+              active={filter === 'overdue'}
+              accent="red"
+              onClick={() => setFilter(f => f === 'overdue' ? 'all' : 'overdue')}
+            />
+          )}
+          {strip.map(s => (
+            <CalCell
+              key={s.date.toISOString()}
+              label={s.date.toLocaleDateString(undefined, { weekday: 'short' })}
+              sub={s.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              count={s.count}
+              max={stripMaxCount}
+              active={false}
+              accent={s.isToday ? 'yellow' : 'blue'}
+              onClick={() => {
+                if (s.isToday) setFilter(f => f === 'today' ? 'all' : 'today')
+                else if (s.date.getTime() - todayMs <= 7 * DAY) setFilter(f => f === 'week' ? 'all' : 'week')
+                else setFilter(f => f === 'later' ? 'all' : 'later')
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Filter chips + sort */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1">
+          {([
+            { id: 'all', label: 'All', n: counts.all },
+            { id: 'overdue', label: 'Overdue', n: counts.overdue },
+            { id: 'today', label: 'Today', n: counts.today },
+            { id: 'week', label: 'This week', n: counts.week },
+            { id: 'later', label: 'Later', n: counts.later },
+            { id: 'unset', label: 'No date', n: counts.unset },
+          ] as { id: FilterBucket; label: string; n: number }[]).filter(c => c.n > 0 || c.id === 'all').map(c => (
+            <button
+              key={c.id}
+              onClick={() => setFilter(c.id)}
+              className={`text-[11px] px-3 py-1 rounded-full border transition-colors ${
+                filter === c.id
+                  ? 'bg-purple-600/30 border-purple-500/60 text-white'
+                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
+              }`}
+            >
+              {c.label} <span className="opacity-60">{c.n}</span>
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2 text-[11px] text-gray-500">
+          <span>Sort by</span>
+          <select
+            value={sort}
+            onChange={e => setSort(e.target.value as typeof sort)}
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
+          >
+            <option value="date">Follow-up date</option>
+            <option value="pipeline">Pipeline $ (high→low)</option>
+            <option value="touchpoints"># touchpoints</option>
+            <option value="reached">Reached out (oldest)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* List */}
+      {sorted.length === 0 ? (
+        <div className="border border-dashed border-gray-800 rounded-xl py-12 text-center text-xs text-gray-500">
+          Nothing in this bucket. Try another filter.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map(e => (
+            <FollowUpRow
+              key={e.id}
+              entry={e}
+              bucket={bucketOf(e)}
+              expanded={expandedId === e.id}
+              onToggleExpand={() => setExpandedId(id => id === e.id ? null : e.id)}
+              onUpdate={onUpdate}
+              onSnooze={snooze}
+              onMarkDone={markDoneNow}
+              onOpenEntry={onOpenEntry}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function FollowUpGroup({ title, accent, entries, onSnooze, onMarkDone, onUpdate, onOpenEntry, formatBadge }: {
-  title: string
-  accent: 'red' | 'yellow' | 'blue' | 'gray'
-  entries: OutreachEntry[]
-  onSnooze: (e: OutreachEntry, days: number) => void
-  onMarkDone: (e: OutreachEntry) => void
-  onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
-  onOpenEntry: (id: string) => void
-  formatBadge: (e: OutreachEntry) => string
+function FUStat({ label, value, accent, sub }: {
+  label: string
+  value: number | string
+  accent: 'red' | 'yellow' | 'blue' | 'green' | 'gray'
+  sub?: string
 }) {
-  if (entries.length === 0) return null
-  const accentClass = {
-    red: 'text-red-400 bg-red-500/10 border-red-500/30',
-    yellow: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
-    blue: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
-    gray: 'text-gray-400 bg-gray-500/10 border-gray-500/30',
+  const accentText = {
+    red: 'text-red-400', yellow: 'text-yellow-400', blue: 'text-white',
+    green: 'text-emerald-400', gray: 'text-white',
+  }[accent]
+  const accentBorder = {
+    red: 'border-red-500/30', yellow: 'border-yellow-500/30', blue: 'border-gray-800',
+    green: 'border-emerald-500/30', gray: 'border-gray-800',
   }[accent]
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${accentClass}`}>{entries.length}</span>
+    <div className={`bg-gray-900/40 border ${accentBorder} rounded-xl p-4`}>
+      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</div>
+      <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      <div className="space-y-2">
-        {entries.map(e => (
-          <div key={e.id} className="flex items-center gap-3 bg-gray-900/40 border border-gray-800 rounded-lg p-3 hover:border-gray-700 transition-colors">
-            <button
-              onClick={() => onOpenEntry(e.id)}
-              className="flex-1 min-w-0 text-left"
-              title="Jump to this entry in the All tab"
-            >
-              <div className="text-sm font-medium text-white truncate">{e.channelName}</div>
-              <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 truncate">
-                <span>{e.status}</span>
-                {e.dateReachedOut && <span>· reached out {daysAgo(e.dateReachedOut)} ago</span>}
-                {e.touchpoints && <span>· {e.touchpoints} touchpoint{Number(e.touchpoints) === 1 ? '' : 's'}</span>}
-              </div>
-            </button>
-            <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border ${accentClass} shrink-0`}>{formatBadge(e)}</span>
+      {sub && <div className="text-[11px] text-gray-500 mt-1">{sub}</div>}
+    </div>
+  )
+}
+
+function CalCell({ label, sub, count, max, active, accent, onClick }: {
+  label: string; sub: string; count: number; max: number; active: boolean
+  accent: 'red' | 'yellow' | 'blue'
+  onClick: () => void
+}) {
+  const heightPct = max > 0 ? Math.min(100, Math.max(count > 0 ? 18 : 0, (count / max) * 100)) : 0
+  const barColor = { red: 'bg-red-500/60', yellow: 'bg-yellow-500/70', blue: 'bg-blue-500/60' }[accent]
+  const ring = active ? 'ring-1 ring-purple-500/60' : ''
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 w-14 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700 hover:border-gray-600 px-1.5 pt-2 pb-1.5 text-center transition-colors ${ring}`}
+      title={`${label} ${sub} · ${count} due`}
+    >
+      <div className="text-[9px] uppercase tracking-wider text-gray-500">{label}</div>
+      <div className="text-[10px] text-gray-300 leading-tight">{sub}</div>
+      <div className="h-8 mt-1 flex items-end justify-center">
+        {count > 0 && <div className={`w-2 ${barColor} rounded-t`} style={{ height: `${heightPct}%` }} />}
+      </div>
+      <div className="text-[10px] font-bold text-white tabular-nums">{count > 0 ? count : '·'}</div>
+    </button>
+  )
+}
+
+function FollowUpRow({ entry: e, bucket, expanded, onToggleExpand, onUpdate, onSnooze, onMarkDone, onOpenEntry }: {
+  entry: OutreachEntry
+  bucket: FilterBucket
+  expanded: boolean
+  onToggleExpand: () => void
+  onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
+  onSnooze: (e: OutreachEntry, days: number) => void
+  onMarkDone: (e: OutreachEntry) => void
+  onOpenEntry: (id: string) => void
+}) {
+  const initials = (e.channelName || '?')
+    .trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() ?? '').join('') || '?'
+
+  const accent = bucket === 'overdue' ? 'red'
+    : bucket === 'today' ? 'yellow'
+    : bucket === 'week' ? 'blue'
+    : bucket === 'unset' ? 'gray' : 'gray'
+  const dotColor = { red: 'bg-red-500', yellow: 'bg-yellow-500', blue: 'bg-blue-500', gray: 'bg-gray-500' }[accent]
+  const datePillClass = {
+    red: 'bg-red-500/15 text-red-300 border-red-500/40',
+    yellow: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40',
+    blue: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+    gray: 'bg-gray-700/30 text-gray-400 border-gray-700',
+  }[accent]
+  const dateLabel = bucket === 'overdue' ? `${daysAgo(e.followUpDate)} late`
+    : bucket === 'today' ? 'today'
+    : bucket === 'week' ? `in ${daysFromNow(e.followUpDate)}d`
+    : bucket === 'later' ? `in ${daysFromNow(e.followUpDate)}d`
+    : 'no date'
+
+  const dealValue = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
+  const tps = parseInt(e.touchpoints || '0', 10) || 0
+
+  return (
+    <div className="bg-gray-900/40 border border-gray-800 rounded-xl hover:border-gray-700 transition-colors overflow-hidden">
+      <div className="flex items-center gap-3 p-3">
+        {/* Avatar */}
+        <div className="relative shrink-0">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 text-white text-xs font-semibold flex items-center justify-center">
+            {initials}
+          </div>
+          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-900 ${dotColor}`} title={e.status} />
+        </div>
+
+        {/* Identity + meta */}
+        <button onClick={() => onOpenEntry(e.id)} className="flex-1 min-w-0 text-left" title="Jump to All tab">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-white truncate">{e.channelName}</span>
+            {e.email && <span className="text-[10px] text-emerald-400/80 shrink-0">✉</span>}
+            {e.linkedin && <span className="text-[10px] text-blue-400/80 shrink-0">in</span>}
+          </div>
+          <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 truncate">
+            <span className="text-gray-400">{e.status}</span>
+            {e.medium && <span>· via {e.medium}</span>}
+            {e.dateReachedOut && <span>· reached {daysAgo(e.dateReachedOut)} ago</span>}
+            {tps > 0 && (
+              <span className="flex items-center gap-0.5">
+                ·
+                {Array.from({ length: Math.min(tps, 5) }).map((_, i) => (
+                  <span key={i} className="w-1 h-1 rounded-full bg-gray-500" />
+                ))}
+                <span className="ml-0.5">{tps}</span>
+              </span>
+            )}
+          </div>
+        </button>
+
+        {/* Pipeline value chip */}
+        {dealValue > 0 && (
+          <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+            ${dealValue.toLocaleString()}
+          </span>
+        )}
+
+        {/* Date pill + editor (date pill is also clickable to expand for editing) */}
+        <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border shrink-0 ${datePillClass}`}>
+          {dateLabel}
+        </span>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => onMarkDone(e)}
+            title="I followed up — bumps touchpoints + pushes date 14 days"
+            className="text-[11px] font-medium text-purple-200 hover:text-white bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2.5 py-1 transition-colors"
+          >
+            Followed up
+          </button>
+          <button
+            onClick={() => onSnooze(e, 7)}
+            title="Snooze 7 days"
+            className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </button>
+          <button
+            onClick={() => onUpdate(e.id, 'status', 'Successful')}
+            title="They said yes"
+            className="w-7 h-7 flex items-center justify-center text-emerald-400 hover:text-white border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500 rounded transition-colors"
+          >✓</button>
+          <button
+            onClick={() => onUpdate(e.id, 'status', 'Rejected')}
+            title="They said no"
+            className="w-7 h-7 flex items-center justify-center text-red-400 hover:text-white border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
+          >✕</button>
+          <button
+            onClick={onToggleExpand}
+            title={expanded ? 'Hide details' : 'Edit date · ghost · notes'}
+            className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-gray-800 bg-gray-950/40 p-3 grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Follow-up date</label>
             <input
               type="date"
               value={e.followUpDate || ''}
               onChange={ev => onUpdate(e.id, 'followUpDate', ev.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-purple-500 shrink-0"
-              title="Edit follow-up date"
+              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-purple-500"
             />
-            <div className="flex gap-1 shrink-0">
-              <button
-                onClick={() => onMarkDone(e)}
-                title="I followed up — bump touchpoints + push date 14 days"
-                className="text-[11px] text-purple-300 hover:text-white border border-purple-500/30 hover:bg-purple-600/30 hover:border-purple-500 rounded px-2 py-1 transition-colors"
-              >
-                Followed up
-              </button>
-              <button
-                onClick={() => onSnooze(e, 7)}
-                title="Push 7 days"
-                className="text-[11px] text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
-              >
-                Snooze 7d
-              </button>
-              <button
-                onClick={() => onUpdate(e.id, 'status', 'No Response')}
-                title="Mark as ghosted"
-                className="text-[11px] text-gray-500 hover:text-gray-300 border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
-              >
-                Ghost
-              </button>
-              <button
-                onClick={() => onUpdate(e.id, 'status', 'Successful')}
-                title="They said yes"
-                className="text-[11px] text-green-400 hover:text-white border border-green-500/30 hover:bg-green-600/30 hover:border-green-500 rounded px-2 py-1 transition-colors"
-              >
-                ✓
-              </button>
-              <button
-                onClick={() => onUpdate(e.id, 'status', 'Rejected')}
-                title="They said no"
-                className="text-[11px] text-red-400 hover:text-white border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded px-2 py-1 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
+            <button
+              onClick={() => onUpdate(e.id, 'status', 'No Response')}
+              className="mt-2 w-full text-[11px] text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+            >Mark as ghosted (No Response)</button>
           </div>
-        ))}
-      </div>
+          <div className="md:col-span-2">
+            <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Notes</label>
+            <textarea
+              value={e.notes || ''}
+              onChange={ev => onUpdate(e.id, 'notes', ev.target.value)}
+              rows={3}
+              placeholder="Quick note about this follow-up…"
+              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 resize-none"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
