@@ -375,7 +375,7 @@ function renderCell(
             title="Deep search — checks website (incl. /press, /partnerships, /sponsor), Linktree-style bio pages, social bios, and multiple DDG queries. Takes 10-20s."
             className="text-[10px] text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
           >
-            {searching ? 'Deep searching…' : '🔍 Deep search'}
+            {searching ? 'Searching…' : '🔍 Find email'}
           </button>
         )}
       </td>
@@ -552,7 +552,7 @@ function renderOutreachCell(
               title="Deep search — checks website (incl. /press, /partnerships, /sponsor), Linktree-style bio pages, social bios, and multiple DDG queries. Takes 10-20s."
               className="self-start mt-0.5 text-[10px] text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
-              {searching ? 'Deep searching…' : '🔍 Deep search for email'}
+              {searching ? 'Searching…' : '🔍 Find email'}
             </button>
           )}
         </div>
@@ -1719,10 +1719,13 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                               disabled={bulkRunning}
                               draggable={false}
                               onDragStart={(ev) => ev.preventDefault()}
-                              title={`Deep-search every row that's still missing an email (${pending}). 10-20s per row, 3 in parallel.`}
-                              className="ml-1.5 text-[10px] text-purple-300 hover:text-foreground border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-1.5 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
+                              title={`Refresh emails for ${pending} row${pending === 1 ? '' : 's'} still missing one. ~10s each, 3 in parallel.`}
+                              className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded text-purple-400 hover:text-foreground hover:bg-purple-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                              aria-label={`Refresh ${pending} missing emails`}
                             >
-                              {bulkRunning ? '…' : `🔍 all (${pending})`}
+                              <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 ${bulkRunning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
                             </button>
                           )
                         })()}
@@ -1836,10 +1839,13 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                       <button
                         onClick={(ev) => { ev.stopPropagation(); onDeepSearchAll() }}
                         disabled={bulkRunning}
-                        title={`Deep-search every row that's still missing an email (${pending}). 10-20s per row, 3 in parallel.`}
-                        className="ml-2 text-[10px] text-purple-300 hover:text-foreground border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
+                        title={`Refresh emails for ${pending} row${pending === 1 ? '' : 's'} still missing one. ~10s each, 3 in parallel.`}
+                        aria-label={`Refresh ${pending} missing emails`}
+                        className="ml-2 inline-flex items-center justify-center w-6 h-6 rounded text-purple-400 hover:text-foreground hover:bg-purple-500/20 transition-colors disabled:opacity-60 disabled:cursor-wait"
                       >
-                        {bulkRunning ? 'Searching all…' : `🔍 Deep search all (${pending})`}
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 ${bulkRunning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
                       </button>
                     )
                   })()}

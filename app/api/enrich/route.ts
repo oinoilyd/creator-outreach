@@ -224,24 +224,34 @@ async function fromDDGLinkedIn(name: string): Promise<string> {
   return ''
 }
 
-// SOURCE 4: DuckDuckGo — find email for a creator by name
-async function fromDDGEmail(name: string, website: string, deep: boolean = false): Promise<string[]> {
+// SOURCE 4: DuckDuckGo — find email for a creator by name. Now always runs
+// the full set of queries (used to be gated on a `deep` flag) so every
+// enrichment gets the broader email coverage.
+async function fromDDGEmail(name: string, website: string, niche?: string): Promise<string[]> {
   if (!name) return []
   const allEmails: string[] = []
   try {
-    const queries = [`"${name}" email`, `"${name}" contact email`]
-    if (website) queries.push(`site:${website.replace(/^https?:\/\//, '')} email`)
-    if (deep) {
-      queries.push(
-        `"${name}" business email`,
-        `"${name}" sponsor`,
-        `"${name}" press contact`,
-        `"${name}" partnership`,
-        `"${name}" booking email`,
-      )
-      if (website) {
-        queries.push(`site:${website.replace(/^https?:\/\//, '')} contact`)
-      }
+    const site = website ? website.replace(/^https?:\/\//, '').replace(/\/$/, '') : ''
+    const queries: string[] = [
+      `"${name}" email`,
+      `"${name}" contact email`,
+      `"${name}" business email`,
+      `"${name}" sponsor`,
+      `"${name}" press contact`,
+      `"${name}" partnership`,
+      `"${name}" booking email`,
+      `"${name}" "@gmail.com"`,
+      `"${name}" "@protonmail.com"`,
+      `"${name}" management contact`,
+    ]
+    if (site) {
+      queries.push(`site:${site} email`)
+      queries.push(`site:${site} contact`)
+      queries.push(`site:${site} press`)
+    }
+    if (niche) {
+      queries.push(`"${name}" ${niche} email`)
+      queries.push(`"${name}" ${niche} contact`)
     }
     await Promise.allSettled(queries.map(async (query) => {
       try {
@@ -254,8 +264,10 @@ async function fromDDGEmail(name: string, website: string, deep: boolean = false
   return allEmails
 }
 
-// SOURCE 5: scrape website contact pages for email and LinkedIn links
-async function fromWebsite(rawUrl: string, deep: boolean = false): Promise<{ emails: string[], socials: Record<string, string> }> {
+// SOURCE 5: scrape website contact pages for email and LinkedIn links.
+// Now always tries the broader page set (used to be gated on deep). Higher
+// success rate at the cost of ~1-2s extra per channel — acceptable.
+async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials: Record<string, string> }> {
   const socials: Record<string, string> = {}
   const allEmails: string[] = []
   const url = normalizeUrl(rawUrl)
@@ -264,11 +276,13 @@ async function fromWebsite(rawUrl: string, deep: boolean = false): Promise<{ ema
   if (!isSafeExternalUrl(url)) return { emails: allEmails, socials }
 
   const base = url.replace(/\/$/, '')
-  const baseSet = [url, `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/work-with-me`]
-  const deepSet = ['/press', '/partnerships', '/collaborate', '/sponsor', '/booking', '/media', '/connect', '/hello', '/info']
-  const pagesToTry = deep
-    ? [...baseSet, ...deepSet.map(p => `${base}${p}`)]
-    : baseSet
+  const pagesToTry = [
+    url,
+    `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/work-with-me`,
+    `${base}/press`, `${base}/partnerships`, `${base}/collaborate`, `${base}/sponsor`,
+    `${base}/booking`, `${base}/media`, `${base}/connect`, `${base}/hello`, `${base}/info`,
+    `${base}/team`, `${base}/contact-me`, `${base}/get-in-touch`,
+  ]
 
   await Promise.allSettled(pagesToTry.map(async (page) => {
     try {
@@ -313,9 +327,10 @@ async function fromBioLink(url: string): Promise<{ emails: string[], socials: Re
   return { emails, socials }
 }
 
-// SOURCE 7 (deep): scrape email out of public social bios. Twitter / Instagram
+// SOURCE 7: scrape email out of public social bios. Twitter / Instagram
 // often display bio-text emails in og:description meta tags even when the page
 // itself blocks bots. Best-effort — these endpoints are often rate-limited.
+// Always runs (used to be deep-only).
 async function fromBioPages(socials: Record<string, string>): Promise<string[]> {
   const urls = [socials.twitter, socials.instagram, socials.tiktok, socials.linkedin].filter(Boolean) as string[]
   const emails: string[] = []
@@ -325,14 +340,43 @@ async function fromBioPages(socials: Record<string, string>): Promise<string[]> 
       if (!isSafeExternalUrl(safe)) return
       const html = await fetchHtml(safe, 5000)
       // og:description / twitter:description usually carry the bio text
-      const ogMatch = html.match(/<meta[^>]+(?:property|name)="(?:og:description|twitter:description|description)"[^>]+content="([^"]+)"/i)
-      if (ogMatch) emails.push(...extractEmails(ogMatch[1]))
+      const allMetas = [...html.matchAll(/<meta[^>]+(?:property|name)="(?:og:description|twitter:description|description)"[^>]+content="([^"]+)"/gi)]
+      for (const m of allMetas) emails.push(...extractEmails(m[1]))
       // also raw HTML scan as fallback
       emails.push(...extractEmails(html))
     } catch { /* blocked / failed */ }
   }))
   return emails
 }
+
+// SOURCE 8: Wayback Machine fallback. If the live website blocks scraping,
+// the most recent archive snapshot often still works and contains the same
+// contact info. Useful for old creator sites that returned 403/404 in
+// fromWebsite.
+async function fromWayback(rawUrl: string): Promise<string[]> {
+  if (!rawUrl) return []
+  const url = normalizeUrl(rawUrl)
+  if (!url || SOCIAL_DOMAIN.test(url)) return []
+  try {
+    const apiUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`
+    const { data } = await axios.get(apiUrl, { timeout: 5000 })
+    const snapshot = data?.archived_snapshots?.closest?.url
+    if (!snapshot || typeof snapshot !== 'string') return []
+    const html = await fetchHtml(snapshot, 6000)
+    return extractEmails(html)
+  } catch {
+    return []
+  }
+}
+
+// SOURCE 9: Common email-pattern guesses against the website domain. Only
+// emits patterns that actually appear in DDG / website / wayback content;
+// we never fabricate. The trick is: many creators publish info@/hello@/
+// contact@<domain> on their site as plain text — these get captured by
+// extractEmails — but having an explicit pass means we surface them
+// reliably even if the live website blocks scraping. This function is a
+// no-op since the patterns are caught by extractEmails on raw HTML; kept
+// as a placeholder for future structured guessing if we want to add it.
 
 export async function GET(req: NextRequest) {
   const auth = await requireUser()
@@ -353,11 +397,12 @@ export async function GET(req: NextRequest) {
   const instagramParam = clampString(searchParams.get('instagram'), 200)
   const tiktokParam   = clampString(searchParams.get('tiktok'), 200)
   const description   = clampString(searchParams.get('description'), 2000)
-  const deep = searchParams.get('deep') === 'true'
+  const niche         = clampString(searchParams.get('niche'), 80)
 
   const descEmails = extractEmails(description)
 
-  // Phase 1: About page — discovers description emails, all social/website links, subscriber count
+  // Phase 1: About page — discovers description emails, all social/website
+  // links, subscriber count.
   const yt = await fromYouTubeAbout(channelId)
     .catch(() => ({ emails: [], socials: {} as Record<string, string>, subscribers: '' }))
 
@@ -366,14 +411,16 @@ export async function GET(req: NextRequest) {
   const tiktok = yt.socials.tiktok || tiktokParam
   const channelName = searchParams.get('name') || searchParams.get('channelName') || ''
 
-  // Phase 2: RSS + website + DDG LinkedIn/email — all in parallel.
-  // In deep mode we also pull a Linktree expansion if the website looks like one.
+  // Phase 2: every email-finding source in parallel. The previous "deep"
+  // gate is gone — every enrichment now runs the full set: RSS + multi-page
+  // website scrape + Linktree-style biolink expansion + DDG LinkedIn +
+  // DDG email (with 13+ query variations).
   const [ytVideosResult, webResult, ddgLinkedInResult, ddgEmailResult, biolinkResult] = await Promise.allSettled([
     fromYouTubeVideos(channelId),
-    fromWebsite(website, deep),
+    fromWebsite(website),
     fromDDGLinkedIn(channelName),
-    fromDDGEmail(channelName, website, deep),
-    deep ? fromBioLink(website) : Promise.resolve({ emails: [] as string[], socials: {} as Record<string, string> }),
+    fromDDGEmail(channelName, website, niche),
+    fromBioLink(website),
   ])
 
   const ytVideos = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : { dates: [], avgViews: NaN }
@@ -384,7 +431,7 @@ export async function GET(req: NextRequest) {
   const ddgEmails = ddgEmailResult.status === 'fulfilled' ? ddgEmailResult.value : []
   const biolink = biolinkResult.status === 'fulfilled' ? biolinkResult.value : { emails: [] as string[], socials: {} as Record<string, string> }
 
-  let socials = {
+  const socials = {
     instagram: instagram || web.socials.instagram || biolink.socials.instagram || '',
     twitter: yt.socials.twitter || web.socials.twitter || biolink.socials.twitter || '',
     tiktok: tiktok || web.socials.tiktok || biolink.socials.tiktok || '',
@@ -392,14 +439,18 @@ export async function GET(req: NextRequest) {
     website: website || '',
   }
 
-  // Phase 3 (deep only): scrape each known social bio for embedded emails.
-  // Done after Phase 2 so we have the discovered socials to crawl.
-  let bioEmails: string[] = []
-  if (deep) {
-    bioEmails = await fromBioPages(socials).catch(() => [])
-  }
+  // Phase 3: scrape each known social bio + try Wayback for the website if
+  // we got nothing from the live site. Done after Phase 2 so we have the
+  // discovered socials to crawl.
+  const wayBackNeeded = web.emails.length === 0 && !!website
+  const [bioEmailsResult, waybackEmailsResult] = await Promise.allSettled([
+    fromBioPages(socials),
+    wayBackNeeded ? fromWayback(website) : Promise.resolve([] as string[]),
+  ])
+  const bioEmails = bioEmailsResult.status === 'fulfilled' ? bioEmailsResult.value : []
+  const waybackEmails = waybackEmailsResult.status === 'fulfilled' ? waybackEmailsResult.value : []
 
-  const allEmails = [...descEmails, ...yt.emails, ...web.emails, ...biolink.emails, ...ddgEmails, ...bioEmails]
+  const allEmails = [...descEmails, ...yt.emails, ...web.emails, ...biolink.emails, ...ddgEmails, ...bioEmails, ...waybackEmails]
   const email = bestEmail(allEmails)
 
   return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, avgViews, ...socials })
