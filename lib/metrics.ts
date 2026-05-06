@@ -1,6 +1,12 @@
 import type { CustomMetric, MetricFilter, OutreachEntry } from './types'
 import { EMPTY_METRIC_FILTER } from './types'
 
+export function metricTypeLabel(m: Pick<CustomMetric, 'type' | 'sumField'>): string {
+  if (m.type === 'sum' && m.sumField) return `Σ ${m.sumField}`
+  if (m.type === 'average' && m.sumField) return `avg ${m.sumField}`
+  return m.type
+}
+
 export function matchesMetricFilter(e: OutreachEntry, f: MetricFilter): boolean {
   const reachedOut = e.status !== 'Not Outreached' && e.status !== ''
   if (f.status !== 'any' && e.status !== f.status) return false
@@ -28,18 +34,28 @@ export function computeMetric(m: CustomMetric, entries: OutreachEntry[]): string
     if (denom.length === 0) return '—'
     return `${Math.round((num.length / denom.length) * 100)}%`
   }
-  if (m.type === 'sum') {
-    const total = num.reduce((s, e) => {
-      const f = m.sumField
-      let v = 0
-      if (f === 'dealValue') v = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
-      else if (f === 'avgViews') v = e.avgViews || 0
-      else if (f === 'fitScore') v = e.fitScore || 0
-      else if (f === 'touchpoints') v = parseFloat(String(e.touchpoints || '').replace(/[^0-9.]/g, '')) || 0
-      return s + (isFinite(v) ? v : 0)
-    }, 0)
-    if (m.sumField === 'dealValue') return total > 0 ? `$${total.toLocaleString()}` : '—'
-    return total > 0 ? total.toLocaleString() : '—'
+  if (m.type === 'sum' || m.type === 'average') {
+    const f = m.sumField
+    const values = num
+      .map(e => {
+        if (f === 'dealValue') return parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, ''))
+        if (f === 'avgViews') return e.avgViews
+        if (f === 'fitScore') return e.fitScore
+        if (f === 'touchpoints') return parseFloat(String(e.touchpoints || '').replace(/[^0-9.]/g, ''))
+        return NaN
+      })
+      .filter(v => isFinite(v))
+    if (values.length === 0) return '—'
+    if (m.type === 'sum') {
+      const total = values.reduce((s, v) => s + v, 0)
+      if (m.sumField === 'dealValue') return total > 0 ? `$${total.toLocaleString()}` : '—'
+      return total > 0 ? total.toLocaleString() : '—'
+    }
+    // average
+    const avg = values.reduce((s, v) => s + v, 0) / values.length
+    if (m.sumField === 'dealValue') return `$${Math.round(avg).toLocaleString()}`
+    if (Number.isInteger(avg)) return avg.toLocaleString()
+    return avg.toFixed(1)
   }
   return '—'
 }
@@ -78,6 +94,12 @@ export const SUGGESTED_METRICS: Omit<CustomMetric, 'id'>[] = [
     type: 'sum',
     sumField: 'dealValue',
     filter: { ...EMPTY_METRIC_FILTER, favorite: 'yes' },
+  },
+  {
+    label: 'Avg fit · successful',
+    type: 'average',
+    sumField: 'fitScore',
+    filter: { ...EMPTY_METRIC_FILTER, status: 'Successful' },
   },
   {
     label: 'Favorites',

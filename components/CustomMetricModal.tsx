@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import type { CustomMetric, MetricFilter, MetricStatusFilter, MetricMediumFilter, MetricTristate, MetricWindow, MetricSumField, OutreachEntry } from '@/lib/types'
 import { EMPTY_METRIC_FILTER } from '@/lib/types'
-import { computeMetric } from '@/lib/metrics'
+import { computeMetric, metricTypeLabel } from '@/lib/metrics'
 
 export function CustomMetricModal({
   initial,
@@ -31,7 +31,7 @@ export function CustomMetricModal({
     type,
     filter,
     ...(type === 'percentage' ? { denomFilter } : {}),
-    ...(type === 'sum' ? { sumField } : {}),
+    ...((type === 'sum' || type === 'average') ? { sumField } : {}),
   }), [label, type, filter, denomFilter, sumField, initial?.id])
 
   const previewValue = useMemo(() => computeMetric(draftMetric, entries), [draftMetric, entries])
@@ -46,7 +46,7 @@ export function CustomMetricModal({
         type,
         filter,
         ...(type === 'percentage' ? { denomFilter } : {}),
-        ...(type === 'sum' ? { sumField } : {}),
+        ...((type === 'sum' || type === 'average') ? { sumField } : {}),
       }
       await onSave(m)
       onClose()
@@ -69,7 +69,7 @@ export function CustomMetricModal({
         <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3.5 mb-5">
           <div className="flex items-baseline justify-between mb-1">
             <div className="text-[10px] uppercase tracking-wider text-purple-400/80">Live preview</div>
-            <div className="text-[10px] text-gray-500 capitalize">{type === 'sum' && sumField ? `Σ ${sumField}` : type}</div>
+            <div className="text-[10px] text-gray-500 capitalize">{metricTypeLabel({ type, sumField })}</div>
           </div>
           <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1.5 truncate">{draftMetric.label}</div>
           <div className="text-2xl font-bold text-white tabular-nums">{previewValue}</div>
@@ -90,17 +90,18 @@ export function CustomMetricModal({
 
           {/* Type */}
           <Field label="Type">
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
               {([
                 { id: 'count', label: 'Count', desc: 'How many entries match' },
                 { id: 'percentage', label: 'Percentage', desc: 'Numerator ÷ Denominator' },
                 { id: 'sum', label: 'Sum', desc: 'Add up a numeric field' },
+                { id: 'average', label: 'Average', desc: 'Mean of a numeric field across matching entries' },
               ] as { id: CustomMetric['type']; label: string; desc: string }[]).map(opt => (
                 <button
                   key={opt.id}
                   onClick={() => setType(opt.id)}
                   title={opt.desc}
-                  className={`flex-1 px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  className={`flex-1 min-w-[80px] px-3 py-1.5 text-xs rounded-md transition-colors ${
                     type === opt.id ? 'bg-purple-600/40 border border-purple-500/60 text-white' : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-white'
                   }`}
                 >
@@ -110,8 +111,8 @@ export function CustomMetricModal({
             </div>
           </Field>
 
-          {type === 'sum' && (
-            <Field label="Field to sum">
+          {(type === 'sum' || type === 'average') && (
+            <Field label={type === 'average' ? 'Field to average' : 'Field to sum'}>
               <select
                 value={sumField}
                 onChange={e => setSumField(e.target.value as MetricSumField)}

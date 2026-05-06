@@ -8,7 +8,7 @@ import type {
   ColConfig, PlatformId, PlatformConfig, UserProfile,
 } from '@/lib/types'
 import { EMPTY_METRIC_FILTER } from '@/lib/types'
-import { computeMetric, SUGGESTED_METRICS } from '@/lib/metrics'
+import { computeMetric, metricTypeLabel, SUGGESTED_METRICS } from '@/lib/metrics'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
   pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
@@ -670,7 +670,7 @@ function CustomMetricCard({ metric, entries }: {
     <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors">
       <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5 truncate" title={metric.label}>{metric.label}</div>
       <div className="text-2xl font-bold text-white tabular-nums">{value}</div>
-      <div className="text-[11px] text-gray-500 mt-1 capitalize">{metric.type === 'sum' && metric.sumField ? `Σ ${metric.sumField}` : metric.type}</div>
+      <div className="text-[11px] text-gray-500 mt-1 capitalize">{metricTypeLabel(metric)}</div>
     </div>
   )
 }
@@ -2087,7 +2087,7 @@ export default function Home() {
                         {remaining.map(s => {
                           const previewMetric = { ...s, id: `preview-${s.label}` } as import('@/lib/types').CustomMetric
                           const value = computeMetric(previewMetric, outreach)
-                          const typeLabel = s.type === 'sum' && s.sumField ? `Σ ${s.sumField}` : s.type
+                          const typeLabel = metricTypeLabel(s)
                           return (
                             <button
                               key={s.label}
@@ -2134,7 +2134,7 @@ export default function Home() {
                           <div key={m.id} className="flex items-center gap-2 py-2 px-3 rounded bg-gray-800/40 hover:bg-gray-800 border border-gray-800 group">
                             <div className="flex-1 min-w-0">
                               <div className="text-sm text-gray-200 truncate">{m.label}</div>
-                              <div className="text-[10px] text-gray-500 capitalize">{m.type === 'sum' && m.sumField ? `Σ ${m.sumField}` : m.type}</div>
+                              <div className="text-[10px] text-gray-500 capitalize">{metricTypeLabel(m)}</div>
                             </div>
                             <span className="text-sm font-bold text-white tabular-nums">{value}</span>
                             <div className="flex gap-0.5">

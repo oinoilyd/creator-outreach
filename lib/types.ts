@@ -168,12 +168,12 @@ export interface MetricFilter {
 export interface CustomMetric {
   id: string
   label: string
-  type: 'count' | 'percentage' | 'sum'
-  // For 'count' and 'sum'
+  type: 'count' | 'percentage' | 'sum' | 'average'
+  // Filter applied to the numerator / set being measured.
   filter: MetricFilter
   // For 'percentage' only — denominator filter (numerator uses `filter`)
   denomFilter?: MetricFilter
-  // For 'sum' only — which numeric field to sum
+  // For 'sum' and 'average' — which numeric field to aggregate
   sumField?: MetricSumField
 }
 
