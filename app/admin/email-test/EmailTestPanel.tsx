@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const STRATEGY_OPTIONS = [
-  { key: 'web_scrape',   label: 'Website scrape',  hint: '17 paths: /, /contact, /about, …' },
-  { key: 'biolink',      label: 'Linktree expand', hint: 'Linktree, Beacons, Stan, etc.' },
-  { key: 'bio_pages',    label: 'Social bios',     hint: 'Twitter / IG / TikTok og:description' },
-  { key: 'ddg',          label: 'DDG search',      hint: '13+ DuckDuckGo email queries' },
-  { key: 'wayback',      label: 'Wayback fallback', hint: "Archive.org if live site is empty" },
-  { key: 'domain_guess', label: 'Educated assumption', hint: 'For empty results: cross-references social bios + website for evidence-backed guesses' },
+  { key: 'web_scrape',          label: 'Website scrape',        hint: '17 paths: /, /contact, /about, …' },
+  { key: 'biolink',             label: 'Linktree expand',       hint: 'Linktree, Beacons, Stan, etc.' },
+  { key: 'bio_pages',           label: 'Social bios',           hint: 'Twitter / IG / TikTok og:description' },
+  { key: 'ddg',                 label: 'DDG search',            hint: '13+ DuckDuckGo email queries' },
+  { key: 'wayback',             label: 'Wayback fallback',      hint: 'Archive.org if live site is empty' },
+  { key: 'domain_guess',        label: 'Educated assumption',   hint: 'For empty results: cross-references social bios + website for evidence-backed guesses' },
+  { key: 'verify_deliverability', label: 'Verify deliverability', hint: 'After enrichment: DNS MX, disposable blocklist, role-address flag. Tags each email deliverable / risky / invalid.' },
 ] as const
 
 type Verdict = 'deliverable' | 'risky' | 'invalid'
@@ -67,7 +68,7 @@ export function EmailTestPanel() {
   const [max, setMax] = useState(15)
   const [notes, setNotes] = useState('')
   const [enabled, setEnabled] = useState<Record<string, boolean>>({
-    web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: false,
+    web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: false, verify_deliverability: true,
   })
   const [running, setRunning] = useState(false)
   const [verifying, setVerifying] = useState(false)
@@ -80,11 +81,11 @@ export function EmailTestPanel() {
 
   function preset(name: 'all-on' | 'minimal' | 'no-ddg') {
     if (name === 'all-on') {
-      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: true })
+      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: true, verify_deliverability: true })
     } else if (name === 'minimal') {
-      setEnabled({ web_scrape: false, biolink: false, bio_pages: false, ddg: false, wayback: false, domain_guess: false })
+      setEnabled({ web_scrape: false, biolink: false, bio_pages: false, ddg: false, wayback: false, domain_guess: false, verify_deliverability: false })
     } else if (name === 'no-ddg') {
-      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: false, wayback: true, domain_guess: false })
+      setEnabled({ web_scrape: true, biolink: true, bio_pages: true, ddg: false, wayback: true, domain_guess: false, verify_deliverability: true })
     }
   }
 
@@ -97,7 +98,12 @@ export function EmailTestPanel() {
     setError(null)
     setResult(null)
     try {
-      const strategy = STRATEGY_OPTIONS.filter(o => enabled[o.key]).map(o => o.key)
+      // verify_deliverability is a post-process step, not an enrichment
+      // strategy — we don't send it to the test endpoint, we run it
+      // ourselves after results land.
+      const strategy = STRATEGY_OPTIONS
+        .filter(o => o.key !== 'verify_deliverability' && enabled[o.key])
+        .map(o => o.key)
       const resp = await fetch('/api/admin/email-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,8 +118,14 @@ export function EmailTestPanel() {
         setError(data.error)
         return
       }
-      setResult(data as RunResponse)
+      const runData = data as RunResponse
+      setResult(runData)
       router.refresh()
+
+      // Auto-fire deliverability check if the user toggled it on.
+      if (enabled.verify_deliverability && runData.withEmail > 0) {
+        await runVerification(runData)
+      }
     } catch (e) {
       setError((e as Error).message || 'Network error.')
     } finally {
@@ -121,9 +133,10 @@ export function EmailTestPanel() {
     }
   }
 
-  async function runVerification() {
-    if (!result) return
-    const emails = result.results.filter(r => r.hasEmail).map(r => r.email)
+  async function runVerification(target?: RunResponse) {
+    const source = target ?? result
+    if (!source) return
+    const emails = source.results.filter(r => r.hasEmail).map(r => r.email)
     if (emails.length === 0) return
 
     setVerifying(true)
@@ -284,15 +297,15 @@ export function EmailTestPanel() {
 
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="text-xs text-muted-foreground">
-              Each result row carries the source it came from (primary vs educated assumption).
+              Source = where each email came from. Verdict = heuristic deliverability check.
             </div>
             <button
-              onClick={runVerification}
+              onClick={() => runVerification()}
               disabled={verifying || result.withEmail === 0}
               className="px-3 py-1.5 rounded-lg border border-purple-300 dark:border-purple-500/40 bg-card text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-wait"
               title="Heuristic check: DNS MX, disposable-domain blocklist, role-address detection, freemail flag. Does NOT do an SMTP RCPT TO probe (Vercel blocks port 25)."
             >
-              {verifying ? 'Checking…' : 'Run deliverability check'}
+              {verifying ? 'Checking…' : 'Re-run check'}
             </button>
           </div>
 
