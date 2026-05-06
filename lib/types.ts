@@ -114,6 +114,7 @@ export interface OutreachColDef {
   label: string
   defaultVisible: boolean
   defaultWidth: number
+  tooltip?: string
 }
 
 export interface OutreachColConfig extends OutreachColDef {

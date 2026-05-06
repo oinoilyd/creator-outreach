@@ -806,7 +806,10 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                         )}
                       </div>
                     ) : (
-                      <span className="truncate flex items-center gap-1">
+                      <span
+                        className="truncate flex items-center gap-1"
+                        title={col.tooltip}
+                      >
                         {!isLocked && <span className="text-gray-600 text-xs">⠿</span>}
                         {col.label}
                       </span>
