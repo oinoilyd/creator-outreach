@@ -9,7 +9,7 @@ const STRATEGY_OPTIONS = [
   { key: 'bio_pages',    label: 'Social bios',     hint: 'Twitter / IG / TikTok og:description' },
   { key: 'ddg',          label: 'DDG search',      hint: '13+ DuckDuckGo email queries' },
   { key: 'wayback',      label: 'Wayback fallback', hint: "Archive.org if live site is empty" },
-  { key: 'domain_guess', label: 'Domain pattern guess', hint: 'info@, hello@, contact@…' },
+  { key: 'domain_guess', label: 'Educated assumption', hint: 'For empty results: cross-references social bios + website for evidence-backed guesses' },
 ] as const
 
 interface RunResult {
@@ -17,6 +17,9 @@ interface RunResult {
   channelId: string
   hasEmail: boolean
   email: string
+  source: 'primary' | 'educated_assumption' | null
+  confidence?: number
+  evidence?: string
   durationMs: number
 }
 
@@ -27,6 +30,8 @@ interface RunResponse {
   strategy: string
   total: number
   withEmail: number
+  fromPrimary: number
+  fromAssumption: number
   hitRate: number
   tookMs: number
   results: RunResult[]
@@ -201,9 +206,15 @@ export function EmailTestPanel() {
       {/* Live result */}
       {result && (
         <section className="rounded-xl border border-purple-200 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/60 to-blue-50/60 dark:from-purple-500/5 dark:to-blue-500/5 p-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
             <Stat label="Total" value={result.total} />
-            <Stat label="With email" value={result.withEmail} />
+            <Stat label="From primary" value={result.fromPrimary} />
+            <Stat
+              label="From assumption"
+              value={`+${result.fromAssumption}`}
+              accent={result.fromAssumption > 0}
+              hint={result.fromAssumption > 0 ? 'lift over primary' : 'no lift'}
+            />
             <Stat label="Hit rate" value={`${result.hitRate.toFixed(1)}%`} accent />
             <Stat label="Took" value={`${(result.tookMs / 1000).toFixed(1)}s`} />
           </div>
@@ -213,6 +224,7 @@ export function EmailTestPanel() {
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Channel</th>
                   <th className="px-3 py-2 text-left font-medium">Email</th>
+                  <th className="px-3 py-2 text-left font-medium">Source</th>
                   <th className="px-3 py-2 text-right font-medium">Took</th>
                 </tr>
               </thead>
@@ -224,6 +236,19 @@ export function EmailTestPanel() {
                       {r.hasEmail
                         ? <span className="text-emerald-700 dark:text-emerald-400 font-mono text-xs break-all">{r.email}</span>
                         : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {r.source === 'primary' && (
+                        <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300">primary</span>
+                      )}
+                      {r.source === 'educated_assumption' && (
+                        <span
+                          className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-500/30 bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300"
+                          title={r.evidence ? `${r.evidence} — confidence ${(r.confidence ?? 0).toFixed(2)}` : ''}
+                        >
+                          assumption · {(r.confidence ?? 0).toFixed(2)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">{(r.durationMs / 1000).toFixed(1)}s</td>
                   </tr>
@@ -237,11 +262,12 @@ export function EmailTestPanel() {
   )
 }
 
-function Stat({ label, value, accent }: { label: string; value: number | string; accent?: boolean }) {
+function Stat({ label, value, accent, hint }: { label: string; value: number | string; accent?: boolean; hint?: string }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
       <div className={`text-2xl font-bold tabular-nums ${accent ? 'text-purple-700 dark:text-purple-300' : ''}`}>{value}</div>
+      {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   )
 }

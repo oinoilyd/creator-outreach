@@ -32,6 +32,9 @@ interface EnrichResult {
   channelId: string
   hasEmail: boolean
   email: string
+  source: 'primary' | 'educated_assumption' | null
+  confidence?: number
+  evidence?: string
   durationMs: number
 }
 
@@ -71,7 +74,16 @@ export async function POST(req: NextRequest) {
   const strategy: StrategyKey[] = requested
     ? STRATEGY_KEYS.filter(k => requested.includes(k))
     : [...STRATEGY_KEYS]
-  const strategyCsv = strategy.join(',')
+
+  // The "domain_guess" toggle in the admin harness now means
+  // "run the educated-assumption fallback for creators that came up
+  // empty after primary enrichment" — NOT the old blunt pattern blast.
+  // We strip it from what we send to /api/enrich (production still
+  // uses the dumb version when given the same key, so we explicitly
+  // exclude it here) and trigger the smart fallback ourselves below.
+  const useEducatedAssumption = strategy.includes('domain_guess')
+  const enrichStrategy = strategy.filter(k => k !== 'domain_guess')
+  const strategyCsv = enrichStrategy.join(',')
 
   const start = Date.now()
 
@@ -131,12 +143,63 @@ export async function POST(req: NextRequest) {
           headers: { cookie },
           cache: 'no-store',
         })
-        const j = r.ok ? await r.json() : { email: '' }
+        const j = r.ok ? await r.json() : { email: '', website: '', instagram: '', twitter: '', tiktok: '', linkedin: '' }
+
+        // If the primary pipeline found something, we're done.
+        if (j.email) {
+          return {
+            channelName: c.channelName,
+            channelId: c.channelId,
+            hasEmail: true,
+            email: j.email,
+            source: 'primary' as const,
+            durationMs: Date.now() - t0,
+          }
+        }
+
+        // Empty primary result + admin asked for educated assumption
+        // → second pass cross-references social bios + website +
+        // Linktree against generated patterns to find evidence-backed
+        // emails the regex didn't catch (obfuscated forms, etc.).
+        if (useEducatedAssumption) {
+          const eaUrl = `${origin}/api/admin/educated-assumption`
+          const eaResp = await fetch(eaUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', cookie },
+            cache: 'no-store',
+            body: JSON.stringify({
+              channelId: c.channelId,
+              channelName: c.channelName || '',
+              description: c.description,
+              website: j.website || c.website,
+              instagram: j.instagram || c.instagram,
+              twitter: j.twitter,
+              tiktok: j.tiktok || c.tiktok,
+              linkedin: j.linkedin,
+            }),
+          })
+          const ea = eaResp.ok ? await eaResp.json() : { email: null, candidates: [] }
+          if (ea.email) {
+            const top = ea.candidates?.[0]
+            return {
+              channelName: c.channelName,
+              channelId: c.channelId,
+              hasEmail: true,
+              email: ea.email,
+              source: 'educated_assumption' as const,
+              confidence: top?.confidence,
+              evidence: top?.evidence,
+              durationMs: Date.now() - t0,
+            }
+          }
+        }
+
         return {
           channelName: c.channelName,
           channelId: c.channelId,
-          hasEmail: !!j.email,
-          email: j.email || '',
+          hasEmail: false,
+          email: '',
+          source: null,
           durationMs: Date.now() - t0,
         }
       } catch {
@@ -145,6 +208,7 @@ export async function POST(req: NextRequest) {
           channelId: c.channelId,
           hasEmail: false,
           email: '',
+          source: null,
           durationMs: Date.now() - t0,
         }
       }
@@ -156,13 +220,21 @@ export async function POST(req: NextRequest) {
   const hitRate = total > 0 ? Number(((withEmail / total) * 100).toFixed(2)) : 0
   const tookMs = Date.now() - start
 
-  // 3) Save the run record
+  // Track how many of the wins came from the educated-assumption fallback
+  // — that's the lift number Dylan wants to see.
+  const fromAssumption = results.filter(r => r.source === 'educated_assumption').length
+  const fromPrimary = withEmail - fromAssumption
+
+  // 3) Save the run record. Saved strategy reflects what was REQUESTED
+  // (including domain_guess) so the runs table is honest about what
+  // was tested, even though we routed it to educated-assumption.
+  const fullStrategy = strategy.join(',')
   const { data: insertData, error: insertErr } = await supabase
     .from('email_test_runs')
     .insert({
       query,
       region: region || null,
-      strategy: strategyCsv,
+      strategy: fullStrategy,
       total,
       with_email: withEmail,
       hit_rate: hitRate,
@@ -181,9 +253,11 @@ export async function POST(req: NextRequest) {
     createdAt: insertData?.created_at ?? null,
     query,
     region: region || null,
-    strategy: strategyCsv,
+    strategy: fullStrategy,
     total,
     withEmail,
+    fromPrimary,
+    fromAssumption,
     hitRate,
     tookMs,
     results,
