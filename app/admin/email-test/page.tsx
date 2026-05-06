@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { EmailTestPanel } from './EmailTestPanel'
+import { BenchmarkPanel } from './BenchmarkPanel'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -92,6 +93,9 @@ export default async function EmailTestPage() {
 
         {/* The interactive run panel — client component */}
         <EmailTestPanel />
+
+        {/* Automated benchmark — fires many runs to compare buckets */}
+        <BenchmarkPanel />
 
         {/* Strategy leaderboard */}
         {strategySummary.length > 0 && (
