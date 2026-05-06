@@ -333,7 +333,15 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
   )
 }
 
-function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: string, profile: UserProfile | null): React.ReactNode {
+function renderCell(
+  id: ColId,
+  c: Creator,
+  weights: ScoreWeights,
+  narrative: string,
+  profile: UserProfile | null,
+  searching: boolean,
+  onDeepSearch: (channelId: string) => void,
+): React.ReactNode {
   switch (id) {
     case 'fitScore': {
       return <FitScoreCell key={id} c={c} weights={weights} narrative={narrative} />
@@ -347,8 +355,20 @@ function renderCell(id: ColId, c: Creator, weights: ScoreWeights, narrative: str
     )
     case 'email': return (
       <td key={id} className="px-4 py-3 text-xs">
-        {c.email ? <a href={buildOutreachEmail(c, profile)} className="text-green-400 hover:underline">{c.email}</a>
-          : c.enriching ? <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span> : '—'}
+        {c.email ? (
+          <a href={buildOutreachEmail(c, profile)} className="text-green-400 hover:underline">{c.email}</a>
+        ) : c.enriching ? (
+          <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span>
+        ) : (
+          <button
+            onClick={() => onDeepSearch(c.channelId)}
+            disabled={searching}
+            title="Deep search — checks website (incl. /press, /partnerships, /sponsor), Linktree-style bio pages, social bios, and multiple DDG queries. Takes 10-20s."
+            className="text-[10px] text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
+          >
+            {searching ? 'Deep searching…' : '🔍 Deep search'}
+          </button>
+        )}
       </td>
     )
     case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" className="text-blue-400 hover:underline">link</a> : '—'}</td>
@@ -919,7 +939,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -933,6 +953,8 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   activePlatform: PlatformId
   totalUnfiltered: number
   profile: UserProfile | null
+  onDeepSearch: (channelId: string) => void
+  deepSearchingIds: Set<string>
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
   const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries), [creators, sortCol, sortDir, scoreWeights, guidanceEntries])
@@ -1023,7 +1045,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 </button>
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile))}
+              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch))}
             </tr>
           ))}
           {loadMoreBatch && loadMoreBatch.length > 0 && (
@@ -1054,7 +1076,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                     </button>
                   </td>
                   <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile))}
+                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch))}
                 </tr>
               ))}
             </>
@@ -1374,6 +1396,45 @@ export default function Home() {
   }
 
   const [searchingContactIds, setSearchingContactIds] = useState<Set<string>>(new Set())
+  const [deepSearchingResultIds, setDeepSearchingResultIds] = useState<Set<string>>(new Set())
+
+  async function deepSearchResultEmail(channelId: string) {
+    const c = creators.find(x => x.channelId === channelId)
+    if (!c) return
+    setDeepSearchingResultIds(s => new Set(s).add(channelId))
+    try {
+      const params = new URLSearchParams({
+        name: c.channelName,
+        channelId: c.channelId,
+        description: c.description || '',
+        website: c.website || '',
+        instagram: c.instagram || '',
+        tiktok: c.tiktok || '',
+        deep: 'true',
+      })
+      const r = await fetch(`/api/enrich?${params}`)
+      const extra = await r.json()
+      if (!r.ok) {
+        alert(`Search failed: ${extra.error || 'unknown'}`)
+        return
+      }
+      setCreators(list => list.map(x => x.channelId === channelId ? {
+        ...x,
+        email: x.email || extra.email || '',
+        linkedin: x.linkedin || extra.linkedin || '',
+        instagram: x.instagram || extra.instagram || '',
+        twitter: x.twitter || extra.twitter || '',
+        tiktok: x.tiktok || extra.tiktok || '',
+        website: x.website || extra.website || '',
+        subscribers: x.subscribers || extra.subscribers || '',
+        avgViews: x.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
+      } : x))
+    } catch (err: any) {
+      alert(`Search failed: ${err?.message || err}`)
+    } finally {
+      setDeepSearchingResultIds(s => { const n = new Set(s); n.delete(channelId); return n })
+    }
+  }
 
   async function searchContactsForEntry(id: string) {
     const entry = outreach.find(e => e.id === id)
@@ -2336,6 +2397,8 @@ export default function Home() {
               activePlatform={activePlatform}
               totalUnfiltered={creators.length}
               profile={profile}
+              onDeepSearch={deepSearchResultEmail}
+              deepSearchingIds={deepSearchingResultIds}
             />
             {activeTab === 'results' && (
               <div className="mt-5 flex flex-col items-center gap-2">
