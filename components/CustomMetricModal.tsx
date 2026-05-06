@@ -58,22 +58,22 @@ export function CustomMetricModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70" />
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-lg font-bold text-white">{initial ? 'Edit metric' : 'New metric'}</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+          <h2 className="text-lg font-bold text-foreground">{initial ? 'Edit metric' : 'New metric'}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
         </div>
-        <p className="text-gray-500 text-xs mb-4">Define what to count. The metric appears as a card on the Analytics tab.</p>
+        <p className="text-muted-foreground text-xs mb-4">Define what to count. The metric appears as a card on the Analytics tab.</p>
 
         {/* Live preview — updates as the form changes */}
-        <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-3.5 mb-5">
+        <div className="bg-muted/40 border border-border rounded-lg p-3.5 mb-5">
           <div className="flex items-baseline justify-between mb-1">
             <div className="text-[10px] uppercase tracking-wider text-purple-400/80">Live preview</div>
-            <div className="text-[10px] text-gray-500 capitalize">{metricTypeLabel({ type, sumField })}</div>
+            <div className="text-[10px] text-muted-foreground capitalize">{metricTypeLabel({ type, sumField })}</div>
           </div>
-          <div className="text-[11px] uppercase tracking-wider text-gray-400 mb-1.5 truncate">{draftMetric.label}</div>
-          <div className="text-2xl font-bold text-white tabular-nums">{previewValue}</div>
-          <div className="text-[10px] text-gray-500 mt-1">Updates live as you change the filter below.</div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 truncate">{draftMetric.label}</div>
+          <div className="text-2xl font-bold text-foreground tabular-nums">{previewValue}</div>
+          <div className="text-[10px] text-muted-foreground mt-1">Updates live as you change the filter below.</div>
         </div>
 
         <div className="space-y-3.5">
@@ -83,7 +83,7 @@ export function CustomMetricModal({
               value={label}
               onChange={e => setLabel(e.target.value)}
               placeholder="e.g. LinkedIn responses"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+              className="w-full bg-muted border border-border rounded px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
               autoFocus
             />
           </Field>
@@ -102,7 +102,7 @@ export function CustomMetricModal({
                   onClick={() => setType(opt.id)}
                   title={opt.desc}
                   className={`flex-1 min-w-[80px] px-3 py-1.5 text-xs rounded-md transition-colors ${
-                    type === opt.id ? 'bg-purple-600/40 border border-purple-500/60 text-white' : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-white'
+                    type === opt.id ? 'bg-purple-600/40 border border-purple-500/60 text-foreground' : 'bg-muted border border-border text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {opt.label}
@@ -116,7 +116,7 @@ export function CustomMetricModal({
               <select
                 value={sumField}
                 onChange={e => setSumField(e.target.value as MetricSumField)}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                className="w-full bg-muted border border-border rounded px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
               >
                 <option value="dealValue">Deal Value ($)</option>
                 <option value="avgViews">Avg Views</option>
@@ -127,22 +127,22 @@ export function CustomMetricModal({
           )}
 
           {/* Filter */}
-          <div className="border-t border-gray-800 pt-4">
-            <div className="text-xs uppercase tracking-wider text-gray-500 mb-3">
+          <div className="border-t border-border pt-4">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
               {type === 'percentage' ? 'Numerator filter' : 'Filter'}
             </div>
             <FilterEditor value={filter} onChange={setFilter} />
           </div>
 
           {type === 'percentage' && (
-            <div className="border-t border-gray-800 pt-4">
-              <div className="text-xs uppercase tracking-wider text-gray-500 mb-3">Denominator filter</div>
+            <div className="border-t border-border pt-4">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Denominator filter</div>
               <FilterEditor value={denomFilter} onChange={setDenomFilter} />
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-gray-800">
+        <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-border">
           {initial && onDelete ? (
             <button
               onClick={async () => {
@@ -157,7 +157,7 @@ export function CustomMetricModal({
             </button>
           ) : <span />}
           <div className="flex gap-3">
-            <button onClick={onClose} disabled={busy} className="px-4 py-2 text-sm text-gray-400 hover:text-white disabled:opacity-50">Cancel</button>
+            <button onClick={onClose} disabled={busy} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50">Cancel</button>
             <button
               onClick={submit}
               disabled={busy || !label.trim()}
@@ -175,7 +175,7 @@ export function CustomMetricModal({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">{label}</label>
+      <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">{label}</label>
       {children}
     </div>
   )
@@ -232,11 +232,11 @@ function SmallSelect({ label, value, onChange, options }: {
 }) {
   return (
     <div>
-      <label className="block text-[10px] font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-[10px] font-medium text-muted-foreground mb-1">{label}</label>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-purple-500"
+        className="w-full bg-muted border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:border-purple-500"
       >
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>

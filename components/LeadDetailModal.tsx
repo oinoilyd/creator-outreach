@@ -17,22 +17,22 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
     'Successful': 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
     'Rejected': 'bg-red-500/15 text-red-300 border-red-500/40',
     'Open': 'bg-blue-500/15 text-blue-300 border-blue-500/40',
-    'No Response': 'bg-gray-500/15 text-gray-300 border-gray-500/40',
-    'Not Outreached': 'bg-gray-700/40 text-gray-400 border-gray-700',
-    '': 'bg-gray-700/40 text-gray-400 border-gray-700',
-  }[entry.status] || 'bg-gray-700/40 text-gray-400 border-gray-700'
+    'No Response': 'bg-gray-500/15 text-foreground/80 border-border/40',
+    'Not Outreached': 'bg-muted/40 text-muted-foreground border-border',
+    '': 'bg-muted/40 text-muted-foreground border-border',
+  }[entry.status] || 'bg-muted/40 text-muted-foreground border-border'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70" />
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="p-5 border-b border-gray-800 flex items-start gap-4">
+        <div className="p-5 border-b border-border flex items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 text-white text-sm font-semibold flex items-center justify-center shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-white truncate">{entry.channelName || '(unnamed)'}</h2>
+            <h2 className="text-lg font-bold text-foreground truncate">{entry.channelName || '(unnamed)'}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${statusColor}`}>
                 {entry.status || 'Not Outreached'}
@@ -45,11 +45,11 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
               )}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none shrink-0">✕</button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none shrink-0">✕</button>
         </div>
 
         {/* Channel-level stats */}
-        <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-gray-800">
+        <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-border">
           <Stat label="Subscribers" value={entry.subscribers || '—'} />
           <Stat label="Avg views" value={entry.avgViews ? entry.avgViews.toLocaleString() : '—'} />
           <Stat label="Fit score" value={entry.fitScore ? Math.round(entry.fitScore).toString() : '—'} />
@@ -57,14 +57,14 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
         </div>
 
         {/* Outreach status section */}
-        <div className="p-5 border-b border-gray-800 space-y-3">
-          <div className="text-[11px] uppercase tracking-wider text-gray-500">Outreach status</div>
+        <div className="p-5 border-b border-border space-y-3">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Outreach status</div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Status">
               <select
                 value={entry.status || 'Not Outreached'}
                 onChange={e => onUpdate(entry.id, 'status', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
               >
                 <option value="Not Outreached">Not Outreached</option>
                 <option value="Open">Open</option>
@@ -77,7 +77,7 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
               <select
                 value={entry.medium}
                 onChange={e => onUpdate(entry.id, 'medium', e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
               >
                 <option value="">—</option>
                 <option value="Email">Email</option>
@@ -86,29 +86,29 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
               </select>
             </Field>
             <Field label="Date reached out">
-              <input type="date" value={entry.dateReachedOut || ''} onChange={e => onUpdate(entry.id, 'dateReachedOut', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500" />
+              <input type="date" value={entry.dateReachedOut || ''} onChange={e => onUpdate(entry.id, 'dateReachedOut', e.target.value)} className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500" />
             </Field>
             <Field label="Follow-up date">
-              <input type="date" value={entry.followUpDate || ''} onChange={e => onUpdate(entry.id, 'followUpDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500" />
+              <input type="date" value={entry.followUpDate || ''} onChange={e => onUpdate(entry.id, 'followUpDate', e.target.value)} className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500" />
             </Field>
             <Field label="Response date">
-              <input type="date" value={entry.responseDate || ''} onChange={e => onUpdate(entry.id, 'responseDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500" />
+              <input type="date" value={entry.responseDate || ''} onChange={e => onUpdate(entry.id, 'responseDate', e.target.value)} className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500" />
             </Field>
             <Field label="# Touchpoints">
-              <input type="number" min={0} value={entry.touchpoints || '0'} onChange={e => onUpdate(entry.id, 'touchpoints', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500" />
+              <input type="number" min={0} value={entry.touchpoints || '0'} onChange={e => onUpdate(entry.id, 'touchpoints', e.target.value)} className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500" />
             </Field>
           </div>
           {entry.headerUsed && (
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Subject line / opener used</div>
-              <div className="text-xs text-gray-300 bg-gray-800/40 border border-gray-800 rounded px-3 py-2">{entry.headerUsed}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Subject line / opener used</div>
+              <div className="text-xs text-foreground/80 bg-muted/40 border border-border rounded px-3 py-2">{entry.headerUsed}</div>
             </div>
           )}
         </div>
 
         {/* Contact + socials */}
-        <div className="p-5 border-b border-gray-800 space-y-3">
-          <div className="text-[11px] uppercase tracking-wider text-gray-500">Contact</div>
+        <div className="p-5 border-b border-border space-y-3">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Contact</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <ContactRow label="Email" value={entry.email} type="email" />
             <ContactRow label="LinkedIn" value={entry.linkedin} type="link" />
@@ -116,43 +116,43 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
             <ContactRow label="Product / pitch" value={entry.product} />
           </div>
           {tps > 0 && (
-            <div className="flex items-center gap-2 text-[11px] text-gray-500">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               <span>Touch history</span>
               <div className="flex gap-1">
                 {Array.from({ length: Math.min(tps, 10) }).map((_, i) => (
                   <span key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/70" />
                 ))}
               </div>
-              <span className="text-gray-400">{tps} touch{tps === 1 ? '' : 'es'}</span>
+              <span className="text-muted-foreground">{tps} touch{tps === 1 ? '' : 'es'}</span>
             </div>
           )}
         </div>
 
         {/* Notes (always editable) */}
-        <div className="p-5 border-b border-gray-800">
-          <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Notes</div>
+        <div className="p-5 border-b border-border">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Notes</div>
           <textarea
             value={entry.notes || ''}
             onChange={e => onUpdate(entry.id, 'notes', e.target.value)}
             placeholder="What's the angle? What did they say?"
             rows={3}
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-purple-500 resize-none"
+            className="w-full bg-muted border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 resize-none"
           />
         </div>
 
         {/* Description (read-only-ish) */}
         {entry.description && (
           <div className="p-5">
-            <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Channel description</div>
-            <div className="text-xs text-gray-400 leading-relaxed max-h-32 overflow-y-auto bg-gray-800/30 border border-gray-800 rounded px-3 py-2 whitespace-pre-wrap">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Channel description</div>
+            <div className="text-xs text-muted-foreground leading-relaxed max-h-32 overflow-y-auto bg-muted/30 border border-border rounded px-3 py-2 whitespace-pre-wrap">
               {entry.description}
             </div>
           </div>
         )}
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-800 flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-300 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition-colors">
+        <div className="p-4 border-t border-border flex justify-end">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-foreground/80 hover:text-foreground border border-border hover:border-border rounded-lg transition-colors">
             Done
           </button>
         </div>
@@ -163,9 +163,9 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
 
 function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="bg-gray-800/40 border border-gray-800 rounded-lg p-3">
-      <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">{label}</div>
-      <div className={`text-base font-semibold tabular-nums ${highlight ? 'text-emerald-300' : 'text-white'}`}>{value}</div>
+    <div className="bg-muted/40 border border-border rounded-lg p-3">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+      <div className={`text-base font-semibold tabular-nums ${highlight ? 'text-emerald-300' : 'text-foreground'}`}>{value}</div>
     </div>
   )
 }
@@ -173,7 +173,7 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">{label}</label>
+      <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</label>
       {children}
     </div>
   )
@@ -181,20 +181,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function ContactRow({ label, value, type }: { label: string; value: string; type?: 'email' | 'link' }) {
   if (!value) return (
-    <div className="flex items-center gap-2 text-gray-600">
+    <div className="flex items-center gap-2 text-muted-foreground/70">
       <span className="text-[10px] uppercase tracking-wider w-24">{label}</span>
       <span>—</span>
     </div>
   )
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-gray-500 w-24 shrink-0">{label}</span>
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground w-24 shrink-0">{label}</span>
       {type === 'email' ? (
         <a href={`mailto:${value}`} className="text-emerald-400 hover:underline truncate">{value}</a>
       ) : type === 'link' ? (
         <a href={value} target="_blank" className="text-blue-400 hover:underline truncate">{value}</a>
       ) : (
-        <span className="text-gray-300 truncate">{value}</span>
+        <span className="text-foreground/80 truncate">{value}</span>
       )}
     </div>
   )

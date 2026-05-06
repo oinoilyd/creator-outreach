@@ -36,18 +36,18 @@ export function MigrationPromptModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" />
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
         <div className="text-4xl mb-3">📦</div>
-        <h2 className="text-xl font-bold text-white mb-1">Import your saved data?</h2>
-        <p className="text-gray-400 text-sm mb-5">
-          We found <span className="text-white font-semibold">{total}</span> item{total === 1 ? '' : 's'} in this browser
-          {outreachCount > 0 && <> — <span className="text-white">{outreachCount}</span> outreach{outreachCount === 1 ? ' entry' : ' entries'}</>}
+        <h2 className="text-xl font-bold text-foreground mb-1">Import your saved data?</h2>
+        <p className="text-muted-foreground text-sm mb-5">
+          We found <span className="text-foreground font-semibold">{total}</span> item{total === 1 ? '' : 's'} in this browser
+          {outreachCount > 0 && <> — <span className="text-foreground">{outreachCount}</span> outreach{outreachCount === 1 ? ' entry' : ' entries'}</>}
           {outreachCount > 0 && dismissedCount > 0 && <> and</>}
-          {dismissedCount > 0 && <> <span className="text-white">{dismissedCount}</span> dismissed creator{dismissedCount === 1 ? '' : 's'}</>}
+          {dismissedCount > 0 && <> <span className="text-foreground">{dismissedCount}</span> dismissed creator{dismissedCount === 1 ? '' : 's'}</>}
           . Add them to your account?
         </p>
 
-        <div className="bg-gray-800/40 border border-gray-800 rounded-lg p-3 mb-5 text-xs text-gray-400">
+        <div className="bg-muted/40 border border-border rounded-lg p-3 mb-5 text-xs text-muted-foreground">
           This is a one-time import. After this, all your data lives in your account so it works on any device.
         </div>
 
@@ -58,7 +58,7 @@ export function MigrationPromptModal({
           <button
             onClick={onSkip}
             disabled={busy}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             Skip for now
           </button>

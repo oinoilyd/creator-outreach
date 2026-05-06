@@ -5,19 +5,92 @@
    toggles this on <html>. */
 @variant dark (&:where(.dark, .dark *));
 
+/* shadcn/ui-style design tokens. Every component uses semantic colors
+   (bg-background, text-foreground, border-border, etc.) that swap
+   automatically when the .dark class flips. */
+
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  /* page bg + primary text */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.15 0.01 240);
+
+  /* elevated surfaces (cards, modals) */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.01 240);
+
+  /* secondary surface (table headers, sub-panels) */
+  --muted: oklch(0.965 0.005 240);
+  --muted-foreground: oklch(0.45 0.01 240);
+
+  /* hover / interactive accent */
+  --accent: oklch(0.96 0.005 240);
+  --accent-foreground: oklch(0.15 0.01 240);
+
+  /* primary CTA */
+  --primary: oklch(0.20 0.01 240);
+  --primary-foreground: oklch(0.99 0 0);
+
+  /* borders + dividers */
+  --border: oklch(0.92 0.005 240);
+  --input: oklch(0.92 0.005 240);
+  --ring: oklch(0.55 0.18 280);
+
+  /* destructive */
+  --destructive: oklch(0.62 0.21 22);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  /* brand purple */
+  --brand: oklch(0.55 0.22 295);
+  --brand-foreground: oklch(0.99 0 0);
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: oklch(0.10 0.005 240);
+  --foreground: oklch(0.98 0 0);
+
+  --card: oklch(0.13 0.005 240);
+  --card-foreground: oklch(0.98 0 0);
+
+  --muted: oklch(0.18 0.005 240);
+  --muted-foreground: oklch(0.65 0.01 240);
+
+  --accent: oklch(0.20 0.005 240);
+  --accent-foreground: oklch(0.98 0 0);
+
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.15 0.01 240);
+
+  --border: oklch(0.22 0.005 240);
+  --input: oklch(0.22 0.005 240);
+  --ring: oklch(0.65 0.18 280);
+
+  --destructive: oklch(0.62 0.21 22);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --brand: oklch(0.65 0.22 295);
+  --brand-foreground: oklch(0.99 0 0);
 }
 
+/* Register tokens as Tailwind colors so `bg-background`, `text-foreground`,
+   `border-border` etc. become valid utilities. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -25,5 +98,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }

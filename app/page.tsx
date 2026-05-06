@@ -102,41 +102,41 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
       <button onClick={() => setOpen(v => !v)} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer">
         <span className={`font-bold ${color}`}>{score}</span>
         <span className={`text-xs ${color} opacity-70`}>{label}</span>
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-muted-foreground/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </button>
       {open && (
         <div
-          className="absolute z-50 left-0 top-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs flex flex-col"
+          className="absolute z-50 left-0 top-full mt-1 bg-card border border-border rounded-lg shadow-2xl text-xs flex flex-col"
           style={{ width: '20rem', maxWidth: 'calc(100vw - 1rem)', maxHeight: 'min(560px, 80vh)' }}
         >
           {/* ── GUIDANCE DETAIL VIEW ── */}
           {guidanceView ? (
             <>
               {/* Sticky header */}
-              <div className="shrink-0 flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-800">
-                <button onClick={() => setGuidanceView(false)} className="text-gray-500 hover:text-white flex items-center gap-1 text-[11px]">
+              <div className="shrink-0 flex items-center justify-between px-3 pt-3 pb-2 border-b border-border">
+                <button onClick={() => setGuidanceView(false)} className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px]">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   Back
                 </button>
-                <span className="font-semibold text-gray-200 text-[11px]">✨ Your Lead Criteria</span>
-                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white leading-none">✕</button>
+                <span className="font-semibold text-foreground text-[11px]">✨ Your Lead Criteria</span>
+                <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground leading-none">✕</button>
               </div>
 
               {/* Scrollable body */}
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2.5 min-h-0">
 
                 {/* Score contribution card — always visible */}
-                <div className="bg-gray-800/70 rounded-lg p-2.5 space-y-2 border border-gray-700/40">
+                <div className="bg-muted/70 rounded-lg p-2.5 space-y-2 border border-border/40">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-400 font-medium">Score contribution</span>
-                    <span className={`font-bold font-mono text-sm ${guidanceActualPts > 0 ? 'text-purple-300' : 'text-gray-500'}`}>
-                      {guidanceActualPts} <span className="text-gray-600 font-normal text-[10px]">/ {guidanceMaxPts} pts</span>
+                    <span className="text-muted-foreground font-medium">Score contribution</span>
+                    <span className={`font-bold font-mono text-sm ${guidanceActualPts > 0 ? 'text-purple-300' : 'text-muted-foreground'}`}>
+                      {guidanceActualPts} <span className="text-muted-foreground/70 font-normal text-[10px]">/ {guidanceMaxPts} pts</span>
                     </span>
                   </div>
                   {/* Progress bar */}
-                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
@@ -145,7 +145,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                       }}
                     />
                   </div>
-                  <div className="text-[10px] text-gray-500 leading-snug">
+                  <div className="text-[10px] text-muted-foreground leading-snug">
                     {entries.length === 0 ? (
                       <span>No criteria yet — select some in Score Settings.</span>
                     ) : (
@@ -162,8 +162,8 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
 
                 {/* Criteria entries */}
                 {entries.length === 0 ? (
-                  <p className="text-gray-500 text-center py-3 text-[11px] leading-relaxed">
-                    No criteria active. Open <strong className="text-gray-400">Score Settings</strong> to select what makes a great lead.
+                  <p className="text-muted-foreground text-center py-3 text-[11px] leading-relaxed">
+                    No criteria active. Open <strong className="text-muted-foreground">Score Settings</strong> to select what makes a great lead.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -173,20 +173,20 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                       const allMatch = entryFired.length > 0 && entryMissed.length === 0
                       const noneMatch = entryFired.length === 0
                       return (
-                        <div key={entry.id} className="border border-gray-800 rounded-md overflow-hidden">
+                        <div key={entry.id} className="border border-border rounded-md overflow-hidden">
                           {/* Criterion header */}
                           <div className="px-2 pt-2 pb-1.5">
-                            <div className="text-gray-400 text-[10px] italic leading-snug break-words">"{entry.text}"</div>
+                            <div className="text-muted-foreground text-[10px] italic leading-snug break-words">"{entry.text}"</div>
                             {entry.summary && (
-                              <div className="text-gray-300 text-[11px] mt-1 leading-snug break-words">
+                              <div className="text-foreground/80 text-[11px] mt-1 leading-snug break-words">
                                 <span className="text-purple-400 not-italic font-medium">AI: </span>{entry.summary}
                               </div>
                             )}
                           </div>
                           {/* Scoring logic */}
                           {entry.rules.length > 0 && (
-                            <div className="bg-gray-800/40 px-2 py-1.5 space-y-1.5">
-                              <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold">Result for this creator</div>
+                            <div className="bg-muted/40 px-2 py-1.5 space-y-1.5">
+                              <div className="text-[9px] text-muted-foreground/70 uppercase tracking-wide font-semibold">Result for this creator</div>
                               {entryFired.map((f, fi) => {
                                 const ruleObj = entry.rules.find(r => r.label === f.ruleLabel) || entry.rules[fi]
                                 const evidence = ruleObj ? getGuidanceRuleEvidence(ruleObj, c) : ''
@@ -194,7 +194,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                                   <div key={fi} className="space-y-0.5">
                                     <div className="flex items-center gap-1.5">
                                       <span className="text-green-500 shrink-0">✓</span>
-                                      <span className="flex-1 text-gray-200 font-medium leading-snug break-words">{f.ruleLabel}</span>
+                                      <span className="flex-1 text-foreground font-medium leading-snug break-words">{f.ruleLabel}</span>
                                       <span className={`font-mono font-bold shrink-0 ${f.pts > 0 ? 'text-green-400' : 'text-red-400'}`}>{f.pts > 0 ? '+' : ''}{f.pts}</span>
                                     </div>
                                     {evidence && (
@@ -207,19 +207,19 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                               })}
                               {entryMissed.map((m, mi) => (
                                 <div key={mi} className="flex items-center gap-1.5">
-                                  <span className="text-gray-700 shrink-0">✗</span>
-                                  <span className="flex-1 text-gray-600 leading-snug break-words">{m.ruleLabel}</span>
-                                  <span className="font-mono shrink-0 text-gray-700">{m.pts > 0 ? '+' : ''}{m.pts}</span>
+                                  <span className="text-muted-foreground/50 shrink-0">✗</span>
+                                  <span className="flex-1 text-muted-foreground/70 leading-snug break-words">{m.ruleLabel}</span>
+                                  <span className="font-mono shrink-0 text-muted-foreground/50">{m.pts > 0 ? '+' : ''}{m.pts}</span>
                                 </div>
                               ))}
-                              <div className={`text-[10px] font-medium pt-0.5 border-t border-gray-800/50 ${allMatch ? 'text-green-400' : noneMatch ? 'text-gray-600' : 'text-yellow-500'}`}>
+                              <div className={`text-[10px] font-medium pt-0.5 border-t border-border/50 ${allMatch ? 'text-green-400' : noneMatch ? 'text-muted-foreground/70' : 'text-yellow-500'}`}>
                                 {allMatch ? '✓ Fully matched' : noneMatch ? '✗ Not matched' : `⚡ Partial — ${entryFired.length}/${entry.rules.length} rules hit`}
                               </div>
                             </div>
                           )}
                           {entry.rules.length === 0 && (
-                            <div className="bg-gray-800/40 px-2 py-1.5">
-                              <span className="text-gray-600 text-[10px]">No evaluatable rules — criterion may need rephrasing.</span>
+                            <div className="bg-muted/40 px-2 py-1.5">
+                              <span className="text-muted-foreground/70 text-[10px]">No evaluatable rules — criterion may need rephrasing.</span>
                             </div>
                           )}
                         </div>
@@ -230,8 +230,8 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
               </div>
 
               {/* Sticky footer — link to Score Settings */}
-              <div className="shrink-0 border-t border-gray-800 px-3 py-2.5 flex items-center justify-between">
-                <span className="text-[10px] text-gray-600">Manage criteria in Score Settings</span>
+              <div className="shrink-0 border-t border-border px-3 py-2.5 flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground/70">Manage criteria in Score Settings</span>
                 <button
                   onClick={() => { setOpen(false); setGuidanceView(false) }}
                   className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-0.5"
@@ -244,9 +244,9 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
             /* ── MAIN BREAKDOWN VIEW ── */
             <>
               {/* Sticky header */}
-              <div className="shrink-0 flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-800">
-                <span className="font-semibold text-gray-200">Fit Score Breakdown</span>
-                <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white leading-none">✕</button>
+              <div className="shrink-0 flex items-center justify-between px-3 pt-3 pb-2 border-b border-border">
+                <span className="font-semibold text-foreground">Fit Score Breakdown</span>
+                <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground leading-none">✕</button>
               </div>
 
               {/* Scrollable body */}
@@ -254,23 +254,23 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 <div className="space-y-1.5">
                   {items.map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className={`w-6 text-right font-mono font-bold shrink-0 leading-snug ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                      <span className={`w-6 text-right font-mono font-bold shrink-0 leading-snug ${item.pts > 0 ? 'text-green-400' : item.pts < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
                         {item.pts > 0 ? '+' : ''}{item.pts}
                       </span>
                       <div className="flex-1 min-w-0">
                         {item.isGuidance ? (
                           <button onClick={() => setGuidanceView(true)} className="text-purple-400 hover:text-purple-300 flex items-center gap-1 text-left">
                             <span>✨ Your Criteria</span>
-                            <span className="text-gray-600">/ {item.max}</span>
-                            <span className="text-gray-500 text-[10px] ml-0.5">view →</span>
+                            <span className="text-muted-foreground/70">/ {item.max}</span>
+                            <span className="text-muted-foreground text-[10px] ml-0.5">view →</span>
                           </button>
                         ) : (
-                          <span className="text-gray-300 leading-snug">{item.label}
-                            {item.max > 0 && <span className="text-gray-600 ml-1">/ {item.max}</span>}
+                          <span className="text-foreground/80 leading-snug">{item.label}
+                            {item.max > 0 && <span className="text-muted-foreground/70 ml-1">/ {item.max}</span>}
                           </span>
                         )}
                         {item.note && (
-                          <div className="text-gray-500 text-[10px] leading-snug break-words mt-0.5">{item.note}</div>
+                          <div className="text-muted-foreground text-[10px] leading-snug break-words mt-0.5">{item.note}</div>
                         )}
                       </div>
                     </div>
@@ -278,8 +278,8 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                 </div>
 
                 {/* Total */}
-                <div className="mt-2 pt-2 border-t border-gray-800 flex items-center justify-between">
-                  <span className="text-gray-400">Total</span>
+                <div className="mt-2 pt-2 border-t border-border flex items-center justify-between">
+                  <span className="text-muted-foreground">Total</span>
                   <span className={`font-bold text-sm ${color}`}>{score} — {label}</span>
                 </div>
 
@@ -295,13 +295,13 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                     : WEIGHT_META.map(m => ({ key: m.key, label: m.label, w: weights[m.key] }))
                   const segTotal = segments.reduce((s, seg) => s + seg.w, 0)
                   return (
-                    <div className="mt-3 pt-2 border-t border-gray-800 space-y-2">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-wide font-semibold">
+                    <div className="mt-3 pt-2 border-t border-border space-y-2">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">
                         <span>Score breakdown</span>
-                        {chipMode ? <span className="text-purple-400 normal-case font-normal">✨ Your criteria</span> : <span className="text-gray-700 normal-case font-normal">Default</span>}
+                        {chipMode ? <span className="text-purple-400 normal-case font-normal">✨ Your criteria</span> : <span className="text-muted-foreground/50 normal-case font-normal">Default</span>}
                       </div>
                       {/* Stacked bar */}
-                      <div className="flex h-1.5 rounded-full overflow-hidden gap-px bg-gray-800">
+                      <div className="flex h-1.5 rounded-full overflow-hidden gap-px bg-muted">
                         {segments.map(seg => {
                           const pct = segTotal > 0 ? (seg.w / segTotal) * 100 : 0
                           return pct > 0 ? (
@@ -320,7 +320,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                           return (
                             <div key={seg.key} className="flex items-center gap-1 min-w-0">
                               <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: chipMode ? 'rgb(168,85,247)' : 'rgb(99,102,241)', opacity: pct === 0 ? 0.3 : 1 }} />
-                              <span className={`text-[9px] truncate ${chipMode ? 'text-purple-400' : 'text-gray-600'}`}>{seg.label.split(' ').slice(0,2).join(' ')} {pct}%</span>
+                              <span className={`text-[9px] truncate ${chipMode ? 'text-purple-400' : 'text-muted-foreground/70'}`}>{seg.label.split(' ').slice(0,2).join(' ')} {pct}%</span>
                             </div>
                           )
                         })}
@@ -351,10 +351,10 @@ function renderCell(
       return <FitScoreCell key={id} c={c} weights={weights} narrative={narrative} />
     }
     case 'avgViews':    return <td key={id} className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
-    case 'subscribers': return <td key={id} className="px-4 py-3 text-gray-300">{formatSubscribers(c.subscribers)}</td>
+    case 'subscribers': return <td key={id} className="px-4 py-3 text-foreground/80">{formatSubscribers(c.subscribers)}</td>
     case 'lastPosted':  return (
-      <td key={id} className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-        {c.videoDates?.[0] ? <><div>{c.videoDates[0]}</div>{c.videoDates[1] && <div className="text-gray-600">{c.videoDates[1]}</div>}</> : <span className="text-gray-700">—</span>}
+      <td key={id} className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+        {c.videoDates?.[0] ? <><div>{c.videoDates[0]}</div>{c.videoDates[1] && <div className="text-muted-foreground/70">{c.videoDates[1]}</div>}</> : <span className="text-muted-foreground/50">—</span>}
       </td>
     )
     case 'email': return (
@@ -362,7 +362,7 @@ function renderCell(
         {c.email ? (
           <a href={buildOutreachEmail(c, profile)} className="text-green-400 hover:underline">{c.email}</a>
         ) : c.enriching ? (
-          <span className="flex items-center gap-1 text-gray-500"><Spinner />looking...</span>
+          <span className="flex items-center gap-1 text-muted-foreground"><Spinner />looking...</span>
         ) : (
           <button
             onClick={() => onDeepSearch(c.channelId)}
@@ -411,7 +411,7 @@ function FollowUpDateCell({ entry, onUpdate }: {
   const isToday = !!dateObj && (() => { const d = new Date(dateObj); d.setHours(0, 0, 0, 0); return d.getTime() === todayMs })()
 
   const pillClass = isUnset
-    ? 'bg-gray-800/50 text-gray-500 border-gray-700 hover:border-gray-500'
+    ? 'bg-muted/50 text-muted-foreground border-border hover:border-border'
     : isOverdue
       ? 'bg-red-500/15 text-red-300 border-red-500/40 hover:border-red-400'
       : isToday
@@ -445,7 +445,7 @@ function FollowUpDateCell({ entry, onUpdate }: {
         {label}
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-30 w-64 rounded-lg border border-gray-700 bg-gray-900 shadow-2xl p-3 text-xs normal-case font-normal">
+        <div className="absolute left-0 top-full mt-1 z-30 w-64 rounded-lg border border-border bg-card shadow-2xl p-3 text-xs normal-case font-normal">
           {/* Smart "Use cadence" — top action */}
           <button
             onClick={() => setRelative(cadenceDays)}
@@ -468,7 +468,7 @@ function FollowUpDateCell({ entry, onUpdate }: {
               <button
                 key={p.label}
                 onClick={() => setRelative(p.days)}
-                className="px-2 py-1 text-[11px] text-gray-300 bg-gray-800/60 hover:bg-gray-800 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition-colors"
+                className="px-2 py-1 text-[11px] text-foreground/80 bg-muted/60 hover:bg-muted hover:text-foreground border border-border hover:border-border rounded transition-colors"
               >
                 {p.label}
               </button>
@@ -476,13 +476,13 @@ function FollowUpDateCell({ entry, onUpdate }: {
           </div>
 
           {/* Manual date picker */}
-          <div className="border-t border-gray-800 pt-2">
-            <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Pick a specific date</label>
+          <div className="border-t border-border pt-2">
+            <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pick a specific date</label>
             <input
               type="date"
               value={entry.followUpDate || ''}
               onChange={ev => onUpdate(entry.id, 'followUpDate', ev.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[11px] text-gray-200 focus:outline-none focus:border-purple-500"
+              className="w-full bg-muted border border-border rounded px-2 py-1 text-[11px] text-foreground focus:outline-none focus:border-purple-500"
             />
           </div>
 
@@ -490,7 +490,7 @@ function FollowUpDateCell({ entry, onUpdate }: {
           {!isUnset && (
             <button
               onClick={() => setDate('')}
-              className="w-full mt-2 px-3 py-1 text-[11px] text-gray-400 hover:text-red-300 border border-gray-700 hover:border-red-500/50 rounded transition-colors"
+              className="w-full mt-2 px-3 py-1 text-[11px] text-muted-foreground hover:text-red-300 border border-border hover:border-red-500/50 rounded transition-colors"
             >
               Clear date
             </button>
@@ -517,7 +517,7 @@ function renderOutreachCell(
         <button
           onClick={() => onUpdate(e.id, 'favorite', !e.favorite)}
           title={e.favorite ? 'Unstar' : 'Mark as favorite'}
-          className={`mt-0.5 transition-colors ${e.favorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-700 hover:text-yellow-500'}`}
+          className={`mt-0.5 transition-colors ${e.favorite ? 'text-yellow-400 hover:text-yellow-300' : 'text-muted-foreground/50 hover:text-yellow-500'}`}
           aria-label={e.favorite ? 'Unstar' : 'Mark as favorite'}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 20 20" fill={e.favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6}>
@@ -539,7 +539,7 @@ function renderOutreachCell(
       return (
         <div className="flex flex-col gap-1">
           {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} className="text-green-400 hover:underline text-xs break-all">{e.email}</a>}
-          <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-gray-600' : 'text-gray-400'} />
+          <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-muted-foreground/70' : 'text-muted-foreground'} />
           {!e.email && (
             <button
               onClick={() => onSearchContacts(e.id)}
@@ -553,29 +553,29 @@ function renderOutreachCell(
         </div>
       )
     case 'description':
-      return <AutoTextarea value={e.description} onChange={v => onUpdate(e.id, 'description', v)} placeholder="—" className="text-gray-400" />
+      return <AutoTextarea value={e.description} onChange={v => onUpdate(e.id, 'description', v)} placeholder="—" className="text-muted-foreground" />
     case 'product':
-      return <AutoTextarea value={e.product} onChange={v => onUpdate(e.id, 'product', v)} placeholder="Add product..." className="text-gray-200" />
+      return <AutoTextarea value={e.product} onChange={v => onUpdate(e.id, 'product', v)} placeholder="Add product..." className="text-foreground" />
     case 'reachedOut':
       return <input type="checkbox" checked={e.reachedOut} onChange={ev => onUpdate(e.id, 'reachedOut', ev.target.checked)} className="w-4 h-4 rounded accent-purple-500 cursor-pointer mt-0.5" />
     case 'medium':
       return (
         <div className="flex flex-col gap-1">
-          <select value={e.medium} onChange={ev => onUpdate(e.id, 'medium', ev.target.value)} className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 w-full">
+          <select value={e.medium} onChange={ev => onUpdate(e.id, 'medium', ev.target.value)} className="bg-muted border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none focus:border-purple-500 w-full">
             <option value="">—</option>
             <option value="Email">Email</option>
             <option value="LinkedIn">LinkedIn</option>
             <option value="Other">Other</option>
           </select>
-          {e.medium === 'Other' && <AutoTextarea value={e.mediumOther} onChange={v => onUpdate(e.id, 'mediumOther', v)} placeholder="specify..." className="text-gray-200" />}
+          {e.medium === 'Other' && <AutoTextarea value={e.mediumOther} onChange={v => onUpdate(e.id, 'mediumOther', v)} placeholder="specify..." className="text-foreground" />}
         </div>
       )
     case 'headerUsed':
-      return <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-gray-200" />
+      return <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-foreground" />
     case 'status':
       return (
         <select value={e.status || 'Not Outreached'} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
-          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-300' : e.status === 'No Response' ? 'bg-gray-800 border-gray-600 text-gray-400' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>
+          className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-green-900 border-green-700 text-green-300' : e.status === 'Open' ? 'bg-blue-900 border-blue-700 text-blue-300' : e.status === 'Rejected' ? 'bg-red-900 border-red-700 text-red-300' : e.status === 'No Response' ? 'bg-muted border-border text-muted-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
           <option value="Not Outreached">Not Outreached</option>
           <option value="Open">Open</option>
           <option value="No Response">No Response</option>
@@ -584,31 +584,31 @@ function renderOutreachCell(
         </select>
       )
     case 'notes':
-      return <AutoTextarea value={e.notes || ''} onChange={v => onUpdate(e.id, 'notes', v)} placeholder="Notes..." className="text-gray-300" />
+      return <AutoTextarea value={e.notes || ''} onChange={v => onUpdate(e.id, 'notes', v)} placeholder="Notes..." className="text-foreground/80" />
     case 'followUpDate':
       return <FollowUpDateCell entry={e} onUpdate={onUpdate} />
     case 'dateReachedOut':
     case 'responseDate':
     case 'meetingScheduled':
-      return <input type="date" value={(e[id] as string) || ''} onChange={ev => onUpdate(e.id, id, ev.target.value)} className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 w-full" />
+      return <input type="date" value={(e[id] as string) || ''} onChange={ev => onUpdate(e.id, id, ev.target.value)} className="bg-muted border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none focus:border-purple-500 w-full" />
     case 'touchpoints':
-      return <input type="number" min={0} value={e.touchpoints || ''} onChange={ev => onUpdate(e.id, 'touchpoints', ev.target.value)} placeholder="0" className="w-full bg-transparent text-gray-200 focus:outline-none focus:bg-gray-800 rounded px-1 text-xs" />
+      return <input type="number" min={0} value={e.touchpoints || ''} onChange={ev => onUpdate(e.id, 'touchpoints', ev.target.value)} placeholder="0" className="w-full bg-transparent text-foreground focus:outline-none focus:bg-muted rounded px-1 text-xs" />
     case 'subscribers':
-      return <span className="text-xs text-gray-400">{formatSubscribers(e.subscribers || '')}</span>
+      return <span className="text-xs text-muted-foreground">{formatSubscribers(e.subscribers || '')}</span>
     case 'avgViews':
-      return <span className="text-xs text-gray-400">{e.avgViews ? e.avgViews.toLocaleString() : '—'}</span>
+      return <span className="text-xs text-muted-foreground">{e.avgViews ? e.avgViews.toLocaleString() : '—'}</span>
     case 'fitScore': {
       const { label, color } = fitScoreMeta(e.fitScore || 0)
       return <span className={`text-xs font-bold ${color}`}>{e.fitScore || 0} <span className="font-normal opacity-70">{label}</span></span>
     }
     case 'linkedin':
-      return e.linkedin ? <a href={e.linkedin} target="_blank" className="text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-gray-400" />
+      return e.linkedin ? <a href={e.linkedin} target="_blank" className="text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-muted-foreground" />
     case 'contentNiche':
-      return <AutoTextarea value={e.contentNiche || ''} onChange={v => onUpdate(e.id, 'contentNiche', v)} placeholder="e.g. golf, finance..." className="text-gray-200" />
+      return <AutoTextarea value={e.contentNiche || ''} onChange={v => onUpdate(e.id, 'contentNiche', v)} placeholder="e.g. golf, finance..." className="text-foreground" />
     case 'phone':
-      return <AutoTextarea value={e.phone || ''} onChange={v => onUpdate(e.id, 'phone', v)} placeholder="Add phone..." className="text-gray-200" />
+      return <AutoTextarea value={e.phone || ''} onChange={v => onUpdate(e.id, 'phone', v)} placeholder="Add phone..." className="text-foreground" />
     case 'dealValue':
-      return <AutoTextarea value={e.dealValue || ''} onChange={v => onUpdate(e.id, 'dealValue', v)} placeholder="$..." className="text-gray-200" />
+      return <AutoTextarea value={e.dealValue || ''} onChange={v => onUpdate(e.id, 'dealValue', v)} placeholder="$..." className="text-foreground" />
     case 'contractSent':
       return <input type="checkbox" checked={!!e.contractSent} onChange={ev => onUpdate(e.id, 'contractSent', ev.target.checked)} className="w-4 h-4 rounded accent-blue-500 cursor-pointer mt-0.5" />
     default:
@@ -629,15 +629,15 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
     { id: 'analytics', label: '📊 Analytics' },
   ]
   return (
-    <div className="flex gap-1 mb-4 border-b border-gray-800 pb-2">
+    <div className="flex gap-1 mb-4 border-b border-border pb-2">
       {tabs.map(t => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
           className={`px-3.5 py-1.5 text-xs font-medium rounded-full transition-colors ${
             active === t.id
-              ? 'bg-gray-800 text-white border border-gray-700'
-              : 'text-gray-500 hover:text-gray-200 border border-transparent'
+              ? 'bg-muted text-foreground border border-border'
+              : 'text-muted-foreground hover:text-foreground border border-transparent'
           }`}
         >
           {t.label}
@@ -740,14 +740,14 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
 
   if (open.length === 0 && ghosted.length === 0) {
     return (
-      <div className="border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
+      <div className="border border-dashed border-border rounded-xl py-16 px-6 text-center">
         <div className="mx-auto w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h3 className="text-base font-semibold text-white mb-1">No follow-ups yet</h3>
-        <p className="text-gray-500 text-sm max-w-md mx-auto">
+        <h3 className="text-base font-semibold text-foreground mb-1">No follow-ups yet</h3>
+        <p className="text-muted-foreground text-sm max-w-md mx-auto">
           Once you reach out to a creator and set their status to <span className="text-blue-400">Open</span>, they'll appear here with a follow-up date 3 days out — then 7, 14, 21 as you keep pinging.
         </p>
       </div>
@@ -758,7 +758,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     <div className="space-y-6">
       {/* Headline + 4 priority-aware stats */}
       <div>
-        <p className="text-sm text-gray-300">{headline}</p>
+        <p className="text-sm text-foreground/80">{headline}</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
           <FUStat
             label="High priority"
@@ -801,10 +801,10 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
 
       {/* Sort control — minimal */}
       <div className="flex items-center justify-between">
-        <div className="text-[11px] uppercase tracking-wider text-gray-500">
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
           Sort
         </div>
-        <div className="flex bg-gray-900/60 rounded-md p-0.5 border border-gray-800">
+        <div className="flex bg-card/60 rounded-md p-0.5 border border-border">
           {([
             { id: 'urgency', label: 'Urgency' },
             { id: 'pipeline', label: 'Pipeline $' },
@@ -814,7 +814,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
               key={opt.id}
               onClick={() => setSort(opt.id)}
               className={`px-2.5 py-1 text-[11px] rounded transition-colors ${
-                sort === opt.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                sort === opt.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >{opt.label}</button>
           ))}
@@ -844,7 +844,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
         </Section>
       ) : (
         <Section title="High priority" accent="green" count={0} icon={<span className="text-base">✓</span>}>
-          <div className="text-xs text-gray-500 italic px-1 py-2">
+          <div className="text-xs text-muted-foreground italic px-1 py-2">
             Nothing urgent. {groups.medium.length > 0 ? `${groups.medium.length} medium-priority lead${groups.medium.length === 1 ? '' : 's'} below.` : 'You\'re fully caught up.'}
           </div>
         </Section>
@@ -961,7 +961,7 @@ function Section({ title, accent, count, subtitle, icon, children }: {
         {icon}
         <h3 className={`text-sm font-semibold ${accentText}`}>{title}</h3>
         <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${accentBorder} ${accentText}`}>{count}</span>
-        {subtitle && <span className="text-[11px] text-gray-500 ml-1">· {subtitle}</span>}
+        {subtitle && <span className="text-[11px] text-muted-foreground ml-1">· {subtitle}</span>}
       </div>
       <div className="space-y-2">{children}</div>
     </section>
@@ -977,17 +977,17 @@ function CollapsibleSection({ title, count, subtitle, open, onToggle, children }
   children: React.ReactNode
 }) {
   return (
-    <section className="border-t border-gray-800 pt-4">
+    <section className="border-t border-border pt-4">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-2 text-left hover:bg-gray-900/30 rounded px-1 py-1 -mx-1 transition-colors"
+        className="w-full flex items-center gap-2 text-left hover:bg-card/30 rounded px-1 py-1 -mx-1 transition-colors"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 text-gray-500 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
-        <h3 className="text-sm font-semibold text-gray-300">{title}</h3>
-        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-gray-700 text-gray-500">{count}</span>
-        {subtitle && <span className="text-[11px] text-gray-500 ml-1">· {subtitle}</span>}
+        <h3 className="text-sm font-semibold text-foreground/80">{title}</h3>
+        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-border text-muted-foreground">{count}</span>
+        {subtitle && <span className="text-[11px] text-muted-foreground ml-1">· {subtitle}</span>}
       </button>
       {open && <div className="space-y-2 mt-3">{children}</div>}
     </section>
@@ -1001,20 +1001,20 @@ function FUStat({ label, value, accent, sub }: {
   sub?: string
 }) {
   const accentText = {
-    red: 'text-red-400', yellow: 'text-yellow-400', blue: 'text-white',
-    green: 'text-emerald-400', gray: 'text-white',
+    red: 'text-red-400', yellow: 'text-yellow-400', blue: 'text-foreground',
+    green: 'text-emerald-400', gray: 'text-foreground',
   }[accent]
   const accentBorder = {
-    red: 'border-red-500/30', yellow: 'border-yellow-500/30', blue: 'border-gray-800',
-    green: 'border-emerald-500/30', gray: 'border-gray-800',
+    red: 'border-red-500/30', yellow: 'border-yellow-500/30', blue: 'border-border',
+    green: 'border-emerald-500/30', gray: 'border-border',
   }[accent]
   return (
-    <div className={`bg-gray-900/40 border ${accentBorder} rounded-xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</div>
+    <div className={`bg-card/40 border ${accentBorder} rounded-xl p-4`}>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
       <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
         {typeof value === 'number' ? <NumberTicker value={value} /> : value}
       </div>
-      {sub && <div className="text-[11px] text-gray-500 mt-1">{sub}</div>}
+      {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   )
 }
@@ -1045,7 +1045,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
     red: 'bg-red-500/15 text-red-300 border-red-500/40',
     yellow: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40',
     blue: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
-    gray: 'bg-gray-700/30 text-gray-400 border-gray-700',
+    gray: 'bg-muted/30 text-muted-foreground border-border',
   }[accent]
 
   // Smart date label per bucket. For high-priority, distinguish overdue vs today.
@@ -1080,26 +1080,26 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
   const snoozeDays = nextFollowUpDays(tps)
 
   return (
-    <div className="group/row bg-gray-900/40 border border-white/5 hover:border-white/10 rounded-lg transition-colors">
+    <div className="group/row bg-card/40 border border-white/5 hover:border-white/10 rounded-lg transition-colors">
       <div className="flex items-center gap-3 px-3 py-2">
         {/* Avatar */}
         <div className="relative shrink-0">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-foreground text-[10px] font-semibold flex items-center justify-center">
             {initials}
           </div>
-          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${dotColor}`} title={e.status} />
+          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-border ${dotColor}`} title={e.status} />
         </div>
 
         {/* Identity + stage. Click to open detail modal. */}
         <button onClick={() => onOpen(e.id)} className="flex-1 min-w-0 text-left" title="Open lead details">
           <div className="flex items-center gap-2">
-            <span className="text-[12px] font-medium text-white truncate">{e.channelName}</span>
+            <span className="text-[12px] font-medium text-foreground truncate">{e.channelName}</span>
             {e.favorite && <span className="text-[10px] text-yellow-400 shrink-0">★</span>}
             {e.email && <span className="text-[10px] text-emerald-400/80 shrink-0" title="Has email">✉</span>}
             {e.linkedin && <span className="text-[10px] font-bold text-blue-300 shrink-0" title="Has LinkedIn">in</span>}
           </div>
-          <div className="text-[10px] text-gray-500 truncate">
-            <span className="text-gray-300">{stageHint}</span>
+          <div className="text-[10px] text-muted-foreground truncate">
+            <span className="text-foreground/80">{stageHint}</span>
             {e.dateReachedOut && <span> · reached {daysAgo(e.dateReachedOut)} ago</span>}
             {e.medium && <span> · via {e.medium}</span>}
           </div>
@@ -1124,14 +1124,14 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
               <button
                 onClick={() => onUpdate(e.id, 'status', 'Open')}
                 title="Re-engage — moves back to active queue with a fresh date"
-                className="text-[10px] font-medium text-purple-200 hover:text-white bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
+                className="text-[10px] font-medium text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
               >
                 Re-engage
               </button>
               <button
                 onClick={() => onUpdate(e.id, 'status', 'Rejected')}
                 title="Confirm dead lead"
-                className="w-5 h-5 flex items-center justify-center text-[10px] text-red-400 hover:text-white border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
+                className="w-5 h-5 flex items-center justify-center text-[10px] text-red-400 hover:text-foreground border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
               >✕</button>
             </>
           ) : (
@@ -1140,7 +1140,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
               <button
                 onClick={() => onMarkFollowedUp(e)}
                 title={`Bumps to touch ${tps + 1} · auto-pushes date ${nextFollowUpDays(tps + 1)}d out`}
-                className="text-[10px] font-medium text-purple-200 hover:text-white bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
+                className="text-[10px] font-medium text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
               >
                 Followed up
               </button>
@@ -1148,7 +1148,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
               <button
                 onClick={() => onSnooze(e, snoozeDays)}
                 title={`Snooze ${snoozeDays}d (next cadence step)`}
-                className="w-5 h-5 flex items-center justify-center text-gray-500 hover:text-white border border-white/10 hover:border-white/30 rounded transition-colors"
+                className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground border border-white/10 hover:border-white/30 rounded transition-colors"
                 aria-label="Snooze"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1158,12 +1158,12 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
                 <button
                   onClick={() => onUpdate(e.id, 'status', 'Successful')}
                   title="They said yes"
-                  className="w-5 h-5 flex items-center justify-center text-[10px] text-emerald-400 hover:text-white border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500 rounded transition-colors"
+                  className="w-5 h-5 flex items-center justify-center text-[10px] text-emerald-400 hover:text-foreground border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500 rounded transition-colors"
                 >✓</button>
                 <button
                   onClick={() => onUpdate(e.id, 'status', 'No Response')}
                   title="Ghost — move to No Response queue"
-                  className="w-5 h-5 flex items-center justify-center text-[10px] text-gray-500 hover:text-white border border-white/10 hover:border-white/30 rounded transition-colors"
+                  className="w-5 h-5 flex items-center justify-center text-[10px] text-muted-foreground hover:text-foreground border border-white/10 hover:border-white/30 rounded transition-colors"
                   aria-label="Ghost"
                 >👻</button>
               </div>
@@ -1241,8 +1241,8 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
 }) {
   if (entries.length === 0) {
     return (
-      <div className="border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
-        <p className="text-gray-500 text-sm">No outreach yet — add some entries first to see analytics.</p>
+      <div className="border border-dashed border-border rounded-xl py-16 px-6 text-center">
+        <p className="text-muted-foreground text-sm">No outreach yet — add some entries first to see analytics.</p>
       </div>
     )
   }
@@ -1308,7 +1308,7 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
       <div className="flex justify-end -mt-2">
         <button
           onClick={onOpenCustomize}
-          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           Customize Analytics
@@ -1327,15 +1327,15 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
       </div>
 
       {/* Status breakdown */}
-      <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
-        <div className="text-sm font-semibold text-white mb-3">Status breakdown</div>
+      <div className="bg-card/40 border border-border rounded-xl p-5">
+        <div className="text-sm font-semibold text-foreground mb-3">Status breakdown</div>
         <StackedBar
           segments={[
             { label: 'Successful', value: successful, color: 'bg-green-500' },
             { label: 'Open', value: open, color: 'bg-blue-500' },
             { label: 'No Response', value: noResponse, color: 'bg-gray-500' },
             { label: 'Rejected', value: rejected, color: 'bg-red-500' },
-            { label: 'Not Outreached', value: notOutreached, color: 'bg-gray-700' },
+            { label: 'Not Outreached', value: notOutreached, color: 'bg-muted' },
           ]}
           total={total}
         />
@@ -1343,24 +1343,24 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
 
       {/* Velocity + medium */}
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
-          <div className="text-sm font-semibold text-white mb-3">Velocity (last 7 days)</div>
+        <div className="bg-card/40 border border-border rounded-xl p-5">
+          <div className="text-sm font-semibold text-foreground mb-3">Velocity (last 7 days)</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="text-2xl font-bold text-white tabular-nums">{addedLast7}</div>
-              <div className="text-[11px] text-gray-500">added</div>
+              <div className="text-2xl font-bold text-foreground tabular-nums">{addedLast7}</div>
+              <div className="text-[11px] text-muted-foreground">added</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-white tabular-nums">{reachedLast7}</div>
-              <div className="text-[11px] text-gray-500">reached out</div>
+              <div className="text-2xl font-bold text-foreground tabular-nums">{reachedLast7}</div>
+              <div className="text-[11px] text-muted-foreground">reached out</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5">
+        <div className="bg-card/40 border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3 gap-2">
-            <div className="text-sm font-semibold text-white">Outreach by medium</div>
-            <div className="flex bg-gray-800/60 rounded-md p-0.5">
+            <div className="text-sm font-semibold text-foreground">Outreach by medium</div>
+            <div className="flex bg-muted/60 rounded-md p-0.5">
               {([
                 { id: 'all', label: 'All' },
                 { id: 'successful', label: 'Successful' },
@@ -1370,7 +1370,7 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
                   key={opt.id}
                   onClick={() => setMediumScope(opt.id)}
                   className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
-                    mediumScope === opt.id ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'
+                    mediumScope === opt.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {opt.label}
@@ -1388,7 +1388,7 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
               total={totalMedium}
             />
           ) : (
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-muted-foreground">
               {mediumScope === 'all' ? 'Nothing reached out yet.' : `No ${mediumScope} outreach yet.`}
             </div>
           )}
@@ -1398,7 +1398,7 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
       {/* Custom metrics */}
       {customMetrics.length > 0 && (
         <div>
-          <div className="text-sm font-semibold text-white mb-3">My metrics</div>
+          <div className="text-sm font-semibold text-foreground mb-3">My metrics</div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {customMetrics.map(m => (
               <CustomMetricCard key={m.id} metric={m} entries={entries} />
@@ -1416,22 +1416,22 @@ function CustomMetricCard({ metric, entries }: {
 }) {
   const value = computeMetric(metric, entries)
   return (
-    <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors">
-      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5 truncate" title={metric.label}>{metric.label}</div>
-      <div className="text-2xl font-bold text-white tabular-nums">{value}</div>
-      <div className="text-[11px] text-gray-500 mt-1 capitalize">{metricTypeLabel(metric)}</div>
+    <div className="bg-card/40 border border-border rounded-xl p-4 hover:border-border transition-colors">
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 truncate" title={metric.label}>{metric.label}</div>
+      <div className="text-2xl font-bold text-foreground tabular-nums">{value}</div>
+      <div className="text-[11px] text-muted-foreground mt-1 capitalize">{metricTypeLabel(metric)}</div>
     </div>
   )
 }
 
 function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`bg-gray-900/40 border rounded-xl p-4 ${highlight ? 'border-red-500/40' : 'border-gray-800'}`}>
-      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</div>
-      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-white'}`}>
+    <div className={`bg-card/40 border rounded-xl p-4 ${highlight ? 'border-red-500/40' : 'border-border'}`}>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
+      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-foreground'}`}>
         {typeof value === 'number' ? <NumberTicker value={value} /> : value}
       </div>
-      {sub && <div className="text-[11px] text-gray-500 mt-1">{sub}</div>}
+      {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   )
 }
@@ -1439,7 +1439,7 @@ function AStat({ label, value, sub, highlight }: { label: string; value: number 
 function StackedBar({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
   return (
     <div>
-      <div className="flex h-3 rounded-full overflow-hidden bg-gray-800">
+      <div className="flex h-3 rounded-full overflow-hidden bg-muted">
         {segments.map(s => s.value > 0 && (
           <div key={s.label} className={s.color} style={{ width: `${(s.value / total) * 100}%` }} title={`${s.label}: ${s.value}`} />
         ))}
@@ -1448,8 +1448,8 @@ function StackedBar({ segments, total }: { segments: { label: string; value: num
         {segments.map(s => (
           <div key={s.label} className="flex items-center gap-1.5 text-xs">
             <span className={`w-2.5 h-2.5 rounded-sm ${s.color}`} />
-            <span className="text-gray-400">{s.label}</span>
-            <span className="text-gray-200 tabular-nums">{s.value}</span>
+            <span className="text-muted-foreground">{s.label}</span>
+            <span className="text-foreground tabular-nums">{s.value}</span>
           </div>
         ))}
       </div>
@@ -1530,15 +1530,15 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
     return (
       <div className="mt-4">
         <div className="flex justify-end gap-2 mb-3">
-          <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+          <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
             <span className="text-base leading-none">+</span> Add manually
           </button>
-          <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+          <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             Customize Columns
           </button>
         </div>
-        <div className="mt-2 border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
+        <div className="mt-2 border border-dashed border-border rounded-xl py-16 px-6 text-center">
           {emptyVariant === 'favorites' ? (
             <>
               <div className="mx-auto w-14 h-14 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
@@ -1546,8 +1546,8 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.363 1.118l1.287 3.957c.3.922-.755 1.688-1.54 1.118l-3.366-2.445a1 1 0 00-1.176 0l-3.366 2.445c-.784.57-1.838-.196-1.539-1.118l1.287-3.957a1 1 0 00-.363-1.118L2.046 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.302-3.957z" />
                 </svg>
               </div>
-              <h3 className="text-base font-semibold text-white mb-1">No favorites yet</h3>
-              <p className="text-gray-500 text-sm max-w-sm mx-auto">
+              <h3 className="text-base font-semibold text-foreground mb-1">No favorites yet</h3>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
                 Click the <span className="text-yellow-400">★</span> next to any outreach entry to mark it as a favorite. Starred entries show up here.
               </p>
             </>
@@ -1559,9 +1559,9 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
                 </svg>
               </div>
-              <h3 className="text-base font-semibold text-white mb-1">Your outreach list is empty</h3>
-              <p className="text-gray-500 text-sm max-w-sm mx-auto">
-                Run a search in <span className="text-gray-300">Results</span>, then click the <span className="text-purple-400">+</span> icon on any creator to add them here. Or use the menu &rarr; Import to upload an Excel of past outreach.
+              <h3 className="text-base font-semibold text-foreground mb-1">Your outreach list is empty</h3>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                Run a search in <span className="text-foreground/80">Results</span>, then click the <span className="text-purple-400">+</span> icon on any creator to add them here. Or use the menu &rarr; Import to upload an Excel of past outreach.
               </p>
             </>
           )}
@@ -1573,17 +1573,17 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   return (
     <div>
       <div className="flex justify-end gap-2 mb-3">
-        <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+        <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
           <span className="text-base leading-none">+</span> Add manually
         </button>
-        <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors">
+        <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           Customize Columns
         </button>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-gray-800">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="table-fixed text-sm border-collapse" style={{ width: totalWidth }}>
-          <thead className="bg-gray-800 text-gray-300">
+          <thead className="bg-muted text-foreground/80">
             <tr>
               {visibleCols.map((col, idx) => {
                 const colId = col.id as string
@@ -1599,7 +1599,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                     onDragLeave={() => setDragOverIdx(null)}
                     onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
                     onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
-                    className={`relative text-left px-3 py-3 select-none font-medium transition-colors ${!isLocked ? 'cursor-grab' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-gray-700' : ''}`}
+                    className={`relative text-left px-3 py-3 select-none font-medium transition-colors ${!isLocked ? 'cursor-grab' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
                   >
                     {colId === 'favorite' ? (
                       <div ref={favTooltipRef} className="relative">
@@ -1612,7 +1612,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                           ★
                         </button>
                         {showFavTooltip && (
-                          <div className="absolute left-0 top-7 z-30 w-56 rounded-lg border border-gray-700 bg-gray-900 shadow-xl p-3 text-xs text-gray-300 normal-case font-normal">
+                          <div className="absolute left-0 top-7 z-30 w-56 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
                             Click the star next to any row to favorite it. View only your favorites in <span className="text-yellow-400">Outreach &rarr; Favorites</span>.
                           </div>
                         )}
@@ -1622,7 +1622,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                         className="truncate flex items-center gap-1"
                         title={col.tooltip}
                       >
-                        {!isLocked && <span className="text-gray-600 text-xs">⠿</span>}
+                        {!isLocked && <span className="text-muted-foreground/70 text-xs">⠿</span>}
                         {col.label}
                         {colId === 'email' && (() => {
                           const pending = entries.filter(e => !e.email).length
@@ -1634,7 +1634,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                               draggable={false}
                               onDragStart={(ev) => ev.preventDefault()}
                               title={`Deep-search every row that's still missing an email (${pending}). 10-20s per row, 3 in parallel.`}
-                              className="ml-1.5 text-[10px] text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-1.5 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
+                              className="ml-1.5 text-[10px] text-purple-300 hover:text-foreground border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-1.5 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
                             >
                               {bulkRunning ? '…' : `🔍 all (${pending})`}
                             </button>
@@ -1653,14 +1653,14 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           </thead>
           <tbody>
             {entries.map((e, i) => (
-              <tr key={e.id} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
+              <tr key={e.id} className={i % 2 === 0 ? 'bg-card' : 'bg-background'}>
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
                     {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
                   </td>
                 ))}
                 <td className="px-3 py-2 align-top" style={{ width: 36 }}>
-                  <button onClick={() => onRemove(e.id)} className="text-gray-700 hover:text-red-400 transition-colors"><TrashIcon /></button>
+                  <button onClick={() => onRemove(e.id)} className="text-muted-foreground/50 hover:text-red-400 transition-colors"><TrashIcon /></button>
                 </td>
               </tr>
             ))}
@@ -1708,18 +1708,18 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-800">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-gray-800 text-gray-300">
+        <thead className="bg-muted text-foreground/80">
           <tr>
             <th className="px-2 py-3 text-center w-12" title="Skip — hide this creator from results">
-              <div className="flex flex-col items-center gap-0.5 text-gray-500">
+              <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
                 <DismissIcon active={false} />
                 <span className="text-[9px] font-semibold tracking-wide uppercase">Skip</span>
               </div>
             </th>
             <th className="px-2 py-3 text-center w-12" title="Add to Outreach list">
-              <div className="flex flex-col items-center gap-0.5 text-gray-500">
+              <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
                 <PlusCircleIcon added={false} />
                 <span className="text-[9px] font-semibold tracking-wide uppercase">Outreach</span>
               </div>
@@ -1738,9 +1738,9 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                   onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
                   onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
                   onClick={() => sc && onSort(sc)}
-                  className={`text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-white' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-gray-700' : ''}`}
+                  className={`text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-foreground' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
                 >
-                  <span className="mr-1 text-gray-600 text-xs">⠿</span>
+                  <span className="mr-1 text-muted-foreground/70 text-xs">⠿</span>
                   {col.label}
                   {sc && <SortIndicator col={sc} sortCol={sortCol} sortDir={sortDir} />}
                   {col.id === 'email' && (() => {
@@ -1751,7 +1751,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                         onClick={(ev) => { ev.stopPropagation(); onDeepSearchAll() }}
                         disabled={bulkRunning}
                         title={`Deep-search every row that's still missing an email (${pending}). 10-20s per row, 3 in parallel.`}
-                        className="ml-2 text-[10px] text-purple-300 hover:text-white border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
+                        className="ml-2 text-[10px] text-purple-300 hover:text-foreground border border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-600/30 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait normal-case"
                       >
                         {bulkRunning ? 'Searching all…' : `🔍 Deep search all (${pending})`}
                       </button>
@@ -1765,7 +1765,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
         <tbody>
           {sorted.length === 0 && !loading && (
             <tr>
-              <td colSpan={3 + visibleCols.length} className="px-6 py-10 text-center text-gray-600 text-sm">
+              <td colSpan={3 + visibleCols.length} className="px-6 py-10 text-center text-muted-foreground/70 text-sm">
                 {totalUnfiltered > 0 && activePlatform !== 'youtube'
                   ? `None of the ${totalUnfiltered} results have ${PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label} linked — try a broader search`
                   : 'Search for a topic above to find creators'}
@@ -1773,12 +1773,12 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
             </tr>
           )}
           {sorted.map((c, i) => (
-            <tr key={c.channelId} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
+            <tr key={c.channelId} className={i % 2 === 0 ? 'bg-card' : 'bg-background'}>
               <td className="px-2 py-3 text-center">
                 <button
                   onClick={() => onDismiss(c)}
                   title="Skip — hide this creator from results"
-                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-500 hover:text-red-400'}`}
+                  className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-muted-foreground hover:text-red-400'}`}
                 >
                   <DismissIcon active={dismissedIds.has(c.channelId)} />
                 </button>
@@ -1787,7 +1787,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 <button
                   onClick={() => onAddToOutreach(c)}
                   title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
-                  className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-gray-500 hover:text-purple-400'}`}
+                  className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-muted-foreground hover:text-purple-400'}`}
                 >
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
@@ -1799,17 +1799,17 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
           {loadMoreBatch && loadMoreBatch.length > 0 && (
             <>
               <tr>
-                <td colSpan={3 + visibleCols.length} className="px-4 py-2 bg-gray-800/60 border-t-2 border-b border-gray-700">
-                  <span className="text-xs text-gray-400 font-medium tracking-wide">— {loadMoreBatch.length} additional results —</span>
+                <td colSpan={3 + visibleCols.length} className="px-4 py-2 bg-muted/60 border-t-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground font-medium tracking-wide">— {loadMoreBatch.length} additional results —</span>
                 </td>
               </tr>
               {loadMoreBatch.map((c, i) => (
-                <tr key={`lm-${c.channelId}`} className={i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-950'}>
+                <tr key={`lm-${c.channelId}`} className={i % 2 === 0 ? 'bg-card' : 'bg-background'}>
                   <td className="px-2 py-3 text-center">
                     <button
                       onClick={() => onDismiss(c)}
                       title="Skip — hide this creator from results"
-                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-gray-500 hover:text-red-400'}`}
+                      className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-400' : 'text-muted-foreground hover:text-red-400'}`}
                     >
                       <DismissIcon active={dismissedIds.has(c.channelId)} />
                     </button>
@@ -1818,7 +1818,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                     <button
                       onClick={() => onAddToOutreach(c)}
                       title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
-                      className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-gray-600 hover:text-purple-400'}`}
+                      className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-400' : 'text-muted-foreground/70 hover:text-purple-400'}`}
                     >
                       <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                     </button>
@@ -2642,14 +2642,14 @@ export default function Home() {
 
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
-    <main className="min-h-screen bg-gray-950 text-white p-8">
+    <main className="min-h-screen bg-background text-foreground p-8">
       <div className={activeTab === 'outreach' ? 'w-full px-2' : 'max-w-7xl mx-auto'}>
 
         {/* Header row: title + hamburger */}
         <div className="flex items-start justify-between mb-1">
           <div>
             <h1 className="text-3xl font-bold">Creator Outreach</h1>
-            <p className="text-gray-400 mt-1 flex items-center gap-1.5 flex-wrap">
+            <p className="text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
               Find
               <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                 // Save current platform's scoring state
@@ -2687,7 +2687,7 @@ export default function Home() {
         {/* Search bar */}
         <div className="flex gap-3 mb-2 flex-wrap">
           <input
-            className="flex-1 min-w-64 bg-gray-800 border border-gray-700 rounded px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            className="flex-1 min-w-64 bg-muted border border-border rounded px-4 py-2 text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500"
             placeholder="Search by topic or occupation (e.g. basketball, banking, fitness)"
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
@@ -2697,7 +2697,7 @@ export default function Home() {
           <button
             onClick={() => setShowScoreSettings(true)}
             title="Lead Criteria"
-            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-purple-700 border-purple-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-purple-700 border-purple-500 text-foreground' : 'bg-muted border-border text-muted-foreground hover:border-border hover:text-foreground'}`}
           >
             <span className="text-sm">⚡</span>
           </button>
@@ -2705,7 +2705,7 @@ export default function Home() {
           <button
             onClick={() => setShowFilter(v => !v)}
             title={regions.length === 0 ? 'Filters — English-language search (no regional filter)' : regions.length === REGIONS.length ? 'Filters — Global (all regions)' : `Filters — searching: ${regions.map(code => REGIONS.find(r => r.code === code)?.label).join(', ')}`}
-            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'}`}
+            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-muted-foreground hover:border-border hover:text-foreground'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
@@ -2737,19 +2737,19 @@ export default function Home() {
               </svg>
             </button>
             {showExport && (
-              <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-lg z-10">
+              <div className="absolute right-0 mt-1 w-48 bg-muted border border-border rounded shadow-lg z-10">
                 {activeTab === 'outreach' ? <>
-                  <button onClick={handleExportOutreachExcel} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                  <button onClick={handleExportOutreachExcel} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
                     📊 Excel (.xlsx)
                   </button>
-                  <button onClick={handleExportOutreachCSV} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                  <button onClick={handleExportOutreachCSV} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
                     📄 CSV (Google Sheets)
                   </button>
                 </> : <>
-                  <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                  <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
                     📊 Excel (.xlsx)
                   </button>
-                  <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-700 flex items-center gap-2">
+                  <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
                     📄 CSV (Google Sheets)
                   </button>
                 </>}
@@ -2760,28 +2760,28 @@ export default function Home() {
 
         {/* Filter panel — hidden by default */}
         {showFilter && (
-          <div className="flex flex-col gap-3 mb-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
+          <div className="flex flex-col gap-3 mb-3 p-3 bg-card rounded-lg border border-border">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs text-gray-400 w-20 shrink-0">Avg views:</span>
+              <span className="text-xs text-muted-foreground w-20 shrink-0">Avg views:</span>
               <input type="number" min={0} value={minViews}
                 onChange={e => setMinViews(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+                className="w-28 bg-muted border border-border rounded px-3 py-1 text-sm text-foreground focus:outline-none focus:border-blue-500"
                 placeholder="Min" />
-              <span className="text-gray-600 text-xs">to</span>
+              <span className="text-muted-foreground/70 text-xs">to</span>
               <input type="number" min={0} value={maxViews}
                 onChange={e => setMaxViews(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-28 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+                className="w-28 bg-muted border border-border rounded px-3 py-1 text-sm text-foreground focus:outline-none focus:border-blue-500"
                 placeholder="Max" />
-              <span className="text-gray-600 text-xs">|</span>
+              <span className="text-muted-foreground/70 text-xs">|</span>
               {VIEW_PRESETS.map(p => (
                 <button key={p.label} onClick={() => { setMinViews(p.min); setMaxViews(p.max) }}
-                  className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}>
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${minViews === p.min && maxViews === p.max ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
                   {p.label}
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3 flex-wrap border-t border-gray-800 pt-3">
-              <span className="text-xs text-gray-400 w-20 shrink-0">Last posted:</span>
+            <div className="flex items-center gap-3 flex-wrap border-t border-border pt-3">
+              <span className="text-xs text-muted-foreground w-20 shrink-0">Last posted:</span>
               {[
                 { label: 'Last 7 days', days: 7 },
                 { label: 'Last 30 days', days: 30 },
@@ -2790,31 +2790,31 @@ export default function Home() {
                 { label: 'Any time', days: Infinity },
               ].map(p => (
                 <button key={p.label} onClick={() => setMaxAgeDays(p.days)}
-                  className={`text-xs px-3 py-1 rounded border transition-colors ${maxAgeDays === p.days ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}>
+                  className={`text-xs px-3 py-1 rounded border transition-colors ${maxAgeDays === p.days ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
                   {p.label}
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3 flex-wrap border-t border-gray-800 pt-3">
-              <span className="text-xs text-gray-400 w-20 shrink-0">Show only:</span>
+            <div className="flex items-center gap-3 flex-wrap border-t border-border pt-3">
+              <span className="text-xs text-muted-foreground w-20 shrink-0">Show only:</span>
               <button
                 onClick={() => setEmailOnly(v => !v)}
-                className={`text-xs px-3 py-1 rounded border transition-colors ${emailOnly ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                className={`text-xs px-3 py-1 rounded border transition-colors ${emailOnly ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
               >
                 Has email
               </button>
             </div>
-            <div className="flex items-start gap-3 flex-wrap border-t border-gray-800 pt-3">
+            <div className="flex items-start gap-3 flex-wrap border-t border-border pt-3">
               <div className="flex flex-col w-20 shrink-0 mt-1 gap-0.5">
-                <span className="text-xs text-gray-400">Region:</span>
-                <span className="text-[10px] text-gray-600 leading-snug">Pick countries or go Global for all</span>
+                <span className="text-xs text-muted-foreground">Region:</span>
+                <span className="text-[10px] text-muted-foreground/70 leading-snug">Pick countries or go Global for all</span>
               </div>
               <div className="flex flex-wrap gap-1.5 flex-1">
                 {/* English = no region filter (default) */}
                 <button
                   onClick={() => setRegions([])}
                   title="No regional filter — English-language creators only"
-                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === 0 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === 0 ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                 >
                   <span>🌐</span>
                   <span>English</span>
@@ -2823,7 +2823,7 @@ export default function Home() {
                 <button
                   onClick={() => setRegions(REGIONS.map(r => r.code))}
                   title="Search across all countries simultaneously — slower but surfaces creators from every region"
-                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === REGIONS.length ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                  className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === REGIONS.length ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                 >
                   <span>🗺️</span>
                   <span>Global</span>
@@ -2832,7 +2832,7 @@ export default function Home() {
                   <button
                     key={r.code}
                     onClick={() => setRegions(prev => regions.includes(r.code) ? prev.filter(c => c !== r.code) : [...prev, r.code])}
-                    className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.includes(r.code) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                    className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.includes(r.code) ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                   >
                     <span>{r.flag}</span>
                     <span>{r.label}</span>
@@ -2848,15 +2848,15 @@ export default function Home() {
           <div className="mb-4">
             <div className="flex items-center gap-3 mb-1.5">
               <Spinner />
-              <span className="text-sm text-gray-300">
+              <span className="text-sm text-foreground/80">
                 {enrichProgress.total === 0
                   ? 'Searching YouTube...'
                   : `Enriching ${enrichProgress.current} / ${enrichProgress.total} creators`}
               </span>
-              <span className="text-xs text-gray-500 ml-auto">{elapsed}s elapsed</span>
+              <span className="text-xs text-muted-foreground ml-auto">{elapsed}s elapsed</span>
             </div>
             {enrichProgress.total > 0 && (
-              <div className="w-full bg-gray-800 rounded-full h-1.5">
+              <div className="w-full bg-muted rounded-full h-1.5">
                 <div
                   className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
                   style={{ width: `${progressPct}%` }}
@@ -2866,19 +2866,19 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && status && <p className="text-xs text-gray-500 mb-4">{status}</p>}
+        {!loading && status && <p className="text-xs text-muted-foreground mb-4">{status}</p>}
 
         {/* Suggestions bar */}
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <button onClick={() => setShowSuggestions(v => !v)} className="text-xs text-gray-500 hover:text-gray-300 uppercase tracking-wide flex items-center gap-1 transition-colors">
+            <button onClick={() => setShowSuggestions(v => !v)} className="text-xs text-muted-foreground hover:text-foreground/80 uppercase tracking-wide flex items-center gap-1 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 transition-transform ${showSuggestions ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
               Suggested searches
             </button>
             {showSuggestions && (
-              <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} title="Shuffle suggestions" className="text-gray-500 hover:text-gray-300 border border-gray-700 rounded p-0.5 hover:border-gray-500 transition-colors">
+              <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} title="Shuffle suggestions" className="text-muted-foreground hover:text-foreground/80 border border-border rounded p-0.5 hover:border-border transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
@@ -2889,7 +2889,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2">
               {suggestions.map(s => (
                 <button key={s} onClick={() => { setKeyword(s); runSearch(s) }}
-                  className="text-xs px-3 py-1.5 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors">
+                  className="text-xs px-3 py-1.5 rounded-full bg-muted text-foreground/80 hover:bg-muted hover:text-foreground border border-border hover:border-border transition-colors">
                   {s}
                 </button>
               ))}
@@ -2898,15 +2898,15 @@ export default function Home() {
         </div>
 
         {/* Tabs + Customize */}
-        <div className="flex items-center mb-4 border-b border-gray-800">
+        <div className="flex items-center mb-4 border-b border-border">
           <div className="flex gap-1">
-            <button onClick={() => setActiveTab('results')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'results' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
-              Results {currentList.length > 0 && <span className="ml-1 text-xs text-gray-400">({currentList.length}{currentList.length !== creators.length ? ` of ${creators.length}` : ''})</span>}
+            <button onClick={() => setActiveTab('results')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'results' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}>
+              Results {currentList.length > 0 && <span className="ml-1 text-xs text-muted-foreground">({currentList.length}{currentList.length !== creators.length ? ` of ${creators.length}` : ''})</span>}
             </button>
-            <button onClick={() => setActiveTab('outreach')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'outreach' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+            <button onClick={() => setActiveTab('outreach')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'outreach' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}>
               Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}
             </button>
-            <button onClick={() => setActiveTab('dismissed')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'dismissed' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+            <button onClick={() => setActiveTab('dismissed')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'dismissed' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}>
               Dismissed {dismissed.length > 0 && <span className="ml-1 text-xs text-red-400">({dismissed.length})</span>}
             </button>
           </div>
@@ -2918,7 +2918,7 @@ export default function Home() {
               setDraftCols(draft)
               setShowCustomize(true)
             }}
-            className={`ml-auto flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' || activeTab === 'dismissed' ? 'invisible' : ''}`}
+            className={`ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' || activeTab === 'dismissed' ? 'invisible' : ''}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -2932,44 +2932,44 @@ export default function Home() {
         {showCustomize && (
           <div className="fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black/50" onClick={() => setShowCustomize(false)} />
-            <div className="w-80 bg-gray-900 border-l border-gray-700 flex flex-col h-full">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-                <h2 className="font-semibold text-white">Customize Columns</h2>
-                <button onClick={() => setShowCustomize(false)} className="text-gray-400 hover:text-white">
+            <div className="w-80 bg-card border-l border-border flex flex-col h-full">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <h2 className="font-semibold text-foreground">Customize Columns</h2>
+                <button onClick={() => setShowCustomize(false)} className="text-muted-foreground hover:text-foreground">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-              <p className="text-xs text-gray-500 px-5 pt-3 pb-1">Channel is always shown first.</p>
+              <p className="text-xs text-muted-foreground px-5 pt-3 pb-1">Channel is always shown first.</p>
               {activePlatform !== 'youtube' && (
-                <p className="text-xs text-gray-600 px-5 pb-2">YouTube-only metrics hidden for {platformConfig.label} view.</p>
+                <p className="text-xs text-muted-foreground/70 px-5 pb-2">YouTube-only metrics hidden for {platformConfig.label} view.</p>
               )}
               <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
                 {draftCols.map((col, idx) => {
                   const isLocked = platformConfig.column === col.id
                   return (
-                    <div key={col.id} className={`flex items-center gap-3 py-2 px-3 rounded group ${isLocked ? 'opacity-60' : 'hover:bg-gray-800'}`}>
+                    <div key={col.id} className={`flex items-center gap-3 py-2 px-3 rounded group ${isLocked ? 'opacity-60' : 'hover:bg-muted'}`}>
                       <input
                         type="checkbox" checked={col.visible}
                         disabled={isLocked}
                         onChange={() => !isLocked && setDraftCols(d => d.map((c, i) => i === idx ? { ...c, visible: !c.visible } : c))}
                         className="w-4 h-4 rounded accent-blue-500 disabled:cursor-not-allowed"
                       />
-                      <span className="flex-1 text-sm text-gray-200">{col.label}</span>
+                      <span className="flex-1 text-sm text-foreground">{col.label}</span>
                       {isLocked
-                        ? <span className="text-[10px] text-gray-500 shrink-0">auto-on</span>
+                        ? <span className="text-[10px] text-muted-foreground shrink-0">auto-on</span>
                         : (
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               disabled={idx === 0}
                               onClick={() => setDraftCols(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })}
-                              className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                              className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed px-1"
                             >↑</button>
                             <button
                               disabled={idx === draftCols.length - 1}
                               onClick={() => setDraftCols(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })}
-                              className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                              className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed px-1"
                             >↓</button>
                           </div>
                         )
@@ -2978,10 +2978,10 @@ export default function Home() {
                   )
                 })}
               </div>
-              <div className="px-5 py-4 border-t border-gray-800 flex gap-3">
+              <div className="px-5 py-4 border-t border-border flex gap-3">
                 <button
                   onClick={() => setDraftCols(DEFAULT_COLS)}
-                  className="flex-1 px-4 py-2 text-sm text-gray-400 border border-gray-700 rounded hover:border-gray-500 hover:text-white transition-colors"
+                  className="flex-1 px-4 py-2 text-sm text-muted-foreground border border-border rounded hover:border-border hover:text-foreground transition-colors"
                 >
                   Reset
                 </button>
@@ -3010,10 +3010,10 @@ export default function Home() {
         {showAnalyticsCustomize && (
           <div className="fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black/50" onClick={() => setShowAnalyticsCustomize(false)} />
-            <div className="w-96 bg-gray-900 border-l border-gray-700 flex flex-col h-full">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-                <h2 className="font-semibold text-white">Customize Analytics</h2>
-                <button onClick={() => setShowAnalyticsCustomize(false)} className="text-gray-400 hover:text-white">
+            <div className="w-96 bg-card border-l border-border flex flex-col h-full">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <h2 className="font-semibold text-foreground">Customize Analytics</h2>
+                <button onClick={() => setShowAnalyticsCustomize(false)} className="text-muted-foreground hover:text-foreground">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -3021,13 +3021,13 @@ export default function Home() {
                 {/* Suggested — live preview cards with your real data */}
                 <div>
                   <div className="flex items-baseline justify-between mb-2">
-                    <div className="text-[11px] uppercase tracking-wider text-gray-500">Suggested · live preview</div>
-                    <div className="text-[10px] text-gray-600">click any to add</div>
+                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Suggested · live preview</div>
+                    <div className="text-[10px] text-muted-foreground/70">click any to add</div>
                   </div>
                   {(() => {
                     const existingLabels = new Set(draftMetrics.map(m => m.label.toLowerCase()))
                     const remaining = SUGGESTED_METRICS.filter(s => !existingLabels.has(s.label.toLowerCase()))
-                    if (remaining.length === 0) return <div className="text-xs text-gray-600 italic">All suggestions added.</div>
+                    if (remaining.length === 0) return <div className="text-xs text-muted-foreground/70 italic">All suggestions added.</div>
                     return (
                       <div className="grid grid-cols-2 gap-2">
                         {remaining.map(s => {
@@ -3038,14 +3038,14 @@ export default function Home() {
                             <button
                               key={s.label}
                               onClick={() => setDraftMetrics(d => [...d, { ...s, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }])}
-                              className="group text-left bg-gray-800/40 hover:bg-gray-800 border border-gray-700 hover:border-purple-500/60 rounded-lg p-3 transition-colors"
+                              className="group text-left bg-muted/40 hover:bg-muted border border-border hover:border-purple-500/60 rounded-lg p-3 transition-colors"
                             >
                               <div className="flex items-center justify-between mb-1">
-                                <div className="text-[10px] uppercase tracking-wider text-gray-500 truncate" title={s.label}>{s.label}</div>
-                                <span className="text-[10px] text-gray-600 group-hover:text-purple-400 transition-colors">+ Add</span>
+                                <div className="text-[10px] uppercase tracking-wider text-muted-foreground truncate" title={s.label}>{s.label}</div>
+                                <span className="text-[10px] text-muted-foreground/70 group-hover:text-purple-400 transition-colors">+ Add</span>
                               </div>
-                              <div className="text-xl font-bold text-white tabular-nums">{value}</div>
-                              <div className="text-[10px] text-gray-500 capitalize mt-0.5">{typeLabel}</div>
+                              <div className="text-xl font-bold text-foreground tabular-nums">{value}</div>
+                              <div className="text-[10px] text-muted-foreground capitalize mt-0.5">{typeLabel}</div>
                             </button>
                           )
                         })}
@@ -3067,43 +3067,43 @@ export default function Home() {
                 {/* Your metrics list */}
                 <div>
                   <div className="flex items-baseline justify-between mb-2">
-                    <div className="text-[11px] uppercase tracking-wider text-gray-500">Your metrics</div>
-                    <div className="text-[10px] text-gray-600">{draftMetrics.length} card{draftMetrics.length === 1 ? '' : 's'}</div>
+                    <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Your metrics</div>
+                    <div className="text-[10px] text-muted-foreground/70">{draftMetrics.length} card{draftMetrics.length === 1 ? '' : 's'}</div>
                   </div>
                   {draftMetrics.length === 0 ? (
-                    <div className="text-xs text-gray-600 italic py-4 text-center">No metrics yet — add a suggestion or build your own above.</div>
+                    <div className="text-xs text-muted-foreground/70 italic py-4 text-center">No metrics yet — add a suggestion or build your own above.</div>
                   ) : (
                     <div className="space-y-1.5">
                       {draftMetrics.map((m, idx) => {
                         const value = computeMetric(m, outreach)
                         return (
-                          <div key={m.id} className="flex items-center gap-2 py-2 px-3 rounded bg-gray-800/40 hover:bg-gray-800 border border-gray-800 group">
+                          <div key={m.id} className="flex items-center gap-2 py-2 px-3 rounded bg-muted/40 hover:bg-muted border border-border group">
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm text-gray-200 truncate">{m.label}</div>
-                              <div className="text-[10px] text-gray-500 capitalize">{metricTypeLabel(m)}</div>
+                              <div className="text-sm text-foreground truncate">{m.label}</div>
+                              <div className="text-[10px] text-muted-foreground capitalize">{metricTypeLabel(m)}</div>
                             </div>
-                            <span className="text-sm font-bold text-white tabular-nums">{value}</span>
+                            <span className="text-sm font-bold text-foreground tabular-nums">{value}</span>
                             <div className="flex gap-0.5">
                               <button
                                 disabled={idx === 0}
                                 onClick={() => setDraftMetrics(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })}
-                                className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                                className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed px-1"
                                 title="Move up"
                               >↑</button>
                               <button
                                 disabled={idx === draftMetrics.length - 1}
                                 onClick={() => setDraftMetrics(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })}
-                                className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1"
+                                className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed px-1"
                                 title="Move down"
                               >↓</button>
                               <button
                                 onClick={() => setEditingMetric(m)}
-                                className="text-gray-500 hover:text-white px-1"
+                                className="text-muted-foreground hover:text-foreground px-1"
                                 title="Edit"
                               >✎</button>
                               <button
                                 onClick={() => setDraftMetrics(d => d.filter(x => x.id !== m.id))}
-                                className="text-gray-500 hover:text-red-400 px-1"
+                                className="text-muted-foreground hover:text-red-400 px-1"
                                 title="Remove"
                               >✕</button>
                             </div>
@@ -3114,10 +3114,10 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              <div className="px-5 py-4 border-t border-gray-800 flex gap-3">
+              <div className="px-5 py-4 border-t border-border flex gap-3">
                 <button
                   onClick={() => setDraftMetrics(customMetrics)}
-                  className="flex-1 px-4 py-2 text-sm text-gray-400 border border-gray-700 rounded hover:border-gray-500 hover:text-white transition-colors"
+                  className="flex-1 px-4 py-2 text-sm text-muted-foreground border border-border rounded hover:border-border hover:text-foreground transition-colors"
                 >Reset</button>
                 <button
                   onClick={async () => {
@@ -3135,31 +3135,31 @@ export default function Home() {
         {showOutreachCustomize && (
           <div className="fixed inset-0 z-50 flex">
             <div className="flex-1 bg-black/50" onClick={() => setShowOutreachCustomize(false)} />
-            <div className="w-80 bg-gray-900 border-l border-gray-700 flex flex-col h-full">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-                <h2 className="font-semibold text-white">Outreach Columns</h2>
-                <button onClick={() => setShowOutreachCustomize(false)} className="text-gray-400 hover:text-white">
+            <div className="w-80 bg-card border-l border-border flex flex-col h-full">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <h2 className="font-semibold text-foreground">Outreach Columns</h2>
+                <button onClick={() => setShowOutreachCustomize(false)} className="text-muted-foreground hover:text-foreground">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              <p className="text-xs text-gray-500 px-5 pt-3 pb-1">Toggle columns on/off and drag to reorder.</p>
+              <p className="text-xs text-muted-foreground px-5 pt-3 pb-1">Toggle columns on/off and drag to reorder.</p>
               <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1">
                 {draftOutreachCols.map((col, idx) => (
-                  <div key={col.id as string} className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-800 group">
+                  <div key={col.id as string} className="flex items-center gap-3 py-2 px-3 rounded hover:bg-muted group">
                     <input type="checkbox" checked={col.visible}
                       onChange={() => setDraftOutreachCols(d => d.map((c, i) => i === idx ? { ...c, visible: !c.visible } : c))}
                       className="w-4 h-4 rounded accent-purple-500"
                     />
-                    <span className="flex-1 text-sm text-gray-200">{col.label}</span>
+                    <span className="flex-1 text-sm text-foreground">{col.label}</span>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button disabled={idx === 0} onClick={() => setDraftOutreachCols(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1">↑</button>
-                      <button disabled={idx === draftOutreachCols.length - 1} onClick={() => setDraftOutreachCols(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })} className="text-gray-500 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed px-1">↓</button>
+                      <button disabled={idx === 0} onClick={() => setDraftOutreachCols(d => { const n = [...d]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n })} className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed px-1">↑</button>
+                      <button disabled={idx === draftOutreachCols.length - 1} onClick={() => setDraftOutreachCols(d => { const n = [...d]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n })} className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed px-1">↓</button>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="px-5 py-4 border-t border-gray-800 flex gap-3">
-                <button onClick={() => setDraftOutreachCols(DEFAULT_OUTREACH_COLS)} className="flex-1 px-4 py-2 text-sm text-gray-400 border border-gray-700 rounded hover:border-gray-500 hover:text-white transition-colors">Reset</button>
+              <div className="px-5 py-4 border-t border-border flex gap-3">
+                <button onClick={() => setDraftOutreachCols(DEFAULT_OUTREACH_COLS)} className="flex-1 px-4 py-2 text-sm text-muted-foreground border border-border rounded hover:border-border hover:text-foreground transition-colors">Reset</button>
                 <button onClick={() => {
                   setOutreachColConfig(draftOutreachCols)
                   void saveOutreachColConfig(draftOutreachCols)
@@ -3247,7 +3247,7 @@ export default function Home() {
             {activeTab === 'results' && (
               <div className="mt-5 flex flex-col items-center gap-2">
                 {loadingMore ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Spinner />
                     <span>Loading more creators...</span>
                   </div>
@@ -3255,7 +3255,7 @@ export default function Home() {
                   <button
                     onClick={handleLoadMore}
                     disabled={!currentKeyword || loading}
-                    className="px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-500 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-6 py-2 bg-muted hover:bg-muted border border-border hover:border-border text-foreground/80 hover:text-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     Load More Creators
                   </button>

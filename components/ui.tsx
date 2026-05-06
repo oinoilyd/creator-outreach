@@ -43,7 +43,7 @@ export function TrashIcon() {
 
 export function Spinner() {
   return (
-    <svg className="w-3.5 h-3.5 animate-spin text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <svg className="w-3.5 h-3.5 animate-spin text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
     </svg>
@@ -51,7 +51,7 @@ export function Spinner() {
 }
 
 export function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortCol, sortDir: 'asc' | 'desc' }) {
-  if (col !== sortCol) return <span className="ml-1 text-gray-600">↕</span>
+  if (col !== sortCol) return <span className="ml-1 text-muted-foreground/70">↕</span>
   return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
 }
 
@@ -117,7 +117,7 @@ export function AutoTextarea({ value, onChange, placeholder, className }: {
       value={value}
       onChange={ev => onChange(ev.target.value)}
       placeholder={placeholder}
-      className={`resize-none overflow-hidden w-full bg-transparent focus:outline-none focus:bg-gray-800 rounded px-1 text-xs leading-snug ${className ?? ''}`}
+      className={`resize-none overflow-hidden w-full bg-transparent focus:outline-none focus:bg-muted rounded px-1 text-xs leading-snug ${className ?? ''}`}
       style={{ minHeight: '22px' }}
     />
   )

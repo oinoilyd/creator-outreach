@@ -62,16 +62,16 @@ export function ProfileModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-xl font-bold text-white">Profile</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+          <h2 className="text-xl font-bold text-foreground">Profile</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
         </div>
-        <p className="text-gray-500 text-sm mb-6">Used in your outreach emails. Edits apply to every future email you send.</p>
+        <p className="text-muted-foreground text-sm mb-6">Used in your outreach emails. Edits apply to every future email you send.</p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
               Full name <span className="text-red-400">*</span>
             </label>
             <input
@@ -79,42 +79,42 @@ export function ProfileModal({
               value={fullName}
               onChange={e => setFullName(e.target.value)}
               placeholder="e.g. Jane Smith"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
-              LinkedIn URL <span className="text-gray-600">(optional)</span>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              LinkedIn URL <span className="text-muted-foreground/70">(optional)</span>
             </label>
             <input
               type="url"
               value={linkedinUrl}
               onChange={e => setLinkedinUrl(e.target.value)}
               placeholder="https://linkedin.com/in/your-handle"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
-              Pitch line <span className="text-gray-600">(optional)</span>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Pitch line <span className="text-muted-foreground/70">(optional)</span>
             </label>
             <textarea
               value={pitchLine}
               onChange={e => setPitchLine(e.target.value)}
               placeholder="e.g. I work with YouTube creators on growth — editing, content strategy, the full picture."
               rows={3}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500 resize-none"
             />
-            <p className="text-[11px] text-gray-600 mt-1">One line about what you do. Goes after &quot;I&apos;m [your name]&quot; in outreach emails.</p>
+            <p className="text-[11px] text-muted-foreground/70 mt-1">One line about what you do. Goes after &quot;I&apos;m [your name]&quot; in outreach emails.</p>
           </div>
         </div>
 
         {error && <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/40 rounded px-3 py-2 mt-4">{error}</div>}
 
         <div className="flex items-center justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button
             onClick={save}
             disabled={loading}

@@ -37,13 +37,13 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" />
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
-        <h2 className="text-xl font-bold text-white mb-1">Welcome 👋</h2>
-        <p className="text-gray-500 text-sm mb-6">A couple quick details so your outreach emails sound like you, not a template.</p>
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold text-foreground mb-1">Welcome 👋</h2>
+        <p className="text-muted-foreground text-sm mb-6">A couple quick details so your outreach emails sound like you, not a template.</p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
               Full name <span className="text-red-400">*</span>
             </label>
             <input
@@ -51,23 +51,23 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
               value={fullName}
               onChange={e => setFullName(e.target.value)}
               placeholder="e.g. Jane Smith"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
             />
-            <p className="text-[11px] text-gray-600 mt-1">Used as the sender name in outreach emails.</p>
+            <p className="text-[11px] text-muted-foreground/70 mt-1">Used as the sender name in outreach emails.</p>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">
-              LinkedIn URL <span className="text-gray-600">(optional)</span>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              LinkedIn URL <span className="text-muted-foreground/70">(optional)</span>
             </label>
             <input
               type="url"
               value={linkedinUrl}
               onChange={e => setLinkedinUrl(e.target.value)}
               placeholder="https://linkedin.com/in/your-handle"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
             />
-            <p className="text-[11px] text-gray-600 mt-1">Goes in the footer of your outreach emails. Skip and add later if you don&apos;t have one handy.</p>
+            <p className="text-[11px] text-muted-foreground/70 mt-1">Goes in the footer of your outreach emails. Skip and add later if you don&apos;t have one handy.</p>
           </div>
         </div>
 
@@ -77,7 +77,7 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
           <button
             onClick={() => save({ skipLinkedin: true })}
             disabled={loading}
-            className="text-sm text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
+            className="text-sm text-muted-foreground hover:text-foreground/80 transition-colors disabled:opacity-50"
           >
             Skip LinkedIn for now
           </button>

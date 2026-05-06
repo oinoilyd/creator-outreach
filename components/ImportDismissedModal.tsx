@@ -121,13 +121,13 @@ export function ImportDismissedModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70" />
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-xl font-bold text-white">Import dismissed creators</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+          <h2 className="text-xl font-bold text-foreground">Import dismissed creators</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
         </div>
-        <p className="text-gray-500 text-sm mb-5">
-          Upload an <code className="text-gray-400">.xlsx</code> file with at least <span className="text-gray-400">Channel Name</span> and <span className="text-gray-400">YouTube URL</span> columns.
+        <p className="text-muted-foreground text-sm mb-5">
+          Upload an <code className="text-muted-foreground">.xlsx</code> file with at least <span className="text-muted-foreground">Channel Name</span> and <span className="text-muted-foreground">YouTube URL</span> columns.
         </p>
 
         {!preview && (
@@ -144,29 +144,29 @@ export function ImportDismissedModal({
               className={`w-full py-12 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
                 dragOver
                   ? 'border-blue-500 bg-blue-900/10 text-blue-300'
-                  : 'border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-200'
+                  : 'border-border hover:border-border text-muted-foreground hover:text-foreground'
               } ${busy ? 'opacity-50 pointer-events-none' : ''}`}
             >
               {busy
                 ? 'Reading file…'
                 : dragOver
                   ? '📥 Drop the file to upload'
-                  : <>📁 <span className="block mt-1">Click or drag an <code className="text-gray-300">.xlsx</code> file here</span></>
+                  : <>📁 <span className="block mt-1">Click or drag an <code className="text-foreground/80">.xlsx</code> file here</span></>
               }
             </div>
           </>
         )}
 
         {preview && (
-          <div className="bg-gray-800/40 border border-gray-800 rounded-lg p-3 mb-4">
-            <div className="text-sm text-white font-medium mb-2">
+          <div className="bg-muted/40 border border-border rounded-lg p-3 mb-4">
+            <div className="text-sm text-foreground font-medium mb-2">
               Found {preview.length} {preview.length === 1 ? 'creator' : 'creators'}
             </div>
-            <div className="text-xs text-gray-400 space-y-1 max-h-40 overflow-y-auto">
+            <div className="text-xs text-muted-foreground space-y-1 max-h-40 overflow-y-auto">
               {preview.slice(0, 10).map((c, i) => (
                 <div key={i} className="truncate">• {c.channelName}{c.avgViews ? ` (${c.avgViews.toLocaleString()} views)` : ''}</div>
               ))}
-              {preview.length > 10 && <div className="text-gray-600">…and {preview.length - 10} more</div>}
+              {preview.length > 10 && <div className="text-muted-foreground/70">…and {preview.length - 10} more</div>}
             </div>
           </div>
         )}
@@ -174,7 +174,7 @@ export function ImportDismissedModal({
         {error && <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/40 rounded px-3 py-2 mb-4">{error}</div>}
 
         <div className="flex items-center justify-end gap-3 mt-2">
-          <button onClick={onClose} disabled={busy} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors disabled:opacity-50">
+          <button onClick={onClose} disabled={busy} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
             Cancel
           </button>
           {preview && (
