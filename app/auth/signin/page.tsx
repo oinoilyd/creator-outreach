@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AuthShell } from '@/components/landing/AuthShell'
+import { revealToLight } from '@/lib/viewTransition'
 
 function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get('next') || '/'
+  const submitButtonRef = useRef<HTMLButtonElement>(null)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,21 +22,28 @@ function SignInForm() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    console.log('[signin] env URL=', !!process.env.NEXT_PUBLIC_SUPABASE_URL, 'KEY=', !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
     try {
       const supabase = createClient()
-      const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
-      console.log('[signin] result:', { hasSession: !!data?.session, errMessage: err?.message })
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password })
       if (err) {
         setError(err.message)
         setLoading(false)
         return
       }
-      router.push(next)
-      router.refresh()
-    } catch (caught: any) {
-      console.error('[signin] threw:', caught)
-      setError(caught?.message || 'Sign in failed (see browser console)')
+
+      // Capture the click origin for the circle-reveal effect.
+      const rect = submitButtonRef.current?.getBoundingClientRect()
+      const origin = rect
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : null
+
+      await revealToLight(origin, () => {
+        router.push(next)
+        router.refresh()
+      })
+    } catch (caught: unknown) {
+      const msg = caught instanceof Error ? caught.message : 'Sign in failed.'
+      setError(msg)
       setLoading(false)
     }
   }
@@ -69,6 +78,7 @@ function SignInForm() {
         {error && <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-3 py-2">{error}</div>}
 
         <button
+          ref={submitButtonRef}
           type="submit"
           disabled={loading}
           className="w-full bg-blue-600 hover:bg-blue-700 text-foreground font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

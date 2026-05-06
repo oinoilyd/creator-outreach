@@ -11,7 +11,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 // with the wordmark.
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="relative min-h-screen flex flex-col bg-white text-gray-900 dark:bg-gray-950 dark:text-white overflow-hidden transition-colors">
+    <main className="dark relative min-h-screen flex flex-col bg-gray-950 text-white overflow-hidden">
       <Aurora className="z-0" />
 
       {/* Tiny header — links back to the landing on the wordmark */}

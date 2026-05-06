@@ -25,7 +25,7 @@ export default async function LandingPage() {
   const isAuthed = !!user
 
   return (
-    <main className="relative min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-white overflow-x-hidden transition-colors">
+    <main className="dark relative min-h-screen bg-gray-950 text-white overflow-x-hidden">
       <LandingNav isAuthed={isAuthed} />
 
       {/* Hero */}
