@@ -37,32 +37,32 @@ function SignUpForm() {
   }
 
   return (
-    <div className="w-full max-w-sm bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-2xl">
-      <h1 className="text-2xl font-bold text-white mb-1">Create your account</h1>
-      <p className="text-gray-500 text-sm mb-6">Find creators worth reaching out to — fast.</p>
+    <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-2xl shadow-black/10 dark:shadow-black/40">
+      <h1 className="text-2xl font-bold text-foreground mb-1">Create your account</h1>
+      <p className="text-muted-foreground text-sm mb-6">Find creators worth reaching out to — fast.</p>
 
       <form onSubmit={signUpWithPassword} className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1">Email</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+            className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1">Password</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Password</label>
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+            className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
           />
-          <p className="text-[11px] text-gray-600 mt-1">At least 6 characters.</p>
+          <p className="text-[11px] text-muted-foreground/70 mt-1">At least 6 characters.</p>
         </div>
 
         {error && <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/40 rounded px-3 py-2">{error}</div>}
@@ -70,13 +70,13 @@ function SignUpForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-foreground font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Creating account…' : 'Create account'}
         </button>
       </form>
 
-      <p className="text-xs text-gray-500 text-center mt-5">
+      <p className="text-xs text-muted-foreground text-center mt-5">
         Already have an account?{' '}
         <Link href={`/auth/signin${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-blue-400 hover:text-blue-300">Sign in</Link>
       </p>
@@ -87,7 +87,7 @@ function SignUpForm() {
 export default function SignUpPage() {
   return (
     <AuthShell>
-      <Suspense fallback={<div className="text-gray-500">Loading…</div>}>
+      <Suspense fallback={<div className="text-muted-foreground">Loading…</div>}>
         <SignUpForm />
       </Suspense>
     </AuthShell>

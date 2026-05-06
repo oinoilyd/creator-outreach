@@ -1,35 +1,22 @@
 'use client'
 
 import { motion } from 'motion/react'
+import { useTheme } from 'next-themes'
 
 // Large blurred gradient orbs that slowly drift behind the hero.
 // Replaces the old BackgroundBeams which were too subtle to register.
+// Tones down opacity in light mode so the blurred orbs read as a soft
+// pastel wash instead of washed-out greys.
 export function Aurora({ className = '' }: { className?: string }) {
+  const { resolvedTheme } = useTheme()
+  const isLight = resolvedTheme === 'light'
+  const a = isLight
+    ? { purple: 0.20, blue: 0.18, pink: 0.14 }
+    : { purple: 0.45, blue: 0.35, pink: 0.28 }
   const orbs = [
-    {
-      size: 700,
-      color: 'rgba(168, 85, 247, 0.45)', // purple
-      top: '-20%',
-      left: '-10%',
-      duration: 22,
-      delay: 0,
-    },
-    {
-      size: 600,
-      color: 'rgba(59, 130, 246, 0.35)', // blue
-      top: '10%',
-      right: '-15%',
-      duration: 26,
-      delay: 4,
-    },
-    {
-      size: 500,
-      color: 'rgba(236, 72, 153, 0.28)', // pink
-      bottom: '-25%',
-      left: '15%',
-      duration: 30,
-      delay: 8,
-    },
+    { size: 700, color: `rgba(168, 85, 247, ${a.purple})`, top: '-20%', left: '-10%', duration: 22, delay: 0 },
+    { size: 600, color: `rgba(59, 130, 246, ${a.blue})`,   top: '10%',  right: '-15%', duration: 26, delay: 4 },
+    { size: 500, color: `rgba(236, 72, 153, ${a.pink})`,   bottom: '-25%', left: '15%', duration: 30, delay: 8 },
   ]
 
   return (

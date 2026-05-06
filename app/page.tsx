@@ -2644,62 +2644,69 @@ export default function Home() {
 
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
-    <main className="min-h-screen bg-background text-foreground p-8">
-      <div className={activeTab === 'outreach' ? 'w-full px-2' : 'max-w-7xl mx-auto'}>
-
-        {/* Header row: title + hamburger */}
-        <div className="flex items-start justify-between mb-1">
-          <div>
-            <h1 className="text-3xl font-bold">Creator Outreach</h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
-              Find
-              <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
-                // Save current platform's scoring state
-                void savePlatformWeights(activePlatform, scoreWeights)
-                void savePlatformNarrative(activePlatform, scoreNarrative)
-                void savePlatformGuidance(activePlatform, guidanceEntries)
-                // Load new platform's scoring state
-                const { weights, narrative, guidance } = await loadPlatformState(newPlatform)
-                setScoreWeights(weights)
-                setScoreNarrative(narrative)
-                setGuidanceEntries(guidance)
-                setActivePlatform(newPlatform)
-              }} />
-              creators and their contact info
-            </p>
+    <main className="min-h-screen bg-background text-foreground">
+      {/* Sticky glass top bar — same width-feel as the page below */}
+      <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className={`${activeTab === 'outreach' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-baseline gap-3 min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Creator Outreach</h1>
+              <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span>Find</span>
+                <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
+                  void savePlatformWeights(activePlatform, scoreWeights)
+                  void savePlatformNarrative(activePlatform, scoreNarrative)
+                  void savePlatformGuidance(activePlatform, guidanceEntries)
+                  const { weights, narrative, guidance } = await loadPlatformState(newPlatform)
+                  setScoreWeights(weights)
+                  setScoreNarrative(narrative)
+                  setGuidanceEntries(guidance)
+                  setActivePlatform(newPlatform)
+                }} />
+                <span>creators</span>
+              </div>
+            </div>
+            <HamburgerMenu
+              userEmail={userEmail}
+              userFullName={profile?.fullName || null}
+              onOpenScoreSettings={() => setShowScoreSettings(true)}
+              onOpenProfile={() => setShowProfile(true)}
+              onImportOutreach={() => setShowImport(true)}
+              onImportDismissed={() => setShowImportDismissed(true)}
+              showRetryMigration={hasBackup}
+              onRetryMigration={async () => {
+                const result = await retryMigrationFromBackup()
+                alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
+                if (result.ok) window.location.reload()
+              }}
+            />
           </div>
-          <HamburgerMenu
-            userEmail={userEmail}
-            userFullName={profile?.fullName || null}
-            onOpenScoreSettings={() => setShowScoreSettings(true)}
-            onOpenProfile={() => setShowProfile(true)}
-            onImportOutreach={() => setShowImport(true)}
-            onImportDismissed={() => setShowImportDismissed(true)}
-            showRetryMigration={hasBackup}
-            onRetryMigration={async () => {
-              const result = await retryMigrationFromBackup()
-              alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
-              if (result.ok) window.location.reload()
-            }}
-          />
         </div>
+      </div>
 
-        <div className="mb-5" />
+      <div className={`${activeTab === 'outreach' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} pt-6 pb-16`}>
 
-        {/* Search bar */}
-        <div className="flex gap-3 mb-2 flex-wrap">
-          <input
-            className="flex-1 min-w-64 bg-muted border border-border rounded px-4 py-2 text-foreground placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            placeholder="Search by topic or occupation (e.g. basketball, banking, fitness)"
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          />
+        {/* Premium search bar */}
+        <div className="flex gap-2 mb-2 flex-wrap">
+          <div className="flex-1 min-w-64 relative group">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-muted-foreground group-focus-within:text-purple-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              className="w-full bg-card/60 border border-border rounded-lg pl-9 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/15 transition-all"
+              placeholder="Search a topic, paste a YouTube URL, or describe what you're looking for…"
+              value={keyword}
+              onChange={e => setKeyword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            />
+          </div>
           {/* Score settings icon */}
           <button
             onClick={() => setShowScoreSettings(true)}
             title="Lead Criteria"
-            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-purple-700 border-purple-500 text-foreground' : 'bg-muted border-border text-muted-foreground hover:border-border hover:text-foreground'}`}
+            className={`px-3 py-2.5 rounded-lg border transition-all flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500/60 text-white shadow-md shadow-purple-500/20' : 'bg-card/60 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
           >
             <span className="text-sm">⚡</span>
           </button>
@@ -2707,13 +2714,13 @@ export default function Home() {
           <button
             onClick={() => setShowFilter(v => !v)}
             title={regions.length === 0 ? 'Filters — English-language search (no regional filter)' : regions.length === REGIONS.length ? 'Filters — Global (all regions)' : `Filters — searching: ${regions.map(code => REGIONS.find(r => r.code === code)?.label).join(', ')}`}
-            className={`px-3 py-2 rounded border transition-colors flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-blue-600 border-blue-500 text-foreground' : 'bg-muted border-border text-muted-foreground hover:border-border hover:text-foreground'}`}
+            className={`px-3 py-2.5 rounded-lg border transition-all flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500/60 text-white shadow-md shadow-blue-500/20' : 'bg-card/60 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
             </svg>
             {regions.length > 0 && (
-              <span className="text-sm flex gap-px">
+              <span className="text-xs flex gap-px">
                 {regions.length === REGIONS.length
                   ? '🌐'
                   : <>
@@ -2724,7 +2731,7 @@ export default function Home() {
               </span>
             )}
           </button>
-          <button onClick={handleSearch} disabled={loading} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2 rounded font-semibold">
+          <button onClick={handleSearch} disabled={loading} className="bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30">
             {loading ? 'Searching...' : 'Search'}
           </button>
           <div className="relative">
@@ -2732,7 +2739,7 @@ export default function Home() {
               onClick={() => setShowExport(v => !v)}
               disabled={activeTab === 'outreach' ? outreach.length === 0 : activeTab === 'dismissed' ? true : currentList.length === 0}
               title="Export"
-              className="bg-green-700 hover:bg-green-600 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2 rounded flex items-center"
+              className="bg-card/60 border border-border hover:border-border/80 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2.5 rounded-lg flex items-center text-muted-foreground hover:text-foreground transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

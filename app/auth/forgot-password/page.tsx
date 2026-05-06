@@ -34,9 +34,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell>
-      <div className="w-full max-w-sm bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl p-8 shadow-2xl">
-        <h1 className="text-2xl font-bold text-white mb-1">Reset your password</h1>
-        <p className="text-gray-500 text-sm mb-6">
+      <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-2xl shadow-black/10 dark:shadow-black/40">
+        <h1 className="text-2xl font-bold text-foreground mb-1">Reset your password</h1>
+        <p className="text-muted-foreground text-sm mb-6">
           {sent
             ? "We've sent a reset link to your email. Click it to choose a new password."
             : "Enter your email and we'll send you a link to reset your password."}
@@ -45,13 +45,13 @@ export default function ForgotPasswordPage() {
         {!sent && (
           <form onSubmit={submit} className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Email</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
 
@@ -60,14 +60,14 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-foreground font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Sending…' : 'Send reset link'}
             </button>
           </form>
         )}
 
-        <p className="text-xs text-gray-500 text-center mt-5">
+        <p className="text-xs text-muted-foreground text-center mt-5">
           <Link href="/auth/signin" className="text-blue-400 hover:text-blue-300">Back to sign in</Link>
         </p>
       </div>
