@@ -1,18 +1,16 @@
 'use client'
 
 import { motion } from 'motion/react'
-import { Star, Mail } from 'lucide-react'
 
-// Stylized "screenshot" of the outreach grid. Renders client-side as
-// real DOM so it scales crisp on retina + works in dark mode without
-// shipping a PNG.
+// Stylized "screenshot" of the Follow-ups dashboard — the most
+// distinctive view of the product. Shows the smart cadence + priority
+// queue rather than a generic data table.
 export function AppPreview() {
-  const rows = [
-    { name: 'FitForge', stage: 'Open · 1 touch · 3d ago', fit: 87, value: 1200, dot: 'bg-blue-500',  email: true,  ig: false, ln: true },
-    { name: 'Lens & Light', stage: 'Open · 2 touches · 8d ago', fit: 81, value: 800, dot: 'bg-yellow-500', email: true, ig: true, ln: false },
-    { name: 'Solo Dev Diaries', stage: 'No Response · 14d ago', fit: 74, value: 0, dot: 'bg-gray-500', email: false, ig: false, ln: true },
-    { name: 'Quick Recipes Co.', stage: 'Successful · 1d ago', fit: 92, value: 2400, dot: 'bg-emerald-500', email: true, ig: true, ln: false },
+  const high = [
+    { name: 'FitForge', stage: 'Second follow-up', tps: 2, late: '2d late', dotColor: 'bg-red-500', dealValue: 1200, fit: 87 },
+    { name: 'Lens & Light', stage: 'First follow-up', tps: 1, late: '4d late', dotColor: 'bg-red-500', dealValue: 800, fit: 81 },
   ]
+  const medium = { name: 'Solo Dev Diaries', stage: 'First follow-up', tps: 1, late: 'in 3d', dotColor: 'bg-blue-500', dealValue: 500, fit: 76 }
 
   return (
     <motion.div
@@ -21,93 +19,92 @@ export function AppPreview() {
       transition={{ duration: 0.9, delay: 0.6, ease: 'easeOut' }}
       className="relative mx-auto w-full max-w-4xl"
     >
-      {/* Glow */}
-      <div className="absolute inset-x-0 -inset-y-4 bg-gradient-to-r from-purple-600/30 via-blue-600/20 to-pink-600/20 blur-3xl pointer-events-none" />
+      {/* Outer glow */}
+      <div className="absolute inset-x-0 -inset-y-6 bg-gradient-to-r from-purple-600/30 via-blue-600/20 to-pink-600/20 blur-3xl pointer-events-none" />
 
-      <div className="relative rounded-2xl border border-white/10 bg-gray-900/80 backdrop-blur-xl shadow-2xl overflow-hidden">
+      <div className="relative rounded-2xl border border-white/10 bg-gray-900/85 backdrop-blur-xl shadow-2xl overflow-hidden">
         {/* Browser chrome */}
-        <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/5">
-          <span className="w-3 h-3 rounded-full bg-red-400/70" />
-          <span className="w-3 h-3 rounded-full bg-yellow-400/70" />
-          <span className="w-3 h-3 rounded-full bg-emerald-400/70" />
+        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/5">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
+          <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/70" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/70" />
           <div className="ml-3 flex-1 max-w-sm rounded-md bg-black/30 border border-white/5 text-[11px] text-gray-500 px-2.5 py-1 truncate">
             creatoroutreach.net / outreach
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 px-4 pt-3 border-b border-white/5">
+        {/* Top tabs */}
+        <div className="flex items-center gap-1 px-4 pt-2.5 border-b border-white/5">
           <Tab label="Results" />
           <Tab label="Outreach" count={47} active />
           <Tab label="Dismissed" />
-          <div className="ml-auto flex items-center gap-2 pb-2">
-            <span className="text-[10px] uppercase tracking-wider text-purple-300 px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30">
-              ⏰ 3 follow-ups due
-            </span>
-          </div>
         </div>
 
         {/* Sub-tabs */}
         <div className="flex gap-1 px-4 py-2 border-b border-white/5">
           {[
-            { label: 'All', active: true },
+            { label: 'All' },
             { label: '★ Favorites' },
-            { label: '⏰ Follow-ups' },
+            { label: '⏰ Follow-ups', active: true, badge: 3 },
             { label: '📊 Analytics' },
           ].map((t) => (
             <span
               key={t.label}
-              className={`text-[10px] px-2 py-0.5 rounded-full ${
+              className={`text-[11px] px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${
                 t.active ? 'bg-gray-700/60 text-white border border-white/10' : 'text-gray-500'
               }`}
             >
               {t.label}
+              {t.badge && <span className="text-red-400/90 text-[10px]">({t.badge})</span>}
             </span>
           ))}
         </div>
 
-        {/* Header row */}
-        <div className="grid grid-cols-[20px_1fr_140px_72px_80px_80px] gap-3 px-4 py-2 text-[10px] uppercase tracking-wider text-gray-500 border-b border-white/5">
-          <span>★</span>
-          <span>Channel</span>
-          <span>Stage</span>
-          <span>Fit</span>
-          <span className="text-right">Deal</span>
-          <span>Contact</span>
-        </div>
+        <div className="p-4">
+          {/* Headline */}
+          <p className="text-[13px] text-gray-300 mb-3">
+            <span className="text-red-300 font-medium">3 high priority</span>
+            <span className="text-gray-500"> · </span>
+            <span className="text-yellow-300">2 medium</span>
+            <span className="text-gray-500"> need your attention.</span>
+          </p>
 
-        {/* Rows */}
-        <div className="divide-y divide-white/5">
-          {rows.map((r, i) => (
-            <motion.div
-              key={r.name}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.9 + i * 0.08, duration: 0.4 }}
-              className="grid grid-cols-[20px_1fr_140px_72px_80px_80px] gap-3 px-4 py-3 items-center hover:bg-white/5 transition-colors"
-            >
-              <Star className={`w-3.5 h-3.5 ${i === 3 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-700'}`} />
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative shrink-0">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">
-                    {r.name.split(' ').map(s => s[0]).slice(0,2).join('')}
-                  </div>
-                  <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${r.dot}`} />
-                </div>
-                <span className="text-sm text-white truncate">{r.name}</span>
-              </div>
-              <span className="text-[11px] text-gray-400 truncate">{r.stage}</span>
-              <FitChip score={r.fit} />
-              <span className="text-[11px] font-mono text-emerald-300 text-right">
-                {r.value > 0 ? `$${r.value}` : <span className="text-gray-700">—</span>}
+          {/* Stat cards */}
+          <div className="grid grid-cols-4 gap-2.5 mb-5">
+            <MiniStat label="High priority" value="3" tone="red" sub="40% of queue" />
+            <MiniStat label="Medium" value="2" tone="yellow" sub="due this week" />
+            <MiniStat label="At-risk $" value="$2k" tone="red" sub="3 leads" />
+            <MiniStat label="Pipeline $" value="$14.2k" tone="green" sub="7 active · 11 touches" />
+          </div>
+
+          {/* High priority section */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base">🔥</span>
+              <span className="text-[12px] font-semibold text-red-300">High priority</span>
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-px rounded-full border border-red-500/40 text-red-300">
+                {high.length}
               </span>
-              <div className="flex items-center gap-1">
-                {r.email && <Mail className="w-3 h-3 text-emerald-400/80" />}
-                {r.ig && <span className="text-[10px] text-pink-300">IG</span>}
-                {r.ln && <span className="text-[10px] font-bold text-blue-300">in</span>}
-              </div>
-            </motion.div>
-          ))}
+              <span className="text-[10px] text-gray-500 ml-1">· overdue or due today</span>
+            </div>
+            <div className="space-y-1.5">
+              {high.map((r, i) => (
+                <FollowUpRow key={r.name} row={r} delay={0.9 + i * 0.08} bucket="high" />
+              ))}
+            </div>
+          </div>
+
+          {/* Medium priority section preview (just one row to imply more) */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base">📅</span>
+              <span className="text-[12px] font-semibold text-yellow-300">Medium priority</span>
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-px rounded-full border border-yellow-500/40 text-yellow-300">
+                2
+              </span>
+            </div>
+            <FollowUpRow row={medium} delay={1.1} bucket="medium" />
+          </div>
         </div>
       </div>
     </motion.div>
@@ -128,13 +125,71 @@ function Tab({ label, count, active }: { label: string; count?: number; active?:
   )
 }
 
-function FitChip({ score }: { score: number }) {
-  const color = score >= 85 ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-    : score >= 75 ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-    : 'bg-gray-700/40 text-gray-400 border-gray-700'
+function MiniStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: 'red' | 'yellow' | 'green' }) {
+  const valueColor = tone === 'red' ? 'text-red-300' : tone === 'yellow' ? 'text-yellow-300' : 'text-emerald-300'
+  const borderColor = tone === 'red' ? 'border-red-500/30' : tone === 'yellow' ? 'border-yellow-500/30' : 'border-emerald-500/30'
   return (
-    <span className={`inline-flex items-center justify-center text-[10px] font-mono px-2 py-0.5 rounded-md border ${color}`}>
-      {score}
-    </span>
+    <div className={`bg-white/5 border ${borderColor} rounded-lg p-2.5`}>
+      <div className="text-[9px] uppercase tracking-wider text-gray-500 mb-0.5">{label}</div>
+      <div className={`text-base font-bold tabular-nums ${valueColor}`}>{value}</div>
+      <div className="text-[9px] text-gray-500 mt-0.5 truncate">{sub}</div>
+    </div>
+  )
+}
+
+function FollowUpRow({ row, delay, bucket }: {
+  row: { name: string; stage: string; tps: number; late: string; dotColor: string; dealValue: number; fit: number }
+  delay: number
+  bucket: 'high' | 'medium'
+}) {
+  const initials = row.name.split(/\s+/).slice(0, 2).map(s => s[0]).join('')
+  const datePillClass = bucket === 'high'
+    ? 'bg-red-500/15 text-red-300 border-red-500/40'
+    : 'bg-blue-500/10 text-blue-300 border-blue-500/30'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay, duration: 0.4 }}
+      className="flex items-center gap-3 bg-gray-900/40 border border-white/5 rounded-lg px-3 py-2"
+    >
+      {/* Avatar */}
+      <div className="relative shrink-0">
+        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">
+          {initials}
+        </div>
+        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${row.dotColor}`} />
+      </div>
+
+      {/* Identity + stage */}
+      <div className="flex-1 min-w-0">
+        <div className="text-[12px] font-medium text-white truncate">{row.name}</div>
+        <div className="text-[10px] text-gray-500 truncate">
+          <span className="text-gray-300">{row.stage}</span>
+          <span> · {row.tps} touch{row.tps === 1 ? '' : 'es'}</span>
+        </div>
+      </div>
+
+      {/* Deal value */}
+      <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+        ${row.dealValue}
+      </span>
+
+      {/* Date pill */}
+      <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${datePillClass}`}>
+        {row.late}
+      </span>
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-1 shrink-0">
+        <span className="text-[10px] font-medium text-purple-200 bg-purple-600/30 border border-purple-500/40 rounded px-2 py-0.5">
+          Followed up
+        </span>
+        <span className="w-5 h-5 flex items-center justify-center text-gray-500 border border-white/10 rounded text-[9px]">
+          ⌛
+        </span>
+      </div>
+    </motion.div>
   )
 }

@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { AuthShell } from '@/components/landing/AuthShell'
 
 function SignInForm() {
   const router = useRouter()
@@ -39,7 +40,7 @@ function SignInForm() {
   }
 
   return (
-    <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
+    <div className="w-full max-w-sm bg-gray-900/85 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
       <h1 className="text-2xl font-bold text-white mb-1">Sign in</h1>
       <p className="text-gray-500 text-sm mb-6">Welcome back to Creator Outreach.</p>
 
@@ -90,10 +91,10 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <div className="flex-1 min-h-screen flex items-center justify-center bg-gray-950 p-4">
+    <AuthShell>
       <Suspense fallback={<div className="text-gray-500">Loading…</div>}>
         <SignInForm />
       </Suspense>
-    </div>
+    </AuthShell>
   )
 }

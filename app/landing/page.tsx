@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3, Zap } from 'lucide-react'
+import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3 } from 'lucide-react'
 import { Aurora } from '@/components/landing/Aurora'
 import { TextGenerateEffect } from '@/components/landing/TextGenerateEffect'
 import { AppPreview } from '@/components/landing/AppPreview'
@@ -84,7 +84,7 @@ export default function LandingPage() {
           </div>
 
           <BentoGrid>
-            {/* Big card */}
+            {/* Row 1: big search + tall AI scoring */}
             <BentoCard
               className="md:col-span-2"
               title="Smart search across YouTube"
@@ -101,6 +101,7 @@ export default function LandingPage() {
               delay={0.1}
             />
 
+            {/* Row 2: small CRM + wide cadence */}
             <BentoCard
               title="Built-in CRM"
               description="Track every outreach, status, response, and follow-up. Replace your spreadsheet."
@@ -110,16 +111,19 @@ export default function LandingPage() {
             />
 
             <BentoCard
+              className="md:col-span-2"
               title="Smart follow-up cadence"
-              description="When you reach out, the system schedules the next ping (3d → 7d → 14d → 21d). Your queue stays tight."
+              description="When you reach out, the system schedules the next ping — 3d, 7d, 14d, then 21d. Your queue stays sharp without you babysitting it."
               icon={<MailPlus className="w-3.5 h-3.5" />}
               visual={<CadenceVisual />}
               delay={0.2}
             />
 
+            {/* Row 3: full-width analytics */}
             <BentoCard
+              className="md:col-span-3"
               title="Analytics + custom metrics"
-              description="Win rate, response rate, pipeline value. Build your own metric cards in seconds."
+              description="Win rate, response rate, pipeline value. Build your own metric cards in seconds — count, percentage, sum, or average over any filter."
               icon={<BarChart3 className="w-3.5 h-3.5" />}
               visual={<AnalyticsVisual />}
               delay={0.25}
@@ -128,19 +132,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA strip */}
+      {/* CTA strip — softer, less marketing-bro */}
       <section className="relative px-6 pb-20 z-10">
-        <div className="max-w-3xl mx-auto rounded-2xl border border-white/10 bg-gradient-to-br from-purple-500/10 via-gray-900/60 to-blue-500/10 p-8 md:p-12 text-center backdrop-blur-sm">
-          <Zap className="w-7 h-7 text-purple-300 mx-auto mb-3" />
-          <h3 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+        <div className="max-w-3xl mx-auto rounded-2xl border border-white/5 bg-gray-900/40 p-8 md:p-10 text-center backdrop-blur-sm">
+          <h3 className="text-xl md:text-2xl font-bold tracking-tight mb-2">
             Stop emailing the wrong creators.
           </h3>
-          <p className="text-gray-400 mb-6">
+          <p className="text-sm text-gray-500 mb-5">
             Free to start. No card required.
           </p>
           <Link
             href="/auth/signup"
-            className="inline-block bg-white text-gray-950 hover:bg-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors"
+            className="inline-block bg-white text-gray-950 hover:bg-gray-200 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
           >
             Get started
           </Link>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { AuthShell } from '@/components/landing/AuthShell'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -50,8 +51,8 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex-1 min-h-screen flex items-center justify-center bg-gray-950 p-4">
-      <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
+    <AuthShell>
+      <div className="w-full max-w-sm bg-gray-900/85 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
         <h1 className="text-2xl font-bold text-white mb-1">Choose a new password</h1>
         <p className="text-gray-500 text-sm mb-6">
           {done
@@ -104,6 +105,6 @@ export default function ResetPasswordPage() {
           </p>
         )}
       </div>
-    </div>
+    </AuthShell>
   )
 }

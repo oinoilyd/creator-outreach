@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { AuthShell } from '@/components/landing/AuthShell'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -32,8 +33,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex-1 min-h-screen flex items-center justify-center bg-gray-950 p-4">
-      <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
+    <AuthShell>
+      <div className="w-full max-w-sm bg-gray-900/85 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
         <h1 className="text-2xl font-bold text-white mb-1">Reset your password</h1>
         <p className="text-gray-500 text-sm mb-6">
           {sent
@@ -70,6 +71,6 @@ export default function ForgotPasswordPage() {
           <Link href="/auth/signin" className="text-blue-400 hover:text-blue-300">Back to sign in</Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   )
 }
