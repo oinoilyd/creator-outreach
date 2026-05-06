@@ -76,7 +76,11 @@ function SignInForm() {
         </button>
       </form>
 
-      <p className="text-xs text-gray-500 text-center mt-5">
+      <p className="text-xs text-gray-500 text-center mt-4">
+        <Link href="/auth/forgot-password" className="text-blue-400 hover:text-blue-300">Forgot password?</Link>
+      </p>
+
+      <p className="text-xs text-gray-500 text-center mt-3">
         Don&apos;t have an account?{' '}
         <Link href={`/auth/signup${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-blue-400 hover:text-blue-300">Sign up</Link>
       </p>

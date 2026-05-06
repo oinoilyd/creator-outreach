@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-const PUBLIC_PATHS = ['/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback', '/auth/confirm']
+const PUBLIC_PATHS = ['/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback', '/auth/confirm', '/auth/forgot-password', '/auth/reset-password', '/landing']
 
 /**
  * Refreshes the user's session on every request and gates protected routes.
@@ -35,13 +35,19 @@ export async function updateSession(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some(p => path.startsWith(p))
 
   if (!user && !isPublic) {
+    // Unauthenticated visit to "/" → show the public landing page (URL stays "/")
+    if (path === '/') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/landing'
+      return NextResponse.rewrite(url)
+    }
     const url = request.nextUrl.clone()
     url.pathname = '/auth/signin'
     url.searchParams.set('next', path)
     return NextResponse.redirect(url)
   }
 
-  if (user && (path === '/auth/signin' || path === '/auth/signup')) {
+  if (user && (path === '/auth/signin' || path === '/auth/signup' || path === '/landing')) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)

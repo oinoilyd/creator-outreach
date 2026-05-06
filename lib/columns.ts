@@ -10,7 +10,7 @@ export const ALL_OUTREACH_COLS: OutreachColDef[] = [
   { id: 'medium',          label: 'Medium',            defaultVisible: true,  defaultWidth: 170 },
   { id: 'headerUsed',      label: 'Subject Line',      defaultVisible: true,  defaultWidth: 210 },
   { id: 'status',          label: 'Status',            defaultVisible: true,  defaultWidth: 130 },
-  { id: 'notes',           label: 'Notes',             defaultVisible: false, defaultWidth: 220 },
+  { id: 'notes',           label: 'Notes',             defaultVisible: true,  defaultWidth: 220 },
   { id: 'followUpDate',    label: 'Follow Up Date',    defaultVisible: false, defaultWidth: 140 },
   { id: 'dateReachedOut',  label: 'Date Reached Out',  defaultVisible: false, defaultWidth: 145 },
   { id: 'touchpoints',     label: '# Touchpoints',     defaultVisible: false, defaultWidth: 110 },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
-import { requireUser } from '@/lib/api-auth'
+import { requireUser, rateLimit } from '@/lib/api-auth'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -275,6 +275,9 @@ async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials:
 export async function GET(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
+
+  const limited = rateLimit(auth.id, 'enrich', 500)
+  if (limited) return limited
 
   const { searchParams } = new URL(req.url)
 

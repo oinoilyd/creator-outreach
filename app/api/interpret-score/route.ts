@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { clampString } from '@/lib/security'
-import { requireUser } from '@/lib/api-auth'
+import { requireUser, rateLimit } from '@/lib/api-auth'
 
 const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
 
@@ -24,6 +24,9 @@ const CATEGORY_DESCRIPTIONS: Record<keyof ScoreWeights, string> = {
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
+
+  const limited = rateLimit(auth.id, 'interpret-score', 30)
+  if (limited) return limited
 
   const body = await req.json() as { weights: ScoreWeights; narrative: string }
 

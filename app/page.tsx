@@ -499,7 +499,18 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
             Customize Columns
           </button>
         </div>
-        <p className="text-gray-500 text-sm">No outreach entries yet — click the <span className="text-purple-400">+</span> icon on any creator to add them.</p>
+        <div className="mt-2 border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
+          <div className="mx-auto w-14 h-14 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
+            </svg>
+          </div>
+          <h3 className="text-base font-semibold text-white mb-1">Your outreach list is empty</h3>
+          <p className="text-gray-500 text-sm max-w-sm mx-auto">
+            Run a search in <span className="text-gray-300">Results</span>, then click the <span className="text-purple-400">+</span> icon on any creator to add them here. Or use the menu &rarr; Import to upload an Excel of past outreach.
+          </p>
+        </div>
       </div>
     )
   }
