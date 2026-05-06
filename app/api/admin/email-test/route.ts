@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   }
 
   const region = (body.region || '').trim().slice(0, 8)
-  const max = Math.min(Math.max(body.max ?? 15, 1), 30)
+  const max = Math.min(Math.max(body.max ?? 15, 1), 50)
   const notes = (body.notes || '').trim().slice(0, 200) || null
 
   // Normalize + validate strategy. Empty array means "everything off"

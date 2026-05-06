@@ -133,9 +133,9 @@ export function EmailTestPanel() {
             <input
               type="number"
               min={1}
-              max={30}
+              max={50}
               value={max}
-              onChange={e => setMax(Math.min(30, Math.max(1, parseInt(e.target.value) || 1)))}
+              onChange={e => setMax(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
               className="w-full px-2 py-2.5 rounded-lg bg-background border border-border focus:outline-none focus:border-purple-500 text-sm tabular-nums"
             />
           </div>
