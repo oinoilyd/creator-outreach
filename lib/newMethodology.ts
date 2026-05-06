@@ -26,6 +26,25 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
 
+// Emails at these domains are infrastructure / platform-owned, NOT
+// creator contact addresses. We hit these scraping creator-platform
+// profile pages (Patreon's own guidelines@patreon.com is the obvious
+// offender, but every creator-tooling domain has equivalents).
+const PLATFORM_DOMAINS = new Set([
+  'patreon.com', 'substack.com', 'beehiiv.com', 'ck.page',
+  'convertkit.com', 'mailchimp.com', 'gumroad.com', 'kajabi.com',
+  'teachable.com', 'thinkific.com', 'memberstack.com', 'circle.so',
+  'discord.com', 'discordapp.com', 'telegram.org',
+  'linktr.ee', 'beacons.ai', 'stan.store', 'campsite.bio',
+  'youtube.com', 'youtu.be', 'youtubei.googleapis.com',
+  'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
+  'tiktok.com', 'linkedin.com', 'snapchat.com', 'threads.net',
+  'shopify.com', 'wix.com', 'squarespace.com', 'wordpress.com',
+  'medium.com', 'cdninstagram.com', 'fbcdn.net',
+  'spotify.com', 'apple.com', 'soundcloud.com',
+  'stripe.com', 'paypal.com', 'square.com',
+])
+
 export interface MethodologyInput {
   channelId: string
   channelName: string
@@ -70,11 +89,17 @@ function extractEmails(text: string): string[] {
   return [...new Set(found.map(e => e.toLowerCase()))]
 }
 
-// Filter junk (image filenames misread as emails, etc.)
+// Filter junk (image filenames misread as emails, platform-owned infra
+// addresses, etc.)
 function isPlausibleEmail(email: string): boolean {
   if (email.length < 6 || email.length > 80) return false
   if (/\.(png|jpg|jpeg|gif|svg|webp|css|js)$/.test(email)) return false
   if (/^[0-9.@-]+$/.test(email)) return false
+  const domain = email.split('@')[1]?.toLowerCase()
+  if (!domain) return false
+  if (PLATFORM_DOMAINS.has(domain)) return false
+  // Common noreply patterns even on creator domains — useless for outreach
+  if (/^(no-?reply|donot-?reply|notifications?|alerts?|automated|system)@/i.test(email)) return false
   return true
 }
 
@@ -191,13 +216,21 @@ async function aiExtract(corpus: string): Promise<{ email: string; reasoning: st
       max_tokens: 200,
       messages: [{
         role: 'user',
-        content: `You're helping find a creator's contact email from public content they wrote. Below is text from their website, social bios, and video descriptions. Find the most likely **direct contact email** for them. Look for:
+        content: `You're helping find a creator's contact email from public content they wrote. Below is text from their website, social bios, and video descriptions. Find the most likely **direct contact email FOR THE CREATOR THEMSELVES**.
+
+Look for:
 - Direct addresses
 - Obfuscated forms ("info at domain dot com")
 - Phrases like "reach me at" / "DM me at" / "business inquiries"
 - Any pattern that's clearly a contact, even if formatted oddly
 
-Reply with strict JSON only — {"email": "address@domain.com", "reasoning": "1-line why"} or {"email": null, "reasoning": "1-line why nothing was found"}. Do not invent emails. Only return one if it's actually present in the text.
+DO NOT return:
+- Emails at platform/infrastructure domains (patreon.com, substack.com, mailchimp.com, beehiiv.com, ck.page, gumroad.com, etc.) — these are NEVER the creator's email, they're the platform's own contact addresses
+- Emails at social-network domains (linkedin.com, twitter.com, instagram.com, tiktok.com)
+- noreply@, notifications@, automated@, system@ style addresses
+- Generic catch-all emails on the platform (guidelines@patreon.com, support@substack.com, etc.)
+
+Reply with strict JSON only — {"email": "address@domain.com", "reasoning": "1-line why"} or {"email": null, "reasoning": "1-line why nothing was found"}. Do not invent emails. Only return one if it's actually present in the text AND is the creator's own contact.
 
 CONTENT:
 ${trimmed}`,
