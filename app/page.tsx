@@ -2211,6 +2211,108 @@ export default function Home() {
   const [outreachBulkRunning, setOutreachBulkRunning] = useState(false)
   const [resultsBulkRunning, setResultsBulkRunning] = useState(false)
 
+  async function seedTestData() {
+    if (!confirm('Add ~100 real creators to your Outreach with random statuses + dates? This calls the real /api/search endpoint. Cleanup later by deleting rows where notes = "[seed]".')) return
+    const keywords = ['fitness coach', 'cooking', 'gardening', 'tech founder', 'travel vlogger', 'gaming', 'finance content creator', 'photography']
+    toast.info(`Seeding ~100 creators across ${keywords.length} topics…`, { duration: 5000 })
+    let added = 0
+    const newEntries: OutreachEntry[] = []
+    const seenIds = new Set<string>(outreach.map(o => o.channelId))
+    const now = Date.now()
+
+    for (const kw of keywords) {
+      try {
+        const r = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=15&minViews=0&maxViews=999999999`)
+        if (!r.ok) continue
+        const data = await r.json()
+        const channels = (data.channels || []).slice(0, 14) as Creator[]
+        for (const c of channels) {
+          if (seenIds.has(c.channelId) || added >= 100) continue
+          seenIds.add(c.channelId)
+
+          // Distribute statuses + dates randomly with realistic spread
+          const r1 = Math.random()
+          const status: OutreachEntry['status'] =
+            r1 < 0.15 ? 'Not Outreached' :
+            r1 < 0.45 ? 'Open' :
+            r1 < 0.70 ? 'No Response' :
+            r1 < 0.85 ? 'Successful' : 'Rejected'
+
+          const tps = status === 'Not Outreached' ? 0 : Math.min(5, Math.floor(Math.random() * 6))
+          const reachedDaysAgo = Math.floor(Math.random() * 90)
+          const dateReachedOut = status === 'Not Outreached' ? '' : isoDaysFromNow(-reachedDaysAgo)
+
+          let followUpDate = ''
+          if (status === 'Open') {
+            const r2 = Math.random()
+            if (r2 < 0.20) followUpDate = isoDaysFromNow(-(1 + Math.floor(Math.random() * 10)))
+            else if (r2 < 0.30) followUpDate = todayIso()
+            else if (r2 < 0.65) followUpDate = isoDaysFromNow(1 + Math.floor(Math.random() * 7))
+            else followUpDate = isoDaysFromNow(8 + Math.floor(Math.random() * 30))
+          } else if (status === 'No Response') {
+            followUpDate = Math.random() < 0.5
+              ? isoDaysFromNow(-(1 + Math.floor(Math.random() * 14)))
+              : isoDaysFromNow(1 + Math.floor(Math.random() * 14))
+          }
+          const responseDate = (status === 'Successful' || status === 'Rejected')
+            ? isoDaysFromNow(-Math.floor(Math.random() * 30)) : ''
+
+          const dealValue = Math.random() > 0.70 ? `$${200 + Math.floor(Math.random() * 4800)}` : ''
+          const medium: OutreachEntry['medium'] = (() => {
+            const r3 = Math.random()
+            return r3 < 0.50 ? 'Email' : r3 < 0.80 ? 'LinkedIn' : r3 < 0.90 ? 'Other' : ''
+          })()
+
+          newEntries.push({
+            id: `${c.channelId}-seed-${now + added}`,
+            channelId: c.channelId,
+            channelName: c.channelName,
+            channelUrl: c.channelUrl,
+            description: c.description || '',
+            email: c.email || '',
+            product: '',
+            favorite: Math.random() < 0.20,
+            reachedOut: status !== 'Not Outreached',
+            medium,
+            mediumOther: '',
+            headerUsed: status === 'Not Outreached' ? '' : 'Quick question about your channel',
+            status,
+            addedAt: now - Math.floor(Math.random() * 120 * 86400000),
+            notes: '[seed]',
+            followUpDate,
+            dateReachedOut,
+            touchpoints: tps === 0 ? '' : String(tps),
+            responseDate,
+            subscribers: c.subscribers || '',
+            avgViews: c.avgViews || 0,
+            fitScore: 50 + Math.floor(Math.random() * 50),
+            linkedin: c.linkedin || '',
+            contentNiche: kw,
+            phone: '',
+            dealValue,
+            contractSent: status === 'Successful' && !!dealValue,
+            meetingScheduled: '',
+          })
+          added++
+        }
+      } catch (err) {
+        console.warn('[seedTestData] keyword failed:', kw, err)
+      }
+      if (added >= 100) break
+    }
+
+    if (newEntries.length === 0) {
+      toast.error('No creators found. Make sure search is working.')
+      return
+    }
+    const merged = [...newEntries, ...outreach]
+    await persistOutreach(merged)
+    const fresh = await getOutreach()
+    setOutreach(fresh)
+    setOutreachIds(new Set(fresh.map(e => e.channelId)))
+    toast.success(`Seeded ${newEntries.length} real creators 🎉`, { description: 'Statuses + dates + deal values randomized. Cleanup later by deleting rows with notes="[seed]".' })
+  }
+
   async function deepSearchAllOutreach() {
     const targets = outreach.filter(e => !e.email).map(e => e.id)
     if (targets.length === 0 || outreachBulkRunning) return
@@ -2697,6 +2799,7 @@ export default function Home() {
                 alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
                 if (result.ok) window.location.reload()
               }}
+              onSeedTestData={seedTestData}
             />
           </div>
         </div>
