@@ -234,6 +234,28 @@ export async function saveOutreachColConfig(config: OutreachColConfig[]): Promis
   await supabase.from('user_preferences').update({ outreach_col_config: config }).eq('user_id', uid)
 }
 
+// ── Custom analytics metrics ───────────────────────────────────────────────
+
+export async function getCustomMetrics(): Promise<import('./types').CustomMetric[]> {
+  const uid = await userId()
+  if (!uid) return []
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('user_preferences')
+    .select('custom_metrics')
+    .eq('user_id', uid)
+    .single()
+  const arr = data?.custom_metrics
+  return Array.isArray(arr) ? arr as import('./types').CustomMetric[] : []
+}
+
+export async function saveCustomMetrics(metrics: import('./types').CustomMetric[]): Promise<void> {
+  const uid = await userId()
+  if (!uid) return
+  const supabase = createClient()
+  await supabase.from('user_preferences').update({ custom_metrics: metrics }).eq('user_id', uid)
+}
+
 // ── Per-platform scoring state (read-modify-write on platform_state JSONB) ──
 
 async function getPlatformState(uid: string): Promise<Record<string, { weights?: ScoreWeights; narrative?: string; guidance?: GuidanceEntry[] }>> {

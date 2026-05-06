@@ -40,11 +40,13 @@ import { ProfileModal } from '@/components/ProfileModal'
 import { MigrationPromptModal } from '@/components/MigrationPromptModal'
 import { ImportOutreachModal } from '@/components/ImportOutreachModal'
 import { ImportDismissedModal } from '@/components/ImportDismissedModal'
+import { CustomMetricModal } from '@/components/CustomMetricModal'
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,
   saveColConfig,
   getOutreachColConfig, saveOutreachColConfig,
+  getCustomMetrics, saveCustomMetrics,
   savePlatformWeights, savePlatformNarrative,
   savePlatformGuidance, clearPlatformGuidance,
   loadPlatformState,
@@ -480,7 +482,12 @@ function OutreachSubTabs({ active, onChange, favCount }: {
   )
 }
 
-function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
+function OutreachAnalytics({ entries, customMetrics, onEditMetric, onAddMetric }: {
+  entries: OutreachEntry[]
+  customMetrics: import('@/lib/types').CustomMetric[]
+  onEditMetric: (m: import('@/lib/types').CustomMetric) => void
+  onAddMetric: () => void
+}) {
   if (entries.length === 0) {
     return (
       <div className="border border-dashed border-gray-800 rounded-xl py-16 px-6 text-center">
@@ -626,8 +633,97 @@ function OutreachAnalytics({ entries }: { entries: OutreachEntry[] }) {
           )}
         </div>
       </div>
+
+      {/* Custom metrics */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-semibold text-white">My metrics</div>
+          <button
+            onClick={onAddMetric}
+            className="text-xs text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded-md px-3 py-1.5 transition-colors"
+          >
+            + Add metric
+          </button>
+        </div>
+        {customMetrics.length === 0 ? (
+          <div className="border border-dashed border-gray-800 rounded-xl py-8 px-6 text-center text-xs text-gray-500">
+            Define your own metrics — e.g. "LinkedIn responses" or "Pipeline $ for favorites only".
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {customMetrics.map(m => (
+              <CustomMetricCard key={m.id} metric={m} entries={entries} onEdit={() => onEditMetric(m)} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
+}
+
+function CustomMetricCard({ metric, entries, onEdit }: {
+  metric: import('@/lib/types').CustomMetric
+  entries: OutreachEntry[]
+  onEdit: () => void
+}) {
+  const value = computeMetric(metric, entries)
+  return (
+    <div className="group relative bg-gray-900/40 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors">
+      <button
+        onClick={onEdit}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white text-xs px-1.5 py-0.5 transition-opacity"
+        title="Edit"
+      >
+        ✎
+      </button>
+      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5 truncate" title={metric.label}>{metric.label}</div>
+      <div className="text-2xl font-bold text-white tabular-nums">{value}</div>
+      <div className="text-[11px] text-gray-500 mt-1 capitalize">{metric.type === 'sum' && metric.sumField ? `Σ ${metric.sumField}` : metric.type}</div>
+    </div>
+  )
+}
+
+function matchesMetricFilter(e: OutreachEntry, f: import('@/lib/types').MetricFilter): boolean {
+  const reachedOut = e.status !== 'Not Outreached' && e.status !== ''
+  if (f.status !== 'any' && e.status !== f.status) return false
+  if (f.medium !== 'any' && e.medium !== f.medium) return false
+  if (f.hasEmail === 'yes' && !e.email) return false
+  if (f.hasEmail === 'no' && !!e.email) return false
+  if (f.hasLinkedin === 'yes' && !e.linkedin) return false
+  if (f.hasLinkedin === 'no' && !!e.linkedin) return false
+  if (f.favorite === 'yes' && !e.favorite) return false
+  if (f.favorite === 'no' && e.favorite) return false
+  if (f.reachedOut === 'yes' && !reachedOut) return false
+  if (f.reachedOut === 'no' && reachedOut) return false
+  if (f.window === 'last7' && e.addedAt < Date.now() - 7 * 86_400_000) return false
+  if (f.window === 'last30' && e.addedAt < Date.now() - 30 * 86_400_000) return false
+  return true
+}
+
+function computeMetric(m: import('@/lib/types').CustomMetric, entries: OutreachEntry[]): string {
+  const num = entries.filter(e => matchesMetricFilter(e, m.filter))
+  if (m.type === 'count') {
+    return num.length.toLocaleString()
+  }
+  if (m.type === 'percentage') {
+    const denom = entries.filter(e => matchesMetricFilter(e, m.denomFilter || m.filter))
+    if (denom.length === 0) return '—'
+    return `${Math.round((num.length / denom.length) * 100)}%`
+  }
+  if (m.type === 'sum') {
+    const total = num.reduce((s, e) => {
+      const f = m.sumField
+      let v = 0
+      if (f === 'dealValue') v = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
+      else if (f === 'avgViews') v = e.avgViews || 0
+      else if (f === 'fitScore') v = e.fitScore || 0
+      else if (f === 'touchpoints') v = parseFloat(String(e.touchpoints || '').replace(/[^0-9.]/g, '')) || 0
+      return s + (isFinite(v) ? v : 0)
+    }, 0)
+    if (m.sumField === 'dealValue') return total > 0 ? `$${total.toLocaleString()}` : '—'
+    return total > 0 ? total.toLocaleString() : '—'
+  }
+  return '—'
 }
 
 function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
@@ -1010,6 +1106,9 @@ export default function Home() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [activeTab, setActiveTab] = useState<ActiveTab>('results')
   const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics'>('all')
+  const [customMetrics, setCustomMetrics] = useState<import('@/lib/types').CustomMetric[]>([])
+  const [editingMetric, setEditingMetric] = useState<import('@/lib/types').CustomMetric | null>(null)
+  const [showAddMetric, setShowAddMetric] = useState(false)
   const [outreach, setOutreach] = useState<OutreachEntry[]>([])
   const [outreachIds, setOutreachIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -1167,6 +1266,9 @@ export default function Home() {
         setOutreachColConfig(merged)
         setDraftOutreachCols(merged)
       }
+
+      const storedMetrics = await getCustomMetrics()
+      setCustomMetrics(storedMetrics)
 
       const storedDismissed = await getDismissed()
       setDismissed(storedDismissed)
@@ -1966,7 +2068,12 @@ export default function Home() {
           <>
             <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} />
             {outreachSubTab === 'analytics' ? (
-              <OutreachAnalytics entries={outreach} />
+              <OutreachAnalytics
+                entries={outreach}
+                customMetrics={customMetrics}
+                onAddMetric={() => setShowAddMetric(true)}
+                onEditMetric={(m) => setEditingMetric(m)}
+              />
             ) : (
               <OutreachTab
                 entries={outreachSubTab === 'favorites' ? outreach.filter(e => e.favorite) : outreach}
@@ -2130,6 +2237,24 @@ export default function Home() {
             setShowImportDismissed(false)
           }}
           onClose={() => setShowImportDismissed(false)}
+        />
+      )}
+
+      {(showAddMetric || editingMetric) && (
+        <CustomMetricModal
+          initial={editingMetric ?? undefined}
+          onSave={async (m) => {
+            const exists = customMetrics.some(x => x.id === m.id)
+            const next = exists ? customMetrics.map(x => x.id === m.id ? m : x) : [...customMetrics, m]
+            setCustomMetrics(next)
+            await saveCustomMetrics(next)
+          }}
+          onDelete={editingMetric ? async () => {
+            const next = customMetrics.filter(x => x.id !== editingMetric.id)
+            setCustomMetrics(next)
+            await saveCustomMetrics(next)
+          } : undefined}
+          onClose={() => { setShowAddMetric(false); setEditingMetric(null) }}
         />
       )}
     </main>

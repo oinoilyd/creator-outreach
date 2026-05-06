@@ -146,3 +146,43 @@ export interface UserProfile {
   linkedinUrl: string
   pitchLine: string
 }
+
+// ── Custom analytics metrics (Outreach > Analytics tab) ─────────────────────
+
+export type MetricStatusFilter = 'any' | 'Not Outreached' | 'Open' | 'Successful' | 'Rejected' | 'No Response'
+export type MetricMediumFilter = 'any' | 'Email' | 'LinkedIn' | 'Other'
+export type MetricTristate = 'any' | 'yes' | 'no'
+export type MetricWindow = 'all' | 'last7' | 'last30'
+export type MetricSumField = 'dealValue' | 'avgViews' | 'fitScore' | 'touchpoints'
+
+export interface MetricFilter {
+  status: MetricStatusFilter
+  medium: MetricMediumFilter
+  hasEmail: MetricTristate
+  hasLinkedin: MetricTristate
+  favorite: MetricTristate
+  reachedOut: MetricTristate
+  window: MetricWindow
+}
+
+export interface CustomMetric {
+  id: string
+  label: string
+  type: 'count' | 'percentage' | 'sum'
+  // For 'count' and 'sum'
+  filter: MetricFilter
+  // For 'percentage' only — denominator filter (numerator uses `filter`)
+  denomFilter?: MetricFilter
+  // For 'sum' only — which numeric field to sum
+  sumField?: MetricSumField
+}
+
+export const EMPTY_METRIC_FILTER: MetricFilter = {
+  status: 'any',
+  medium: 'any',
+  hasEmail: 'any',
+  hasLinkedin: 'any',
+  favorite: 'any',
+  reachedOut: 'any',
+  window: 'all',
+}
