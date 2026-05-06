@@ -12,6 +12,7 @@ import { computeMetric, metricTypeLabel, SUGGESTED_METRICS } from '@/lib/metrics
 import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
 import { NumberTicker } from '@/components/NumberTicker'
+import { AnimatedTabs } from '@/components/AnimatedTabs'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS,
   pickRandom, formatSubscribers, parseRelativeDays, buildOutreachEmail,
@@ -622,27 +623,22 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
   favCount: number
   dueCount: number
 }) {
-  const tabs: { id: 'all' | 'favorites' | 'analytics' | 'followups'; label: React.ReactNode }[] = [
+  type SubTabId = 'all' | 'favorites' | 'analytics' | 'followups'
+  const tabs: { id: SubTabId; label: React.ReactNode }[] = [
     { id: 'all', label: 'All' },
     { id: 'favorites', label: <>★ Favorites {favCount > 0 && <span className="ml-1 text-yellow-400/70">({favCount})</span>}</> },
     { id: 'followups', label: <>⏰ Follow-ups {dueCount > 0 && <span className="ml-1 text-red-400/80">({dueCount})</span>}</> },
     { id: 'analytics', label: '📊 Analytics' },
   ]
   return (
-    <div className="flex gap-1 mb-4 border-b border-border pb-2">
-      {tabs.map(t => (
-        <button
-          key={t.id}
-          onClick={() => onChange(t.id)}
-          className={`px-3.5 py-1.5 text-xs font-medium rounded-full transition-colors ${
-            active === t.id
-              ? 'bg-muted text-foreground border border-border'
-              : 'text-muted-foreground hover:text-foreground border border-transparent'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className="mb-4 border-b border-border pb-2">
+      <AnimatedTabs<SubTabId>
+        layoutGroup="outreach-subtabs"
+        variant="pill"
+        tabs={tabs}
+        active={active}
+        onChange={onChange}
+      />
     </div>
   )
 }
@@ -1008,13 +1004,19 @@ function FUStat({ label, value, accent, sub }: {
     red: 'border-red-500/30', yellow: 'border-yellow-500/30', blue: 'border-border',
     green: 'border-emerald-500/30', gray: 'border-border',
   }[accent]
+  const accentGlow = {
+    red: 'before:bg-red-500/[0.04]', yellow: 'before:bg-yellow-500/[0.04]',
+    blue: 'before:bg-transparent', green: 'before:bg-emerald-500/[0.04]', gray: 'before:bg-transparent',
+  }[accent]
   return (
-    <div className={`bg-card/40 border ${accentBorder} rounded-xl p-4`}>
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
-      <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
-        {typeof value === 'number' ? <NumberTicker value={value} /> : value}
+    <div className={`relative bg-card/60 border ${accentBorder} rounded-xl p-4 shadow-sm shadow-black/5 overflow-hidden before:absolute before:inset-0 before:pointer-events-none ${accentGlow} hover:border-border/80 transition-colors`}>
+      <div className="relative">
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
+        <div className={`text-2xl font-bold tabular-nums ${accentText}`}>
+          {typeof value === 'number' ? <NumberTicker value={value} /> : value}
+        </div>
+        {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
       </div>
-      {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
     </div>
   )
 }
@@ -1080,7 +1082,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
   const snoozeDays = nextFollowUpDays(tps)
 
   return (
-    <div className="group/row bg-card/40 border border-white/5 hover:border-white/10 rounded-lg transition-colors">
+    <div className="group/row bg-card/40 border border-border hover:border-border/80 hover:bg-card/60 rounded-lg transition-all hover:shadow-md hover:shadow-black/5">
       <div className="flex items-center gap-3 px-3 py-2">
         {/* Avatar */}
         <div className="relative shrink-0">
@@ -1426,7 +1428,7 @@ function CustomMetricCard({ metric, entries }: {
 
 function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`bg-card/40 border rounded-xl p-4 ${highlight ? 'border-red-500/40' : 'border-border'}`}>
+    <div className={`relative bg-card/60 border rounded-xl p-4 shadow-sm shadow-black/5 hover:border-border/80 transition-colors ${highlight ? 'border-red-500/40' : 'border-border'}`}>
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
       <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-400' : 'text-foreground'}`}>
         {typeof value === 'number' ? <NumberTicker value={value} /> : value}
@@ -2899,17 +2901,25 @@ export default function Home() {
 
         {/* Tabs + Customize */}
         <div className="flex items-center mb-4 border-b border-border">
-          <div className="flex gap-1">
-            <button onClick={() => setActiveTab('results')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'results' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}>
-              Results {currentList.length > 0 && <span className="ml-1 text-xs text-muted-foreground">({currentList.length}{currentList.length !== creators.length ? ` of ${creators.length}` : ''})</span>}
-            </button>
-            <button onClick={() => setActiveTab('outreach')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'outreach' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}>
-              Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}
-            </button>
-            <button onClick={() => setActiveTab('dismissed')} className={`px-5 py-2 text-sm font-medium rounded-t transition-colors ${activeTab === 'dismissed' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}>
-              Dismissed {dismissed.length > 0 && <span className="ml-1 text-xs text-red-400">({dismissed.length})</span>}
-            </button>
-          </div>
+          <AnimatedTabs<ActiveTab>
+            layoutGroup="main-tabs"
+            tabs={[
+              {
+                id: 'results',
+                label: <>Results {currentList.length > 0 && <span className="ml-1 text-xs text-muted-foreground">({currentList.length}{currentList.length !== creators.length ? ` of ${creators.length}` : ''})</span>}</>,
+              },
+              {
+                id: 'outreach',
+                label: <>Outreach {outreach.length > 0 && <span className="ml-1 text-xs text-purple-400">({outreach.length})</span>}</>,
+              },
+              {
+                id: 'dismissed',
+                label: <>Dismissed {dismissed.length > 0 && <span className="ml-1 text-xs text-red-400">({dismissed.length})</span>}</>,
+              },
+            ]}
+            active={activeTab}
+            onChange={setActiveTab}
+          />
           <button
             onClick={() => {
               const draft = activePlatform === 'youtube'
