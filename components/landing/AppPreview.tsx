@@ -1,16 +1,29 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ResultsPreview } from './ResultsPreview'
+import { FollowUpsPreview } from './FollowUpsPreview'
+import { AnalyticsPreview } from './AnalyticsPreview'
 
-// Stylized "screenshot" of the Follow-ups dashboard — the most
-// distinctive view of the product. Shows the smart cadence + priority
-// queue rather than a generic data table.
+type View = 'results' | 'followups' | 'analytics'
+
+const VIEWS: { id: View; label: string; sub: string }[] = [
+  { id: 'results',    label: 'Results',    sub: 'Discover the right creators' },
+  { id: 'followups',  label: 'Follow-ups', sub: 'Stay on top of every lead' },
+  { id: 'analytics',  label: 'Analytics',  sub: 'See what is actually working' },
+]
+
 export function AppPreview() {
-  const high = [
-    { name: 'FitForge', stage: 'Second follow-up', tps: 2, late: '2d late', dotColor: 'bg-red-500', dealValue: 1200, fit: 87 },
-    { name: 'Lens & Light', stage: 'First follow-up', tps: 1, late: '4d late', dotColor: 'bg-red-500', dealValue: 800, fit: 81 },
-  ]
-  const medium = { name: 'Solo Dev Diaries', stage: 'First follow-up', tps: 1, late: 'in 3d', dotColor: 'bg-blue-500', dealValue: 500, fit: 76 }
+  const [idx, setIdx] = useState(0)
+  const [direction, setDirection] = useState<1 | -1>(1)
+  const view = VIEWS[idx]
+
+  function go(delta: number) {
+    setDirection(delta > 0 ? 1 : -1)
+    setIdx(i => (i + delta + VIEWS.length) % VIEWS.length)
+  }
 
   return (
     <motion.div
@@ -22,173 +35,62 @@ export function AppPreview() {
       {/* Outer glow */}
       <div className="absolute inset-x-0 -inset-y-6 bg-gradient-to-r from-purple-600/30 via-blue-600/20 to-pink-600/20 blur-3xl pointer-events-none" />
 
-      <div className="relative rounded-2xl border border-white/10 bg-gray-900/85 backdrop-blur-xl shadow-2xl overflow-hidden">
-        {/* Browser chrome */}
-        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/5">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
-          <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/70" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/70" />
-          <div className="ml-3 flex-1 max-w-sm rounded-md bg-black/30 border border-white/5 text-[11px] text-gray-500 px-2.5 py-1 truncate">
-            creatoroutreach.net / outreach
-          </div>
-        </div>
-
-        {/* Top tabs */}
-        <div className="flex items-center gap-1 px-4 pt-2.5 border-b border-white/5">
-          <Tab label="Results" />
-          <Tab label="Outreach" count={47} active />
-          <Tab label="Dismissed" />
-        </div>
-
-        {/* Sub-tabs */}
-        <div className="flex gap-1 px-4 py-2 border-b border-white/5">
-          {[
-            { label: 'All' },
-            { label: '★ Favorites' },
-            { label: '⏰ Follow-ups', active: true, badge: 3 },
-            { label: '📊 Analytics' },
-          ].map((t) => (
-            <span
-              key={t.label}
-              className={`text-[11px] px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${
-                t.active ? 'bg-gray-700/60 text-white border border-white/10' : 'text-gray-500'
-              }`}
+      {/* Carousel */}
+      <div className="relative">
+        <div className="relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view.id}
+              initial={{ opacity: 0, x: direction * 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction * -24 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
             >
-              {t.label}
-              {t.badge && <span className="text-red-400/90 text-[10px]">({t.badge})</span>}
-            </span>
+              {view.id === 'results' && <ResultsPreview />}
+              {view.id === 'followups' && <FollowUpsPreview />}
+              {view.id === 'analytics' && <AnalyticsPreview />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Prev arrow */}
+        <button
+          onClick={() => go(-1)}
+          aria-label="Previous view"
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-full w-10 h-10 rounded-full bg-gray-900/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-gray-900 text-gray-300 hover:text-white flex items-center justify-center transition-colors shadow-xl"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+
+        {/* Next arrow */}
+        <button
+          onClick={() => go(1)}
+          aria-label="Next view"
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-full w-10 h-10 rounded-full bg-gray-900/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-gray-900 text-gray-300 hover:text-white flex items-center justify-center transition-colors shadow-xl"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Pagination dots + label */}
+      <div className="flex items-center justify-center gap-3 mt-6">
+        <div className="flex gap-1.5">
+          {VIEWS.map((v, i) => (
+            <button
+              key={v.id}
+              onClick={() => { setDirection(i > idx ? 1 : -1); setIdx(i) }}
+              aria-label={`Show ${v.label}`}
+              className={`h-1.5 rounded-full transition-all ${
+                i === idx ? 'w-8 bg-white' : 'w-1.5 bg-white/20 hover:bg-white/40'
+              }`}
+            />
           ))}
         </div>
-
-        <div className="p-4">
-          {/* Headline */}
-          <p className="text-[13px] text-gray-300 mb-3">
-            <span className="text-red-300 font-medium">3 high priority</span>
-            <span className="text-gray-500"> · </span>
-            <span className="text-yellow-300">2 medium</span>
-            <span className="text-gray-500"> need your attention.</span>
-          </p>
-
-          {/* Stat cards */}
-          <div className="grid grid-cols-4 gap-2.5 mb-5">
-            <MiniStat label="High priority" value="3" tone="red" sub="40% of queue" />
-            <MiniStat label="Medium" value="2" tone="yellow" sub="due this week" />
-            <MiniStat label="At-risk $" value="$2k" tone="red" sub="3 leads" />
-            <MiniStat label="Pipeline $" value="$14.2k" tone="green" sub="7 active · 11 touches" />
-          </div>
-
-          {/* High priority section */}
-          <div className="mb-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-base">🔥</span>
-              <span className="text-[12px] font-semibold text-red-300">High priority</span>
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-px rounded-full border border-red-500/40 text-red-300">
-                {high.length}
-              </span>
-              <span className="text-[10px] text-gray-500 ml-1">· overdue or due today</span>
-            </div>
-            <div className="space-y-1.5">
-              {high.map((r, i) => (
-                <FollowUpRow key={r.name} row={r} delay={0.9 + i * 0.08} bucket="high" />
-              ))}
-            </div>
-          </div>
-
-          {/* Medium priority section preview (just one row to imply more) */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-base">📅</span>
-              <span className="text-[12px] font-semibold text-yellow-300">Medium priority</span>
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-px rounded-full border border-yellow-500/40 text-yellow-300">
-                2
-              </span>
-            </div>
-            <FollowUpRow row={medium} delay={1.1} bucket="medium" />
-          </div>
-        </div>
       </div>
-    </motion.div>
-  )
-}
-
-function Tab({ label, count, active }: { label: string; count?: number; active?: boolean }) {
-  return (
-    <span
-      className={`relative px-3 py-2 text-[11px] font-medium transition-colors ${
-        active ? 'text-white' : 'text-gray-500'
-      }`}
-    >
-      {label}
-      {count != null && <span className="ml-1 text-purple-300">({count})</span>}
-      {active && <span className="absolute left-3 right-3 -bottom-px h-0.5 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full" />}
-    </span>
-  )
-}
-
-function MiniStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: 'red' | 'yellow' | 'green' }) {
-  const valueColor = tone === 'red' ? 'text-red-300' : tone === 'yellow' ? 'text-yellow-300' : 'text-emerald-300'
-  const borderColor = tone === 'red' ? 'border-red-500/30' : tone === 'yellow' ? 'border-yellow-500/30' : 'border-emerald-500/30'
-  return (
-    <div className={`bg-white/5 border ${borderColor} rounded-lg p-2.5`}>
-      <div className="text-[9px] uppercase tracking-wider text-gray-500 mb-0.5">{label}</div>
-      <div className={`text-base font-bold tabular-nums ${valueColor}`}>{value}</div>
-      <div className="text-[9px] text-gray-500 mt-0.5 truncate">{sub}</div>
-    </div>
-  )
-}
-
-function FollowUpRow({ row, delay, bucket }: {
-  row: { name: string; stage: string; tps: number; late: string; dotColor: string; dealValue: number; fit: number }
-  delay: number
-  bucket: 'high' | 'medium'
-}) {
-  const initials = row.name.split(/\s+/).slice(0, 2).map(s => s[0]).join('')
-  const datePillClass = bucket === 'high'
-    ? 'bg-red-500/15 text-red-300 border-red-500/40'
-    : 'bg-blue-500/10 text-blue-300 border-blue-500/30'
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="flex items-center gap-3 bg-gray-900/40 border border-white/5 rounded-lg px-3 py-2"
-    >
-      {/* Avatar */}
-      <div className="relative shrink-0">
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">
-          {initials}
-        </div>
-        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${row.dotColor}`} />
-      </div>
-
-      {/* Identity + stage */}
-      <div className="flex-1 min-w-0">
-        <div className="text-[12px] font-medium text-white truncate">{row.name}</div>
-        <div className="text-[10px] text-gray-500 truncate">
-          <span className="text-gray-300">{row.stage}</span>
-          <span> · {row.tps} touch{row.tps === 1 ? '' : 'es'}</span>
-        </div>
-      </div>
-
-      {/* Deal value */}
-      <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
-        ${row.dealValue}
-      </span>
-
-      {/* Date pill */}
-      <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${datePillClass}`}>
-        {row.late}
-      </span>
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-1 shrink-0">
-        <span className="text-[10px] font-medium text-purple-200 bg-purple-600/30 border border-purple-500/40 rounded px-2 py-0.5">
-          Followed up
-        </span>
-        <span className="w-5 h-5 flex items-center justify-center text-gray-500 border border-white/10 rounded text-[9px]">
-          ⌛
-        </span>
+      <div className="text-center mt-3 text-[12px] text-gray-400">
+        <span className="text-gray-200 font-medium">{view.label}</span>
+        <span className="text-gray-600 mx-1.5">·</span>
+        <span>{view.sub}</span>
       </div>
     </motion.div>
   )

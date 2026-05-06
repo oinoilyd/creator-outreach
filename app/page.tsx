@@ -958,51 +958,42 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
   const snoozeDays = nextFollowUpDays(tps)
 
   return (
-    <div className="bg-gray-900/40 border border-gray-800 rounded-xl hover:border-gray-700 transition-colors">
-      <div className="flex items-center gap-3 p-3">
+    <div className="group/row bg-gray-900/40 border border-white/5 hover:border-white/10 rounded-lg transition-colors">
+      <div className="flex items-center gap-3 px-3 py-2">
         {/* Avatar */}
         <div className="relative shrink-0">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 text-white text-xs font-semibold flex items-center justify-center">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">
             {initials}
           </div>
-          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-gray-900 ${dotColor}`} title={e.status} />
+          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${dotColor}`} title={e.status} />
         </div>
 
-        {/* Identity + stage */}
+        {/* Identity + stage. Click to open detail modal. */}
         <button onClick={() => onOpen(e.id)} className="flex-1 min-w-0 text-left" title="Open lead details">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white truncate">{e.channelName}</span>
+            <span className="text-[12px] font-medium text-white truncate">{e.channelName}</span>
             {e.favorite && <span className="text-[10px] text-yellow-400 shrink-0">★</span>}
             {e.email && <span className="text-[10px] text-emerald-400/80 shrink-0" title="Has email">✉</span>}
-            {e.linkedin && <span className="text-[10px] text-blue-400/80 shrink-0" title="Has LinkedIn">in</span>}
+            {e.linkedin && <span className="text-[10px] font-bold text-blue-300 shrink-0" title="Has LinkedIn">in</span>}
           </div>
-          <div className="text-[11px] text-gray-500 mt-0.5 truncate">
+          <div className="text-[10px] text-gray-500 truncate">
             <span className="text-gray-300">{stageHint}</span>
-            {e.dateReachedOut && <span> · last reach {daysAgo(e.dateReachedOut)} ago</span>}
+            {e.dateReachedOut && <span> · reached {daysAgo(e.dateReachedOut)} ago</span>}
             {e.medium && <span> · via {e.medium}</span>}
           </div>
         </button>
 
-        {/* Pipeline value */}
+        {/* Pipeline value chip */}
         {dealValue > 0 && (
-          <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0" title="Deal value">
+          <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0" title="Deal value">
             ${dealValue.toLocaleString()}
           </span>
         )}
 
         {/* Date pill */}
-        <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border shrink-0 ${datePillClass}`}>
+        <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${datePillClass}`}>
           {dateLabel}
         </span>
-
-        {/* Date editor — small, inline */}
-        <input
-          type="date"
-          value={e.followUpDate || ''}
-          onChange={ev => onUpdate(e.id, 'followUpDate', ev.target.value)}
-          title="Edit follow-up date"
-          className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-purple-500 shrink-0"
-        />
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
@@ -1011,43 +1002,49 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
               <button
                 onClick={() => onUpdate(e.id, 'status', 'Open')}
                 title="Re-engage — moves back to active queue with a fresh date"
-                className="text-[11px] font-medium text-purple-200 hover:text-white bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2.5 py-1 transition-colors"
+                className="text-[10px] font-medium text-purple-200 hover:text-white bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
               >
                 Re-engage
               </button>
               <button
                 onClick={() => onUpdate(e.id, 'status', 'Rejected')}
                 title="Confirm dead lead"
-                className="w-7 h-7 flex items-center justify-center text-red-400 hover:text-white border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
+                className="w-5 h-5 flex items-center justify-center text-[10px] text-red-400 hover:text-white border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
               >✕</button>
             </>
           ) : (
             <>
+              {/* Primary action — always visible */}
               <button
                 onClick={() => onMarkFollowedUp(e)}
                 title={`Bumps to touch ${tps + 1} · auto-pushes date ${nextFollowUpDays(tps + 1)}d out`}
-                className="text-[11px] font-medium text-purple-200 hover:text-white bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2.5 py-1 transition-colors"
+                className="text-[10px] font-medium text-purple-200 hover:text-white bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
               >
                 Followed up
               </button>
+              {/* Snooze — always visible, icon only */}
               <button
                 onClick={() => onSnooze(e, snoozeDays)}
                 title={`Snooze ${snoozeDays}d (next cadence step)`}
-                className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition-colors"
+                className="w-5 h-5 flex items-center justify-center text-gray-500 hover:text-white border border-white/10 hover:border-white/30 rounded transition-colors"
+                aria-label="Snooze"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </button>
-              <button
-                onClick={() => onUpdate(e.id, 'status', 'Successful')}
-                title="They said yes"
-                className="w-7 h-7 flex items-center justify-center text-emerald-400 hover:text-white border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500 rounded transition-colors"
-              >✓</button>
-              <button
-                onClick={() => onUpdate(e.id, 'status', 'No Response')}
-                title="Ghost — move to No Response queue"
-                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition-colors"
-                aria-label="Ghost"
-              >👻</button>
+              {/* Secondary actions — hover-revealed for cleaner default look */}
+              <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                <button
+                  onClick={() => onUpdate(e.id, 'status', 'Successful')}
+                  title="They said yes"
+                  className="w-5 h-5 flex items-center justify-center text-[10px] text-emerald-400 hover:text-white border border-emerald-500/30 hover:bg-emerald-600/30 hover:border-emerald-500 rounded transition-colors"
+                >✓</button>
+                <button
+                  onClick={() => onUpdate(e.id, 'status', 'No Response')}
+                  title="Ghost — move to No Response queue"
+                  className="w-5 h-5 flex items-center justify-center text-[10px] text-gray-500 hover:text-white border border-white/10 hover:border-white/30 rounded transition-colors"
+                  aria-label="Ghost"
+                >👻</button>
+              </div>
             </>
           )}
         </div>
