@@ -117,6 +117,61 @@ function extractEmails(text: string): string[] {
   return [...new Set(found.map(e => e.toLowerCase()))]
 }
 
+// Decode Cloudflare's "Email Address Obfuscation" — a default-on
+// feature that replaces every email on a site with a hex-encoded
+// blob in `data-cfemail`. The first byte is the XOR key; remaining
+// bytes are each XOR'd against it to reconstruct the address.
+// This catches emails that are visible to a human in the footer
+// but invisible to plain-HTML scrapers.
+function decodeCfEmail(encoded: string): string {
+  if (!/^[0-9a-f]+$/i.test(encoded) || encoded.length < 4 || encoded.length % 2 !== 0) return ''
+  const key = parseInt(encoded.slice(0, 2), 16)
+  let result = ''
+  for (let i = 2; i < encoded.length; i += 2) {
+    const code = parseInt(encoded.slice(i, i + 2), 16) ^ key
+    result += String.fromCharCode(code)
+  }
+  return result
+}
+
+// Three-pass email extraction from raw HTML:
+//  1. Plain regex over the full HTML (catches text + most attribute values)
+//  2. mailto: href sweep — covers cases where the email lives only in
+//     <a href="mailto:..."> with non-email link text ('Contact us')
+//  3. Cloudflare data-cfemail decoding — see decodeCfEmail above
+// Used in lieu of plain extractEmails() anywhere we're scraping HTML.
+function extractEmailsFromHtml(html: string): string[] {
+  if (!html) return []
+  const out = new Set<string>()
+
+  // Pass 1: standard regex
+  for (const e of html.match(EMAIL_RE) || []) {
+    out.add(e.toLowerCase())
+  }
+
+  // Pass 2: mailto: hrefs
+  for (const m of html.matchAll(/mailto:([^"'?#\s>]+)/gi)) {
+    try {
+      const decoded = decodeURIComponent(m[1]).toLowerCase()
+      if (decoded.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(decoded)) {
+        out.add(decoded)
+      }
+    } catch {
+      // Malformed URI escape — skip
+    }
+  }
+
+  // Pass 3: Cloudflare obfuscation
+  for (const m of html.matchAll(/data-cfemail=["']([0-9a-fA-F]+)["']/g)) {
+    const decoded = decodeCfEmail(m[1]).toLowerCase()
+    if (decoded.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(decoded)) {
+      out.add(decoded)
+    }
+  }
+
+  return [...out]
+}
+
 // Filter junk (image filenames misread as emails, platform-owned infra
 // addresses, hash-shaped DSN local parts, etc.)
 function isPlausibleEmail(email: string): boolean {
@@ -138,6 +193,29 @@ function isPlausibleEmail(email: string): boolean {
   if (/^(no-?reply|donot-?reply|notifications?|alerts?|automated|system)$/i.test(local)) return false
 
   return true
+}
+
+// ---------- Method 0: Creator website with enhanced extraction ----------
+// Re-fetches a few core paths of the creator's site and runs the
+// HTML-aware extractor (Cloudflare decode + mailto: sweep + plain
+// regex) — catches the cases where the email IS in the footer but
+// the production pipeline missed it because the address was hidden
+// by Cloudflare's email-protection feature or was only present in
+// a mailto: href attribute (not the visible text).
+async function fromCreatorWebsiteEnhanced(website: string): Promise<string[]> {
+  if (!website) return []
+  const base = website.startsWith('http') ? website : `https://${website}`
+  const root = base.replace(/\/$/, '')
+  const paths = [
+    '', '/contact', '/about', '/contact-us', '/get-in-touch',
+    '/work-with-me', '/say-hi', '/booking', '/connect',
+  ]
+  const fetches = await Promise.all(paths.map(p => safeFetch(root + p, 4000)))
+  const all = new Set<string>()
+  for (const html of fetches) {
+    for (const e of extractEmailsFromHtml(html)) all.add(e)
+  }
+  return [...all]
 }
 
 // ---------- Method 1: Recent video descriptions ----------
@@ -302,11 +380,12 @@ ${trimmed}`,
 // ---------- Orchestrator ----------
 export async function newMethodology(input: MethodologyInput): Promise<MethodologyOutput> {
   // Run independent sources in parallel
-  const [videoDescs, sitemapHtmls, platformHtmls, communityChunks] = await Promise.all([
+  const [videoDescs, sitemapHtmls, platformHtmls, communityChunks, websiteEmails] = await Promise.all([
     recentVideoDescriptions(input.channelId),
     input.website ? fromSitemap(input.website) : Promise.resolve<string[]>([]),
     fromCreatorPlatforms(input),
     fromCommunityTab(input.channelId),
+    input.website ? fromCreatorWebsiteEnhanced(input.website) : Promise.resolve<string[]>([]),
   ])
 
   const hits: MethodologyHit[] = []
@@ -321,10 +400,14 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
     }
   }
 
+  // Plain text sources stay on extractEmails; HTML sources go through
+  // the three-pass extractor so Cloudflare-obfuscated and mailto-only
+  // addresses get pulled out.
   for (const d of videoDescs) tryAdd(extractEmails(d), 'video_description', 'in a recent video description')
-  for (const html of sitemapHtmls) tryAdd(extractEmails(html), 'sitemap_page', 'on a sitemap-discovered page')
-  for (const html of platformHtmls) tryAdd(extractEmails(html), 'creator_platform', 'on Substack/Patreon/etc. profile')
+  for (const html of sitemapHtmls) tryAdd(extractEmailsFromHtml(html), 'sitemap_page', 'on a sitemap-discovered page')
+  for (const html of platformHtmls) tryAdd(extractEmailsFromHtml(html), 'creator_platform', 'on Substack/Patreon/etc. profile')
   for (const c of communityChunks) tryAdd(extractEmails(c), 'community_post', 'in a Community-tab post')
+  tryAdd(websiteEmails, 'website_enhanced', 'on creator website (Cloudflare-decoded or mailto: link)')
 
   // Build the AI extraction corpus from everything we just collected
   // plus the input description (covers cases where the obvious
