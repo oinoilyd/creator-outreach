@@ -225,12 +225,24 @@ async function fromDDGLinkedIn(name: string): Promise<string> {
 }
 
 // SOURCE 4: DuckDuckGo — find email for a creator by name
-async function fromDDGEmail(name: string, website: string): Promise<string[]> {
+async function fromDDGEmail(name: string, website: string, deep: boolean = false): Promise<string[]> {
   if (!name) return []
   const allEmails: string[] = []
   try {
     const queries = [`"${name}" email`, `"${name}" contact email`]
     if (website) queries.push(`site:${website.replace(/^https?:\/\//, '')} email`)
+    if (deep) {
+      queries.push(
+        `"${name}" business email`,
+        `"${name}" sponsor`,
+        `"${name}" press contact`,
+        `"${name}" partnership`,
+        `"${name}" booking email`,
+      )
+      if (website) {
+        queries.push(`site:${website.replace(/^https?:\/\//, '')} contact`)
+      }
+    }
     await Promise.allSettled(queries.map(async (query) => {
       try {
         const q = encodeURIComponent(query)
@@ -243,7 +255,7 @@ async function fromDDGEmail(name: string, website: string): Promise<string[]> {
 }
 
 // SOURCE 5: scrape website contact pages for email and LinkedIn links
-async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials: Record<string, string> }> {
+async function fromWebsite(rawUrl: string, deep: boolean = false): Promise<{ emails: string[], socials: Record<string, string> }> {
   const socials: Record<string, string> = {}
   const allEmails: string[] = []
   const url = normalizeUrl(rawUrl)
@@ -252,7 +264,11 @@ async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials:
   if (!isSafeExternalUrl(url)) return { emails: allEmails, socials }
 
   const base = url.replace(/\/$/, '')
-  const pagesToTry = [url, `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/work-with-me`]
+  const baseSet = [url, `${base}/contact`, `${base}/about`, `${base}/contact-us`, `${base}/work-with-me`]
+  const deepSet = ['/press', '/partnerships', '/collaborate', '/sponsor', '/booking', '/media', '/connect', '/hello', '/info']
+  const pagesToTry = deep
+    ? [...baseSet, ...deepSet.map(p => `${base}${p}`)]
+    : baseSet
 
   await Promise.allSettled(pagesToTry.map(async (page) => {
     try {
@@ -270,6 +286,52 @@ async function fromWebsite(rawUrl: string): Promise<{ emails: string[], socials:
   }))
 
   return { emails: allEmails, socials }
+}
+
+// SOURCE 6 (deep): expand a Linktree / Beacons / bio-link page — these list
+// email + every social in one place.
+const BIOLINK_RE = /(linktr\.ee|beacons\.ai|bio\.link|stan\.store|allmylinks\.com|carrd\.co|koji\.to|withkoji\.com|gleam\.io)/i
+
+async function fromBioLink(url: string): Promise<{ emails: string[], socials: Record<string, string> }> {
+  const socials: Record<string, string> = {}
+  const emails: string[] = []
+  if (!url || !BIOLINK_RE.test(url)) return { emails, socials }
+  if (!isSafeExternalUrl(url)) return { emails, socials }
+  try {
+    const html = await fetchHtml(url, 7000)
+    emails.push(...extractEmails(html))
+    const $ = cheerio.load(html)
+    $('a[href]').each((_, el) => {
+      const href = $(el).attr('href') || ''
+      if (href.startsWith('mailto:')) emails.push(...extractEmails(href))
+      if (!socials.linkedin && href.includes('linkedin.com')) socials.linkedin = href
+      if (!socials.instagram && href.includes('instagram.com')) socials.instagram = href
+      if (!socials.twitter && (href.includes('twitter.com') || href.includes('x.com'))) socials.twitter = href
+      if (!socials.tiktok && href.includes('tiktok.com')) socials.tiktok = href
+    })
+  } catch { /* fail silently */ }
+  return { emails, socials }
+}
+
+// SOURCE 7 (deep): scrape email out of public social bios. Twitter / Instagram
+// often display bio-text emails in og:description meta tags even when the page
+// itself blocks bots. Best-effort — these endpoints are often rate-limited.
+async function fromBioPages(socials: Record<string, string>): Promise<string[]> {
+  const urls = [socials.twitter, socials.instagram, socials.tiktok, socials.linkedin].filter(Boolean) as string[]
+  const emails: string[] = []
+  await Promise.allSettled(urls.map(async (u) => {
+    try {
+      const safe = normalizeUrl(u)
+      if (!isSafeExternalUrl(safe)) return
+      const html = await fetchHtml(safe, 5000)
+      // og:description / twitter:description usually carry the bio text
+      const ogMatch = html.match(/<meta[^>]+(?:property|name)="(?:og:description|twitter:description|description)"[^>]+content="([^"]+)"/i)
+      if (ogMatch) emails.push(...extractEmails(ogMatch[1]))
+      // also raw HTML scan as fallback
+      emails.push(...extractEmails(html))
+    } catch { /* blocked / failed */ }
+  }))
+  return emails
 }
 
 export async function GET(req: NextRequest) {
@@ -291,6 +353,7 @@ export async function GET(req: NextRequest) {
   const instagramParam = clampString(searchParams.get('instagram'), 200)
   const tiktokParam   = clampString(searchParams.get('tiktok'), 200)
   const description   = clampString(searchParams.get('description'), 2000)
+  const deep = searchParams.get('deep') === 'true'
 
   const descEmails = extractEmails(description)
 
@@ -303,31 +366,41 @@ export async function GET(req: NextRequest) {
   const tiktok = yt.socials.tiktok || tiktokParam
   const channelName = searchParams.get('name') || searchParams.get('channelName') || ''
 
-  // Phase 2: RSS + website scraping + DDG LinkedIn/email — all in parallel
-  const [ytVideosResult, webResult, ddgLinkedInResult, ddgEmailResult] = await Promise.allSettled([
+  // Phase 2: RSS + website + DDG LinkedIn/email — all in parallel.
+  // In deep mode we also pull a Linktree expansion if the website looks like one.
+  const [ytVideosResult, webResult, ddgLinkedInResult, ddgEmailResult, biolinkResult] = await Promise.allSettled([
     fromYouTubeVideos(channelId),
-    fromWebsite(website),
+    fromWebsite(website, deep),
     fromDDGLinkedIn(channelName),
-    fromDDGEmail(channelName, website),
+    fromDDGEmail(channelName, website, deep),
+    deep ? fromBioLink(website) : Promise.resolve({ emails: [] as string[], socials: {} as Record<string, string> }),
   ])
 
   const ytVideos = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : { dates: [], avgViews: NaN }
   const videoDates = ytVideos.dates
   const avgViews = isNaN(ytVideos.avgViews) ? undefined : ytVideos.avgViews
-  const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [], socials: {} }
+  const web = webResult.status === 'fulfilled' ? webResult.value : { emails: [] as string[], socials: {} as Record<string, string> }
   const ddgLinkedIn = ddgLinkedInResult.status === 'fulfilled' ? ddgLinkedInResult.value : ''
   const ddgEmails = ddgEmailResult.status === 'fulfilled' ? ddgEmailResult.value : []
+  const biolink = biolinkResult.status === 'fulfilled' ? biolinkResult.value : { emails: [] as string[], socials: {} as Record<string, string> }
 
-  const allEmails = [...descEmails, ...yt.emails, ...web.emails, ...ddgEmails]
-  const email = bestEmail(allEmails)
-
-  const socials = {
-    instagram: instagram || web.socials.instagram || '',
-    twitter: yt.socials.twitter || web.socials.twitter || '',
-    tiktok: tiktok || web.socials.tiktok || '',
-    linkedin: yt.socials.linkedin || web.socials.linkedin || ddgLinkedIn || '',
+  let socials = {
+    instagram: instagram || web.socials.instagram || biolink.socials.instagram || '',
+    twitter: yt.socials.twitter || web.socials.twitter || biolink.socials.twitter || '',
+    tiktok: tiktok || web.socials.tiktok || biolink.socials.tiktok || '',
+    linkedin: yt.socials.linkedin || web.socials.linkedin || biolink.socials.linkedin || ddgLinkedIn || '',
     website: website || '',
   }
+
+  // Phase 3 (deep only): scrape each known social bio for embedded emails.
+  // Done after Phase 2 so we have the discovered socials to crawl.
+  let bioEmails: string[] = []
+  if (deep) {
+    bioEmails = await fromBioPages(socials).catch(() => [])
+  }
+
+  const allEmails = [...descEmails, ...yt.emails, ...web.emails, ...biolink.emails, ...ddgEmails, ...bioEmails]
+  const email = bestEmail(allEmails)
 
   return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, avgViews, ...socials })
 }

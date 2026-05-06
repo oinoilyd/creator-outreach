@@ -402,10 +402,10 @@ function renderOutreachCell(
             <button
               onClick={() => onSearchContacts(e.id)}
               disabled={searching}
-              title="Try to find an email + socials by re-scraping the channel"
+              title="Deep search — checks website (incl. /press, /partnerships, /sponsor), Linktree-style bio pages, social bios, and multiple DDG queries. Takes 10-20s."
               className="self-start mt-0.5 text-[10px] text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-60 disabled:cursor-wait"
             >
-              {searching ? 'Searching…' : '🔍 Search for email'}
+              {searching ? 'Deep searching…' : '🔍 Deep search for email'}
             </button>
           )}
         </div>
@@ -1384,6 +1384,7 @@ export default function Home() {
         name: entry.channelName,
         channelId: entry.channelId,
         description: entry.description || '',
+        deep: 'true',
       })
       const r = await fetch(`/api/enrich?${params}`)
       const extra = await r.json()
