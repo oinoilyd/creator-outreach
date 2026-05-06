@@ -10,30 +10,32 @@
    automatically when the .dark class flips. */
 
 :root {
-  /* page bg + primary text */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.15 0.01 240);
+  /* page bg + primary text — every neutral carries a violet whisper
+     (chroma ~0.015 at hue 290) so the light theme feels designed, not
+     stock. Pure white was too clinical. */
+  --background: oklch(0.985 0.012 290);
+  --foreground: oklch(0.20 0.025 280);
 
-  /* elevated surfaces (cards, modals) */
+  /* elevated surfaces — pure white cards pop against the tinted bg */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.01 240);
+  --card-foreground: oklch(0.20 0.025 280);
 
-  /* secondary surface (table headers, sub-panels) */
-  --muted: oklch(0.965 0.005 240);
-  --muted-foreground: oklch(0.45 0.01 240);
+  /* secondary surface (table headers, sub-panels) — slightly more violet */
+  --muted: oklch(0.965 0.018 290);
+  --muted-foreground: oklch(0.48 0.04 285);
 
   /* hover / interactive accent */
-  --accent: oklch(0.96 0.005 240);
-  --accent-foreground: oklch(0.15 0.01 240);
+  --accent: oklch(0.95 0.025 290);
+  --accent-foreground: oklch(0.20 0.025 280);
 
-  /* primary CTA */
-  --primary: oklch(0.20 0.01 240);
+  /* primary CTA — deep saturated violet, not boring black */
+  --primary: oklch(0.45 0.22 295);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* borders + dividers */
-  --border: oklch(0.92 0.005 240);
-  --input: oklch(0.92 0.005 240);
-  --ring: oklch(0.55 0.18 280);
+  /* borders + dividers — violet-tinted, not warm gray */
+  --border: oklch(0.91 0.018 290);
+  --input: oklch(0.91 0.018 290);
+  --ring: oklch(0.62 0.20 295);
 
   /* destructive */
   --destructive: oklch(0.62 0.21 22);
@@ -99,6 +101,23 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Light-mode designer canvas: faint violet-blue radial wash sitting
+   behind everything. Adds depth without pulling focus from content. */
+:root body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 0%, oklch(0.92 0.10 295 / 0.55), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, oklch(0.93 0.09 250 / 0.45), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, oklch(0.95 0.08 320 / 0.35), transparent 65%);
+  pointer-events: none;
+}
+.dark body::before {
+  display: none;
 }
 
 /* Animated gradient beam traveling along a card border. */

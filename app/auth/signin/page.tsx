@@ -4,14 +4,14 @@ import { useState, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { AuthShell } from '@/components/landing/AuthShell'
-import { revealToLight } from '@/lib/viewTransition'
+import { AuthShell, useAuthShell } from '@/components/landing/AuthShell'
 
 function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get('next') || '/'
   const submitButtonRef = useRef<HTMLButtonElement>(null)
+  const { revealLight } = useAuthShell()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,10 +37,13 @@ function SignInForm() {
         ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
         : null
 
-      await revealToLight(origin, () => {
-        router.push(next)
-        router.refresh()
-      })
+      // Animate the dark auth shell → light reveal first, then navigate.
+      // Doing it in this order means the user actually sees the circle
+      // wipe (instead of a stale dark-on-dark snapshot from a too-early
+      // navigation), and the destination then loads light immediately.
+      await revealLight(origin)
+      router.push(next)
+      router.refresh()
     } catch (caught: unknown) {
       const msg = caught instanceof Error ? caught.message : 'Sign in failed.'
       setError(msg)
