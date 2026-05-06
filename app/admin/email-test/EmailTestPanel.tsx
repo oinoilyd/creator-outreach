@@ -12,6 +12,16 @@ const STRATEGY_OPTIONS = [
   { key: 'domain_guess', label: 'Educated assumption', hint: 'For empty results: cross-references social bios + website for evidence-backed guesses' },
 ] as const
 
+type Verdict = 'deliverable' | 'risky' | 'invalid'
+
+interface VerifyResult {
+  email: string
+  score: number
+  verdict: Verdict
+  flags: string[]
+  reason: string
+}
+
 interface RunResult {
   channelName: string
   channelId: string
@@ -21,6 +31,9 @@ interface RunResult {
   confidence?: number
   evidence?: string
   durationMs: number
+  verdict?: Verdict
+  verifyScore?: number
+  verifyReason?: string
 }
 
 interface RunResponse {
@@ -57,6 +70,7 @@ export function EmailTestPanel() {
     web_scrape: true, biolink: true, bio_pages: true, ddg: true, wayback: true, domain_guess: false,
   })
   const [running, setRunning] = useState(false)
+  const [verifying, setVerifying] = useState(false)
   const [result, setResult] = useState<RunResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,6 +118,44 @@ export function EmailTestPanel() {
       setError((e as Error).message || 'Network error.')
     } finally {
       setRunning(false)
+    }
+  }
+
+  async function runVerification() {
+    if (!result) return
+    const emails = result.results.filter(r => r.hasEmail).map(r => r.email)
+    if (emails.length === 0) return
+
+    setVerifying(true)
+    setError(null)
+    try {
+      const resp = await fetch('/api/admin/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) {
+        setError(data.error || 'Verification failed.')
+        return
+      }
+      const byEmail = new Map<string, VerifyResult>(
+        (data.results as VerifyResult[]).map(v => [v.email.toLowerCase(), v]),
+      )
+      setResult(prev => prev && {
+        ...prev,
+        results: prev.results.map(r => {
+          if (!r.hasEmail) return r
+          const v = byEmail.get(r.email.toLowerCase())
+          return v
+            ? { ...r, verdict: v.verdict, verifyScore: v.score, verifyReason: v.reason }
+            : r
+        }),
+      })
+    } catch (e) {
+      setError((e as Error).message || 'Network error.')
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -206,18 +258,44 @@ export function EmailTestPanel() {
       {/* Live result */}
       {result && (
         <section className="rounded-xl border border-purple-200 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/60 to-blue-50/60 dark:from-purple-500/5 dark:to-blue-500/5 p-5">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-            <Stat label="Total" value={result.total} />
-            <Stat label="From primary" value={result.fromPrimary} />
-            <Stat
-              label="From assumption"
-              value={`+${result.fromAssumption}`}
-              accent={result.fromAssumption > 0}
-              hint={result.fromAssumption > 0 ? 'lift over primary' : 'no lift'}
-            />
-            <Stat label="Hit rate" value={`${result.hitRate.toFixed(1)}%`} accent />
-            <Stat label="Took" value={`${(result.tookMs / 1000).toFixed(1)}s`} />
+          {(() => {
+            const verified = result.results.filter(r => r.verdict).length
+            const deliverable = result.results.filter(r => r.verdict === 'deliverable').length
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4">
+                <Stat label="Total" value={result.total} />
+                <Stat label="From primary" value={result.fromPrimary} />
+                <Stat
+                  label="From assumption"
+                  value={`+${result.fromAssumption}`}
+                  accent={result.fromAssumption > 0}
+                  hint={result.fromAssumption > 0 ? 'lift over primary' : 'no lift'}
+                />
+                <Stat label="Hit rate" value={`${result.hitRate.toFixed(1)}%`} accent />
+                <Stat
+                  label="Deliverable"
+                  value={verified > 0 ? `${deliverable}/${verified}` : '—'}
+                  hint={verified > 0 ? 'after deliverability check' : 'run check below'}
+                />
+                <Stat label="Took" value={`${(result.tookMs / 1000).toFixed(1)}s`} />
+              </div>
+            )
+          })()}
+
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="text-xs text-muted-foreground">
+              Each result row carries the source it came from (primary vs educated assumption).
+            </div>
+            <button
+              onClick={runVerification}
+              disabled={verifying || result.withEmail === 0}
+              className="px-3 py-1.5 rounded-lg border border-purple-300 dark:border-purple-500/40 bg-card text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-wait"
+              title="Heuristic check: DNS MX, disposable-domain blocklist, role-address detection, freemail flag. Does NOT do an SMTP RCPT TO probe (Vercel blocks port 25)."
+            >
+              {verifying ? 'Checking…' : 'Run deliverability check'}
+            </button>
           </div>
+
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-muted-foreground text-xs uppercase tracking-wider">
@@ -225,6 +303,7 @@ export function EmailTestPanel() {
                   <th className="px-3 py-2 text-left font-medium">Channel</th>
                   <th className="px-3 py-2 text-left font-medium">Email</th>
                   <th className="px-3 py-2 text-left font-medium">Source</th>
+                  <th className="px-3 py-2 text-left font-medium">Verdict</th>
                   <th className="px-3 py-2 text-right font-medium">Took</th>
                 </tr>
               </thead>
@@ -248,6 +327,17 @@ export function EmailTestPanel() {
                         >
                           assumption · {(r.confidence ?? 0).toFixed(2)}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {r.verdict === 'deliverable' && (
+                        <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" title={r.verifyReason}>deliverable · {r.verifyScore}</span>
+                      )}
+                      {r.verdict === 'risky' && (
+                        <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-200 dark:border-yellow-500/30 bg-amber-50 dark:bg-yellow-500/10 text-amber-800 dark:text-yellow-300" title={r.verifyReason}>risky · {r.verifyScore}</span>
+                      )}
+                      {r.verdict === 'invalid' && (
+                        <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300" title={r.verifyReason}>invalid · {r.verifyScore}</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">{(r.durationMs / 1000).toFixed(1)}s</td>
