@@ -210,33 +210,33 @@ export default async function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <FeatureCard
               icon={<Sparkles className="w-5 h-5" />}
-              title="AI fit scoring"
-              description="Tell the tool what makes a good lead in plain English. It tunes the weights and ranks every result."
+              title="AI fit scoring, in your words"
+              description="Describe a great lead in plain English — &ldquo;small US-based legal channels with consistent uploads.&rdquo; We turn that into weighted criteria and re-rank every result. Top of the queue ends up being what you said a good lead looks like."
             />
             <FeatureCard
               icon={<MailPlus className="w-5 h-5" />}
-              title="Templated outreach"
-              description="One-click copy of the right message for each platform. Instagram DM, LinkedIn note, email."
+              title="Outreach templates that actually paste"
+              description="Click an Instagram handle, the DM lands in your clipboard. Click LinkedIn, the message is ready. Click email, the draft opens. Stop writing &ldquo;hey, just wanted to reach out&rdquo; from scratch every time."
             />
             <FeatureCard
               icon={<Clock className="w-5 h-5" />}
-              title="Auto follow-up cadence"
-              description="3d, 7d, 14d, 21d. The system pings you. You hit one button. Done."
+              title="Follow-ups you don&apos;t forget"
+              description="Most lost deals were just lost follow-ups. We schedule the next touch — 3d, 7d, 14d, 21d — surface the queue when it&apos;s time, and pre-load the message. You hit send."
             />
             <FeatureCard
               icon={<Download className="w-5 h-5" />}
-              title="Excel + CSV import"
-              description="Bring your existing outreach in. Statuses preserved. Export anytime."
+              title="Bring your spreadsheet with you"
+              description="Already running outreach in a sheet? Drag the CSV in. Every row, status, and note lands intact. Export back to xlsx anytime — your data stays yours."
             />
             <FeatureCard
               icon={<Lock className="w-5 h-5" />}
-              title="RLS-isolated data"
-              description="Your queue is yours. No one else on the platform can see your leads, by database design."
+              title="Privacy by database, not by trust"
+              description="Row-level security at the Postgres layer. Even if a session leaks or an endpoint misfires, no other user sees a single row of your queue. Not a setting we could turn off — built into the data layer."
             />
             <FeatureCard
               icon={<Globe className="w-5 h-5" />}
-              title="Five platforms, one queue"
-              description="YouTube, Instagram, TikTok, X, LinkedIn. Search them all at once, score them by the same criteria."
+              title="Five platforms, one pipeline"
+              description="One query searches YouTube, Instagram, TikTok, X, and LinkedIn in parallel. The same scoring criteria ranks all five. The same outreach board collects all five. Stop juggling tabs."
             />
           </div>
         </div>
