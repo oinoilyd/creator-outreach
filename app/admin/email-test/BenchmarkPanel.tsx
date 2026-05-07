@@ -20,14 +20,21 @@ const BENCH_QUERIES = [
   'travel blogger',
 ] as const
 
-// Down to two buckets — the only comparison that matters now is
-// "evidence-only patterns" vs "new methodology bundle". Same primary
-// pipeline under both, only the fallback differs.
+// Two buckets head-to-head: what the live site currently does for email
+// pulling vs what it would do with the new methodology layered on top.
+//
+// "Current methodology" = exactly what production /api/enrich runs today
+// (web scrape, biolink, bio pages, DDG, wayback). No admin-only fallbacks.
+//
+// "New methodology" = same primary pipeline + the new methodology bundle
+// for empty results (recent video desc, sitemap, creator platforms,
+// JSON-LD, multi-TLD, cert transparency, multi-snapshot wayback,
+// AI extraction, AI vision on banner).
 const BENCH_BUCKETS = [
   {
-    id: 'assumption',
-    label: 'Educated assumption',
-    strategy: ['web_scrape', 'biolink', 'bio_pages', 'ddg', 'wayback', 'domain_guess'],
+    id: 'current',
+    label: 'Current methodology',
+    strategy: ['web_scrape', 'biolink', 'bio_pages', 'ddg', 'wayback'],
   },
   {
     id: 'methodology',
@@ -229,11 +236,11 @@ export function BenchmarkPanel() {
     <section className="rounded-xl border border-border bg-card p-5 mt-6">
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">🏁 Benchmark — Educated assumption vs New methodology</h2>
+          <h2 className="text-lg font-semibold tracking-tight">🏁 Benchmark — Current methodology vs New methodology</h2>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
             {BENCH_QUERIES.length} occupation queries × {BENCH_BUCKETS.length} buckets ={' '}
             <strong>{totalRuns}</strong> test runs ({CREATORS_PER_QUERY} creators each).
-            Each query fires both buckets in parallel — same occupation, two different fallback strategies, side-by-side roster output.
+            Current methodology = what the live site pulls today. New methodology = same pipeline + the new fallback layer. Both buckets fire in parallel per query so the comparison is apples-to-apples.
           </p>
         </div>
         <button
@@ -328,7 +335,7 @@ export function BenchmarkPanel() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-                    <RosterColumn label={BENCH_BUCKETS[0].label} slot={slotA} accent="purple" />
+                    <RosterColumn label={BENCH_BUCKETS[0].label} slot={slotA} accent="blue" />
                     <RosterColumn label={BENCH_BUCKETS[1].label} slot={slotB} accent="fuchsia" />
                   </div>
                 )}
@@ -356,10 +363,10 @@ function RosterColumn({
 }: {
   label: string
   slot: QueryRunSlot | null
-  accent: 'purple' | 'fuchsia'
+  accent: 'blue' | 'fuchsia'
 }) {
-  const accentClasses = accent === 'purple'
-    ? 'text-purple-700 dark:text-purple-300'
+  const accentClasses = accent === 'blue'
+    ? 'text-blue-700 dark:text-blue-300'
     : 'text-fuchsia-700 dark:text-fuchsia-300'
 
   if (!slot) {
