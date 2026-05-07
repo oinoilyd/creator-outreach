@@ -1762,7 +1762,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           Customize Columns
         </button>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
         <table className="table-fixed text-sm border-collapse" style={{ width: totalWidth }}>
           <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
             <tr>
@@ -1933,7 +1933,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
       <table className="w-full text-sm">
         <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
           <tr>
@@ -3107,7 +3107,7 @@ export default function Home() {
 
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Sticky glass top bar — same width-feel as the page below */}
       <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className={`${activeTab === 'outreach' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
