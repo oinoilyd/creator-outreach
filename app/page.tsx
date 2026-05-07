@@ -23,6 +23,7 @@ import { AnimatedRow } from '@/components/AnimatedRow'
 import { BorderBeam } from '@/components/BorderBeam'
 import { motion } from 'motion/react'
 import { CadencePopover, FollowedUpPopover } from '@/components/CadencePopover'
+import { InstagramCell } from '@/components/InstagramCell'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
   pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount, buildOutreachEmail,
@@ -435,6 +436,7 @@ function renderCell(
   profile: UserProfile | null,
   searching: boolean,
   onDeepSearch: (channelId: string) => void,
+  onUpdateInstagram?: (channelId: string, igUrl: string) => void,
 ): React.ReactNode {
   switch (id) {
     case 'fitScore': {
@@ -476,7 +478,16 @@ function renderCell(
     )
     case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" rel="noopener noreferrer" onClick={() => copyLinkedInMessage(c.channelName)} title="Open LinkedIn + copy message template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
     case 'website':   return <td key={id} className="px-4 py-3">{c.website   ? <a href={c.website}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
-    case 'instagram': return <td key={id} className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" rel="noopener noreferrer" onClick={() => copyInstagramDm(c.channelName)} title="Open IG + copy DM template" className="text-pink-700 dark:text-pink-400 hover:underline">DM</a> : '—'}</td>
+    case 'instagram': return (
+      <td key={id} className="px-4 py-3">
+        <InstagramCell
+          channelName={c.channelName}
+          instagramUrl={c.instagram}
+          onCopyDm={() => copyInstagramDm(c.channelName)}
+          onUpdateInstagram={onUpdateInstagram ? (url) => onUpdateInstagram(c.channelId, url) : undefined}
+        />
+      </td>
+    )
     case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
     case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
   }
@@ -2032,7 +2043,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sorts, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning, emailFirst = true }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sorts, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning, emailFirst = true, onUpdateInstagram }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -2051,6 +2062,10 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   onDeepSearchAll: () => void
   bulkRunning: boolean
   emailFirst?: boolean
+  /** Optional: when provided, the Instagram cell renders a "Find IG"
+   *  button for creators where IG wasn't auto-resolved, plus a metrics
+   *  badge that polls /api/instagram-status when an IG handle is known. */
+  onUpdateInstagram?: (channelId: string, igUrl: string) => void
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
   // Multi-key sort: pass the sorts array straight through to
@@ -2160,7 +2175,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 </button>
               </td>
               <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch))}
+              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
             </AnimatedRow>
           ))}
           {loadMoreBatch && loadMoreBatch.length > 0 && (
@@ -2191,7 +2206,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                     </button>
                   </td>
                   <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
-                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch))}
+                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
                 </tr>
               ))}
             </>
@@ -2849,6 +2864,34 @@ export default function Home() {
     }
   }
   const [deepSearchingResultIds, setDeepSearchingResultIds] = useState<Set<string>>(new Set())
+
+  /**
+   * Manually update an IG URL on a creator (the "Find IG" button in
+   * the InstagramCell). Triggers two side effects:
+   *   1. The cell will start polling /api/instagram-status now that
+   *      a handle exists — Meta Graph metrics fill in if available.
+   *   2. We POST the new handle to /api/enrich to refresh the
+   *      enrichment cache, which fires a QStash job too.
+   * Fire-and-forget on the API hit — the UI doesn't block on it.
+   */
+  function updateInstagramHandle(channelId: string, igUrl: string) {
+    setCreators(list => list.map(x =>
+      x.channelId === channelId ? { ...x, instagram: igUrl } : x,
+    ))
+    // Refresh enrichment in background so the QStash worker also kicks in.
+    const c = creators.find(x => x.channelId === channelId)
+    if (c) {
+      const params = new URLSearchParams({
+        name: c.channelName,
+        channelId: c.channelId,
+        description: c.description || '',
+        website: c.website || '',
+        instagram: igUrl,
+        tiktok: c.tiktok || '',
+      })
+      void fetch(`/api/enrich?${params}`).catch(() => { /* swallow — UI already updated */ })
+    }
+  }
 
   async function deepSearchResultEmail(channelId: string) {
     const c = creators.find(x => x.channelId === channelId)
@@ -4024,6 +4067,7 @@ export default function Home() {
               deepSearchingIds={deepSearchingResultIds}
               onDeepSearchAll={deepSearchAllResults}
               bulkRunning={resultsBulkRunning}
+              onUpdateInstagram={updateInstagramHandle}
             />
             {activeTab === 'results' && (
               <div className="mt-5 flex flex-col items-center gap-2">
