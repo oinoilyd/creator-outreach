@@ -5,6 +5,8 @@ import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL } from '@/lib/cache'
 import { newMethodology, isPlausibleEmail } from '@/lib/newMethodology'
+import { publishJob, isQStashConfigured } from '@/lib/qstash'
+import { extractInstagramHandle, isInstagramGraphConfigured } from '@/lib/instagram-graph'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -623,5 +625,23 @@ export async function GET(req: NextRequest) {
   if (!skipCache) {
     void cacheSet(enrichmentCacheKey(channelId), payload, CACHE_TTL.creatorEnrichment)
   }
+
+  // Fire-and-forget: kick off Meta Graph API enrichment in the
+  // background (only if QStash + Meta are both configured). The
+  // worker will write results to Redis (hot cache) + Postgres
+  // (historical log). Frontend polls /api/instagram-status to fill
+  // in real follower counts / engagement once they land. Dedup is
+  // handled by QStash + the worker's cache check.
+  const igHandle = extractInstagramHandle(socials.instagram)
+  if (igHandle && isQStashConfigured() && isInstagramGraphConfigured()) {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || `https://${req.headers.get('host')}`
+    const destination = `${baseUrl}/api/instagram-fetch`
+    void publishJob(destination, { handle: igHandle, ytChannelId: channelId }, {
+      // Dedup window: same handle within 6 hours = same job, no extra
+      // Meta API call. Tightens our 200/hr rate limit budget.
+      deduplicationId: `ig-fetch:${igHandle}:${Math.floor(Date.now() / (1000 * 60 * 60 * 6))}`,
+    })
+  }
+
   return NextResponse.json(payload)
 }

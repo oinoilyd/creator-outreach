@@ -106,6 +106,31 @@ Defer to those for any TS / React / Next.js patterns I'm uncertain about, instea
 - New testimonials / social-proof copy (only with real quotes)
 - Anything in `n8n-io/n8n` — evaluated, declared out of scope
 
+## Instagram Graph API — background enrichment
+
+Status: **scaffolded, awaiting credentials + Meta App Review.**
+
+The flow once enabled:
+1. `/api/enrich` resolves IG handle (existing YouTube/about → website → biolink chain).
+2. Fires a QStash job to `/api/instagram-fetch` (fire-and-forget, doesn't block response).
+3. Worker hits Meta Business Discovery → writes to Redis (7d hot cache) + Postgres `creator_ig_metrics` (permanent historical log, append-only).
+4. Frontend polls `/api/instagram-status?handle=X` every 3-5s after a search to fill in real follower counts / engagement.
+
+Until env vars are set, every layer is a graceful no-op — the existing
+scrape-based IG enrichment continues to work unchanged.
+
+**Env vars required to flip on:**
+```
+META_APP_ID, META_APP_SECRET, META_LONG_LIVED_TOKEN, META_IG_BUSINESS_ID
+QSTASH_TOKEN, QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY
+```
+
+Setup walkthrough lives in `META_APP_REVIEW.md`. Postgres migration is `supabase/migrations/0010_creator_ig_metrics.sql`.
+
+**Legal posture:**
+- Internal-use cache (current state): legal, low-risk.
+- Selling/exposing the historical log externally: requires lawyer + GDPR/CCPA compliance + state data-broker registrations + would violate Meta API ToS — explicitly out of scope without that lift.
+
 ## Quick links
 
 - Live: https://creatoroutreach.net
@@ -113,3 +138,4 @@ Defer to those for any TS / React / Next.js patterns I'm uncertain about, instea
 - Supabase: see `lib/supabase/`
 - Crop script: `scripts/crop-screenshots.py`
 - Screenshot slots: `public/screenshots/` (+ README.md inside)
+- Meta App Review docs: `META_APP_REVIEW.md`
