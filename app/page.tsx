@@ -375,7 +375,7 @@ function renderCell(
     case 'email': return (
       <td key={id} className="px-4 py-3 text-xs">
         {c.email ? (
-          <a href={buildOutreachEmail(c, profile)} className="text-emerald-700 dark:text-green-400 hover:underline">{c.email}</a>
+          <a href={buildOutreachEmail(c, profile)} target="_blank" rel="noopener noreferrer" className="text-emerald-700 dark:text-green-400 hover:underline">{c.email}</a>
         ) : c.enriching ? (
           <span className="flex items-center gap-1 text-muted-foreground"><Spinner />looking...</span>
         ) : (
@@ -553,7 +553,7 @@ function renderOutreachCell(
     case 'email':
       return (
         <div className="flex flex-col gap-1">
-          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all">{e.email}</a>}
+          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} target="_blank" rel="noopener noreferrer" className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all">{e.email}</a>}
           <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-muted-foreground/70' : 'text-muted-foreground'} />
           {!e.email && (
             <button
@@ -2204,7 +2204,7 @@ export default function Home() {
         // Use maybeSingle so missing row returns null instead of erroring
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, onboarded')
+          .select('full_name, linkedin_url, pitch_line, mail_client, onboarded')
           .eq('user_id', user.id)
           .maybeSingle()
         console.log('[home-init] profile row:', profileRow, 'error:', profileErr?.message)
@@ -2216,7 +2216,7 @@ export default function Home() {
           const { data: inserted } = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, onboarded')
+            .select('full_name, linkedin_url, pitch_line, mail_client, onboarded')
             .single()
           profileRow = inserted
         }
@@ -2226,6 +2226,7 @@ export default function Home() {
             fullName: profileRow.full_name ?? '',
             linkedinUrl: profileRow.linkedin_url ?? '',
             pitchLine: profileRow.pitch_line ?? '',
+            mailClient: (profileRow.mail_client ?? 'default') as UserProfile['mailClient'],
           })
           if (!profileRow.onboarded) {
             console.log('[home-init] onboarded=false → showing modal')
@@ -3828,6 +3829,7 @@ export default function Home() {
             deepSearchingIds={dismissedSearchingIds}
             onSearchAll={deepSearchAllDismissed}
             bulkRunning={dismissedBulkRunning}
+            profile={profile}
           />
         ) : (
           <>

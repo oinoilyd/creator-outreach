@@ -146,10 +146,16 @@ export interface PlatformConfig {
   chipWeight: number
 }
 
+export type MailClient = 'default' | 'gmail' | 'outlook' | 'yahoo'
+
 export interface UserProfile {
   fullName: string
   linkedinUrl: string
   pitchLine: string
+  // Which email-compose URL to use when the user clicks an outreach
+  // email link. 'default' uses mailto: (OS default), the others open
+  // the provider's web compose in a new tab.
+  mailClient?: MailClient
 }
 
 // ── Custom analytics metrics (Outreach > Analytics tab) ─────────────────────

@@ -1,6 +1,7 @@
 'use client'
 
-import type { Creator } from '@/lib/types'
+import type { Creator, UserProfile } from '@/lib/types'
+import { composeUrl } from '@/lib/format'
 
 export function DismissedTab({
   dismissed,
@@ -9,6 +10,7 @@ export function DismissedTab({
   deepSearchingIds,
   onSearchAll,
   bulkRunning,
+  profile,
 }: {
   dismissed: Creator[]
   onUndismiss: (id: string) => void
@@ -16,6 +18,7 @@ export function DismissedTab({
   deepSearchingIds?: Set<string>
   onSearchAll?: () => void
   bulkRunning?: boolean
+  profile?: UserProfile | null
 }) {
   if (dismissed.length === 0) {
     return <p className="text-muted-foreground text-sm mt-4">No dismissed creators yet — click the ✕ on any creator to skip them.</p>
@@ -58,7 +61,12 @@ export function DismissedTab({
                 <td className="px-4 py-3 text-muted-foreground">{c.avgViews.toLocaleString()}</td>
                 <td className="px-4 py-3 text-xs">
                   {c.email ? (
-                    <a href={`mailto:${c.email}`} className="text-emerald-700 dark:text-emerald-400 hover:underline break-all">{c.email}</a>
+                    <a
+                      href={composeUrl(profile?.mailClient ?? 'default', c.email, '', '')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-700 dark:text-emerald-400 hover:underline break-all"
+                    >{c.email}</a>
                   ) : onDeepSearch ? (
                     <button
                       onClick={() => onDeepSearch(c.channelId)}

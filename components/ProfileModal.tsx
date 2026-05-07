@@ -18,6 +18,7 @@ export function ProfileModal({
   const [fullName, setFullName] = useState(initial.fullName)
   const [linkedinUrl, setLinkedinUrl] = useState(initial.linkedinUrl)
   const [pitchLine, setPitchLine] = useState(initial.pitchLine)
+  const [mailClient, setMailClient] = useState<UserProfile['mailClient']>(initial.mailClient ?? 'default')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -26,6 +27,7 @@ export function ProfileModal({
     setFullName(initial.fullName)
     setLinkedinUrl(initial.linkedinUrl)
     setPitchLine(initial.pitchLine)
+    setMailClient(initial.mailClient ?? 'default')
   }, [initial])
 
   async function save() {
@@ -40,6 +42,7 @@ export function ProfileModal({
       fullName: fullName.trim(),
       linkedinUrl: linkedinUrl.trim(),
       pitchLine: pitchLine.trim(),
+      mailClient,
     }
     const { error: err } = await supabase
       .from('user_profile')
@@ -47,6 +50,7 @@ export function ProfileModal({
         full_name: next.fullName,
         linkedin_url: next.linkedinUrl,
         pitch_line: next.pitchLine,
+        mail_client: next.mailClient,
       })
       .eq('user_id', userId)
 
@@ -108,6 +112,40 @@ export function ProfileModal({
               className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500 resize-none"
             />
             <p className="text-[11px] text-muted-foreground/70 mt-1">One line about what you do. Goes after &quot;I&apos;m [your name]&quot; in outreach emails.</p>
+          </div>
+
+          {/* Mail client preference — controls where outreach email
+              links open. Default = OS handler via mailto:. The web
+              providers open compose with to/subject/body pre-filled. */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Email link opens in
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'default', label: 'Default (mailto:)', hint: 'Apple Mail / OS default' },
+                { id: 'gmail',   label: 'Gmail',             hint: 'mail.google.com' },
+                { id: 'outlook', label: 'Outlook',           hint: 'outlook.office.com' },
+                { id: 'yahoo',   label: 'Yahoo',             hint: 'compose.mail.yahoo.com' },
+              ] as { id: UserProfile['mailClient']; label: string; hint: string }[]).map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setMailClient(opt.id)}
+                  className={`text-left px-3 py-2 rounded-lg border transition-colors ${
+                    mailClient === opt.id
+                      ? 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-200'
+                      : 'bg-muted border-border text-foreground/80 hover:border-border/80'
+                  }`}
+                >
+                  <div className="text-sm font-medium">{opt.label}</div>
+                  <div className="text-[10px] text-muted-foreground">{opt.hint}</div>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground/70 mt-1.5">
+              Web providers open in a new tab with the recipient + subject + body pre-filled.
+            </p>
           </div>
         </div>
 

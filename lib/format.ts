@@ -333,5 +333,26 @@ export function buildOutreachEmail(c: Creator, profile?: UserProfile | null): st
   lines.push(senderFirst)
 
   const body = lines.join('\n')
-  return `mailto:${c.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  return composeUrl(profile?.mailClient ?? 'default', c.email, subject, body)
+}
+
+// Builds a compose URL for whichever mail client the user picked. Each
+// provider has its own web-compose endpoint that pre-fills to/subject/
+// body — except Apple-style mailto: which opens the OS default.
+export function composeUrl(client: 'default' | 'gmail' | 'outlook' | 'yahoo', to: string, subject: string, body: string): string {
+  const t = encodeURIComponent(to)
+  const s = encodeURIComponent(subject)
+  const b = encodeURIComponent(body)
+  switch (client) {
+    case 'gmail':
+      // Gmail web compose. fs=1 forces a fresh compose window even if
+      // the user has multiple Gmail accounts logged in.
+      return `https://mail.google.com/mail/?view=cm&fs=1&to=${t}&su=${s}&body=${b}`
+    case 'outlook':
+      return `https://outlook.office.com/mail/deeplink/compose?to=${t}&subject=${s}&body=${b}`
+    case 'yahoo':
+      return `https://compose.mail.yahoo.com/?to=${t}&subject=${s}&body=${b}`
+    default:
+      return `mailto:${to}?subject=${s}&body=${b}`
+  }
 }
