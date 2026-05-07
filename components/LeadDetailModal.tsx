@@ -118,14 +118,46 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
           )}
         </div>
 
-        {/* Contact + socials */}
+        {/* Contact + socials — every field editable */}
         <div className="p-5 border-b border-border space-y-3">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Contact</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <ContactRow label="Email" value={entry.email} type="email" />
-            <ContactRow label="LinkedIn" value={entry.linkedin} type="link" />
-            <ContactRow label="Phone" value={entry.phone} />
-            <ContactRow label="Product / pitch" value={entry.product} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Email">
+              <input
+                type="email"
+                value={entry.email}
+                onChange={e => onUpdate(entry.id, 'email', e.target.value)}
+                placeholder="hello@example.com"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
+            <Field label="LinkedIn">
+              <input
+                type="url"
+                value={entry.linkedin}
+                onChange={e => onUpdate(entry.id, 'linkedin', e.target.value)}
+                placeholder="https://linkedin.com/in/…"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
+            <Field label="Phone">
+              <input
+                type="tel"
+                value={entry.phone}
+                onChange={e => onUpdate(entry.id, 'phone', e.target.value)}
+                placeholder="+1 555 123 4567"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
+            <Field label="Product / pitch">
+              <input
+                type="text"
+                value={entry.product}
+                onChange={e => onUpdate(entry.id, 'product', e.target.value)}
+                placeholder="What you're selling"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
           </div>
           {tps > 0 && (
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -191,23 +223,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function ContactRow({ label, value, type }: { label: string; value: string; type?: 'email' | 'link' }) {
-  if (!value) return (
-    <div className="flex items-center gap-2 text-muted-foreground/70">
-      <span className="text-[10px] uppercase tracking-wider w-24">{label}</span>
-      <span>—</span>
-    </div>
-  )
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground w-24 shrink-0">{label}</span>
-      {type === 'email' ? (
-        <a href={`mailto:${value}`} className="text-emerald-400 hover:underline truncate">{value}</a>
-      ) : type === 'link' ? (
-        <a href={value} target="_blank" className="text-blue-400 hover:underline truncate">{value}</a>
-      ) : (
-        <span className="text-foreground/80 truncate">{value}</span>
-      )}
-    </div>
-  )
-}
