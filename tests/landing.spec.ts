@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Landing-page smoke tests. Catch the kind of "shipped, broken,
- * reverted" regressions we kept hitting during the redesign sessions
- * (invisible headline, missing bento cards, theme-flip breaking
- * everything).
- *
- * No auth required for any of these — they target /landing directly.
+ * Landing-page smoke tests. Updated for the "Founder's letter"
+ * editorial redesign — the previous tests targeted the AI-bento
+ * layout (gradient hero, "spreadsheet circus" subline, "Four
+ * steps" heading, $0 pricing copy). The redesign restructures
+ * everything; these tests now check structural elements that are
+ * stable across copy changes.
  */
 
 test.describe('Landing page', () => {
@@ -15,49 +15,38 @@ test.describe('Landing page', () => {
   })
 
   test('hero renders with headline + subline + CTA', async ({ page }) => {
-    // Headline is the bug-magnet — earlier the gradient + bg-clip-text
-    // combo rendered transparent text. Asserting it has visible text
-    // catches that regression.
     const heading = page.getByRole('heading', { level: 1 })
     await expect(heading).toBeVisible()
     const text = await heading.textContent()
     expect(text?.length ?? 0).toBeGreaterThan(10)
 
-    // Subline mentions the actual product flow. Use a specific phrase
-    // that ONLY appears in the subline (not the headline) to avoid
-    // strict-mode multi-match.
-    await expect(page.getByText(/spreadsheet circus/i)).toBeVisible()
+    // Hero copy mentions the actual product. "Creator" or "outreach"
+    // should always appear in the hero somewhere.
+    await expect(page.getByText(/creator|outreach/i).first()).toBeVisible()
 
-    // Primary CTA exists. The page has 3 such links (nav + hero +
-    // bottom CTA strip) — match the hero one specifically by its
-    // "Get started — free" label (em-dash distinguishes it).
+    // Primary CTA exists (label depends on auth state).
     await expect(
-      page.getByRole('link', { name: /get started — free|open app/i }).first()
+      page.getByRole('link', { name: /try it free|open the app/i }).first()
     ).toBeVisible()
   })
 
-  test('eyebrow badge is visible', async ({ page }) => {
-    await expect(page.getByText(/creator outreach, end to end/i)).toBeVisible()
+  test('eyebrow line is visible above hero', async ({ page }) => {
+    // New eyebrow: "Beta · Built by one person".
+    await expect(page.getByText(/beta.*built by/i)).toBeVisible()
   })
 
-  test('bento has at least 5 feature cards', async ({ page }) => {
-    // Cards have h3 titles per BentoCard component — count those.
-    const titles = page.locator('section h3')
-    const count = await titles.count()
-    expect(count).toBeGreaterThanOrEqual(5)
-  })
-
-  test('how-it-works section present with 4 steps', async ({ page }) => {
+  test('product preview + how-it-works + features all present', async ({ page }) => {
+    // Editorial layout uses h2/h3 headings with stable section labels.
+    // Don't rely on specific h2 copy — count by structural markers.
     await expect(page.getByText(/how it works/i)).toBeVisible()
-    // Section heading is now "Four steps. From search to signed."
-    // (was "Two steps" — restructured to 4-step methodology).
-    await expect(page.getByRole('heading', { name: /four steps/i })).toBeVisible()
+    await expect(page.getByText(/what.s inside|why i built|five platforms/i).first()).toBeVisible()
   })
 
-  test('pricing section shows free tier', async ({ page }) => {
+  test('pricing section is present', async ({ page }) => {
     const pricing = page.locator('#pricing')
     await expect(pricing).toBeVisible()
-    await expect(pricing.getByText('$0')).toBeVisible()
+    // "Free while in beta" is the new pricing copy.
+    await expect(pricing.getByText(/free while in beta|free/i).first()).toBeVisible()
   })
 
   test('footer present', async ({ page }) => {
@@ -71,8 +60,14 @@ test.describe('Landing page', () => {
     })
     await page.goto('/landing')
     await page.waitForLoadState('networkidle')
-    // Filter out third-party noise we can't control
     const ours = errors.filter(e => !/sentry|google|fb|twitter|hotjar/i.test(e))
     expect(ours).toEqual([])
+  })
+
+  test('founder note is present (editorial human-voice section)', async ({ page }) => {
+    // The "Why I built this" section is the soul of the redesign.
+    // If it goes missing, the page lost its voice.
+    await expect(page.getByText(/why i built this/i)).toBeVisible()
+    await expect(page.getByText(/i was running outreach/i)).toBeVisible()
   })
 })

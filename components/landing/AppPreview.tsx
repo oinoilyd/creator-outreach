@@ -74,9 +74,10 @@ export function AppPreview() {
       // balanced (hero + screenshot + bento read as one flow).
       className="relative mx-auto w-full max-w-5xl xl:max-w-6xl"
     >
-      {/* Outer glow — violet + cyan wash to lift the dark screenshot
-          off the dark page background */}
-      <div className="absolute inset-x-0 -inset-y-8 bg-gradient-to-r from-brand/35 via-brand-2/25 to-brand/30 blur-3xl pointer-events-none" />
+      {/* Editorial redesign: outer glow removed.
+          Was a violet/cyan blur halo per "lift the dark screenshot
+          off the dark page bg" — now strips that decoration so the
+          screenshot stands on its own typography weight. */}
 
       {/* Tab pills above the frame */}
       <div className="relative flex items-center justify-center gap-1.5 mb-4 flex-wrap">
@@ -104,18 +105,10 @@ export function AppPreview() {
         })}
       </div>
 
-      {/* Framed screenshot carousel */}
+      {/* Framed screenshot carousel.
+          Editorial redesign: live-pulse "Live" dot removed —
+          signaled "this is real product" but read as decoration. */}
       <div className="relative">
-        {/* Live-preview pulsing dot — top-right of the screenshot frame.
-            Signals "this is real product, not a stock screenshot." */}
-        <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.15em] text-white/80 font-medium">Live</span>
-        </div>
-
         <AnimatePresence mode="wait">
           <motion.div
             key={view.id}
