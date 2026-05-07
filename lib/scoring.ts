@@ -158,14 +158,19 @@ export function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weight
       if (aHas !== bHas) return bHas - aHas
     }
 
-    if (col === 'email') {
-      const pri = contactPriority(b) - contactPriority(a)
-      if (pri !== 0) return pri
-      return a.channelName.localeCompare(b.channelName)
-    }
     let cmp = 0
-    if (col === 'fitScore') cmp = computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
-    else if (col === 'avgViews') cmp = a.avgViews - b.avgViews
+    // Every contact-presence column uses the same shape: rows that HAVE
+    // the field rank above rows that don't, then alphabetical by name
+    // as a stable tiebreaker. Direction toggles the asc/desc as expected.
+    const presence = (has: boolean) => has ? 1 : 0
+    if (col === 'email')          cmp = presence(!!b.email)     - presence(!!a.email)
+    else if (col === 'linkedin')  cmp = presence(!!b.linkedin)  - presence(!!a.linkedin)
+    else if (col === 'website')   cmp = presence(!!b.website)   - presence(!!a.website)
+    else if (col === 'instagram') cmp = presence(!!b.instagram) - presence(!!a.instagram)
+    else if (col === 'twitter')   cmp = presence(!!b.twitter)   - presence(!!a.twitter)
+    else if (col === 'tiktok')    cmp = presence(!!b.tiktok)    - presence(!!a.tiktok)
+    else if (col === 'fitScore')  cmp = computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
+    else if (col === 'avgViews')  cmp = a.avgViews - b.avgViews
     else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
     else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
     else if (col === 'lastVideo') {
@@ -184,15 +189,12 @@ export function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weight
       else if (db === Infinity) return -1
       else cmp = da - db
     }
-    else if (col === 'website') cmp = (b.website ? 1 : 0) - (a.website ? 1 : 0)
-    else if (col === 'linkedin') {
-      const pri = contactPriority(b) - contactPriority(a)
-      if (pri !== 0) return pri
-      return a.channelName.localeCompare(b.channelName)
+    // Tie-break presence sorts by channel name alphabetically — keeps
+    // the order stable instead of looking randomly shuffled within
+    // the "has X" and "missing X" groups.
+    if (cmp === 0 && /^(email|linkedin|website|instagram|twitter|tiktok)$/.test(col)) {
+      cmp = a.channelName.localeCompare(b.channelName)
     }
-    else if (col === 'instagram') cmp = (b.instagram ? 1 : 0) - (a.instagram ? 1 : 0)
-    else if (col === 'twitter') cmp = (b.twitter ? 1 : 0) - (a.twitter ? 1 : 0)
-    else if (col === 'tiktok') cmp = (b.tiktok ? 1 : 0) - (a.tiktok ? 1 : 0)
     return dir === 'asc' ? cmp : -cmp
   })
 }

@@ -35,7 +35,11 @@ export const DEFAULT_COLS: ColConfig[] = [
   { id: 'avgViews',    label: 'Avg Views',   visible: true  },
   { id: 'subscribers', label: 'Subscribers', visible: true  },
   { id: 'lastVideo',   label: 'Last Video',  visible: true  },
-  { id: 'lastShort',   label: 'Last Short',  visible: true  },
+  // Last Short defaults off — YouTube's /shorts tab returns sparse
+  // publishedTime data for many channels (especially smaller ones),
+  // so the column reads as mostly empty and ends up noise. Available
+  // via Customize Columns when actually needed.
+  { id: 'lastShort',   label: 'Last Short',  visible: false },
   { id: 'email',       label: 'Email',       visible: true  },
   { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
   { id: 'website',     label: 'Website',     visible: false },
@@ -46,7 +50,10 @@ export const DEFAULT_COLS: ColConfig[] = [
 
 export const YOUTUBE_ONLY_COL_IDS: ColId[] = ['avgViews', 'subscribers', 'lastVideo', 'lastShort']
 
-export const COL_SORT: Partial<Record<ColId, SortCol>> = {
+// Non-Partial Record so TypeScript compile-fails when a new ColId is
+// added without a sort mapping. Guarantees every column header — both
+// default and any opt-in via Customize Columns — exposes click-to-sort.
+export const COL_SORT: Record<ColId, SortCol> = {
   fitScore: 'fitScore', avgViews: 'avgViews', subscribers: 'subscribers',
   lastVideo: 'lastVideo', lastShort: 'lastShort',
   email: 'email', linkedin: 'linkedin', website: 'website',

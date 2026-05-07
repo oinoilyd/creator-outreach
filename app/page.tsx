@@ -2070,7 +2070,9 @@ export default function Home() {
   const [maxViews, setMaxViews] = useState(200000)
   const [minSubs, setMinSubs] = useState(0)
   const [maxSubs, setMaxSubs] = useState(0) // 0 = no upper limit
-  const [maxAgeDays, setMaxAgeDays] = useState<number>(Infinity)
+  // Default to 6 months — most current/active creators only. User
+  // can widen via the Last Posted preset row in the filter panel.
+  const [maxAgeDays, setMaxAgeDays] = useState<number>(180)
   // Niche filter for suggestions: null = all niches mixed.
   const [selectedNiche, setSelectedNiche] = useState<string | null>(null)
   const [showNiches, setShowNiches] = useState(false)
