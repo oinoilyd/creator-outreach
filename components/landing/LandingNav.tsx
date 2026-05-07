@@ -43,14 +43,18 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
       </Link>
 
       <div className="flex items-center gap-2">
-        <ThemeToggle />
-
         <Link
           href={isAuthed ? '/' : '/auth/signup'}
-          className="text-sm bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 rounded-lg font-medium transition-opacity"
+          className="text-sm bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] px-4 py-2 rounded-lg font-medium transition-[opacity,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           {isAuthed ? 'Open app' : 'Get started'}
         </Link>
+
+        {/* Theme toggle moved here per Dylan: "add the light/dark
+            filter next to the hamburger menu." Sits between the CTA
+            and the hamburger so it reads as a paired secondary
+            control, not a primary action. */}
+        <ThemeToggle />
 
         <div ref={ref} className="relative">
           <button
