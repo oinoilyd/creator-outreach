@@ -38,10 +38,13 @@ def crop(source: str, region: tuple[int, int, int, int], out: str) -> None:
 # now 2472×1182 (was 2472×1370); using full top portion 950 tall.
 crop("results.png", (0, 0, 2472, 1000), "bento-search.png")
 
-# Card 2 — "AI fit scoring" (single col)
-# Extended right edge so "Avg Views" column header doesn't get cut.
-# Channel + Fit Score (chips) + Avg Views columns visible cleanly.
-crop("results.png", (130, 380, 1180, 940), "bento-fit.png")
+# Card 2 — "AI fit scoring" — REPLACED 2026-05-07 with a hand-curated
+# screenshot Dylan provided directly (1352×1256, near-square). Shows
+# Channel + Fit Score column + Email for 9 rows, Fit Score is the
+# active primary sort (badge 1). Per Dylan: "longer screenshot would
+# help" — the previous wide-thin crop didn't have enough rows visible
+# to show the AI scoring's range. Don't regen this from results.png.
+# crop("results.png", (130, 380, 1180, 940), "bento-fit.png")
 
 # Card 3 — "Built-in CRM" (col-span-2 wide).
 # Full-width table strip showing every column: ★ + Channel + YT +
@@ -60,10 +63,11 @@ crop("outreach.png", (0, 270, 2784, 700), "bento-status.png")
 # "First follow-up · X touches · reached Yd ago" meta lines.
 crop("followups.png", (0, 530, 1500, 700), "bento-priority.png")
 
-# Card 5 — "Analytics dashboard" (col-span-2 next to Custom Metrics
-# col-span-1). Dylan's note: "the analytics has a small description
-# with a massive text box bigger than the visual fix the fitting."
-# Solution: include MORE vertical content so the visual occupies the
-# full card height (KPIs + status breakdown + velocity row).
-# h: 600 → 800.
-crop("analytics.png", (0, 240, 2822, 800), "bento-analytics.png")
+# Card 5 — "Analytics dashboard" (col-span-2). 2026-05-07 Dylan
+# reverse-call: "takes up way too much empty space, less depth, it's
+# a narrow card." Tightened crop to JUST the KPI cards row (skip the
+# status breakdown bar that we added in iter-2; skip velocity). The
+# resulting wide-short visual fills the card horizontally without
+# the dead vertical whitespace.
+# y=240 (tabs end) to y=540 (KPIs end, before status breakdown).
+crop("analytics.png", (0, 240, 2822, 300), "bento-analytics.png")

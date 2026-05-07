@@ -126,9 +126,12 @@ export function SearchVisual() {
   return <CropImage src="/screenshots/bento-search.png" alt="Search results across platforms" className="aspect-[2472/1000]" />
 }
 
-// 2 — AI fit scoring · Channel + Fit Score columns showing colored chips
+// 2 — AI fit scoring · Dylan-curated screenshot (1352×1256), near-square.
+// Shows Channel + Fit Score column with 9 rows + Email column. Fit Score
+// is the active primary sort. Replaces the earlier wide-thin crop which
+// didn't fit enough rows to show the scoring spread.
 export function ScoringVisual() {
-  return <CropImage src="/screenshots/bento-fit.png" alt="AI fit scoring chips" className="aspect-[870/940]" />
+  return <CropImage src="/screenshots/bento-fit.png" alt="AI fit scoring — Strong Fit / Possible Fit chips" className="aspect-[1352/1256]" />
 }
 
 // 3 — Built-in CRM (col-span-2 wide) · full Outreach table strip
@@ -153,7 +156,7 @@ export function CadenceVisual() {
 // (skips the velocity / by-medium row that clutters at small card
 // scale). Aspect matches the new 2822×600 source crop.
 export function AnalyticsVisual() {
-  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPIs + status breakdown" className="aspect-[2822/800]" />
+  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPI row" className="aspect-[2822/300]" />
 }
 
 // 6 — Custom metrics builder · the Customize Analytics modal showing

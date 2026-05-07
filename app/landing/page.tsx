@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3, Globe } from 'lucide-react'
+import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3, Globe, Clock, Download, Lock } from 'lucide-react'
 import { Aurora } from '@/components/landing/Aurora'
 import { TextGenerateEffect } from '@/components/landing/TextGenerateEffect'
 import { AppPreview } from '@/components/landing/AppPreview'
@@ -10,12 +10,30 @@ import { HowItWorks } from '@/components/landing/HowItWorks'
 import { PlatformMarquee } from '@/components/landing/PlatformMarquee'
 import {
   BentoGrid, BentoCard,
-  SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual, CustomMetricsVisual, FiltersVisual,
+  SearchVisual, ScoringVisual, CrmVisual, AnalyticsVisual, CustomMetricsVisual, FiltersVisual,
 } from '@/components/landing/BentoGrid'
 import { Spotlight } from '@/components/ui/spotlight'
 import { Meteors } from '@/components/ui/meteors'
 import { BorderBeam } from '@/components/ui/border-beam'
 import { createClient } from '@/lib/supabase/server'
+
+/**
+ * Compact icon + title + description card used in the "More features"
+ * section (post-bento). Contrast with BentoCard: no screenshot, no
+ * lift-on-hover, no spring physics — just a clean, readable list of
+ * secondary capabilities. Reads as "and here's everything else."
+ */
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="group relative rounded-xl border border-border bg-card hover:border-brand/40 transition-colors p-5 dark:bg-white/[0.04] dark:backdrop-blur-md dark:border-white/10 dark:hover:border-brand/40">
+      <div className="w-9 h-9 rounded-lg bg-brand/10 border border-brand/30 flex items-center justify-center text-brand mb-3">
+        {icon}
+      </div>
+      <div className="text-sm font-semibold text-foreground tracking-tight mb-1">{title}</div>
+      <p className="text-[13px] text-muted-foreground leading-relaxed">{description}</p>
+    </div>
+  )
+}
 
 export const metadata = {
   title: 'Creator Outreach — find them, score them, pitch them, close them',
@@ -155,26 +173,19 @@ export default async function LandingPage() {
               delay={0.15}
             />
             <BentoCard
-              title="Templated follow-ups, on cadence"
-              description="When it's time to ping (3d / 7d / 14d / 21d), one click copies the right template per platform — Instagram DM, LinkedIn message, or email."
-              icon={<MailPlus className="w-3.5 h-3.5" />}
-              visual={<CadenceVisual />}
-              delay={0.2}
-            />
-            <BentoCard
               className="md:col-span-2"
               title="Analytics dashboard"
-              description="Win rate, response rate, pipeline value, stale follow-ups, status breakdown. The dashboard you'd build in 4 hours, ready out of the box."
+              description="Win rate, response rate, pipeline value, stale follow-ups, status breakdown."
               icon={<BarChart3 className="w-3.5 h-3.5" />}
               visual={<AnalyticsVisual />}
-              delay={0.25}
+              delay={0.2}
             />
             <BentoCard
               title="Build any metric"
               description="Count, percentage, sum, average — over any filter. Saves to your dashboard. No formulas, no spreadsheets."
               icon={<BarChart3 className="w-3.5 h-3.5" />}
               visual={<CustomMetricsVisual />}
-              delay={0.3}
+              delay={0.25}
             />
             <BentoCard
               className="md:col-span-3"
@@ -182,9 +193,48 @@ export default async function LandingPage() {
               description="Pin views, subscribers, last-posted, has-email, language, and 22 specific regions to focus your queue on the creators who fit your market — instead of dredging through global noise."
               icon={<Globe className="w-3.5 h-3.5" />}
               visual={<FiltersVisual />}
-              delay={0.35}
+              delay={0.3}
             />
           </BentoGrid>
+        </div>
+      </section>
+
+      {/* "More features" — compact icon-only list. Per Dylan: items
+          without strong screenshots ("Templated emails doesnt have a
+          screenshot so put that somewhere else in like a cool
+          features section"). Templated outreach is the headline; a
+          handful of secondary capabilities round it out so this
+          section reads as "and here's everything else." */}
+      <section className="relative px-6 pb-20 md:pb-28 z-10">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="text-center mb-10">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3">More features</div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
+              And a few extras you didn&apos;t ask for.
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <FeatureCard
+              icon={<MailPlus className="w-5 h-5" />}
+              title="Templated outreach"
+              description="One-click copy of the right message for each platform. Instagram DM, LinkedIn note, email cadence."
+            />
+            <FeatureCard
+              icon={<Clock className="w-5 h-5" />}
+              title="Auto follow-up cadence"
+              description="3d, 7d, 14d, 21d. The system pings you. You hit one button. Done."
+            />
+            <FeatureCard
+              icon={<Download className="w-5 h-5" />}
+              title="Excel + CSV import"
+              description="Bring your existing outreach in. Statuses preserved. Export anytime."
+            />
+            <FeatureCard
+              icon={<Lock className="w-5 h-5" />}
+              title="RLS-isolated data"
+              description="Your queue is yours. No one else on the platform can see your leads, by database design."
+            />
+          </div>
         </div>
       </section>
 
@@ -216,12 +266,17 @@ export default async function LandingPage() {
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:bg-white/5 dark:backdrop-blur-md dark:border-white/10 dark:shadow-none">
               <div className="text-sm font-medium text-foreground mb-1">Beta</div>
               <div className="text-3xl font-bold tracking-tight mb-2">$0</div>
-              <div className="text-xs text-muted-foreground mb-4">Free, no card required</div>
+              <div className="text-xs text-muted-foreground mb-4">Free while in beta</div>
+              {/* Per Dylan: "give less details for the free for beta and
+                  just say some generic things, don't make promises or
+                  assumptions." Replaced the specific feature list
+                  ("Unlimited outreach tracking" / "AI fit scoring" /
+                  etc) with vague capability lines that don't lock in
+                  any particular feature scope. */}
               <ul className="text-sm text-muted-foreground space-y-1.5">
-                <li>· Unlimited outreach tracking</li>
-                <li>· AI fit scoring</li>
-                <li>· Smart follow-up cadence</li>
-                <li>· Analytics + custom metrics</li>
+                <li>· Full access to what we&apos;re shipping</li>
+                <li>· No card required</li>
+                <li>· Help shape the roadmap</li>
               </ul>
             </div>
             <div className="rounded-2xl border border-brand/30 bg-gradient-to-br from-brand/10 to-brand-2/10 p-6 shadow-sm dark:backdrop-blur-md dark:shadow-none">
