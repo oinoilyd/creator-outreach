@@ -230,7 +230,7 @@ export default async function LandingPage() {
             <FeatureCard
               icon={<Clock className="w-5 h-5" />}
               title="Follow-ups you don&apos;t forget"
-              description="Most lost deals were just lost follow-ups. We schedule the next touch — 3d, 7d, 14d, 21d — surface the queue when it&apos;s time, and load up your template. Personalize it for the lead, hit send."
+              description="Set the cadence you actually run — defaults to 3d, 7d, 14d, 21d, or whatever rhythm fits the deal. We surface the queue when it&apos;s time and load your template. Personalize it for the lead, hit send."
             />
             <FeatureCard
               icon={<Download className="w-5 h-5" />}
