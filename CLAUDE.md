@@ -15,8 +15,44 @@ Three skill bundles are installed at `~/.claude/skills/`:
 1. `writing-plans` — produce a written plan first. Tasks must be 2–5 minute increments. Don't start coding until Dylan has seen the plan.
 2. `executing-plans` — work the plan one task at a time. Mark progress as you go.
 3. `verification-before-completion` — before claiming "done," confirm the change behaves as described. For visuals, that means **looking at the rendered output** (read the image after a crop, screenshot the page after a deploy) — not assuming.
+4. **`npm test` BEFORE every push.** Mandatory. See "Test-before-push" below.
 
 This rule exists because we burned a half-night cycle of "shipped → broken → reverted." Read [SESSION-NOTES](./SESSION-NOTES.md) if you want the long version. The cycle ends here.
+
+## Test-before-push (MANDATORY)
+
+Playwright tests live in `tests/`. Before every `git push`:
+
+1. **Run** `npm test` (chromium, headless, auto-starts `next dev`).
+2. **Capture the summary** — passed / failed / skipped counts + any failure messages.
+3. **Show Dylan the summary** in chat. Format:
+   ```
+   Playwright: ✓ X passed · ✗ Y failed · ⊘ Z skipped (N.NNs)
+   [if any failed] Failures:
+     - test name → reason (1 line)
+   ```
+4. **Wait for explicit approval** before pushing if there are any failures or warnings. If all pass, may push immediately and include the summary in the response.
+5. **If a test fails**: do NOT push. Diagnose, fix, re-run, re-summarize, get approval. The "fix the test" path is also valid if the test itself was wrong — but call that out explicitly.
+
+Skipping the test step is treated as the same severity as skipping `npm run build`.
+
+### Test scripts
+
+```
+npm test              # headless run, default browser (chromium)
+npm run test:ui       # interactive UI mode (Dylan's debugging)
+npm run test:headed   # visible browser (Claude debugging)
+npm run test:debug    # step-debugger
+npm run test:prod     # tests target https://creatoroutreach.net (post-deploy verify)
+```
+
+### Coverage scope (v1)
+
+- **Landing page render** — headline visible (catches the bg-clip-text bug class), bento count ≥ 5, sections present, no console errors
+- **Auth forms render** — sign in / sign up / forgot password fields exist
+- **Theme toggle** — clicking flips `html.dark`, headline stays visible in both modes
+
+Auth-required tests (search, outreach, multi-sort behavior) are deferred until a Supabase test user is provisioned. Tag them `@auth` when added.
 
 ## Landing redesign — locked decisions
 
