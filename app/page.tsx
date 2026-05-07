@@ -2000,6 +2000,7 @@ export default function Home() {
   const [maxAgeDays, setMaxAgeDays] = useState<number>(Infinity)
   // Niche filter for suggestions: null = all niches mixed.
   const [selectedNiche, setSelectedNiche] = useState<string | null>(null)
+  const [showNiches, setShowNiches] = useState(false)
   const [showFilter, setShowFilter] = useState(false)
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
@@ -2272,6 +2273,10 @@ export default function Home() {
       avgViews: c.avgViews || 0,
       fitScore: computeFitScore(c, scoreWeights, effectiveGuidanceEntries),
       linkedin: c.linkedin || '',
+      instagram: c.instagram || '',
+      twitter: c.twitter || '',
+      tiktok: c.tiktok || '',
+      website: c.website || '',
       contentNiche: '',
       phone: '',
       dealValue: '',
@@ -2511,6 +2516,10 @@ export default function Home() {
             avgViews: c.avgViews || 0,
             fitScore: 50 + Math.floor(Math.random() * 50),
             linkedin: c.linkedin || '',
+            instagram: c.instagram || '',
+            twitter: c.twitter || '',
+            tiktok: c.tiktok || '',
+            website: c.website || '',
             contentNiche: kw,
             phone: '',
             dealValue,
@@ -3299,29 +3308,43 @@ export default function Home() {
           </div>
           {showSuggestions && (
             <>
-              {/* Niche filter row — clicking a niche kicks off a multi-occupation search */}
+              {/* Niche row — collapsed by default. The 'See niches' pill on the
+                  left expands the row of all niches; clicking a niche fires a
+                  multi-occupation search across every occupation in that niche. */}
               <div className="flex flex-wrap gap-1.5 mb-3">
                 <button
-                  onClick={() => setSelectedNiche(null)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${selectedNiche == null ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+                  onClick={() => setShowNiches(v => !v)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${showNiches ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+                  title="Search every occupation in a niche at once"
                 >
-                  All niches
+                  <span>{showNiches ? '✕' : '🎯'}</span>
+                  <span>{showNiches ? 'Hide niches' : 'See niches'}</span>
                 </button>
-                {NICHE_BUCKETS.map(n => (
-                  <button
-                    key={n.id}
-                    onClick={() => {
-                      setSelectedNiche(n.id)
-                      setKeyword(n.label)
-                      runSearch(n.label, n.occupations)
-                    }}
-                    title={`Search all ${n.occupations.length} occupations: ${n.occupations.slice(0, 4).join(', ')}${n.occupations.length > 4 ? '…' : ''}`}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${selectedNiche === n.id ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
-                  >
-                    <span>{n.emoji}</span>
-                    <span>{n.label}</span>
-                  </button>
-                ))}
+                {showNiches && (
+                  <>
+                    <button
+                      onClick={() => setSelectedNiche(null)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${selectedNiche == null ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+                    >
+                      All niches
+                    </button>
+                    {NICHE_BUCKETS.map(n => (
+                      <button
+                        key={n.id}
+                        onClick={() => {
+                          setSelectedNiche(n.id)
+                          setKeyword(n.label)
+                          runSearch(n.label, n.occupations)
+                        }}
+                        title={`Search all ${n.occupations.length} occupations: ${n.occupations.slice(0, 4).join(', ')}${n.occupations.length > 4 ? '…' : ''}`}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${selectedNiche === n.id ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+                      >
+                        <span>{n.emoji}</span>
+                        <span>{n.label}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
 
               {/* Occupation chips — quick single-occupation searches.

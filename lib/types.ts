@@ -102,6 +102,10 @@ export interface OutreachEntry {
   avgViews: number
   fitScore: number
   linkedin: string
+  instagram: string
+  twitter: string
+  tiktok: string
+  website: string
   contentNiche: string
   phone: string
   dealValue: string

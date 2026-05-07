@@ -149,6 +149,42 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
                 className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
               />
             </Field>
+            <Field label="Website">
+              <input
+                type="url"
+                value={entry.website}
+                onChange={e => onUpdate(entry.id, 'website', e.target.value)}
+                placeholder="https://example.com"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
+            <Field label="Instagram">
+              <input
+                type="url"
+                value={entry.instagram}
+                onChange={e => onUpdate(entry.id, 'instagram', e.target.value)}
+                placeholder="https://instagram.com/handle"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
+            <Field label="Twitter / X">
+              <input
+                type="url"
+                value={entry.twitter}
+                onChange={e => onUpdate(entry.id, 'twitter', e.target.value)}
+                placeholder="https://x.com/handle"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
+            <Field label="TikTok">
+              <input
+                type="url"
+                value={entry.tiktok}
+                onChange={e => onUpdate(entry.id, 'tiktok', e.target.value)}
+                placeholder="https://tiktok.com/@handle"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+              />
+            </Field>
             <Field label="Product / pitch">
               <input
                 type="text"
