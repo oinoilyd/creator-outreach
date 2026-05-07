@@ -131,6 +131,29 @@ Setup walkthrough lives in `META_APP_REVIEW.md`. Postgres migration is `supabase
 - Internal-use cache (current state): legal, low-risk.
 - Selling/exposing the historical log externally: requires lawyer + GDPR/CCPA compliance + state data-broker registrations + would violate Meta API ToS — explicitly out of scope without that lift.
 
+## Supabase auth email deliverability — CUSTOM SMTP (one-time setup)
+
+Default Supabase auth emails come from `noreply@mail.supabase.io`. This sender's domain reputation is poor — Gmail / Outlook routinely land it in spam or flag as "dangerous" (especially for password-reset emails, which phishing campaigns regularly mimic).
+
+**Permanent fix:** route Supabase auth emails through Resend SMTP, using the `creatoroutreach.net` domain we already have verified for the contact form.
+
+Steps (Supabase Dashboard, ~30 seconds):
+1. Open https://supabase.com/dashboard/project/qsvsiypwecngqrzgvnxv/settings/auth
+2. Scroll to **SMTP Settings** → toggle **Enable Custom SMTP**
+3. Paste these values:
+   - **Sender email**: `noreply@creatoroutreach.net`
+   - **Sender name**: `Creator Outreach`
+   - **Host**: `smtp.resend.com`
+   - **Port**: `465`
+   - **Minimum interval between emails**: `60`
+   - **Username**: `resend`
+   - **Password**: paste the value of `RESEND_API_KEY` (from Vercel env, starts with `re_`)
+4. Save
+
+After that, all auth emails (signup confirmation, password reset, magic link) flow through Resend with proper SPF/DKIM/DMARC. Spam flags disappear.
+
+The reset-link copy + check-spam UI in `/auth/check-email` and `/auth/forgot-password` is a stopgap until SMTP is configured.
+
 ## Quick links
 
 - Live: https://creatoroutreach.net
