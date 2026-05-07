@@ -39,7 +39,27 @@ const TOPIC_MAP: Record<string, string[]> = {
   sales: ['sales trainer', 'sales coach', 'sales content creator', 'B2B sales', 'closing coach', 'sales strategy'],
 }
 
-const GENERIC_ROLES = ['coach', 'expert', 'content creator', 'consultant', 'educator', 'entrepreneur', 'influencer']
+// Broad role/intent variants used to pad the query set when a search
+// keyword doesn't have a TOPIC_MAP entry. Per Dylan's request — niche
+// searches should always cast a wide net of at least 30 related queries
+// so we never under-populate.
+const GENERIC_ROLES = [
+  'coach', 'expert', 'specialist', 'professional', 'pro',
+  'content creator', 'creator', 'influencer', 'YouTuber', 'vlogger',
+  'consultant', 'advisor', 'strategist', 'mentor', 'guru',
+  'educator', 'teacher', 'trainer', 'instructor', 'tutor',
+  'entrepreneur', 'founder', 'CEO', 'leader', 'authority',
+  'reviewer', 'critic', 'commentator', 'analyst', 'enthusiast',
+]
+
+// Adjacent intent suffixes — generic question/topic shapes that surface
+// channels even when a niche has no fixed occupation list.
+const INTENT_SUFFIXES = [
+  'tips', 'advice', 'guide', 'tutorial', 'masterclass',
+  'training', 'lessons', 'how to', 'best', 'top',
+  'review', 'beginner', 'pro', 'secrets', 'mistakes',
+  'YouTube channel', 'channel', 'series',
+]
 
 // Country name to append to every query for geographic signal
 const REGION_SUFFIX: Record<string, string> = {
@@ -663,19 +683,44 @@ const REGION_TOPIC_EXTRAS: Record<string, Record<string, string[]>> = {
 
 function expandTopic(keyword: string): string[] {
   const lower = keyword.toLowerCase().trim()
-  // broad variants always included so the raw topic surfaces general channels
   const broad = [lower, `${lower} YouTube`, `${lower} channel`, `${lower} tips`]
 
-  if (TOPIC_MAP[lower]) return [...broad, ...TOPIC_MAP[lower]]
-
-  for (const [key, roles] of Object.entries(TOPIC_MAP)) {
-    if (lower.includes(key) || key.includes(lower)) return [...broad, ...roles]
+  // Build the most-specific list we can find first — TOPIC_MAP exact or
+  // substring match wins. Then we pad with generic role / intent
+  // variants so every search has at least 30 queries even when the
+  // niche is unknown to us.
+  let primary: string[] = []
+  if (TOPIC_MAP[lower]) {
+    primary = [...broad, ...TOPIC_MAP[lower]]
+  } else {
+    for (const [key, roles] of Object.entries(TOPIC_MAP)) {
+      if (lower.includes(key) || key.includes(lower)) {
+        primary = [...broad, ...roles]
+        break
+      }
+    }
+  }
+  if (primary.length === 0) {
+    primary = lower.includes(' ')
+      ? [keyword, `${keyword} channel`, `${keyword} YouTube`, `${keyword} tips`, `${keyword} advice`]
+      : [keyword, ...GENERIC_ROLES.map(r => `${keyword} ${r}`)]
   }
 
-  if (lower.includes(' ')) {
-    return [keyword, `${keyword} channel`, `${keyword} YouTube`, `${keyword} tips`, `${keyword} advice`]
+  // Pad with sister/related occupation queries until we have ≥30 unique
+  // queries. Every keyword search always casts a wide net regardless of
+  // how niche-specific the input is.
+  const padded = new Set(primary)
+  const padders = [
+    ...GENERIC_ROLES.map(r => `${keyword} ${r}`),
+    ...INTENT_SUFFIXES.map(s => `${keyword} ${s}`),
+    ...GENERIC_ROLES.map(r => `${r} ${keyword}`),
+  ]
+  let i = 0
+  while (padded.size < 30 && i < padders.length) {
+    padded.add(padders[i])
+    i++
   }
-  return [keyword, ...GENERIC_ROLES.map(r => `${keyword} ${r}`)]
+  return [...padded]
 }
 
 function applyRegion(queries: string[], keyword: string, gl: string): string[] {

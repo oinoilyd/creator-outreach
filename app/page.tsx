@@ -1026,6 +1026,49 @@ function CollapsibleSection({ title, count, subtitle, open, onToggle, children }
   )
 }
 
+// Inline pipeline value editor for the follow-ups row. Click → input
+// appears, type a number, blur or Enter to save. Empty zero shows a
+// faint $ placeholder so the click target is always there.
+function PipelineChip({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const num = parseFloat(String(value || '').replace(/[^0-9.]/g, '')) || 0
+  useEffect(() => { setDraft(value) }, [value])
+  function commit() {
+    const cleaned = draft.replace(/[^0-9.]/g, '')
+    const display = cleaned ? `$${parseFloat(cleaned).toLocaleString()}` : ''
+    onChange(display)
+    setEditing(false)
+  }
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { commit() }
+          if (e.key === 'Escape') { setDraft(value); setEditing(false) }
+        }}
+        placeholder="0"
+        className="text-[10px] font-mono px-1.5 py-px rounded bg-card border border-emerald-300 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 w-20 focus:outline-none shrink-0"
+      />
+    )
+  }
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className={`text-[10px] font-mono px-1.5 py-px rounded border shrink-0 transition-colors ${num > 0
+        ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30 hover:border-emerald-300'
+        : 'bg-muted/30 text-muted-foreground/60 border-border hover:border-border/80 hover:text-emerald-700 dark:hover:text-emerald-300'}`}
+      title={num > 0 ? 'Pipeline value — click to edit' : 'Add pipeline $ — click to enter a value'}
+    >
+      {num > 0 ? `$${num.toLocaleString()}` : '$0'}
+    </button>
+  )
+}
+
 function FUStat({ label, value, accent, sub, onClick, active }: {
   label: string
   value: number | string
@@ -1166,12 +1209,12 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
           </div>
         </button>
 
-        {/* Pipeline value chip */}
-        {dealValue > 0 && (
-          <span className="text-[10px] font-mono px-1.5 py-px rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 shrink-0" title="Deal value">
-            ${dealValue.toLocaleString()}
-          </span>
-        )}
+        {/* Pipeline value chip — inline editable. Click the chip to type
+            a new value. Empty / zero shows a faint $ placeholder. */}
+        <PipelineChip
+          value={e.dealValue || ''}
+          onChange={v => onUpdate(e.id, 'dealValue', v)}
+        />
 
         {/* Date pill — clickable to open cadence popover */}
         <div className="relative shrink-0">
@@ -1587,15 +1630,20 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   const [sort, setSort] = useState<{ col: keyof OutreachEntry | null; dir: 'asc' | 'desc' }>({ col: null, dir: 'desc' })
   const [showFavTooltip, setShowFavTooltip] = useState(false)
   const favTooltipRef = useRef<HTMLDivElement>(null)
+  const [showStatusTooltip, setShowStatusTooltip] = useState(false)
+  const statusTooltipRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function onClick(ev: MouseEvent) {
       if (favTooltipRef.current && !favTooltipRef.current.contains(ev.target as Node)) {
         setShowFavTooltip(false)
       }
+      if (statusTooltipRef.current && !statusTooltipRef.current.contains(ev.target as Node)) {
+        setShowStatusTooltip(false)
+      }
     }
-    if (showFavTooltip) document.addEventListener('mousedown', onClick)
+    if (showFavTooltip || showStatusTooltip) document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
-  }, [showFavTooltip])
+  }, [showFavTooltip, showStatusTooltip])
 
   function handleColDrop(targetIdx: number) {
     const from = dragIdx.current
@@ -1763,6 +1811,21 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                       >
                         {!isLocked && <span className="text-muted-foreground/70 text-xs">⠿</span>}
                         {col.label}
+                        {col.id === 'status' && (
+                          <span ref={statusTooltipRef} className="relative inline-flex" data-no-sort>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShowStatusTooltip(v => !v) }}
+                              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-purple-500/40 text-purple-700 dark:text-purple-400 text-[9px] font-bold hover:bg-purple-500/10 transition-colors"
+                              aria-label="What does Status do?"
+                              title="Status info"
+                            >i</button>
+                            {showStatusTooltip && (
+                              <div className="absolute left-0 top-5 z-30 w-72 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
+                                <strong className="text-foreground">Editable inline.</strong> Pick Open / No Response / Successful / Rejected. Setting it to <span className="text-blue-700 dark:text-blue-400">Open</span> or <span className="text-amber-700 dark:text-yellow-400">No Response</span> auto-schedules the next follow-up date in the <span className="text-purple-700 dark:text-purple-400">Follow-ups</span> tab — cadence is 3d → 7d → 14d → 21d as touchpoints accumulate. Setting Successful pops confetti.
+                              </div>
+                            )}
+                          </span>
+                        )}
                         {sort.col === col.id && (
                           <span className="text-purple-700 dark:text-purple-400 text-[10px] ml-0.5" aria-label={sort.dir}>
                             {sort.dir === 'desc' ? '↓' : '↑'}
@@ -1832,7 +1895,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning, emailFirst = true }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -1850,9 +1913,10 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   deepSearchingIds: Set<string>
   onDeepSearchAll: () => void
   bulkRunning: boolean
+  emailFirst?: boolean
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
-  const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries), [creators, sortCol, sortDir, scoreWeights, guidanceEntries])
+  const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries, emailFirst), [creators, sortCol, sortDir, scoreWeights, guidanceEntries, emailFirst])
   const visibleCols = colConfig.filter(c => c.visible)
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -1873,10 +1937,10 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
       <table className="w-full text-sm">
         <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
           <tr>
-            <th className="px-2 py-3 text-center w-12" title="Skip — hide this creator from results">
+            <th className="px-2 py-3 text-center w-12" title="Dismiss — hide this creator from results">
               <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
                 <DismissIcon active={false} />
-                <span className="text-[9px] font-semibold tracking-wide uppercase">Skip</span>
+                <span className="text-[9px] font-semibold tracking-wide uppercase">Dismiss</span>
               </div>
             </th>
             <th className="px-2 py-3 text-center w-12" title="Add to Outreach list">
@@ -1941,7 +2005,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
               <td className="px-2 py-3 text-center">
                 <button
                   onClick={() => onDismiss(c)}
-                  title="Skip — hide this creator from results"
+                  title="Dismiss — hide this creator from results"
                   className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground hover:text-red-700 dark:text-red-400'}`}
                 >
                   <DismissIcon active={dismissedIds.has(c.channelId)} />
@@ -1972,7 +2036,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                   <td className="px-2 py-3 text-center">
                     <button
                       onClick={() => onDismiss(c)}
-                      title="Skip — hide this creator from results"
+                      title="Dismiss — hide this creator from results"
                       className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground hover:text-red-700 dark:text-red-400'}`}
                     >
                       <DismissIcon active={dismissedIds.has(c.channelId)} />
@@ -2032,6 +2096,9 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [emailOnly, setEmailOnly] = useState(false)
+  // Default sort prioritizes creators with email at the top. User can
+  // toggle this off in the filter panel to see the raw column-only sort.
+  const [emailFirstSort, setEmailFirstSort] = useState(true)
   const [showExport, setShowExport] = useState(false)
   const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
   const [showCustomize, setShowCustomize] = useState(false)
@@ -3241,6 +3308,13 @@ export default function Home() {
               >
                 Has email
               </button>
+              <button
+                onClick={() => setEmailFirstSort(v => !v)}
+                title="When on, creators with a discovered email always sort to the top regardless of which column you're sorting by"
+                className={`text-xs px-3 py-1 rounded border transition-colors ${emailFirstSort ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
+              >
+                Email-first sort
+              </button>
             </div>
             <div className="flex items-start gap-3 flex-wrap border-t border-border pt-3">
               <div className="flex flex-col w-20 shrink-0 mt-1 gap-0.5">
@@ -3741,6 +3815,7 @@ export default function Home() {
               loading={loading}
               sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
               colConfig={effectiveColConfig}
+              emailFirst={emailFirstSort}
               loadMoreBatch={activeTab === 'results' ? loadMoreCreators.filter(c =>
                 !dismissedIds.has(c.channelId) &&
                 c.avgViews >= minViews && c.avgViews <= maxViews &&

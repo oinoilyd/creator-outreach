@@ -145,8 +145,19 @@ export function contactPriority(c: Creator): number {
   return 0
 }
 
-export function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): Creator[] {
+export function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = [], emailFirst: boolean = true): Creator[] {
   return [...list].sort((a, b) => {
+    // Email-first primary sort: creators with a discovered email always
+    // rank above those without, regardless of which column the user is
+    // sorting by. Toggleable via the emailFirst flag (default on per
+    // user request — "ones with email start at the top, can be
+    // filtered out of but that should default").
+    if (emailFirst) {
+      const aHas = a.email ? 1 : 0
+      const bHas = b.email ? 1 : 0
+      if (aHas !== bHas) return bHas - aHas
+    }
+
     if (col === 'email') {
       const pri = contactPriority(b) - contactPriority(a)
       if (pri !== 0) return pri

@@ -3,7 +3,7 @@ import type { ColId, ColConfig, OutreachColDef, OutreachColConfig, SortCol } fro
 export const ALL_OUTREACH_COLS: OutreachColDef[] = [
   { id: 'favorite',        label: '★',                 defaultVisible: true,  defaultWidth: 38,  tooltip: 'Click the star next to a row to favorite it. View favorites under Outreach → Favorites.' },
   { id: 'channelName',     label: 'Channel',           defaultVisible: true,  defaultWidth: 160, tooltip: 'The creator\'s channel name.' },
-  { id: 'channelUrl',      label: 'YT',                defaultVisible: true,  defaultWidth: 42,  tooltip: 'Click to open the channel on YouTube.' },
+  { id: 'channelUrl',      label: 'YT',                defaultVisible: true,  defaultWidth: 56,  tooltip: 'Click to open the channel on YouTube.' },
   { id: 'email',           label: 'Email',             defaultVisible: true,  defaultWidth: 190, tooltip: 'The creator\'s contact email. Click the green address to open a draft outreach email.' },
   { id: 'description',     label: 'Description',       defaultVisible: true,  defaultWidth: 230, tooltip: 'Channel description / bio.' },
   { id: 'product',         label: 'Product',           defaultVisible: true,  defaultWidth: 160, tooltip: 'Which product or pitch you\'re sending this creator.' },
@@ -22,7 +22,7 @@ export const ALL_OUTREACH_COLS: OutreachColDef[] = [
   { id: 'linkedin',        label: 'LinkedIn',          defaultVisible: false, defaultWidth: 100, tooltip: 'LinkedIn profile URL for the creator.' },
   { id: 'contentNiche',    label: 'Content Niche',     defaultVisible: false, defaultWidth: 130, tooltip: 'Content niche or category, free-form.' },
   { id: 'phone',           label: 'Phone',             defaultVisible: false, defaultWidth: 130, tooltip: 'Phone number if you have one.' },
-  { id: 'dealValue',       label: 'Deal Value',        defaultVisible: false, defaultWidth: 110, tooltip: 'Estimated $ value. Summed in Analytics → Pipeline $ for non-rejected entries.' },
+  { id: 'dealValue',       label: 'Pipeline $',        defaultVisible: true,  defaultWidth: 110, tooltip: 'Estimated $ value of this deal. Summed in Analytics → Pipeline $ across non-rejected entries.' },
   { id: 'contractSent',    label: 'Contract Sent',     defaultVisible: false, defaultWidth: 110, tooltip: 'Whether a contract has been sent.' },
   { id: 'meetingScheduled',label: 'Meeting Scheduled', defaultVisible: false, defaultWidth: 150, tooltip: 'Date/time of a scheduled meeting.' },
 ]
