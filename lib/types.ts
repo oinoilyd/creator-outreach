@@ -24,6 +24,15 @@ export type SortCol =
   | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
   | 'fitScore'
 export type SortDir = 'asc' | 'desc'
+
+/**
+ * Multi-column sort key. The Results table now supports chaining
+ * sorts — clicking column headers in sequence builds an array of
+ * SortKey, with the most-recently-clicked at index 0 (= highest
+ * priority). The comparator iterates them in order, returning the
+ * first non-zero comparison.
+ */
+export type SortKey = { col: SortCol; dir: SortDir }
 export type ColId =
   | 'avgViews' | 'subscribers' | 'lastVideo' | 'lastShort'
   | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok'

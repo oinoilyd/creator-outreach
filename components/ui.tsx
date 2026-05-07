@@ -50,9 +50,34 @@ export function Spinner() {
   )
 }
 
-export function SortIndicator({ col, sortCol, sortDir }: { col: SortCol, sortCol: SortCol, sortDir: 'asc' | 'desc' }) {
-  if (col !== sortCol) return <span className="ml-1 text-muted-foreground/70">↕</span>
-  return <span className="ml-1 text-blue-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
+/**
+ * Sort indicator for column headers. Multi-column-sort aware:
+ *
+ *   - col not in sorts        → muted ↕ (sortable, currently inactive)
+ *   - col is sorts[0]         → bright primary arrow + no badge (top key)
+ *   - col is sorts[1+]        → dimmer arrow + priority badge "2", "3", …
+ *
+ * The numeric badge is only drawn when more than one sort is active —
+ * a single-column sort doesn't need a "1".
+ */
+export function SortIndicator({ col, sorts }: { col: SortCol; sorts: { col: SortCol; dir: 'asc' | 'desc' }[] }) {
+  const idx = sorts.findIndex(s => s.col === col)
+  if (idx < 0) return <span className="ml-1 text-muted-foreground/70">↕</span>
+  const { dir } = sorts[idx]
+  const arrow = dir === 'asc' ? '↑' : '↓'
+  const isPrimary = idx === 0
+  const arrowCls = isPrimary ? 'text-purple-500' : 'text-purple-400/70'
+  const showBadge = sorts.length > 1
+  return (
+    <span className="ml-1 inline-flex items-center gap-1">
+      <span className={arrowCls}>{arrow}</span>
+      {showBadge && (
+        <span className={`text-[9px] font-bold px-1 rounded ${isPrimary ? 'bg-purple-500 text-white' : 'bg-purple-500/30 text-purple-200'}`}>
+          {idx + 1}
+        </span>
+      )}
+    </span>
+  )
 }
 
 export function PlatformIcon({ id, className = 'w-4 h-4' }: { id: PlatformId; className?: string }) {

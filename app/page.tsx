@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import React, { useState, useMemo, useEffect, useCallback, useRef, useContext } from 'react'
 import type {
-  Creator, SortCol, SortDir, ColId, ActiveTab, ScoreWeights,
+  Creator, SortCol, SortKey, ColId, ActiveTab, ScoreWeights,
   GuidanceCondition, GuidanceRule, GuidanceEntry, GuidancePreset, GuidanceContextType,
   OutreachEntry, OutreachColDef, OutreachColConfig,
   ColConfig, PlatformId, PlatformConfig, UserProfile,
@@ -2020,13 +2020,13 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sortCol, sortDir, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning, emailFirst = true }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sorts, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning, emailFirst = true }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
   onReorderCols: (newConfig: ColConfig[]) => void
   loading?: boolean
-  sortCol: SortCol, sortDir: SortDir, onSort: (col: SortCol) => void
+  sorts: SortKey[], onSort: (col: SortCol) => void
   colConfig: ColConfig[]
   loadMoreBatch?: Creator[]
   scoreWeights: ScoreWeights
@@ -2041,7 +2041,9 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   emailFirst?: boolean
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
-  const sorted = useMemo(() => sortCreators(creators, sortCol, sortDir, scoreWeights, guidanceEntries, emailFirst), [creators, sortCol, sortDir, scoreWeights, guidanceEntries, emailFirst])
+  // Multi-key sort: pass the sorts array straight through to
+  // sortCreators (which now accepts SortKey[] in its first overload).
+  const sorted = useMemo(() => sortCreators(creators, sorts, 'desc', scoreWeights, guidanceEntries, emailFirst), [creators, sorts, scoreWeights, guidanceEntries, emailFirst])
   const visibleCols = colConfig.filter(c => c.visible)
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
@@ -2092,7 +2094,7 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 >
                   <span className="mr-1 text-muted-foreground/70 text-xs">⠿</span>
                   {col.label}
-                  {sc && <SortIndicator col={sc} sortCol={sortCol} sortDir={sortDir} />}
+                  {sc && <SortIndicator col={sc} sorts={sorts} />}
                   {col.id === 'email' && (() => {
                     const pending = sorted.filter(c => !c.email && !c.enriching).length
                     if (pending === 0 && !bulkRunning) return null
@@ -2207,8 +2209,13 @@ export default function Home() {
   const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 })
   const [elapsed, setElapsed] = useState(0)
   const [status, setStatus] = useState('')
-  const [sortCol, setSortCol] = useState<SortCol>('fitScore')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  // Multi-column sort. Index 0 = highest priority (primary). Each
+  // header click promotes that column to primary. Clicking the
+  // already-primary column toggles direction. Clicking a column that
+  // is already in the chain (but not primary) promotes it to primary.
+  // To remove a column from the chain, click it past its second
+  // direction (asc → desc → off). Default: fit score desc.
+  const [sorts, setSorts] = useState<SortKey[]>([{ col: 'fitScore', dir: 'desc' }])
   const [activeTab, setActiveTab] = useState<ActiveTab>('results')
   const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups'>('all')
   const [customMetrics, setCustomMetrics] = useState<import('@/lib/types').CustomMetric[]>([])
@@ -2413,9 +2420,35 @@ export default function Home() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [loading])
 
+  /**
+   * Multi-column-sort click handler. Clicking any column header:
+   *   - If column is already PRIMARY: toggles direction (desc → asc).
+   *     A second click on asc removes the column from the chain
+   *     entirely (so users can clear without a "reset" button).
+   *   - If column is in the chain but NOT primary: promotes to
+   *     primary, demotes the rest by one priority level. Direction
+   *     resets to desc.
+   *   - If column is NEW: prepends as primary, demotes the rest.
+   *     Direction defaults to desc.
+   *
+   * Three-state per-column cycle: off → desc → asc → off.
+   */
   function handleSort(col: SortCol) {
-    if (col === sortCol) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortCol(col); setSortDir('desc') }
+    setSorts(prev => {
+      const idx = prev.findIndex(s => s.col === col)
+      if (idx === 0) {
+        // Currently primary → toggle dir, or remove on second toggle.
+        const cur = prev[0]
+        if (cur.dir === 'desc') {
+          return [{ col, dir: 'asc' }, ...prev.slice(1)]
+        } else {
+          return prev.slice(1) // remove primary
+        }
+      }
+      // Promote (or insert) as new primary.
+      const without = prev.filter(s => s.col !== col)
+      return [{ col, dir: 'desc' }, ...without]
+    })
   }
 
   function saveOutreach(updated: OutreachEntry[]) {
@@ -3960,7 +3993,7 @@ export default function Home() {
               onDismiss={dismissCreator}
               onReorderCols={reorderResultCols}
               loading={loading}
-              sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
+              sorts={sorts} onSort={handleSort}
               colConfig={effectiveColConfig}
               emailFirst={emailFirstSort}
               loadMoreBatch={activeTab === 'results' ? loadMoreCreators.filter(c =>

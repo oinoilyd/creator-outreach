@@ -1,4 +1,4 @@
-import type { Creator, ScoreWeights, GuidanceEntry, SortCol, SortDir } from './types'
+import type { Creator, ScoreWeights, GuidanceEntry, SortCol, SortDir, SortKey } from './types'
 import { parseRelativeDays } from './format'
 import { DEFAULT_GUIDANCE_WEIGHT, computeEntryRatio, GUIDANCE_PRESETS } from './guidance'
 
@@ -145,56 +145,83 @@ export function contactPriority(c: Creator): number {
   return 0
 }
 
-export function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = [], emailFirst: boolean = true): Creator[] {
+/**
+ * Per-column comparator. Returns negative / 0 / positive in the
+ * "natural ascending" sense — caller flips for desc. Extracted from
+ * sortCreators so the multi-key version can chain comparators.
+ */
+function compareByCol(a: Creator, b: Creator, col: SortCol, weights: ScoreWeights, guidanceEntries: GuidanceEntry[]): number {
+  const presence = (has: boolean) => has ? 1 : 0
+  // Presence columns: rows with the field rank ABOVE rows without —
+  // intentionally inverted (b - a) so "asc" still feels like "best
+  // first". The caller then flips again for desc.
+  if (col === 'email')          return presence(!!b.email)     - presence(!!a.email)
+  if (col === 'linkedin')       return presence(!!b.linkedin)  - presence(!!a.linkedin)
+  if (col === 'website')        return presence(!!b.website)   - presence(!!a.website)
+  if (col === 'instagram')      return presence(!!b.instagram) - presence(!!a.instagram)
+  if (col === 'twitter')        return presence(!!b.twitter)   - presence(!!a.twitter)
+  if (col === 'tiktok')         return presence(!!b.tiktok)    - presence(!!a.tiktok)
+  if (col === 'fitScore')       return computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
+  if (col === 'avgViews')       return a.avgViews - b.avgViews
+  if (col === 'channelName')    return a.channelName.localeCompare(b.channelName)
+  if (col === 'subscribers')    return (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
+  if (col === 'lastVideo' || col === 'lastShort') {
+    const dates = col === 'lastVideo' ? [a.videoDates?.[0] || '', b.videoDates?.[0] || ''] : [a.shortDates?.[0] || '', b.shortDates?.[0] || '']
+    const da = parseRelativeDays(dates[0])
+    const db = parseRelativeDays(dates[1])
+    if (da === Infinity && db === Infinity) return 0
+    if (da === Infinity) return 1
+    if (db === Infinity) return -1
+    return da - db
+  }
+  return 0
+}
+
+const PRESENCE_COLS: ReadonlySet<SortCol> = new Set(['email', 'linkedin', 'website', 'instagram', 'twitter', 'tiktok'])
+
+/**
+ * Multi-column sort. Pass either a single col/dir pair (legacy) or
+ * an array of SortKey for chained sorts.
+ *
+ * Multi-key behaviour: sorts[0] is the highest-priority key. The
+ * comparator iterates in order and returns the first non-zero
+ * comparison. Stable on channel name as a final tie-break.
+ *
+ * `emailFirst` still applies as the absolute top-level sort —
+ * creators with a discovered email always rank above those without,
+ * regardless of which columns are sort-chained, so the high-value
+ * leads stay surfaced.
+ */
+export function sortCreators(
+  list: Creator[],
+  colOrSorts: SortCol | SortKey[],
+  dir: SortDir = 'desc',
+  weights: ScoreWeights = DEFAULT_WEIGHTS,
+  guidanceEntries: GuidanceEntry[] = [],
+  emailFirst: boolean = true,
+): Creator[] {
+  const sorts: SortKey[] = Array.isArray(colOrSorts)
+    ? colOrSorts
+    : [{ col: colOrSorts, dir }]
+
   return [...list].sort((a, b) => {
-    // Email-first primary sort: creators with a discovered email always
-    // rank above those without, regardless of which column the user is
-    // sorting by. Toggleable via the emailFirst flag (default on per
-    // user request — "ones with email start at the top, can be
-    // filtered out of but that should default").
     if (emailFirst) {
       const aHas = a.email ? 1 : 0
       const bHas = b.email ? 1 : 0
       if (aHas !== bHas) return bHas - aHas
     }
 
-    let cmp = 0
-    // Every contact-presence column uses the same shape: rows that HAVE
-    // the field rank above rows that don't, then alphabetical by name
-    // as a stable tiebreaker. Direction toggles the asc/desc as expected.
-    const presence = (has: boolean) => has ? 1 : 0
-    if (col === 'email')          cmp = presence(!!b.email)     - presence(!!a.email)
-    else if (col === 'linkedin')  cmp = presence(!!b.linkedin)  - presence(!!a.linkedin)
-    else if (col === 'website')   cmp = presence(!!b.website)   - presence(!!a.website)
-    else if (col === 'instagram') cmp = presence(!!b.instagram) - presence(!!a.instagram)
-    else if (col === 'twitter')   cmp = presence(!!b.twitter)   - presence(!!a.twitter)
-    else if (col === 'tiktok')    cmp = presence(!!b.tiktok)    - presence(!!a.tiktok)
-    else if (col === 'fitScore')  cmp = computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
-    else if (col === 'avgViews')  cmp = a.avgViews - b.avgViews
-    else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
-    else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
-    else if (col === 'lastVideo') {
-      const da = parseRelativeDays(a.videoDates?.[0] || '')
-      const db = parseRelativeDays(b.videoDates?.[0] || '')
-      if (da === Infinity && db === Infinity) cmp = 0
-      else if (da === Infinity) return 1
-      else if (db === Infinity) return -1
-      else cmp = da - db
+    for (const { col, dir } of sorts) {
+      let cmp = compareByCol(a, b, col, weights, guidanceEntries)
+      // Presence-only ties get a name-asc subsort so the "has X" and
+      // "missing X" groups don't look randomly shuffled.
+      if (cmp === 0 && PRESENCE_COLS.has(col)) {
+        cmp = a.channelName.localeCompare(b.channelName)
+      }
+      if (cmp !== 0) return dir === 'asc' ? cmp : -cmp
     }
-    else if (col === 'lastShort') {
-      const da = parseRelativeDays(a.shortDates?.[0] || '')
-      const db = parseRelativeDays(b.shortDates?.[0] || '')
-      if (da === Infinity && db === Infinity) cmp = 0
-      else if (da === Infinity) return 1
-      else if (db === Infinity) return -1
-      else cmp = da - db
-    }
-    // Tie-break presence sorts by channel name alphabetically — keeps
-    // the order stable instead of looking randomly shuffled within
-    // the "has X" and "missing X" groups.
-    if (cmp === 0 && /^(email|linkedin|website|instagram|twitter|tiktok)$/.test(col)) {
-      cmp = a.channelName.localeCompare(b.channelName)
-    }
-    return dir === 'asc' ? cmp : -cmp
+
+    // Fully tied — final stable subsort by channel name.
+    return a.channelName.localeCompare(b.channelName)
   })
 }
