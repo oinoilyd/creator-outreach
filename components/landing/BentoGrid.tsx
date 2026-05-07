@@ -156,7 +156,7 @@ export function CadenceVisual() {
 // (skips the velocity / by-medium row that clutters at small card
 // scale). Aspect matches the new 2822×600 source crop.
 export function AnalyticsVisual() {
-  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPI row" className="aspect-[2822/300]" />
+  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPIs + status breakdown" className="aspect-[2822/640]" />
 }
 
 // 6 — Custom metrics builder · the Customize Analytics modal showing

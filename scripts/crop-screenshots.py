@@ -63,11 +63,14 @@ crop("outreach.png", (0, 270, 2784, 700), "bento-status.png")
 # "First follow-up · X touches · reached Yd ago" meta lines.
 crop("followups.png", (0, 530, 1500, 700), "bento-priority.png")
 
-# Card 5 — "Analytics dashboard" (col-span-2). 2026-05-07 Dylan
-# reverse-call: "takes up way too much empty space, less depth, it's
-# a narrow card." Tightened crop to JUST the KPI cards row (skip the
-# status breakdown bar that we added in iter-2; skip velocity). The
-# resulting wide-short visual fills the card horizontally without
-# the dead vertical whitespace.
-# y=240 (tabs end) to y=540 (KPIs end, before status breakdown).
-crop("analytics.png", (0, 240, 2822, 300), "bento-analytics.png")
+# Card 5 — "Analytics dashboard" (col-span-3 full-width). Sizing
+# tuning history:
+#   iter-2: h=800 — too big, dominant
+#   iter-4: h=300 — KPIs only, but Dylan: "removed the color and
+#                   actual dashboard screenshot feel + card is
+#                   massive when text barely uses a line"
+#   now:    h=640 — KPI cards + status breakdown bar (the colorful
+#                   green/blue/gray/red segments). Skips velocity
+#                   row and "Outreach by medium" so the card
+#                   doesn't get too tall again. Aspect ~4.41:1.
+crop("analytics.png", (0, 240, 2822, 640), "bento-analytics.png")
