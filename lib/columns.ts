@@ -34,7 +34,8 @@ export const DEFAULT_COLS: ColConfig[] = [
   { id: 'fitScore',    label: 'Fit Score',   visible: true  },
   { id: 'avgViews',    label: 'Avg Views',   visible: true  },
   { id: 'subscribers', label: 'Subscribers', visible: true  },
-  { id: 'lastPosted',  label: 'Last Posted', visible: true  },
+  { id: 'lastVideo',   label: 'Last Video',  visible: true  },
+  { id: 'lastShort',   label: 'Last Short',  visible: true  },
   { id: 'email',       label: 'Email',       visible: true  },
   { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
   { id: 'website',     label: 'Website',     visible: false },
@@ -43,10 +44,11 @@ export const DEFAULT_COLS: ColConfig[] = [
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 
-export const YOUTUBE_ONLY_COL_IDS: ColId[] = ['avgViews', 'subscribers', 'lastPosted']
+export const YOUTUBE_ONLY_COL_IDS: ColId[] = ['avgViews', 'subscribers', 'lastVideo', 'lastShort']
 
 export const COL_SORT: Partial<Record<ColId, SortCol>> = {
-  fitScore: 'fitScore', avgViews: 'avgViews', subscribers: 'subscribers', lastPosted: 'lastPosted',
+  fitScore: 'fitScore', avgViews: 'avgViews', subscribers: 'subscribers',
+  lastVideo: 'lastVideo', lastShort: 'lastShort',
   email: 'email', linkedin: 'linkedin', website: 'website',
   instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
 }

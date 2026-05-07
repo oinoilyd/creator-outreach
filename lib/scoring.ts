@@ -157,9 +157,17 @@ export function sortCreators(list: Creator[], col: SortCol, dir: SortDir, weight
     else if (col === 'avgViews') cmp = a.avgViews - b.avgViews
     else if (col === 'channelName') cmp = a.channelName.localeCompare(b.channelName)
     else if (col === 'subscribers') cmp = (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
-    else if (col === 'lastPosted') {
+    else if (col === 'lastVideo') {
       const da = parseRelativeDays(a.videoDates?.[0] || '')
       const db = parseRelativeDays(b.videoDates?.[0] || '')
+      if (da === Infinity && db === Infinity) cmp = 0
+      else if (da === Infinity) return 1
+      else if (db === Infinity) return -1
+      else cmp = da - db
+    }
+    else if (col === 'lastShort') {
+      const da = parseRelativeDays(a.shortDates?.[0] || '')
+      const db = parseRelativeDays(b.shortDates?.[0] || '')
       if (da === Infinity && db === Infinity) cmp = 0
       else if (da === Infinity) return 1
       else if (db === Infinity) return -1

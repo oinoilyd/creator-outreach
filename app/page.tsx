@@ -358,9 +358,18 @@ function renderCell(
     }
     case 'avgViews':    return <td key={id} className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
     case 'subscribers': return <td key={id} className="px-4 py-3 text-foreground/80">{formatSubscribers(c.subscribers)}</td>
-    case 'lastPosted':  return (
+    case 'lastVideo': return (
       <td key={id} className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-        {c.videoDates?.[0] ? <><div>{c.videoDates[0]}</div>{c.videoDates[1] && <div className="text-muted-foreground/70">{c.videoDates[1]}</div>}</> : <span className="text-muted-foreground/50">—</span>}
+        {c.videoDates?.[0]
+          ? <><div>{c.videoDates[0]}</div>{c.videoDates[1] && <div className="text-muted-foreground/70">{c.videoDates[1]}</div>}</>
+          : <span className="text-muted-foreground/50">—</span>}
+      </td>
+    )
+    case 'lastShort': return (
+      <td key={id} className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+        {c.shortDates?.[0]
+          ? <><div>{c.shortDates[0]}</div>{c.shortDates[1] && <div className="text-muted-foreground/70">{c.shortDates[1]}</div>}</>
+          : <span className="text-muted-foreground/50">—</span>}
       </td>
     )
     case 'email': return (
@@ -2085,7 +2094,7 @@ export default function Home() {
     const isYouTube = platformConfig.id === 'youtube'
     // For non-YouTube platforms: hide YouTube-only metrics, show & front-load the platform column
     let cols = colConfig.map(c => {
-      if (!isYouTube && (c.id === 'avgViews' || c.id === 'subscribers' || c.id === 'lastPosted')) {
+      if (!isYouTube && (c.id === 'avgViews' || c.id === 'subscribers' || c.id === 'lastVideo' || c.id === 'lastShort')) {
         return { ...c, visible: false }
       }
       if (platformConfig.column && c.id === platformConfig.column) {
@@ -2730,6 +2739,7 @@ export default function Home() {
           matchedVia: 'url',
           videoTitles: [],
           videoDates: [],
+          shortDates: [],
           description: lookup.description || '',
           enriching: true,
         }
@@ -2750,6 +2760,7 @@ export default function Home() {
             email: extra.email || '',
             subscribers: extra.subscribers || '',
             videoDates: extra.videoDates || [],
+            shortDates: extra.shortDates || [],
             avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : 0,
             linkedin: extra.linkedin || '',
             instagram: extra.instagram || '',
@@ -2826,6 +2837,7 @@ export default function Home() {
               email: c.email || extra.email || '',
               subscribers: c.subscribers || extra.subscribers || '',
               videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
+              shortDates: (extra.shortDates?.length ? extra.shortDates : c.shortDates) || [],
               avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : c.avgViews,
               linkedin: c.linkedin || extra.linkedin || '',
               instagram: c.instagram || extra.instagram || '',
@@ -2909,6 +2921,7 @@ export default function Home() {
               email: c.email || extra.email || '',
               subscribers: c.subscribers || extra.subscribers || '',
               videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
+              shortDates: (extra.shortDates?.length ? extra.shortDates : c.shortDates) || [],
               avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : c.avgViews,
               linkedin: c.linkedin || extra.linkedin || '',
               instagram: c.instagram || extra.instagram || '',
@@ -3302,7 +3315,9 @@ export default function Home() {
               </svg>
               Suggested searches
             </button>
-            {showSuggestions && !selectedNiche && (
+            {/* Refresh chips — always available when the suggestion list
+                is not narrowed to a specific niche. */}
+            {showSuggestions && !(showNiches && selectedNiche) && (
               <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} title="Shuffle suggestions" className="text-muted-foreground hover:text-foreground/80 border border-border rounded p-0.5 hover:border-border transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -3317,7 +3332,16 @@ export default function Home() {
                   multi-occupation search across every occupation in that niche. */}
               <div className="flex flex-wrap gap-1.5 mb-3">
                 <button
-                  onClick={() => setShowNiches(v => !v)}
+                  onClick={() => {
+                    setShowNiches(v => {
+                      const next = !v
+                      // Hiding the niche row also clears any active niche
+                      // filter so the suggestions return to the mixed
+                      // random sample.
+                      if (!next) setSelectedNiche(null)
+                      return next
+                    })
+                  }}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${showNiches ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
                   title="Search every occupation in a niche at once"
                 >
@@ -3352,10 +3376,11 @@ export default function Home() {
               </div>
 
               {/* Occupation chips — quick single-occupation searches.
-                  When a niche is selected we still show the constituent
-                  occupations so the user can drill into one at a time. */}
+                  When the niche row is open AND a niche is selected, drill
+                  into that niche's occupations. Otherwise show the random
+                  mixed sample. */}
               <div className="flex flex-wrap gap-2">
-                {(selectedNiche
+                {(showNiches && selectedNiche
                   ? (NICHE_BUCKETS.find(n => n.id === selectedNiche)?.occupations || [])
                   : suggestions
                 ).map(s => (

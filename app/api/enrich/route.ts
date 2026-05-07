@@ -190,6 +190,23 @@ async function fromYouTubeVideos(channelId: string): Promise<{ dates: string[], 
   return { dates, avgViews: videos.avgViews }
 }
 
+// Same shape as fromVideosPage but hits /shorts. Lets us track when
+// the channel last posted a Short separately from a long-form video,
+// since some creators post mostly Shorts and some never touch them.
+async function fromShortsPage(channelId: string): Promise<string[]> {
+  const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/shorts`, 8000)
+  const data = extractYtInitialData(html)
+  if (!data) return []
+  const dates: string[] = []
+  const publishedTexts: unknown[] = deepCollect(data, 'publishedTimeText')
+  for (const t of publishedTexts) {
+    const obj = t as { simpleText?: string; runs?: { text?: string }[] }
+    const text: string = typeof t === 'string' ? t : (obj?.simpleText || obj?.runs?.[0]?.text || '')
+    if (text && dates.length < 2) dates.push(text)
+  }
+  return dates
+}
+
 // SOURCE 3: DuckDuckGo — find LinkedIn profile for a creator by name
 function decodeDDGUrl(raw: string): string {
   try {
@@ -463,8 +480,9 @@ export async function GET(req: NextRequest) {
   // Methods that are disabled return their no-op default so downstream
   // merging logic stays unchanged.
   const noWeb = { emails: [] as string[], socials: {} as Record<string, string> }
-  const [ytVideosResult, webResult, ddgLinkedInResult, ddgEmailResult, biolinkResult] = await Promise.allSettled([
+  const [ytVideosResult, ytShortsResult, webResult, ddgLinkedInResult, ddgEmailResult, biolinkResult] = await Promise.allSettled([
     fromYouTubeVideos(channelId),
+    fromShortsPage(channelId),
     isEnabled('web_scrape') ? fromWebsite(website) : Promise.resolve(noWeb),
     fromDDGLinkedIn(channelName),
     isEnabled('ddg') ? fromDDGEmail(channelName, website, niche, aggressive) : Promise.resolve([] as string[]),
@@ -473,6 +491,7 @@ export async function GET(req: NextRequest) {
 
   const ytVideos = ytVideosResult.status === 'fulfilled' ? ytVideosResult.value : { dates: [], avgViews: NaN }
   const videoDates = ytVideos.dates
+  const shortDates = ytShortsResult.status === 'fulfilled' ? ytShortsResult.value : []
   const avgViews = isNaN(ytVideos.avgViews) ? undefined : ytVideos.avgViews
   const web = webResult.status === 'fulfilled' ? webResult.value : noWeb
   const ddgLinkedIn = ddgLinkedInResult.status === 'fulfilled' ? ddgLinkedInResult.value : ''
@@ -544,5 +563,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, avgViews, ...socials })
+  return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials })
 }

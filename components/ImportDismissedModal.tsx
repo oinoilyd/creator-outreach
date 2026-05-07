@@ -76,6 +76,7 @@ export function ImportDismissedModal({
           matchedVia: 'imported',
           videoTitles: [],
           videoDates: [],
+          shortDates: [],
           description: String(r['Description'] || ''),
         })
       }

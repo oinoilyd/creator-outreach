@@ -14,17 +14,18 @@ export interface Creator {
   matchedVia: string
   videoTitles: string[]
   videoDates: string[]
+  shortDates: string[]
   description: string
   enriching?: boolean
 }
 
 export type SortCol =
-  | 'channelName' | 'avgViews' | 'subscribers' | 'lastPosted'
+  | 'channelName' | 'avgViews' | 'subscribers' | 'lastVideo' | 'lastShort'
   | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
   | 'fitScore'
 export type SortDir = 'asc' | 'desc'
 export type ColId =
-  | 'avgViews' | 'subscribers' | 'lastPosted'
+  | 'avgViews' | 'subscribers' | 'lastVideo' | 'lastShort'
   | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok'
   | 'fitScore'
 export type ActiveTab = 'results' | 'outreach' | 'dismissed'

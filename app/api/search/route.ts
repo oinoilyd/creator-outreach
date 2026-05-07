@@ -911,6 +911,7 @@ export async function GET(req: NextRequest) {
         description: '',
         videoTitles: [...new Set(data.titles)].slice(0, 3),
         videoDates: [...new Set(data.dates)].slice(0, 2),
+        shortDates: [],
         subscribers: data.subscribers,
         email: '',
         relevanceScore: nameScore,
