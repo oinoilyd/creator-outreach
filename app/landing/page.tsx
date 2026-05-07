@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3, Globe, Clock, Download, Lock } from 'lucide-react'
+import { Sparkles, KanbanSquare, MailPlus, BarChart3, Globe, Clock, Download, Lock } from 'lucide-react'
 import { Aurora } from '@/components/landing/Aurora'
 import { TextGenerateEffect } from '@/components/landing/TextGenerateEffect'
 import { AppPreview } from '@/components/landing/AppPreview'
@@ -10,7 +10,7 @@ import { HowItWorks } from '@/components/landing/HowItWorks'
 import { PlatformMarquee } from '@/components/landing/PlatformMarquee'
 import {
   BentoGrid, BentoCard,
-  SearchVisual, ScoringVisual, CrmVisual, AnalyticsVisual, CustomMetricsVisual, FiltersVisual,
+  CrmVisual, AnalyticsVisual, CustomMetricsVisual, FiltersVisual,
 } from '@/components/landing/BentoGrid'
 import { Spotlight } from '@/components/ui/spotlight'
 import { Meteors } from '@/components/ui/meteors'
@@ -149,43 +149,42 @@ export default async function LandingPage() {
             </p>
           </div>
 
+          {/*
+            Bento, post-iter-5: removed "Smart search" card (its
+            visual was the Results-table top, which the AppPreview
+            at the top of the hero section already shows) AND
+            removed "AI fit scoring" (sat next to Smart search,
+            also showed Results-table fit chips — Dylan: "duplicative
+            for the fit score as well"). AI scoring narrative is
+            still carried by the HowItWorks "Score" pill.
+
+            Layout now: 4 cards across 3 rows.
+              Row 1: CRM (col-2)        + Build any metric (col-1)
+              Row 2: Analytics (col-3 full)
+              Row 3: Region search (col-3 full)
+          */}
           <BentoGrid>
-            <BentoCard
-              className="md:col-span-2"
-              title="Smart search across every platform"
-              description="Search YouTube, Instagram, TikTok, X, and LinkedIn. Filter by occupation, niche, audience size, region, and last-posted date. Skip the dead channels automatically."
-              icon={<Search className="w-3.5 h-3.5" />}
-              visual={<SearchVisual />}
-            />
-            <BentoCard
-              title="AI fit scoring"
-              description="Tell the tool what makes a good lead in plain English. It tunes the weights and ranks your queue."
-              icon={<Sparkles className="w-3.5 h-3.5" />}
-              visual={<ScoringVisual />}
-              delay={0.1}
-            />
             <BentoCard
               className="md:col-span-2"
               title="Built-in CRM"
               description="Track every outreach, status, response, and follow-up. Channel, email, and status pills in one row — replace your spreadsheet."
               icon={<KanbanSquare className="w-3.5 h-3.5" />}
               visual={<CrmVisual />}
-              delay={0.15}
-            />
-            <BentoCard
-              className="md:col-span-2"
-              title="Analytics dashboard"
-              description="Win rate, response rate, pipeline value, stale follow-ups, status breakdown."
-              icon={<BarChart3 className="w-3.5 h-3.5" />}
-              visual={<AnalyticsVisual />}
-              delay={0.2}
             />
             <BentoCard
               title="Build any metric"
               description="Count, percentage, sum, average — over any filter. Saves to your dashboard. No formulas, no spreadsheets."
               icon={<BarChart3 className="w-3.5 h-3.5" />}
               visual={<CustomMetricsVisual />}
-              delay={0.25}
+              delay={0.1}
+            />
+            <BentoCard
+              className="md:col-span-3"
+              title="Analytics dashboard"
+              description="Win rate, response rate, pipeline value, stale follow-ups, status breakdown — out of the box."
+              icon={<BarChart3 className="w-3.5 h-3.5" />}
+              visual={<AnalyticsVisual />}
+              delay={0.15}
             />
             <BentoCard
               className="md:col-span-3"
@@ -193,7 +192,7 @@ export default async function LandingPage() {
               description="Pin views, subscribers, last-posted, has-email, language, and 22 specific regions to focus your queue on the creators who fit your market — instead of dredging through global noise."
               icon={<Globe className="w-3.5 h-3.5" />}
               visual={<FiltersVisual />}
-              delay={0.3}
+              delay={0.2}
             />
           </BentoGrid>
         </div>
@@ -213,11 +212,16 @@ export default async function LandingPage() {
               And a few extras you didn&apos;t ask for.
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <FeatureCard
+              icon={<Sparkles className="w-5 h-5" />}
+              title="AI fit scoring"
+              description="Tell the tool what makes a good lead in plain English. It tunes the weights and ranks every result."
+            />
             <FeatureCard
               icon={<MailPlus className="w-5 h-5" />}
               title="Templated outreach"
-              description="One-click copy of the right message for each platform. Instagram DM, LinkedIn note, email cadence."
+              description="One-click copy of the right message for each platform. Instagram DM, LinkedIn note, email."
             />
             <FeatureCard
               icon={<Clock className="w-5 h-5" />}
@@ -233,6 +237,11 @@ export default async function LandingPage() {
               icon={<Lock className="w-5 h-5" />}
               title="RLS-isolated data"
               description="Your queue is yours. No one else on the platform can see your leads, by database design."
+            />
+            <FeatureCard
+              icon={<Globe className="w-5 h-5" />}
+              title="Five platforms, one queue"
+              description="YouTube, Instagram, TikTok, X, LinkedIn. Search them all at once, score them by the same criteria."
             />
           </div>
         </div>
