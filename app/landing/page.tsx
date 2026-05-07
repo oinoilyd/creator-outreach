@@ -150,23 +150,30 @@ export default async function LandingPage() {
           </div>
 
           {/*
-            Bento layout, iter-6 reorder per Dylan: "shift up custom
-            analysis next to the one you just deleted" (Build any
-            metric stays in row 1, top — already there) "and have
-            the [analytics] edit be the bottom on its own."
-              Row 1: CRM (col-2)        + Build any metric (col-1)
-              Row 2: Region search (col-3 full)
-              Row 3: Analytics (col-3 full)   ← bottom, on its own
+            Bento layout, iter-7 stacked-left per Dylan: CRM had the
+            same "too big of a card for the screenshot and comment"
+            problem Analytics had. Solution: stack CRM + Region on
+            the left (col-span-2 each, each one short row), make
+            Build any metric span both rows on the right (it's a
+            naturally tall portrait visual — fills two rows
+            cleanly). Analytics stays full-width bottom.
+
+              [ CRM            (cols 1-2, row 1) ] [ Build any  ]
+              [ Region search  (cols 1-2, row 2) ] [ metric     ]
+                                                  [ rows 1-2,  ]
+                                                  [ col 3      ]
+              [ Analytics (cols 1-3, row 3, full width)         ]
           */}
           <BentoGrid>
             <BentoCard
-              className="md:col-span-2"
+              className="md:col-span-2 md:row-start-1"
               title="Built-in CRM"
-              description="Track every outreach, status, response, and follow-up. Channel, email, and status pills in one row — replace your spreadsheet."
+              description="Track every outreach, status, response, and follow-up — channel, email, and status pills in one row. Replace your spreadsheet."
               icon={<KanbanSquare className="w-3.5 h-3.5" />}
               visual={<CrmVisual />}
             />
             <BentoCard
+              className="md:col-start-3 md:row-span-2"
               title="Build any metric"
               description="Count, percentage, sum, average — over any filter. Saves to your dashboard. No formulas, no spreadsheets."
               icon={<BarChart3 className="w-3.5 h-3.5" />}
@@ -174,9 +181,9 @@ export default async function LandingPage() {
               delay={0.1}
             />
             <BentoCard
-              className="md:col-span-3"
+              className="md:col-span-2 md:row-start-2"
               title="Region-targeted, precision search"
-              description="Pin views, subscribers, last-posted, has-email, language, and 22 specific regions to focus your queue on the creators who fit your market — instead of dredging through global noise."
+              description="Pin views, subscribers, last-posted, has-email, language, and 22 specific regions to focus your queue on creators who fit your market."
               icon={<Globe className="w-3.5 h-3.5" />}
               visual={<FiltersVisual />}
               delay={0.15}
