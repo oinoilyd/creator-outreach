@@ -76,8 +76,8 @@ export function HowItWorks() {
           n={3}
           refEl={ref3}
           icon={<MailPlus className="h-6 w-6 text-brand" />}
-          label="Pitch"
-          sub="One-click copy of the right templated message. Personalize for the lead, hit send."
+          label="Outreach"
+          sub="One click loads the templated message — Instagram DM, LinkedIn note, or email. Personalize, send."
         />
         <Step
           n={4}
