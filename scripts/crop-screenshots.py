@@ -38,15 +38,18 @@ crop("results.png", (0, 0, 2472, 950), "bento-search.png")
 # Channel + Fit Score columns, header through row 5 — chips are the hero.
 crop("results.png", (130, 380, 870, 940), "bento-fit.png")
 
-# Card 3 — "Built-in CRM" (single col, taller)
-# Email + Status columns from Outreach board — colored status pills are the hero.
-# Tightened to start cleanly at the table header (skip "Add manually" sliver).
-crop("outreach.png", (1480, 320, 920, 800), "bento-status.png")
+# Card 3 — "Built-in CRM" (single col)
+# A wider crop showing right-side columns of the Outreach table:
+# Reached (pink check), Status (Successful/Open/Rejected pills), Medium
+# (Email selector). This gives full CRM context, not isolated cells.
+crop("outreach.png", (1280, 270, 1110, 700), "bento-status.png")
 
 # Card 4 — "Smart follow-up cadence" (wide, col-span-2)
-# 4 priority cards + first leads from Follow-ups page.
-# Tightened: skip the leftover sub-tab fragment, start clean at "9 high priority".
-crop("followups.png", (0, 130, 2810, 860), "bento-priority.png")
+# Skip the priority KPI cards (which Dylan said look analytics-y) and
+# focus on the LEADS LIST below them — the "🔥 High priority" header
+# plus 4 leads with their "6D LATE" red badges and purple "Followed
+# up" buttons. THAT is the cadence-system signal.
+crop("followups.png", (0, 470, 2810, 760), "bento-priority.png")
 
 # Card 5 — "Analytics + custom metrics" (full-width, col-span-3)
 # KPI cards row + status breakdown bar.

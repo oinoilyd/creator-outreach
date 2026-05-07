@@ -119,113 +119,20 @@ export function ScoringVisual() {
   return <CropImage src="/screenshots/bento-fit.png" alt="AI fit scoring chips" className="aspect-[870/940]" />
 }
 
-// 3 — Built-in CRM · hand-built mini outreach board. Real screenshot
-// crops of just the Status column read as "horrendous" (Dylan's word)
-// because they're decontextualized cells. A stylized 3-row recreation
-// using the actual app's color tokens reads as the CRM concept
-// without forcing a bad screenshot.
+// 3 — Built-in CRM · right-side columns of the real Outreach table
+// (Product / Reached / Status / Medium). The Status pill column with
+// Successful / Open / Rejected gives full CRM context, not isolated
+// cells like the previous tighter crop.
 export function CrmVisual() {
-  const rows = [
-    { initials: 'CD', name: 'CoinDesk',     email: 'media@coindesk.com',     status: 'Successful', color: 'emerald' },
-    { initials: 'VL', name: 'Vince Lymburn', email: 'marvince@gmail.com',     status: 'Open',       color: 'blue' },
-    { initials: 'ZL', name: 'Zebu Live',     email: 'info@zebulive.xyz',      status: 'Successful', color: 'emerald' },
-    { initials: 'BF', name: 'Bianca F.',     email: 'bianca@bitesbb.com',     status: 'Rejected',   color: 'red' },
-  ]
-  const pill: Record<string, string> = {
-    emerald: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10',
-    blue:    'text-blue-300    border-blue-500/40    bg-blue-500/10',
-    red:     'text-red-300     border-red-500/40     bg-red-500/10',
-  }
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      // Same dark surface as the real app so the visual feels native,
-      // not like a separate stylized mock.
-      className="relative rounded-xl overflow-hidden bg-gray-950 ring-1 ring-white/5 shadow-[0_18px_45px_-18px_rgba(76,29,149,0.30)] aspect-[920/800]"
-    >
-      <div className="px-4 pt-4 pb-3 flex flex-col h-full justify-between">
-        {rows.map((r) => (
-          <div key={r.name} className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 text-[10px] text-white flex items-center justify-center font-semibold shrink-0">
-              {r.initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[12px] text-white font-medium truncate">{r.name}</div>
-              <div className="text-[10px] text-gray-400 truncate">{r.email}</div>
-            </div>
-            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${pill[r.color]} font-medium`}>
-              {r.status}
-            </span>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  )
+  return <CropImage src="/screenshots/bento-status.png" alt="CRM table with status pills" className="aspect-[1110/700]" />
 }
 
-// 4 — Smart follow-up cadence · horizontal timeline showing the 5
-// touch points (Day 0 → 3 → 7 → 14 → 21). Pure HTML/Tailwind, no
-// forced screenshot. Mirrors the description copy ("3d, 7d, 14d,
-// then 21d") so the visual literally illustrates the words.
+// 4 — Smart follow-up cadence · the leads list from Follow-ups page.
+// Skipped the priority KPI cards (which read as analytics) and
+// focused on the rows showing "6D LATE" red badges + purple
+// "Followed up" buttons — the actual cadence-system signal.
 export function CadenceVisual() {
-  const stops = [
-    { day: 'D 0',  label: 'Sent',   icon: '✉' },
-    { day: 'D 3',  label: 'Ping 1', icon: '⏰' },
-    { day: 'D 7',  label: 'Ping 2', icon: '⏰' },
-    { day: 'D 14', label: 'Ping 3', icon: '⏰' },
-    { day: 'D 21', label: 'Final',  icon: '⏰' },
-  ]
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="relative rounded-xl overflow-hidden bg-gray-950 ring-1 ring-white/5 shadow-[0_18px_45px_-18px_rgba(76,29,149,0.30)] aspect-[2810/860] flex flex-col justify-center"
-    >
-      {/* Sample sent-email line so the cadence feels grounded in
-          actual outreach, not just abstract dots. Templated tokens
-          ({{firstName}}, {{topic}}) match the language Dylan asked
-          for — "templated language for email outreach". */}
-      <div className="px-6 pt-6 pb-4">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-purple-300/70 mb-2">Email template</div>
-        <div className="text-[12px] text-gray-300 font-mono leading-relaxed">
-          Hey <span className="text-purple-300">{'{{firstName}}'}</span>, loved your video on{' '}
-          <span className="text-purple-300">{'{{topic}}'}</span>…
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div className="relative px-6 pb-6">
-        {/* Connector line */}
-        <div className="absolute left-10 right-10 top-[14px] h-px bg-gradient-to-r from-purple-500/60 via-blue-500/60 to-purple-500/30" />
-        <div className="relative grid grid-cols-5 gap-2">
-          {stops.map((s, i) => (
-            <div key={s.day} className="flex flex-col items-center text-center">
-              <motion.span
-                initial={{ scale: 0 }}
-                whileInView={{ scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.2 + i * 0.08, type: 'spring', stiffness: 200 }}
-                className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center text-[12px] ${
-                  i === 0
-                    ? 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.7)]'
-                    : 'bg-gray-900 text-purple-300 ring-1 ring-purple-500/40'
-                }`}
-              >
-                {s.icon}
-              </motion.span>
-              <div className="text-[10px] text-gray-300 font-medium mt-2">{s.day}</div>
-              <div className="text-[9px] text-gray-500">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </motion.div>
-  )
+  return <CropImage src="/screenshots/bento-priority.png" alt="Follow-up leads with late badges" className="aspect-[2810/760]" />
 }
 
 // 5 — Analytics + custom metrics · KPI cards + status breakdown
