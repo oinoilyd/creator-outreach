@@ -136,6 +136,16 @@
   --color-brand-2-foreground: var(--brand-2-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Brutalist landing — Swiss Industrial Print substrate.
+     Used ONLY by the marketing landing page (/landing). The
+     authenticated app keeps the existing semantic theme tokens.
+     Locked palette: matte unbleached paper / carbon ink / aviation
+     hazard red. No gradients, no shadows, no border-radius
+     anywhere on the landing — these are the design rules. */
+  --color-paper: #F4F4F0;
+  --color-ink: #0A0A0A;
+  --color-hazard: #E61919;
 }
 
 body {

@@ -1,56 +1,70 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Landing-page smoke tests. Updated for the "Founder's letter"
- * editorial redesign — the previous tests targeted the AI-bento
- * layout (gradient hero, "spreadsheet circus" subline, "Four
- * steps" heading, $0 pricing copy). The redesign restructures
- * everything; these tests now check structural elements that are
- * stable across copy changes.
+ * Landing-page smoke tests — brutalist redesign (Swiss Industrial
+ * Print mode). Targets structural elements, not copy nuance, so
+ * future tone tweaks don't break tests as long as the dossier
+ * skeleton remains.
+ *
+ * No auth required — /landing is public.
  */
 
-test.describe('Landing page', () => {
+test.describe('Landing page (brutalist)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/landing')
   })
 
-  test('hero renders with headline + subline + CTA', async ({ page }) => {
+  test('cover headline + primary CTA visible', async ({ page }) => {
     const heading = page.getByRole('heading', { level: 1 })
     await expect(heading).toBeVisible()
     const text = await heading.textContent()
-    expect(text?.length ?? 0).toBeGreaterThan(10)
+    // Cover headline: "RUN OUTREACH WITHOUT THE SPREADSHEET."
+    expect(text || '').toMatch(/run outreach/i)
+    expect(text || '').toMatch(/spreadsheet/i)
 
-    // Hero copy mentions the actual product. "Creator" or "outreach"
-    // should always appear in the hero somewhere.
-    await expect(page.getByText(/creator|outreach/i).first()).toBeVisible()
-
-    // Primary CTA exists (label depends on auth state).
+    // Primary CTA — "Try it free" or "Open the app" depending on auth state.
     await expect(
-      page.getByRole('link', { name: /try it free|open the app/i }).first()
+      page.getByRole('link', { name: /try it free|open the app/i }).first(),
     ).toBeVisible()
   })
 
-  test('eyebrow line is visible above hero', async ({ page }) => {
-    // New eyebrow: "Beta · Built by one person".
-    await expect(page.getByText(/beta.*built by/i)).toBeVisible()
+  test('section 01 / what it replaces is present', async ({ page }) => {
+    await expect(page.getByText(/what it replaces/i)).toBeVisible()
+    await expect(page.getByText(/status quo/i).first()).toBeVisible()
+    await expect(page.getByText(/replacement/i).first()).toBeVisible()
   })
 
-  test('product preview + how-it-works + features all present', async ({ page }) => {
-    // Editorial layout uses h2/h3 headings with stable section labels.
-    // Don't rely on specific h2 copy — count by structural markers.
-    await expect(page.getByText(/how it works/i)).toBeVisible()
-    await expect(page.getByText(/what.s inside|why i built|five platforms/i).first()).toBeVisible()
+  test('section 02 / methodology has 4 numbered steps', async ({ page }) => {
+    await expect(page.getByText(/methodology/i).first()).toBeVisible()
+    // Each step uses a "STEP NN" mono label.
+    const stepLabels = page.locator('text=/STEP\\s+0[1-4]/i')
+    expect(await stepLabels.count()).toBeGreaterThanOrEqual(4)
   })
 
-  test('pricing section is present', async ({ page }) => {
+  test('section 03 / interface screenshot tabs render', async ({ page }) => {
+    await expect(page.getByText(/the interface/i)).toBeVisible()
+    const tabStrip = page.getByRole('navigation', { name: /screenshot tabs/i })
+    await expect(tabStrip).toBeVisible()
+  })
+
+  test('section 04 / pricing schedule shows $0 free tier', async ({ page }) => {
     const pricing = page.locator('#pricing')
     await expect(pricing).toBeVisible()
-    // "Free while in beta" is the new pricing copy.
-    await expect(pricing.getByText(/free while in beta|free/i).first()).toBeVisible()
+    await expect(pricing.getByText('$0')).toBeVisible()
+    await expect(pricing.getByText(/beta/i).first()).toBeVisible()
   })
 
-  test('footer present', async ({ page }) => {
-    await expect(page.locator('footer')).toBeVisible()
+  test('section 06 / FAQ + 07 / contact present', async ({ page }) => {
+    await expect(page.locator('#faq')).toBeVisible()
+    await expect(page.locator('#contact')).toBeVisible()
+  })
+
+  test('footer with copyright + legal links', async ({ page }) => {
+    const footer = page.locator('footer')
+    await expect(footer).toBeVisible()
+    await expect(footer.getByText(/©.*creator outreach/i)).toBeVisible()
+    await expect(footer.getByRole('link', { name: /privacy/i })).toBeVisible()
+    await expect(footer.getByRole('link', { name: /terms/i })).toBeVisible()
   })
 
   test('no console errors on initial load', async ({ page }) => {
@@ -60,14 +74,8 @@ test.describe('Landing page', () => {
     })
     await page.goto('/landing')
     await page.waitForLoadState('networkidle')
+    // Filter out third-party noise we can't control.
     const ours = errors.filter(e => !/sentry|google|fb|twitter|hotjar/i.test(e))
     expect(ours).toEqual([])
-  })
-
-  test('founder note is present (editorial human-voice section)', async ({ page }) => {
-    // The "Why I built this" section is the soul of the redesign.
-    // If it goes missing, the page lost its voice.
-    await expect(page.getByText(/why i built this/i)).toBeVisible()
-    await expect(page.getByText(/i was running outreach/i)).toBeVisible()
   })
 })
