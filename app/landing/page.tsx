@@ -228,7 +228,7 @@ export default async function LandingPage() {
             <FeatureCard
               icon={<Clock className="w-5 h-5" />}
               title="Follow-ups you don&apos;t forget"
-              description="Most lost deals were just lost follow-ups. We schedule the next touch — 3d, 7d, 14d, 21d — surface the queue when it&apos;s time, and pre-load the message. You hit send."
+              description="Most lost deals were just lost follow-ups. We schedule the next touch — 3d, 7d, 14d, 21d — surface the queue when it&apos;s time, and load up your template. Personalize it for the lead, hit send."
             />
             <FeatureCard
               icon={<Download className="w-5 h-5" />}
@@ -237,8 +237,8 @@ export default async function LandingPage() {
             />
             <FeatureCard
               icon={<Lock className="w-5 h-5" />}
-              title="Privacy by database, not by trust"
-              description="Row-level security at the Postgres layer. Even if a session leaks or an endpoint misfires, no other user sees a single row of your queue. Not a setting we could turn off — built into the data layer."
+              title="Privacy by design"
+              description="Your data is yours alone. Privacy isn&apos;t a setting we toggle — it&apos;s built into the foundation of the platform. No other account can see a row of your queue."
             />
             <FeatureCard
               icon={<Globe className="w-5 h-5" />}
