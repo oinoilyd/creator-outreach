@@ -76,6 +76,52 @@ const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
 
+/**
+ * Build a copy-pasteable Instagram DM template from a creator/entry's
+ * channel name. Instagram doesn't expose a deep-link compose URL with
+ * pre-filled text (unlike `mailto:`), so the workflow is:
+ *   1. Click the IG handle → opens IG profile in a new tab
+ *   2. Same click copies this template to the clipboard
+ *   3. User pastes into the DM box manually
+ *
+ * `[insert specific thing]` and `[your product]` are intentional
+ * placeholders the user fills before sending.
+ */
+function composeInstagramDm(channelName: string): string {
+  const name = (channelName || '').trim() || 'there'
+  // Take first whitespace-separated word for a "first name"-style
+  // greeting. "Vince Lymburn" → "Vince", "CoinDesk" → "CoinDesk",
+  // "Zebu Live | UK's Flagship Web3 Summit" → "Zebu".
+  const firstName = name.split(/\s+/)[0] || name
+  return `Hey ${firstName} 👋
+
+Just discovered ${name} on Instagram and loved [insert specific thing].
+
+I'm building [your product] and would love to share what we're up to if you're open to a quick chat.
+
+Either way, keep up the great work!`
+}
+
+/**
+ * Click handler for Instagram cells: copy the templated DM to the
+ * clipboard and toast it. Fires alongside the link's default
+ * target="_blank" navigation, so the IG profile opens in a new tab
+ * AND the DM template is ready to paste in one click.
+ */
+function copyInstagramDm(channelName: string) {
+  const dm = composeInstagramDm(channelName)
+  if (!navigator.clipboard?.writeText) {
+    toast.error('Clipboard not available — copy DM manually from settings')
+    return
+  }
+  navigator.clipboard.writeText(dm).then(
+    () => toast.success('DM template copied', {
+      description: `Paste in Instagram DM to ${channelName || 'creator'}`,
+    }),
+    () => toast.error('Failed to copy DM template'),
+  )
+}
+
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
   const [guidanceView, setGuidanceView] = useState(false)
@@ -392,7 +438,7 @@ function renderCell(
     )
     case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
     case 'website':   return <td key={id} className="px-4 py-3">{c.website   ? <a href={c.website}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
-    case 'instagram': return <td key={id} className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'instagram': return <td key={id} className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" rel="noopener noreferrer" onClick={() => copyInstagramDm(c.channelName)} title="Open IG + copy DM template" className="text-pink-700 dark:text-pink-400 hover:underline">DM</a> : '—'}</td>
     case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
     case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
   }
@@ -618,6 +664,32 @@ function renderOutreachCell(
     }
     case 'linkedin':
       return e.linkedin ? <a href={e.linkedin} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-muted-foreground" />
+    case 'instagram':
+      // Instagram link: clicking opens the profile AND copies a
+      // templated DM to the clipboard (per Dylan: "click on the
+      // instagram it pulls up templated language to copy and paste").
+      // The browser's default link target="_blank" still navigates;
+      // onClick runs in parallel.
+      return e.instagram ? (
+        <a
+          href={e.instagram}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => copyInstagramDm(e.channelName)}
+          title="Open IG + copy DM template to clipboard"
+          className="text-pink-700 dark:text-pink-400 hover:underline text-xs"
+        >
+          DM
+        </a>
+      ) : (
+        <AutoTextarea value={e.instagram || ''} onChange={v => onUpdate(e.id, 'instagram', v)} placeholder="Add IG URL..." className="text-muted-foreground" />
+      )
+    case 'twitter':
+      return e.twitter ? <a href={e.twitter} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.twitter || ''} onChange={v => onUpdate(e.id, 'twitter', v)} placeholder="Add X URL..." className="text-muted-foreground" />
+    case 'tiktok':
+      return e.tiktok ? <a href={e.tiktok} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.tiktok || ''} onChange={v => onUpdate(e.id, 'tiktok', v)} placeholder="Add TikTok URL..." className="text-muted-foreground" />
+    case 'website':
+      return e.website ? <a href={e.website} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.website || ''} onChange={v => onUpdate(e.id, 'website', v)} placeholder="Add website..." className="text-muted-foreground" />
     case 'contentNiche':
       return <AutoTextarea value={e.contentNiche || ''} onChange={v => onUpdate(e.id, 'contentNiche', v)} placeholder="e.g. golf, finance..." className="text-foreground" />
     case 'phone':
