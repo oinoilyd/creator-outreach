@@ -34,15 +34,17 @@ def crop(source: str, region: tuple[int, int, int, int], out: str) -> None:
 # Top of Results: search bar + Suggested Searches + tabs + table header + first rows.
 crop("results.png", (0, 0, 2472, 950), "bento-search.png")
 
-# Card 2 — "AI fit scoring" (single col, taller)
-# Channel + Fit Score columns, header through row 5 — chips are the hero.
-crop("results.png", (130, 380, 870, 940), "bento-fit.png")
+# Card 2 — "AI fit scoring" (single col)
+# Extended right edge so "Avg Views" column header doesn't get cut.
+# Channel + Fit Score (chips) + Avg Views columns visible cleanly.
+crop("results.png", (130, 380, 1180, 940), "bento-fit.png")
 
-# Card 3 — "Built-in CRM" — promoted to col-span-2 (wide) so we can
-# show the full table context: Channel + YT + Email + Status pills.
-# Skip the customize/manually-add row at top, start at table header,
-# show 4 rows of complete CRM data.
-crop("outreach.png", (130, 270, 2270, 700), "bento-status.png")
+# Card 3 — "Built-in CRM" (col-span-2 wide).
+# Full-width table strip showing every column: ★ + Channel + YT +
+# Email + Description + Product + Reached + Status pills + Medium +
+# Notes. Dylan's note: "include more columns even if irrelevant — to
+# show it is embedded." Source is 2784x1122; crop full width.
+crop("outreach.png", (0, 270, 2784, 700), "bento-status.png")
 
 # Card 4 — "Smart follow-up cadence" — demoted to col-span-1 (narrow).
 # Crop the LEFT half of leads list (avatar + name + meta) for 5 leads.

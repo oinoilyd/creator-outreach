@@ -141,9 +141,18 @@ export function CadenceVisual() {
   return <CropImage src="/screenshots/bento-priority.png" alt="Follow-up leads with reach-ago meta" className="aspect-[1500/700]" />
 }
 
-// 5 — Analytics + custom metrics · KPI cards row + status breakdown
-// bar (skips the velocity / by-medium row that clutters at small
-// card scale). Aspect matches the new 2822×600 source crop.
+// 5 — Analytics dashboard · KPI cards row + status breakdown bar
+// (skips the velocity / by-medium row that clutters at small card
+// scale). Aspect matches the new 2822×600 source crop.
 export function AnalyticsVisual() {
   return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPIs + status breakdown" className="aspect-[2822/600]" />
+}
+
+// 6 — Custom metrics builder · the Customize Analytics modal showing
+// 8 user-built KPI cards (LinkedIn close rate, email close rate,
+// total deal value, pipeline favorites, avg fit · successful, etc.)
+// + the "+ Build a custom metric" button. Portrait orientation
+// (752×1034) so we keep the natural aspect ratio.
+export function CustomMetricsVisual() {
+  return <CropImage src="/screenshots/customize-analytics.png" alt="Custom metrics builder modal" className="aspect-[752/1034]" />
 }

@@ -10,7 +10,7 @@ import { HowItWorks } from '@/components/landing/HowItWorks'
 import { PlatformMarquee } from '@/components/landing/PlatformMarquee'
 import {
   BentoGrid, BentoCard,
-  SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual,
+  SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual, CustomMetricsVisual,
 } from '@/components/landing/BentoGrid'
 import { Spotlight } from '@/components/ui/spotlight'
 import { Meteors } from '@/components/ui/meteors'
@@ -175,12 +175,19 @@ export default async function LandingPage() {
               delay={0.2}
             />
             <BentoCard
-              className="md:col-span-3"
-              title="Analytics + custom metrics"
-              description="Win rate, response rate, pipeline value. Build your own metric cards in seconds — count, percentage, sum, or average over any filter."
+              className="md:col-span-2"
+              title="Analytics dashboard"
+              description="Win rate, response rate, pipeline value, stale follow-ups, status breakdown. The dashboard you'd build in 4 hours, ready out of the box."
               icon={<BarChart3 className="w-3.5 h-3.5" />}
               visual={<AnalyticsVisual />}
               delay={0.25}
+            />
+            <BentoCard
+              title="Build any metric"
+              description="Count, percentage, sum, average — over any filter. Saves to your dashboard. No formulas, no spreadsheets."
+              icon={<BarChart3 className="w-3.5 h-3.5" />}
+              visual={<CustomMetricsVisual />}
+              delay={0.3}
             />
           </BentoGrid>
         </div>
