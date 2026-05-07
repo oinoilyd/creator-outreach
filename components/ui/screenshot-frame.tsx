@@ -13,13 +13,13 @@ import { cn } from '@/lib/utils'
 export function ScreenshotFrame({
   src,
   alt,
-  url = 'creatoroutreach.net',
   className,
   imgClassName,
   children,
 }: {
   src?: string
   alt?: string
+  /** Kept for backwards compat — chrome is no longer rendered. */
   url?: string
   className?: string
   imgClassName?: string
@@ -34,22 +34,6 @@ export function ScreenshotFrame({
         className,
       )}
     >
-      {/* Title bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200/70 bg-gray-50/80 dark:border-white/10 dark:bg-gray-900/60">
-        <div className="flex gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
-          <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/80" />
-          <span className="w-2.5 h-2.5 rounded-full bg-green-400/80" />
-        </div>
-        <div className="flex-1 flex justify-center">
-          <div className="px-3 py-0.5 rounded-md bg-white border border-gray-200 text-[11px] text-gray-500 font-mono dark:bg-gray-800 dark:border-white/5 dark:text-gray-400">
-            {url}
-          </div>
-        </div>
-        <div className="w-12" />
-      </div>
-
-      {/* Body */}
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

@@ -58,8 +58,13 @@ export function Aurora({ className = '' }: { className?: string }) {
           backgroundSize: '64px 64px',
         }}
       />
-      {/* Soft fade to surface color at the bottom so the hero blends into the next section */}
-      <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-white dark:to-gray-950" />
+      {/*
+        Previously had a bottom fade to white which created a visible band
+        where the hero met the next section — Dylan reported the AppPreview
+        tab pills getting cut exactly in half by that transition. The
+        page background is uniform (oklch lavender) so we no longer need
+        a fade; the orbs naturally soften at edges via blur.
+      */}
     </div>
   )
 }

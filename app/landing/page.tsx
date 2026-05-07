@@ -73,8 +73,9 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* App preview */}
-      <section className="relative px-6 -mt-8 md:-mt-4 mb-16 md:mb-20 z-10">
+      {/* App preview — no negative margin; pills now sit cleanly below
+          the hero instead of straddling a background transition */}
+      <section className="relative px-6 pt-4 mb-20 md:mb-28 z-10">
         <AppPreview />
       </section>
 
