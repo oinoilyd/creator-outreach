@@ -31,79 +31,66 @@ export default async function LandingPage() {
     <main className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
       <LandingNav isAuthed={isAuthed} />
 
-      {/* Hero — asymmetric on lg+ (text left, AppPreview right per
-          taste-skill "ANTI-CENTER BIAS"), centered on mobile. Headline
-          downsized per "NO Oversized H1s" — gradient lives ONLY on
-          accent word, rest is solid foreground.
+      {/* Hero — centered. Tried asymmetric (text left, preview right
+          col-span-5) in iter-1 but it shrank AppPreview to ~583px on
+          1400px viewports, defeating Dylan's "make the visual at the
+          top LARGER — that is the whole overview" intent. Centered
+          hero + full-width AppPreview below = bigger product canvas.
 
-          Container max-w-[1400px] per taste-skill default, comfortable
-          on 16" laptops + 27" monitors. */}
-      <section className="relative px-6 pt-12 md:pt-16 pb-16 md:pb-24 overflow-hidden">
+          Container max-w-[1400px] per taste-skill default. */}
+      <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-16 overflow-hidden">
         <Aurora className="z-0" />
         <Spotlight size={700} color="rgba(124, 58, 237, 0.22)" />
         <Meteors number={10} />
 
-        <div className="relative z-10 max-w-[1400px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-          {/* Left — text column */}
-          <div className="lg:col-span-7 text-center lg:text-left">
-            {/* Eyebrow badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-card border border-border text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-6 shadow-sm dark:bg-white/[0.06] dark:border-white/15 dark:backdrop-blur-md dark:shadow-none">
-              <Sparkles className="w-3.5 h-3.5 text-brand" />
-              <span>Creator outreach, end to end</span>
-            </div>
-
-            {/* Headline — downsized per taste-skill. Gradient is only on
-                the accent word. Rest = solid text-foreground via the
-                TextGenerateEffect's non-accent branch. */}
-            <TextGenerateEffect
-              words="Stop burning leads in spreadsheets."
-              accentWord="spreadsheets"
-              className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6 leading-[1.02]"
-            />
-
-            <p className="text-base md:text-lg text-muted-foreground max-w-xl lg:max-w-none mb-8 leading-relaxed mx-auto lg:mx-0">
-              Find creators that fit. Score them in plain English. Run the whole pipeline — discovery, pitch, follow-ups, analytics — without the spreadsheet circus.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center lg:justify-start justify-center gap-3">
-              <span className="relative inline-block rounded-lg overflow-hidden">
-                <Link
-                  href={isAuthed ? '/' : '/auth/signup'}
-                  className="relative z-10 inline-flex items-center gap-2 bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] px-7 py-3.5 rounded-lg font-semibold text-base transition-[opacity,transform] duration-150 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                >
-                  {isAuthed ? 'Open app' : 'Get started — free'}
-                  <span aria-hidden>→</span>
-                </Link>
-                <BorderBeam size={110} duration={7} colorFrom="#7c3aed" colorTo="#06b6d4" />
-              </span>
-              {!isAuthed && (
-                <Link
-                  href="/auth/signin"
-                  className="px-6 py-3.5 rounded-lg font-medium text-muted-foreground hover:text-foreground active:scale-[0.98] border border-border hover:border-brand/40 transition-[color,border-color,transform] duration-150 dark:border-white/15 dark:hover:border-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                >
-                  Sign in
-                </Link>
-              )}
-            </div>
-
-            <p className="mt-6 text-xs text-muted-foreground/70">
-              Free while in beta · No credit card · Cancel anytime
-            </p>
+        <div className="relative z-10 max-w-3xl w-full mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-card border border-border text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-6 shadow-sm dark:bg-white/[0.06] dark:border-white/15 dark:backdrop-blur-md dark:shadow-none">
+            <Sparkles className="w-3.5 h-3.5 text-brand" />
+            <span>Creator outreach, end to end</span>
           </div>
 
-          {/* Right — AppPreview column. Hidden visually below lg
-              because the carousel is too dense for narrow screens
-              (it appears as its own section below instead). */}
-          <div className="hidden lg:block lg:col-span-5">
-            <AppPreview />
+          <TextGenerateEffect
+            words="Stop burning leads in spreadsheets."
+            accentWord="spreadsheets"
+            className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6 leading-[1.02]"
+          />
+
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed">
+            Find creators that fit. Let AI score them against your own criteria — defined in plain English — then run the whole pipeline. Discovery, pitch, follow-ups, analytics. No spreadsheet circus.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <span className="relative inline-block rounded-lg overflow-hidden">
+              <Link
+                href={isAuthed ? '/' : '/auth/signup'}
+                className="relative z-10 inline-flex items-center gap-2 bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] px-7 py-3.5 rounded-lg font-semibold text-base transition-[opacity,transform] duration-150 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                {isAuthed ? 'Open app' : 'Get started — free'}
+                <span aria-hidden>→</span>
+              </Link>
+              <BorderBeam size={110} duration={7} colorFrom="#7c3aed" colorTo="#06b6d4" />
+            </span>
+            {!isAuthed && (
+              <Link
+                href="/auth/signin"
+                className="px-6 py-3.5 rounded-lg font-medium text-muted-foreground hover:text-foreground active:scale-[0.98] border border-border hover:border-brand/40 transition-[color,border-color,transform] duration-150 dark:border-white/15 dark:hover:border-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                Sign in
+              </Link>
+            )}
           </div>
+
+          <p className="mt-6 text-xs text-muted-foreground/70">
+            Free while in beta · No credit card · Cancel anytime
+          </p>
         </div>
       </section>
 
-      {/* App preview — only renders on viewports < lg, where it sits
-          as a standalone section below the hero. lg+ shows it inline
-          as the right column of the hero. */}
-      <section className="relative px-6 pt-2 mb-16 md:mb-20 z-10 lg:hidden">
+      {/* App preview — full-width section. Per Dylan: "the visual at
+          the top is still not larger — it needs to be larger, that
+          is the whole overview." Bumped to max-w-[1400px] from
+          start (was max-w-5xl, only growing on 2xl). */}
+      <section className="relative px-6 pb-16 md:pb-24 z-10">
         <AppPreview />
       </section>
 

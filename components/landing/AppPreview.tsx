@@ -64,7 +64,11 @@ export function AppPreview() {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.9, delay: 0.6, ease: 'easeOut' }}
-      className="relative mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px]"
+      // Per Dylan: "make the visual larger — that is the whole
+      // overview." Was max-w-5xl growing on xl/2xl. Now starts at
+      // 4xl on phones, jumps to 6xl on tablets, full 1400px on
+      // laptops/desktop — the screenshot is the centerpiece.
+      className="relative mx-auto w-full max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-[1400px]"
     >
       {/* Outer glow — violet + cyan wash to lift the dark screenshot
           off the dark page background */}
