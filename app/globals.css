@@ -97,6 +97,18 @@
   --brand-2-foreground: oklch(0.10 0.010 220);
 }
 
+/*
+  Easing tokens — per emil-design-eng: "The built-in CSS easings are
+  too weak. They lack the punch that makes animations feel
+  intentional." Use these custom curves instead of the default
+  `ease-out` / `ease-in-out`.
+*/
+:root, .dark {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);          /* punchy ease-out for entries / hover */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);      /* on-screen movement / morphs */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);       /* iOS-like drawers */
+}
+
 /* Register tokens as Tailwind utilities (`bg-background`, `text-foreground`,
    `border-border`, `bg-brand`, `bg-brand-2`, etc). */
 @theme inline {

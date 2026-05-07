@@ -40,12 +40,19 @@ export function BentoCard({
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.6, delay, ease: 'easeOut' }}
-      whileHover={{ y: -4, boxShadow: '0 28px 56px -16px rgba(124,58,237,0.40)' }}
+      // Single transition prop covers both the entry stagger AND the
+      // hover lift. Custom ease per emil-design-eng's curve.
+      transition={{
+        duration: 0.6,
+        delay,
+        ease: [0.23, 1, 0.32, 1],
+      }}
+      whileHover={{ y: -6, boxShadow: '0 30px 60px -20px rgba(124,58,237,0.32)' }}
       // Light mode: clean white card on lavender-tinted bg.
       // Dark mode: translucent glass with backdrop blur (Aurora +
-      // meteors show through). Hover brightens the ring/border.
-      className={`group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-brand/60 transition-all flex flex-col shadow-[0_10px_40px_-20px_rgba(76,29,149,0.18)] dark:bg-white/[0.04] dark:backdrop-blur-md dark:border-white/10 dark:hover:border-brand/50 dark:shadow-[0_10px_40px_-20px_rgba(0,0,0,0.4)] ${className}`}
+      // meteors show through). Hover brightens the ring + border.
+      // focus-within ring for keyboard nav into card-internal links.
+      className={`group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-brand/60 focus-within:ring-2 focus-within:ring-brand/40 transition-[border-color,transform] duration-300 flex flex-col shadow-[0_10px_40px_-20px_rgba(76,29,149,0.18)] dark:bg-white/[0.04] dark:backdrop-blur-md dark:border-white/10 dark:hover:border-brand/50 dark:shadow-[0_10px_40px_-20px_rgba(0,0,0,0.4)] ${className}`}
     >
       {/* Soft violet/cyan hover wash */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-brand/10 via-transparent to-brand-2/10" />

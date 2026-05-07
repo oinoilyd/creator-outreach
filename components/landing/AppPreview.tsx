@@ -64,7 +64,7 @@ export function AppPreview() {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.9, delay: 0.6, ease: 'easeOut' }}
-      className="relative mx-auto w-full max-w-5xl"
+      className="relative mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-[1400px]"
     >
       {/* Outer glow — violet + cyan wash to lift the dark screenshot
           off the dark page background */}

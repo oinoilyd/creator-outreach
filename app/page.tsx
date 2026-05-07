@@ -2,6 +2,11 @@
 
 import Link from 'next/link'
 import React, { useState, useMemo, useEffect, useCallback, useRef, useContext } from 'react'
+// Per taste-skill: NEVER use emojis. All formerly-emoji UI elements
+// (★ Favorites, ⏰ Follow-ups, 📊 Analytics, 🔥 High priority, ✨ Lead
+// Criteria, ✉ has-email indicator, 👋 in DM template) are now SVG
+// icons from lucide-react.
+import { Star, Clock, BarChart3, Flame, Sparkles, Mail } from 'lucide-react'
 import type {
   Creator, SortCol, SortKey, ColId, ActiveTab, ScoreWeights,
   GuidanceCondition, GuidanceRule, GuidanceEntry, GuidancePreset, GuidanceContextType,
@@ -93,7 +98,7 @@ function composeInstagramDm(channelName: string): string {
   // greeting. "Vince Lymburn" → "Vince", "CoinDesk" → "CoinDesk",
   // "Zebu Live | UK's Flagship Web3 Summit" → "Zebu".
   const firstName = name.split(/\s+/)[0] || name
-  return `Hey ${firstName} 👋
+  return `Hey ${firstName},
 
 Just discovered ${name} on Instagram and loved [insert specific thing].
 
@@ -205,7 +210,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   Back
                 </button>
-                <span className="font-semibold text-foreground text-[11px]">✨ Your Lead Criteria</span>
+                <span className="font-semibold text-foreground text-[11px] inline-flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-brand" />Your Lead Criteria</span>
                 <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground leading-none">✕</button>
               </div>
 
@@ -345,7 +350,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                       <div className="flex-1 min-w-0">
                         {item.isGuidance ? (
                           <button onClick={() => setGuidanceView(true)} className="text-purple-700 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 flex items-center gap-1 text-left">
-                            <span>✨ Your Criteria</span>
+                            <span className="inline-flex items-center gap-1.5"><Sparkles className="w-3 h-3" />Your Criteria</span>
                             <span className="text-muted-foreground/70">/ {item.max}</span>
                             <span className="text-muted-foreground text-[10px] ml-0.5">view →</span>
                           </button>
@@ -383,7 +388,7 @@ function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWei
                     <div className="mt-3 pt-2 border-t border-border space-y-2">
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">
                         <span>Score breakdown</span>
-                        {chipMode ? <span className="text-purple-700 dark:text-purple-400 normal-case font-normal">✨ Your criteria</span> : <span className="text-muted-foreground/50 normal-case font-normal">Default</span>}
+                        {chipMode ? <span className="text-purple-700 dark:text-purple-400 normal-case font-normal inline-flex items-center gap-1.5"><Sparkles className="w-3 h-3" />Your criteria</span> : <span className="text-muted-foreground/50 normal-case font-normal">Default</span>}
                       </div>
                       {/* Stacked bar */}
                       <div className="flex h-1.5 rounded-full overflow-hidden gap-px bg-muted">
@@ -760,9 +765,9 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
   type SubTabId = 'all' | 'favorites' | 'analytics' | 'followups'
   const tabs: { id: SubTabId; label: React.ReactNode }[] = [
     { id: 'all', label: 'All' },
-    { id: 'favorites', label: <>★ Favorites {favCount > 0 && <span className="ml-1 text-amber-700 dark:text-yellow-400/70">({favCount})</span>}</> },
-    { id: 'followups', label: <>⏰ Follow-ups {dueCount > 0 && <span className="ml-1 text-red-700 dark:text-red-400/80">({dueCount})</span>}</> },
-    { id: 'analytics', label: '📊 Analytics' },
+    { id: 'favorites', label: <span className="inline-flex items-center gap-1.5"><Star className="w-3.5 h-3.5" />Favorites {favCount > 0 && <span className="ml-0.5 text-amber-700 dark:text-yellow-400/70">({favCount})</span>}</span> },
+    { id: 'followups', label: <span className="inline-flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />Follow-ups {dueCount > 0 && <span className="ml-0.5 text-red-700 dark:text-red-400/80">({dueCount})</span>}</span> },
+    { id: 'analytics', label: <span className="inline-flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" />Analytics</span> },
   ]
   return (
     <div className="mb-4 border-b border-border pb-2">
@@ -979,7 +984,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
             accent="red"
             count={groups.high.length}
             subtitle="Overdue or due today — act first"
-            icon={<span className="text-base">🔥</span>}
+            icon={<Flame className="w-4 h-4 text-red-500" />}
           >
             {groups.high.map(e => (
               <FollowUpRow
@@ -1318,8 +1323,8 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
         <button onClick={() => onOpen(e.id)} className="flex-1 min-w-0 text-left" title="Open lead details">
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-medium text-foreground truncate">{e.channelName}</span>
-            {e.favorite && <span className="text-[10px] text-amber-700 dark:text-yellow-400 shrink-0">★</span>}
-            {e.email && <span className="text-[10px] text-emerald-700 dark:text-emerald-400/80 shrink-0" title="Has email">✉</span>}
+            {e.favorite && <Star className="w-3 h-3 text-amber-700 dark:text-yellow-400 shrink-0 fill-current" aria-label="Favorited" />}
+            {e.email && <Mail className="w-3 h-3 text-emerald-700 dark:text-emerald-400/80 shrink-0" aria-label="Has email" />}
             {e.linkedin && <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 shrink-0" title="Has LinkedIn">in</span>}
           </div>
           <div className="text-[10px] text-muted-foreground truncate">
@@ -1987,9 +1992,16 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
               <th style={{ width: 36 }} className="px-3 py-3" />
             </tr>
           </thead>
-          <tbody>
+          {/*
+            Per taste-skill Rule 4 "Anti-Card Overuse": at this density
+            (>7), generic card containers BANNED. Each row used to be a
+            zebra-striped card (bg-card/40 / bg-background). Replaced
+            with divide-y rule lines + subtle hover wash. Reads tighter,
+            more "operator dashboard" less "marketing card grid."
+          */}
+          <tbody className="divide-y divide-border">
             {sortedEntries.map((e, i) => (
-              <AnimatedRow key={e.id} index={i} className={`transition-colors ${i % 2 === 0 ? 'bg-card/40 hover:bg-card/80' : 'bg-background hover:bg-card/40'}`}>
+              <AnimatedRow key={e.id} index={i} className="transition-colors hover:bg-card/40">
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
                     {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
@@ -3395,7 +3407,7 @@ export default function Home() {
               <div className="absolute right-0 mt-1 w-48 bg-muted border border-border rounded shadow-lg z-10">
                 {activeTab === 'outreach' ? <>
                   <button onClick={handleExportOutreachExcel} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
-                    📊 Excel (.xlsx)
+                    <BarChart3 className="w-3.5 h-3.5" />Excel (.xlsx)
                   </button>
                   <button onClick={handleExportOutreachCSV} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
                     📄 CSV (Google Sheets)

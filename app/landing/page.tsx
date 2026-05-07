@@ -31,79 +31,79 @@ export default async function LandingPage() {
     <main className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
       <LandingNav isAuthed={isAuthed} />
 
-      {/* Hero — dramatic, oversized typography, accent word in
-          violet→cyan, layered atmosphere (Aurora + Spotlight +
-          Meteors), CTAs with motion. */}
-      <section className="relative px-6 pt-16 md:pt-24 pb-20 md:pb-32 overflow-hidden min-h-[80vh] flex items-center">
+      {/* Hero — asymmetric on lg+ (text left, AppPreview right per
+          taste-skill "ANTI-CENTER BIAS"), centered on mobile. Headline
+          downsized per "NO Oversized H1s" — gradient lives ONLY on
+          accent word, rest is solid foreground.
+
+          Container max-w-[1400px] per taste-skill default, comfortable
+          on 16" laptops + 27" monitors. */}
+      <section className="relative px-6 pt-12 md:pt-16 pb-16 md:pb-24 overflow-hidden">
         <Aurora className="z-0" />
-        <Spotlight size={800} color="rgba(124, 58, 237, 0.28)" />
-        <Meteors number={12} />
+        <Spotlight size={700} color="rgba(124, 58, 237, 0.22)" />
+        <Meteors number={10} />
 
-        <div className="relative z-10 max-w-6xl w-full mx-auto text-center">
-          {/* Eyebrow badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-card border border-border text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-8 shadow-sm dark:bg-white/[0.06] dark:border-white/15 dark:backdrop-blur-md dark:shadow-none">
-            <Sparkles className="w-3.5 h-3.5 text-brand" />
-            <span>Creator outreach, end to end</span>
+        <div className="relative z-10 max-w-[1400px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+          {/* Left — text column */}
+          <div className="lg:col-span-7 text-center lg:text-left">
+            {/* Eyebrow badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-card border border-border text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-6 shadow-sm dark:bg-white/[0.06] dark:border-white/15 dark:backdrop-blur-md dark:shadow-none">
+              <Sparkles className="w-3.5 h-3.5 text-brand" />
+              <span>Creator outreach, end to end</span>
+            </div>
+
+            {/* Headline — downsized per taste-skill. Gradient is only on
+                the accent word. Rest = solid text-foreground via the
+                TextGenerateEffect's non-accent branch. */}
+            <TextGenerateEffect
+              words="Stop burning leads in spreadsheets."
+              accentWord="spreadsheets"
+              className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6 leading-[1.02]"
+            />
+
+            <p className="text-base md:text-lg text-muted-foreground max-w-xl lg:max-w-none mb-8 leading-relaxed mx-auto lg:mx-0">
+              Find creators that fit. Score them in plain English. Run the whole pipeline — discovery, pitch, follow-ups, analytics — without the spreadsheet circus.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center lg:justify-start justify-center gap-3">
+              <span className="relative inline-block rounded-lg overflow-hidden">
+                <Link
+                  href={isAuthed ? '/' : '/auth/signup'}
+                  className="relative z-10 inline-flex items-center gap-2 bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] px-7 py-3.5 rounded-lg font-semibold text-base transition-[opacity,transform] duration-150 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  {isAuthed ? 'Open app' : 'Get started — free'}
+                  <span aria-hidden>→</span>
+                </Link>
+                <BorderBeam size={110} duration={7} colorFrom="#7c3aed" colorTo="#06b6d4" />
+              </span>
+              {!isAuthed && (
+                <Link
+                  href="/auth/signin"
+                  className="px-6 py-3.5 rounded-lg font-medium text-muted-foreground hover:text-foreground active:scale-[0.98] border border-border hover:border-brand/40 transition-[color,border-color,transform] duration-150 dark:border-white/15 dark:hover:border-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  Sign in
+                </Link>
+              )}
+            </div>
+
+            <p className="mt-6 text-xs text-muted-foreground/70">
+              Free while in beta · No credit card · Cancel anytime
+            </p>
           </div>
 
-          {/*
-            Headline — accent word "spreadsheets" renders in the
-            brand→brand-2 gradient, the rest in foreground gradient.
-            Each word fades + un-blurs in sequence.
-            Alternates if Dylan picks differently:
-              "From scattered leads to closed deals."  (accent: closed)
-              "Creator outreach, finally solved."      (accent: solved)
-              "Cold outreach that actually moves the needle." (accent: needle)
-              "The last outreach tool you'll buy this year."  (accent: last)
-          */}
-          <TextGenerateEffect
-            words="Stop burning leads in spreadsheets."
-            accentWord="spreadsheets"
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 leading-[0.98]"
-          />
-
-          {/* Subline */}
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Find creators that fit. Score them in plain English. Run the whole pipeline — discovery, pitch, follow-ups, analytics — without the spreadsheet circus.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <span className="relative inline-block rounded-lg overflow-hidden">
-              <Link
-                href={isAuthed ? '/' : '/auth/signup'}
-                className="relative z-10 inline-flex items-center gap-2 bg-primary text-primary-foreground hover:opacity-90 px-7 py-3.5 rounded-lg font-semibold text-base transition-opacity shadow-[0_0_80px_-10px_rgba(124,58,237,0.75),0_8px_30px_-6px_rgba(124,58,237,0.4)]"
-              >
-                {isAuthed ? 'Open app' : 'Get started — free'}
-                <span aria-hidden>→</span>
-              </Link>
-              <BorderBeam size={110} duration={7} colorFrom="#7c3aed" colorTo="#06b6d4" />
-            </span>
-            {!isAuthed && (
-              <Link
-                href="/auth/signin"
-                className="px-6 py-3.5 rounded-lg font-medium text-muted-foreground hover:text-foreground border border-border hover:border-brand/40 transition-colors dark:border-white/15 dark:hover:border-white/30"
-              >
-                Sign in
-              </Link>
-            )}
+          {/* Right — AppPreview column. Hidden visually below lg
+              because the carousel is too dense for narrow screens
+              (it appears as its own section below instead). */}
+          <div className="hidden lg:block lg:col-span-5">
+            <AppPreview />
           </div>
-
-          {/* Subtle trust line — what's free, what's required */}
-          <p className="mt-6 text-xs text-muted-foreground/70">
-            Free while in beta · No credit card · Cancel anytime
-          </p>
-        </div>
-
-        {/* Scroll indicator — subtle pulse pulling eye downward */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1 text-muted-foreground/60">
-          <span className="text-[10px] uppercase tracking-[0.2em]">Scroll</span>
-          <span className="w-px h-8 bg-gradient-to-b from-muted-foreground/40 to-transparent" />
         </div>
       </section>
 
-      {/* App preview */}
-      <section className="relative px-6 pt-4 mb-16 md:mb-20 z-10">
+      {/* App preview — only renders on viewports < lg, where it sits
+          as a standalone section below the hero. lg+ shows it inline
+          as the right column of the hero. */}
+      <section className="relative px-6 pt-2 mb-16 md:mb-20 z-10 lg:hidden">
         <AppPreview />
       </section>
 
@@ -115,7 +115,7 @@ export default async function LandingPage() {
 
       {/* How it works */}
       <section className="relative px-6 pb-20 md:pb-28 z-10">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-[1400px] mx-auto">
           <div className="text-center mb-6">
             <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3">
               How it works
@@ -133,7 +133,7 @@ export default async function LandingPage() {
 
       {/* Bento features */}
       <section className="relative px-6 pb-20 md:pb-28 z-10">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-[1400px] mx-auto">
           <div className="text-center mb-12">
             <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3">Built for outreach</div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
