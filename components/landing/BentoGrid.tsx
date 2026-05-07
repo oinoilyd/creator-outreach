@@ -41,11 +41,15 @@ export function BentoCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.6, delay, ease: 'easeOut' }}
-      whileHover={{ y: -4, boxShadow: '0 28px 56px -16px rgba(120, 80, 200, 0.28)' }}
-      className={`group relative overflow-hidden rounded-2xl bg-white border border-gray-200 hover:border-purple-300 transition-colors flex flex-col shadow-sm shadow-gray-900/5 ${className}`}
+      whileHover={{ y: -4, boxShadow: '0 28px 56px -16px rgba(120, 80, 200, 0.32)' }}
+      // Glass card: semi-transparent white with backdrop blur so the
+      // page's aurora + meteors show through subtly. Replaces the
+      // previous chunky white card with gray border that read as a
+      // hard outline on the lavender bg.
+      className={`group relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-md ring-1 ring-purple-200/40 hover:ring-purple-400/60 transition-all flex flex-col shadow-[0_10px_40px_-20px_rgba(76,29,149,0.18)] ${className}`}
     >
       {/* Soft violet hover wash */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-purple-500/8 via-transparent to-blue-500/8" />
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10" />
 
       {visual && <div className="relative px-5 pt-5 pb-3">{visual}</div>}
 
@@ -115,14 +119,113 @@ export function ScoringVisual() {
   return <CropImage src="/screenshots/bento-fit.png" alt="AI fit scoring chips" className="aspect-[870/940]" />
 }
 
-// 3 — Built-in CRM · Status pill column on the Outreach board
+// 3 — Built-in CRM · hand-built mini outreach board. Real screenshot
+// crops of just the Status column read as "horrendous" (Dylan's word)
+// because they're decontextualized cells. A stylized 3-row recreation
+// using the actual app's color tokens reads as the CRM concept
+// without forcing a bad screenshot.
 export function CrmVisual() {
-  return <CropImage src="/screenshots/bento-status.png" alt="CRM status pills" className="aspect-[920/800]" />
+  const rows = [
+    { initials: 'CD', name: 'CoinDesk',     email: 'media@coindesk.com',     status: 'Successful', color: 'emerald' },
+    { initials: 'VL', name: 'Vince Lymburn', email: 'marvince@gmail.com',     status: 'Open',       color: 'blue' },
+    { initials: 'ZL', name: 'Zebu Live',     email: 'info@zebulive.xyz',      status: 'Successful', color: 'emerald' },
+    { initials: 'BF', name: 'Bianca F.',     email: 'bianca@bitesbb.com',     status: 'Rejected',   color: 'red' },
+  ]
+  const pill: Record<string, string> = {
+    emerald: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10',
+    blue:    'text-blue-300    border-blue-500/40    bg-blue-500/10',
+    red:     'text-red-300     border-red-500/40     bg-red-500/10',
+  }
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      // Same dark surface as the real app so the visual feels native,
+      // not like a separate stylized mock.
+      className="relative rounded-xl overflow-hidden bg-gray-950 ring-1 ring-white/5 shadow-[0_18px_45px_-18px_rgba(76,29,149,0.30)] aspect-[920/800]"
+    >
+      <div className="px-4 pt-4 pb-3 flex flex-col h-full justify-between">
+        {rows.map((r) => (
+          <div key={r.name} className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 text-[10px] text-white flex items-center justify-center font-semibold shrink-0">
+              {r.initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] text-white font-medium truncate">{r.name}</div>
+              <div className="text-[10px] text-gray-400 truncate">{r.email}</div>
+            </div>
+            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${pill[r.color]} font-medium`}>
+              {r.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  )
 }
 
-// 4 — Smart follow-up cadence · 4 priority cards + first leads
+// 4 — Smart follow-up cadence · horizontal timeline showing the 5
+// touch points (Day 0 → 3 → 7 → 14 → 21). Pure HTML/Tailwind, no
+// forced screenshot. Mirrors the description copy ("3d, 7d, 14d,
+// then 21d") so the visual literally illustrates the words.
 export function CadenceVisual() {
-  return <CropImage src="/screenshots/bento-priority.png" alt="Follow-up priority cards" className="aspect-[2810/860]" />
+  const stops = [
+    { day: 'D 0',  label: 'Sent',   icon: '✉' },
+    { day: 'D 3',  label: 'Ping 1', icon: '⏰' },
+    { day: 'D 7',  label: 'Ping 2', icon: '⏰' },
+    { day: 'D 14', label: 'Ping 3', icon: '⏰' },
+    { day: 'D 21', label: 'Final',  icon: '⏰' },
+  ]
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className="relative rounded-xl overflow-hidden bg-gray-950 ring-1 ring-white/5 shadow-[0_18px_45px_-18px_rgba(76,29,149,0.30)] aspect-[2810/860] flex flex-col justify-center"
+    >
+      {/* Sample sent-email line so the cadence feels grounded in
+          actual outreach, not just abstract dots. Templated tokens
+          ({{firstName}}, {{topic}}) match the language Dylan asked
+          for — "templated language for email outreach". */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-purple-300/70 mb-2">Email template</div>
+        <div className="text-[12px] text-gray-300 font-mono leading-relaxed">
+          Hey <span className="text-purple-300">{'{{firstName}}'}</span>, loved your video on{' '}
+          <span className="text-purple-300">{'{{topic}}'}</span>…
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="relative px-6 pb-6">
+        {/* Connector line */}
+        <div className="absolute left-10 right-10 top-[14px] h-px bg-gradient-to-r from-purple-500/60 via-blue-500/60 to-purple-500/30" />
+        <div className="relative grid grid-cols-5 gap-2">
+          {stops.map((s, i) => (
+            <div key={s.day} className="flex flex-col items-center text-center">
+              <motion.span
+                initial={{ scale: 0 }}
+                whileInView={{ scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 + i * 0.08, type: 'spring', stiffness: 200 }}
+                className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center text-[12px] ${
+                  i === 0
+                    ? 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.7)]'
+                    : 'bg-gray-900 text-purple-300 ring-1 ring-purple-500/40'
+                }`}
+              >
+                {s.icon}
+              </motion.span>
+              <div className="text-[10px] text-gray-300 font-medium mt-2">{s.day}</div>
+              <div className="text-[9px] text-gray-500">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  )
 }
 
 // 5 — Analytics + custom metrics · KPI cards + status breakdown
