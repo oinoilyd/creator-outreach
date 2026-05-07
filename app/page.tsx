@@ -1812,15 +1812,20 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                         {!isLocked && <span className="text-muted-foreground/70 text-xs">⠿</span>}
                         {col.label}
                         {col.id === 'status' && (
-                          <span ref={statusTooltipRef} className="relative inline-flex" data-no-sort>
+                          <span ref={statusTooltipRef} className="relative inline-flex ml-1" data-no-sort>
                             <button
-                              onClick={(e) => { e.stopPropagation(); setShowStatusTooltip(v => !v) }}
-                              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-purple-500/40 text-purple-700 dark:text-purple-400 text-[9px] font-bold hover:bg-purple-500/10 transition-colors"
+                              type="button"
+                              data-no-sort
+                              draggable={false}
+                              onDragStart={(ev) => ev.preventDefault()}
+                              onMouseDown={(e) => { e.stopPropagation() }}
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowStatusTooltip(v => !v) }}
+                              className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-purple-500/40 text-purple-700 dark:text-purple-400 text-[10px] font-bold hover:bg-purple-500/15 transition-colors leading-none"
                               aria-label="What does Status do?"
                               title="Status info"
                             >i</button>
                             {showStatusTooltip && (
-                              <div className="absolute left-0 top-5 z-30 w-72 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
+                              <div className="absolute left-0 top-6 z-30 w-72 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
                                 <strong className="text-foreground">Editable inline.</strong> Pick Open / No Response / Successful / Rejected. Setting it to <span className="text-blue-700 dark:text-blue-400">Open</span> or <span className="text-amber-700 dark:text-yellow-400">No Response</span> auto-schedules the next follow-up date in the <span className="text-purple-700 dark:text-purple-400">Follow-ups</span> tab — cadence is 3d → 7d → 14d → 21d as touchpoints accumulate. Setting Successful pops confetti.
                               </div>
                             )}
@@ -2248,10 +2253,15 @@ export default function Home() {
 
       const storedOutreachCols = await getOutreachColConfig()
       if (storedOutreachCols) {
-        // merge stored config with any new columns added since last save
+        // Merge stored config with any new columns added since last
+        // save. If a stored width is BELOW the current default, raise
+        // it — we widen defaults occasionally for legibility (e.g. YT
+        // 42 → 56) and existing users would otherwise stay clipped.
         const merged = ALL_OUTREACH_COLS.map(def => {
           const stored = storedOutreachCols.find(s => s.id === def.id)
-          return stored ? { ...def, visible: stored.visible, width: stored.width } : { ...def, visible: def.defaultVisible, width: def.defaultWidth }
+          if (!stored) return { ...def, visible: def.defaultVisible, width: def.defaultWidth }
+          const width = Math.max(stored.width, def.defaultWidth)
+          return { ...def, visible: stored.visible, width }
         })
         setOutreachColConfig(merged)
         setDraftOutreachCols(merged)
@@ -2461,21 +2471,34 @@ export default function Home() {
         toast.error(`Search failed: ${extra.error || 'unknown'}`)
         return
       }
-      const merged: Creator = {
-        ...c,
-        email: c.email || extra.email || '',
-        linkedin: c.linkedin || extra.linkedin || '',
-        instagram: c.instagram || extra.instagram || '',
-        twitter: c.twitter || extra.twitter || '',
-        tiktok: c.tiktok || extra.tiktok || '',
-        website: c.website || extra.website || '',
-        subscribers: c.subscribers || extra.subscribers || '',
-        avgViews: c.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
-      }
-      const next = dismissed.map(x => x.channelId === channelId ? merged : x)
-      setDismissed(next)
-      void persistDismissed(next)
-      if (extra.email && !c.email) toast.success(`Found email for ${c.channelName}`)
+      // Functional updater so we always merge against the latest
+      // dismissed array — guards against state having moved between
+      // when the function was called and when the fetch resolved.
+      const cleanEmail = String(extra.email || '').trim()
+      let persistedSnapshot: Creator[] | null = null
+      setDismissed(prev => {
+        const next = prev.map(x => {
+          if (x.channelId !== channelId) return x
+          return {
+            ...x,
+            email: x.email || cleanEmail,
+            linkedin: x.linkedin || extra.linkedin || '',
+            instagram: x.instagram || extra.instagram || '',
+            twitter: x.twitter || extra.twitter || '',
+            tiktok: x.tiktok || extra.tiktok || '',
+            website: x.website || extra.website || '',
+            subscribers: x.subscribers || extra.subscribers || '',
+            avgViews: x.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
+          }
+        })
+        persistedSnapshot = next
+        return next
+      })
+      // Persist the snapshot we just committed to state (not the
+      // pre-update closure-captured `dismissed`, which could miss
+      // concurrent updates).
+      if (persistedSnapshot) void persistDismissed(persistedSnapshot)
+      if (cleanEmail && !c.email) toast.success(`Found email for ${c.channelName}`)
     } catch (err: any) {
       toast.error(`Search failed: ${err?.message || err}`)
     } finally {
