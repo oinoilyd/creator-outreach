@@ -52,7 +52,7 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthShell>
-      <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-2xl shadow-black/10 dark:shadow-black/40">
+      <div className="w-full max-w-sm bg-card/80 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl shadow-black/40">
         <h1 className="text-2xl font-bold text-foreground mb-1">Choose a new password</h1>
         <p className="text-muted-foreground text-sm mb-6">
           {done
@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
                 onChange={e => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors"
               />
             </div>
             <div>
@@ -83,16 +83,16 @@ export default function ResetPasswordPage() {
                 onChange={e => setConfirm(e.target.value)}
                 required
                 minLength={6}
-                className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors"
               />
             </div>
 
-            {error && <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-3 py-2">{error}</div>}
+            {error && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">{error}</div>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-foreground font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-primary text-primary-foreground hover:opacity-90 font-semibold py-2.5 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Updating…' : 'Update password'}
             </button>
@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
 
         {hasSession === false && (
           <p className="text-xs text-muted-foreground text-center mt-5">
-            <Link href="/auth/forgot-password" className="text-blue-400 hover:text-blue-300">Request a new reset link</Link>
+            <Link href="/auth/forgot-password" className="text-brand hover:text-brand/80 transition-colors">Request a new reset link</Link>
           </p>
         )}
       </div>

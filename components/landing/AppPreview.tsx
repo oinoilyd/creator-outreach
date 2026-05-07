@@ -62,12 +62,12 @@ export function AppPreview() {
       transition={{ duration: 0.9, delay: 0.6, ease: 'easeOut' }}
       className="relative mx-auto w-full max-w-5xl"
     >
-      {/* Outer glow — purple/blue/pink wash to lift the dark screenshot
-          off the light page background */}
-      <div className="absolute inset-x-0 -inset-y-8 bg-gradient-to-r from-purple-500/30 via-blue-500/25 to-pink-500/25 blur-3xl pointer-events-none" />
+      {/* Outer glow — violet + cyan wash to lift the dark screenshot
+          off the dark page background */}
+      <div className="absolute inset-x-0 -inset-y-8 bg-gradient-to-r from-brand/35 via-brand-2/25 to-brand/30 blur-3xl pointer-events-none" />
 
       {/* Tab pills above the frame */}
-      <div className="relative flex items-center justify-center gap-1.5 mb-4">
+      <div className="relative flex items-center justify-center gap-1.5 mb-4 flex-wrap">
         {VIEWS.map((v, i) => {
           const Icon = v.Icon
           const active = i === idx
@@ -81,8 +81,8 @@ export function AppPreview() {
               className={
                 'group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ' +
                 (active
-                  ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                  : 'bg-white text-gray-600 hover:text-gray-900 border-gray-200 hover:border-purple-300')
+                  ? 'bg-primary text-primary-foreground border-primary shadow-[0_0_24px_-4px_rgba(124,58,237,0.6)]'
+                  : 'bg-white/5 text-muted-foreground hover:text-foreground border-white/10 hover:border-white/30')
               }
             >
               <Icon className="w-3.5 h-3.5" />
@@ -94,6 +94,16 @@ export function AppPreview() {
 
       {/* Framed screenshot carousel */}
       <div className="relative">
+        {/* Live-preview pulsing dot — top-right of the screenshot frame.
+            Signals "this is real product, not a stock screenshot." */}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.15em] text-white/80 font-medium">Live</span>
+        </div>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={view.id}
@@ -105,7 +115,6 @@ export function AppPreview() {
             <ScreenshotFrame
               src={view.src}
               alt={`${view.label} view of Creator Outreach`}
-              url={`creatoroutreach.net/${view.id === 'results' ? '' : view.id}`}
             />
           </motion.div>
         </AnimatePresence>
@@ -114,7 +123,7 @@ export function AppPreview() {
         <button
           onClick={() => go(-1)}
           aria-label="Previous view"
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-full w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-purple-300 hover:bg-purple-50 text-gray-600 hover:text-purple-700 flex items-center justify-center transition-colors shadow-lg"
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-full w-10 h-10 rounded-full bg-card/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-card text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shadow-lg"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -123,7 +132,7 @@ export function AppPreview() {
         <button
           onClick={() => go(1)}
           aria-label="Next view"
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-full w-10 h-10 rounded-full bg-white border border-gray-200 hover:border-purple-300 hover:bg-purple-50 text-gray-600 hover:text-purple-700 flex items-center justify-center transition-colors shadow-lg"
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-full w-10 h-10 rounded-full bg-card/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-card text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shadow-lg"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -141,15 +150,15 @@ export function AppPreview() {
               }}
               aria-label={`Show ${v.label}`}
               className={`h-1.5 rounded-full transition-all ${
-                i === idx ? 'w-8 bg-purple-600' : 'w-1.5 bg-gray-300 hover:bg-gray-400'
+                i === idx ? 'w-8 bg-primary' : 'w-1.5 bg-white/20 hover:bg-white/40'
               }`}
             />
           ))}
         </div>
       </div>
-      <div className="text-center mt-3 text-[12px] text-gray-500">
-        <span className="text-gray-900 font-medium">{view.label}</span>
-        <span className="text-gray-400 mx-1.5">·</span>
+      <div className="text-center mt-3 text-[12px] text-muted-foreground">
+        <span className="text-foreground font-medium">{view.label}</span>
+        <span className="text-muted-foreground/60 mx-1.5">·</span>
         <span>{view.sub}</span>
       </div>
     </motion.div>

@@ -47,7 +47,7 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
 
         <Link
           href={isAuthed ? '/' : '/auth/signup'}
-          className="text-sm bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200 px-4 py-2 rounded-lg font-medium transition-colors"
+          className="text-sm bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 rounded-lg font-medium transition-opacity"
         >
           {isAuthed ? 'Open app' : 'Get started'}
         </Link>
@@ -57,7 +57,7 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
             onClick={() => setOpen(v => !v)}
             aria-label="Open menu"
             aria-expanded={open}
-            className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-colors ${open ? 'bg-gray-100 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-900 dark:text-white' : 'bg-transparent border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-white/20'}`}
+            className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-colors ${open ? 'bg-white/10 border-white/20 text-foreground' : 'bg-transparent border-white/10 text-muted-foreground hover:border-white/20 hover:text-foreground'}`}
           >
             <span className="block w-5 h-px bg-current rounded" />
             <span className="block w-5 h-px bg-current rounded" />
@@ -71,7 +71,7 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ type: 'spring', bounce: 0.18, duration: 0.3 }}
-                className="absolute right-0 top-12 w-56 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl shadow-2xl shadow-black/10 dark:shadow-black/40 z-50 overflow-hidden py-1"
+                className="absolute right-0 top-12 w-56 bg-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden py-1"
               >
                 {/* Section anchors */}
                 {sectionItems.map(item => (
@@ -79,13 +79,13 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
                   >
                     {item.label}
                   </a>
                 ))}
 
-                <div className="mx-4 my-1 border-t border-gray-200 dark:border-white/10" />
+                <div className="mx-4 my-1 border-t border-white/10" />
 
                 {/* Auth row */}
                 {isAuthed ? (
@@ -93,13 +93,13 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                     <Link
                       href="/"
                       onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
                     >
                       Open app
                     </Link>
                     <button
                       onClick={signOut}
-                      className="w-full text-left block px-4 py-2.5 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                      className="w-full text-left block px-4 py-2.5 text-sm text-red-300 hover:bg-red-500/10 transition-colors"
                     >
                       Sign out
                     </button>
@@ -109,14 +109,14 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                     <Link
                       href="/auth/signin"
                       onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
                     >
                       Sign in
                     </Link>
                     <Link
                       href="/auth/signup"
                       onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
                     >
                       Sign up
                     </Link>

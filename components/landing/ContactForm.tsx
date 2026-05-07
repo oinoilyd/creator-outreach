@@ -36,18 +36,21 @@ export function ContactForm() {
 
   if (status === 'sent') {
     return (
-      <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-6 text-center">
-        <div className="text-emerald-700 dark:text-emerald-300 font-medium mb-1">Got it — message received.</div>
-        <div className="text-sm text-emerald-700/80 dark:text-emerald-300/80">I'll get back to you within a day or two.</div>
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
+        <div className="text-emerald-300 font-medium mb-1">Got it — message received.</div>
+        <div className="text-sm text-emerald-300/80">I&apos;ll get back to you within a day or two.</div>
         <button
           onClick={() => setStatus('idle')}
-          className="mt-4 text-xs text-emerald-700 dark:text-emerald-300 hover:underline"
+          className="mt-4 text-xs text-emerald-300 hover:underline"
         >
           Send another
         </button>
       </div>
     )
   }
+
+  const inputCls =
+    'w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors'
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
@@ -59,7 +62,7 @@ export function ContactForm() {
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="Your name"
-          className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-purple-400 dark:focus:border-purple-500 transition-colors"
+          className={inputCls}
         />
         <input
           type="email"
@@ -68,7 +71,7 @@ export function ContactForm() {
           value={email}
           onChange={e => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-purple-400 dark:focus:border-purple-500 transition-colors"
+          className={inputCls}
         />
       </div>
       <textarea
@@ -78,17 +81,17 @@ export function ContactForm() {
         value={message}
         onChange={e => setMessage(e.target.value)}
         placeholder="What's on your mind?"
-        className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-gray-900/60 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-purple-400 dark:focus:border-purple-500 transition-colors resize-none"
+        className={`${inputCls} resize-none`}
       />
       {errorMsg && (
-        <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-3 py-2">
+        <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">
           {errorMsg}
         </div>
       )}
       <button
         type="submit"
         disabled={status === 'sending'}
-        className="w-full sm:w-auto bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200 px-5 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-wait"
+        className="w-full sm:w-auto bg-primary text-primary-foreground hover:opacity-90 px-5 py-2.5 rounded-lg font-medium transition-opacity disabled:opacity-60 disabled:cursor-wait"
       >
         {status === 'sending' ? 'Sending…' : 'Send message'}
       </button>

@@ -40,17 +40,17 @@ export function FAQ() {
         return (
           <div
             key={i}
-            className="border border-gray-200 dark:border-white/10 rounded-lg bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm overflow-hidden"
+            className="border border-white/10 rounded-lg bg-white/[0.04] backdrop-blur-md overflow-hidden"
           >
             <button
               onClick={() => setOpenIdx(isOpen ? null : i)}
-              className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-gray-50/60 dark:hover:bg-white/5 transition-colors"
+              className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.06] transition-colors"
             >
-              <span className="text-sm md:text-base font-medium text-gray-900 dark:text-white">{item.q}</span>
+              <span className="text-sm md:text-base font-medium text-foreground">{item.q}</span>
               <motion.span
                 animate={{ rotate: isOpen ? 45 : 0 }}
                 transition={{ duration: 0.2 }}
-                className="shrink-0 text-gray-400 dark:text-gray-500 text-xl leading-none"
+                className="shrink-0 text-muted-foreground text-xl leading-none"
               >
                 +
               </motion.span>
@@ -64,7 +64,7 @@ export function FAQ() {
                   transition={{ duration: 0.2, ease: 'easeOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="px-5 pb-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <div className="px-5 pb-4 text-sm text-muted-foreground leading-relaxed">
                     {item.a}
                   </div>
                 </motion.div>

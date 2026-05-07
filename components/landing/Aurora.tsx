@@ -1,23 +1,25 @@
 'use client'
 
 import { motion } from 'motion/react'
-import { useTheme } from 'next-themes'
 
-// Large blurred gradient orbs that slowly drift behind the hero.
-// Replaces the old BackgroundBeams which were too subtle to register.
-// Tones down opacity in light mode so the blurred orbs read as a soft
-// pastel wash instead of washed-out greys.
+/**
+ * Atmospheric gradient orbs behind the hero. Two-color palette only —
+ * violet primary + cyan secondary — to match the new design tokens.
+ * No theme conditional needed: both modes are dark-spectrum, so the
+ * same orb opacities work in both.
+ *
+ * Orbs use heavy blur (120px) so they read as soft washes of color,
+ * not hard shapes. Slow drift via Framer Motion (22-30s loops).
+ */
 export function Aurora({ className = '' }: { className?: string }) {
-  const { resolvedTheme } = useTheme()
-  const isLight = resolvedTheme === 'light'
-  const a = isLight
-    ? { purple: 0.20, blue: 0.18, pink: 0.14 }
-    : { purple: 0.45, blue: 0.35, pink: 0.28 }
   const orbs = [
-    { size: 700, color: `rgba(168, 85, 247, ${a.purple})`, top: '-20%', left: '-10%', duration: 22, delay: 0 },
-    { size: 600, color: `rgba(59, 130, 246, ${a.blue})`,   top: '10%',  right: '-15%', duration: 26, delay: 4 },
-    { size: 500, color: `rgba(236, 72, 153, ${a.pink})`,   bottom: '-25%', left: '15%', duration: 30, delay: 8 },
-  ]
+    // Violet — top-left, anchor of the brand color
+    { size: 720, color: 'rgba(124, 58, 237, 0.55)', top: '-22%', left: '-12%', duration: 22, delay: 0 },
+    // Cyan — top-right, secondary accent
+    { size: 620, color: 'rgba(6, 182, 212, 0.42)',  top: '8%',   right: '-15%', duration: 26, delay: 4 },
+    // Deeper violet — bottom, atmospheric
+    { size: 540, color: 'rgba(99, 102, 241, 0.40)', bottom: '-28%', left: '20%', duration: 30, delay: 8 },
+  ] as const
 
   return (
     <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`} aria-hidden>
@@ -39,32 +41,25 @@ export function Aurora({ className = '' }: { className?: string }) {
             position: 'absolute',
             width: o.size,
             height: o.size,
-            top: o.top,
-            left: o.left,
-            right: o.right,
-            bottom: o.bottom,
+            top: 'top' in o ? o.top : undefined,
+            left: 'left' in o ? o.left : undefined,
+            right: 'right' in o ? o.right : undefined,
+            bottom: 'bottom' in o ? o.bottom : undefined,
             background: o.color,
             filter: 'blur(120px)',
             borderRadius: '50%',
           }}
         />
       ))}
-      {/* Grid overlay for texture */}
+      {/* Subtle grid texture so the orbs have something to land against. */}
       <div
-        className="absolute inset-0 opacity-[0.07]"
+        className="absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
             'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
           backgroundSize: '64px 64px',
         }}
       />
-      {/*
-        Previously had a bottom fade to white which created a visible band
-        where the hero met the next section — Dylan reported the AppPreview
-        tab pills getting cut exactly in half by that transition. The
-        page background is uniform (oklch lavender) so we no longer need
-        a fade; the orbs naturally soften at edges via blur.
-      */}
     </div>
   )
 }

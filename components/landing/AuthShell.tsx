@@ -15,7 +15,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
       <header className="relative z-10 px-6 py-5 flex items-center justify-between max-w-6xl w-full mx-auto">
         <Link href="/landing" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-sm font-bold text-white">C</div>
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand to-brand-2 flex items-center justify-center text-sm font-bold text-primary-foreground">C</div>
           <span className="font-semibold tracking-tight">Creator Outreach</span>
         </Link>
       </header>

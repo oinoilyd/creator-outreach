@@ -41,26 +41,25 @@ export function BentoCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.6, delay, ease: 'easeOut' }}
-      whileHover={{ y: -4, boxShadow: '0 28px 56px -16px rgba(120, 80, 200, 0.32)' }}
-      // Glass card: semi-transparent white with backdrop blur so the
-      // page's aurora + meteors show through subtly. Replaces the
-      // previous chunky white card with gray border that read as a
-      // hard outline on the lavender bg.
-      className={`group relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-md ring-1 ring-purple-200/40 hover:ring-purple-400/60 transition-all flex flex-col shadow-[0_10px_40px_-20px_rgba(76,29,149,0.18)] ${className}`}
+      whileHover={{ y: -4, boxShadow: '0 28px 56px -16px rgba(124,58,237,0.40)' }}
+      // Glass card on charcoal: subtle white tint + backdrop blur, ring
+      // in the brand violet at low opacity. Aurora + meteors show
+      // through. Hover brightens the ring.
+      className={`group relative overflow-hidden rounded-2xl bg-white/[0.04] backdrop-blur-md ring-1 ring-white/10 hover:ring-brand/50 transition-all flex flex-col shadow-[0_10px_40px_-20px_rgba(0,0,0,0.4)] ${className}`}
     >
-      {/* Soft violet hover wash */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10" />
+      {/* Soft violet/cyan hover wash */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-brand/10 via-transparent to-brand-2/10" />
 
       {visual && <div className="relative px-5 pt-5 pb-3">{visual}</div>}
 
       <div className="relative px-5 pb-5 pt-3 flex-1">
         <div className="flex items-center gap-2.5 mb-2">
-          <div className="w-7 h-7 rounded-md bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700">
+          <div className="w-7 h-7 rounded-md bg-brand/15 border border-brand/30 flex items-center justify-center text-brand">
             {icon}
           </div>
-          <h3 className="text-sm font-semibold text-gray-900 tracking-tight">{title}</h3>
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">{title}</h3>
         </div>
-        <p className="text-[13px] text-gray-600 leading-relaxed">{description}</p>
+        <p className="text-[13px] text-muted-foreground leading-relaxed">{description}</p>
       </div>
     </motion.div>
   )

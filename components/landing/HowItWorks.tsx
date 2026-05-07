@@ -18,8 +18,8 @@ const Circle = forwardRef<HTMLDivElement, { className?: string; children?: React
     <div
       ref={ref}
       className={cn(
-        'z-10 flex h-16 w-16 items-center justify-center rounded-full border bg-white shadow-[0_0_20px_-12px_rgba(76,29,149,0.6)]',
-        'border-purple-200',
+        'z-10 flex h-16 w-16 items-center justify-center rounded-full border bg-white/[0.04] backdrop-blur-md shadow-[0_0_30px_-8px_rgba(124,58,237,0.6)]',
+        'border-brand/40',
         className,
       )}
     >
@@ -41,9 +41,9 @@ export function HowItWorks() {
         ref={containerRef}
         className="relative flex w-full items-center justify-between gap-4 py-12 px-4"
       >
-        <Step refEl={stepARef} icon={<Search className="h-7 w-7 text-purple-600" />} label="Search" sub="Discover creators" />
-        <Step refEl={stepBRef} icon={<Sparkles className="h-7 w-7 text-purple-600" />} label="Score" sub="AI ranks fit" />
-        <Step refEl={stepCRef} icon={<MailPlus className="h-7 w-7 text-purple-600" />} label="Pitch" sub="With auto follow-ups" />
+        <Step refEl={stepARef} icon={<Search className="h-7 w-7 text-brand" />} label="Search" sub="Discover creators" />
+        <Step refEl={stepBRef} icon={<Sparkles className="h-7 w-7 text-brand" />} label="Score" sub="AI ranks fit" />
+        <Step refEl={stepCRef} icon={<MailPlus className="h-7 w-7 text-brand" />} label="Pitch" sub="With auto follow-ups" />
 
         <AnimatedBeam
           containerRef={containerRef}
@@ -51,8 +51,8 @@ export function HowItWorks() {
           toRef={stepBRef}
           duration={4}
           curvature={-30}
-          gradientStartColor="#a855f7"
-          gradientStopColor="#3b82f6"
+          gradientStartColor="#7c3aed"
+          gradientStopColor="#06b6d4"
         />
         <AnimatedBeam
           containerRef={containerRef}
@@ -61,8 +61,8 @@ export function HowItWorks() {
           duration={4}
           delay={0.5}
           curvature={-30}
-          gradientStartColor="#a855f7"
-          gradientStopColor="#3b82f6"
+          gradientStartColor="#7c3aed"
+          gradientStopColor="#06b6d4"
         />
       </div>
     </div>
@@ -84,8 +84,8 @@ function Step({
     <div className="flex flex-col items-center gap-2 flex-1">
       <Circle ref={refEl}>{icon}</Circle>
       <div className="text-center">
-        <div className="text-sm font-semibold text-gray-900">{label}</div>
-        <div className="text-xs text-gray-500 mt-0.5">{sub}</div>
+        <div className="text-sm font-semibold text-foreground">{label}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import { LandingNav } from '@/components/landing/LandingNav'
 import { ContactForm } from '@/components/landing/ContactForm'
 import { FAQ } from '@/components/landing/FAQ'
 import { HowItWorks } from '@/components/landing/HowItWorks'
+import { PlatformMarquee } from '@/components/landing/PlatformMarquee'
 import {
   BentoGrid, BentoCard,
   SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual,
@@ -14,7 +15,6 @@ import {
 import { Spotlight } from '@/components/ui/spotlight'
 import { Meteors } from '@/components/ui/meteors'
 import { BorderBeam } from '@/components/ui/border-beam'
-import { ScreenshotFrame } from '@/components/ui/screenshot-frame'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
@@ -23,8 +23,6 @@ export const metadata = {
 }
 
 export default async function LandingPage() {
-  // Server-side auth check so the nav can show "Open app" / "Sign out"
-  // for logged-in visitors instead of the signup CTA.
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isAuthed = !!user
@@ -36,35 +34,35 @@ export default async function LandingPage() {
       {/* Hero */}
       <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-20 overflow-hidden">
         <Aurora className="z-0" />
-        <Spotlight size={700} color="rgba(168, 85, 247, 0.20)" />
-        {/* Falling meteor streaks for movement */}
-        <Meteors number={18} />
+        <Spotlight size={700} color="rgba(124, 58, 237, 0.22)" />
+        {/* Toned meteors: 12 streaks, slower (8s in CSS) for cleanness */}
+        <Meteors number={12} />
         <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900/5 dark:bg-white/5 border border-gray-900/10 dark:border-white/10 backdrop-blur-md text-xs text-gray-700 dark:text-gray-300 mb-7">
-            <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-300" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-muted-foreground mb-7">
+            <Sparkles className="w-3.5 h-3.5 text-brand" />
             <span>Creator outreach, end to end</span>
           </div>
           <TextGenerateEffect
             words="Find them. Score them. Pitch them. Close them."
-            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-500 dark:from-white dark:via-white dark:to-gray-400 bg-clip-text text-transparent leading-[1.05]"
+            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-foreground via-foreground to-brand bg-clip-text text-transparent leading-[1.05]"
           />
-          <p className="text-base md:text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto mb-9 leading-relaxed">
+          <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-9 leading-relaxed">
             Find creators across YouTube, Instagram, TikTok and more. Score them by fit, and run your whole outreach pipeline — without the spreadsheet circus.
           </p>
           <div className="flex items-center justify-center gap-3">
             <span className="relative inline-block rounded-lg overflow-hidden">
               <Link
                 href={isAuthed ? '/' : '/auth/signup'}
-                className="relative z-10 inline-block bg-gray-900 text-white hover:bg-gray-800 px-6 py-3 rounded-lg font-semibold transition-colors shadow-[0_0_60px_-12px_rgba(168,85,247,0.6)]"
+                className="relative z-10 inline-block bg-primary text-primary-foreground hover:opacity-90 px-6 py-3 rounded-lg font-semibold transition-opacity shadow-[0_0_70px_-10px_rgba(124,58,237,0.65)]"
               >
                 {isAuthed ? 'Open app' : 'Get started — free'}
               </Link>
-              <BorderBeam size={90} duration={8} colorFrom="#a855f7" colorTo="#3b82f6" />
+              <BorderBeam size={90} duration={8} colorFrom="#7c3aed" colorTo="#06b6d4" />
             </span>
             {!isAuthed && (
               <Link
                 href="/auth/signin"
-                className="px-6 py-3 rounded-lg font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white border border-gray-900/10 dark:border-white/10 hover:border-gray-900/30 dark:hover:border-white/30 backdrop-blur-sm transition-colors"
+                className="px-6 py-3 rounded-lg font-medium text-muted-foreground hover:text-foreground border border-white/10 hover:border-white/30 backdrop-blur-sm transition-colors"
               >
                 Sign in
               </Link>
@@ -73,23 +71,28 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* App preview — no negative margin; pills now sit cleanly below
-          the hero instead of straddling a background transition */}
-      <section className="relative px-6 pt-4 mb-20 md:mb-28 z-10">
+      {/* App preview */}
+      <section className="relative px-6 pt-4 mb-16 md:mb-20 z-10">
         <AppPreview />
+      </section>
+
+      {/* Platform marquee — single horizontal row of supported platforms.
+          Accurate motion (we DO support these), no stats card. */}
+      <section className="relative px-6 pb-16 md:pb-20 z-10">
+        <PlatformMarquee />
       </section>
 
       {/* How it works */}
       <section className="relative px-6 pb-20 md:pb-28 z-10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-6">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 mb-3">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3">
               How it works
             </div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
               Three steps. No spreadsheet.
             </h2>
-            <p className="text-gray-600 max-w-xl mx-auto">
+            <p className="text-muted-foreground max-w-xl mx-auto">
               Search every major platform, score by your criteria, run outreach with auto follow-ups.
             </p>
           </div>
@@ -101,11 +104,11 @@ export default async function LandingPage() {
       <section className="relative px-6 pb-20 md:pb-28 z-10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 dark:text-purple-300/80 mb-3">Built for outreach</div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3">Built for outreach</div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-              Everything you need, nothing you don't.
+              Everything you need, nothing you don&apos;t.
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
+            <p className="text-muted-foreground max-w-xl mx-auto">
               One tool replaces creator discovery, a spreadsheet, a CRM, and a cadence reminder. Works across YouTube, Instagram, TikTok, X, and LinkedIn.
             </p>
           </div>
@@ -155,11 +158,11 @@ export default async function LandingPage() {
       {/* About */}
       <section id="about" className="relative px-6 pb-20 md:pb-28 z-10 scroll-mt-20">
         <div className="max-w-3xl mx-auto">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 dark:text-purple-300/80 mb-3">About</div>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3">About</div>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6">
             Built by someone who needed it.
           </h2>
-          <p className="text-base md:text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
             Creator Outreach started as a tool I built for myself. I was running outreach to creators across YouTube, Instagram, and TikTok with a spreadsheet, three browser tabs, and a Notion page that was always out of date. The pricier tools cost more than my rent and still couldn&apos;t tell me what made a good lead — so I built this. It searches every major platform directly, scores creators against criteria you describe in plain English, and runs the whole pipeline — pitch, status, follow-up cadence, analytics — without copy-pasting between five tabs. It&apos;s still early, run by one person, and growing every week from feedback by the people using it. If you&apos;re using it and something&apos;s off, tell me — that&apos;s how it gets better.
           </p>
         </div>
@@ -168,31 +171,31 @@ export default async function LandingPage() {
       {/* Pricing */}
       <section id="pricing" className="relative px-6 pb-20 md:pb-28 z-10 scroll-mt-20">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 dark:text-purple-300/80 mb-3">Pricing</div>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3">Pricing</div>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
             Free while in beta.
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-10 max-w-xl mx-auto">
+          <p className="text-muted-foreground mb-10 max-w-xl mx-auto">
             No credit card. No usage cap on outreach. When pricing lands, beta users keep a generous free tier forever.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
-            <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm p-6">
-              <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">Beta</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6">
+              <div className="text-sm font-medium text-foreground mb-1">Beta</div>
               <div className="text-3xl font-bold tracking-tight mb-2">$0</div>
-              <div className="text-xs text-gray-500 dark:text-gray-500 mb-4">Free, no card required</div>
-              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1.5">
+              <div className="text-xs text-muted-foreground mb-4">Free, no card required</div>
+              <ul className="text-sm text-muted-foreground space-y-1.5">
                 <li>· Unlimited outreach tracking</li>
                 <li>· AI fit scoring</li>
                 <li>· Smart follow-up cadence</li>
                 <li>· Analytics + custom metrics</li>
               </ul>
             </div>
-            <div className="rounded-2xl border border-purple-200 dark:border-purple-500/30 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-500/10 dark:to-blue-500/10 backdrop-blur-sm p-6">
-              <div className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">Coming later</div>
+            <div className="rounded-2xl border border-brand/30 bg-gradient-to-br from-brand/10 to-brand-2/10 backdrop-blur-md p-6">
+              <div className="text-sm font-medium text-brand mb-1">Coming later</div>
               <div className="text-3xl font-bold tracking-tight mb-2">TBD</div>
-              <div className="text-xs text-gray-500 dark:text-gray-500 mb-4">For heavier users + teams</div>
-              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1.5">
+              <div className="text-xs text-muted-foreground mb-4">For heavier users + teams</div>
+              <ul className="text-sm text-muted-foreground space-y-1.5">
                 <li>· Higher search volume</li>
                 <li>· Multi-seat teams</li>
                 <li>· Bulk email enrichment</li>
@@ -206,7 +209,7 @@ export default async function LandingPage() {
       {/* FAQ */}
       <section id="faq" className="relative px-6 pb-20 md:pb-28 z-10 scroll-mt-20">
         <div className="max-w-3xl mx-auto">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 dark:text-purple-300/80 mb-3 text-center">FAQ</div>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3 text-center">FAQ</div>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-10 text-center">
             Common questions.
           </h2>
@@ -217,14 +220,14 @@ export default async function LandingPage() {
       {/* Contact */}
       <section id="contact" className="relative px-6 pb-20 md:pb-28 z-10 scroll-mt-20">
         <div className="max-w-2xl mx-auto">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 dark:text-purple-300/80 mb-3 text-center">Contact</div>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-brand mb-3 text-center">Contact</div>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3 text-center">
             Get in touch.
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-8 text-center">
+          <p className="text-muted-foreground mb-8 text-center">
             Feedback, bugs, feature ideas, partnership questions — all land in the same inbox.
           </p>
-          <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm p-6 md:p-8">
+          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 md:p-8">
             <ContactForm />
           </div>
         </div>
@@ -233,16 +236,16 @@ export default async function LandingPage() {
       {/* CTA strip */}
       {!isAuthed && (
         <section className="relative px-6 pb-20 z-10">
-          <div className="max-w-3xl mx-auto rounded-2xl border border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-gray-900/40 p-8 md:p-10 text-center backdrop-blur-sm">
+          <div className="max-w-3xl mx-auto rounded-2xl border border-white/10 bg-gradient-to-br from-brand/10 via-transparent to-brand-2/10 backdrop-blur-md p-8 md:p-10 text-center">
             <h3 className="text-xl md:text-2xl font-bold tracking-tight mb-2">
               Stop emailing the wrong creators.
             </h3>
-            <p className="text-sm text-gray-500 mb-5">
+            <p className="text-sm text-muted-foreground mb-5">
               Free to start. No card required.
             </p>
             <Link
               href="/auth/signup"
-              className="inline-block bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
+              className="inline-block bg-primary text-primary-foreground hover:opacity-90 px-5 py-2.5 rounded-lg font-semibold text-sm transition-opacity"
             >
               Get started
             </Link>
@@ -250,8 +253,8 @@ export default async function LandingPage() {
         </section>
       )}
 
-      <footer className="relative z-10 px-6 py-6 border-t border-gray-200 dark:border-white/5 text-center text-xs text-gray-500 dark:text-gray-600">
-        © {new Date().getFullYear()} Creator Outreach. <a href="#contact" className="hover:text-gray-700 dark:hover:text-gray-400">Contact</a>
+      <footer className="relative z-10 px-6 py-6 border-t border-white/10 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} Creator Outreach. <a href="#contact" className="hover:text-foreground transition-colors">Contact</a>
       </footer>
     </main>
   )

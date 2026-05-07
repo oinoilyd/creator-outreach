@@ -1,84 +1,96 @@
 @import "tailwindcss";
 
-/* Tailwind v4: enable class-based dark mode so `dark:` prefixes apply
-   when an ancestor (or <html>) has the `.dark` class. next-themes
-   toggles this on <html>. */
+/* Tailwind v4: class-based dark mode. next-themes toggles `.dark` on <html>. */
 @variant dark (&:where(.dark, .dark *));
 
-/* shadcn/ui-style design tokens. Every component uses semantic colors
-   (bg-background, text-foreground, border-border, etc.) that swap
-   automatically when the .dark class flips. */
+/*
+  Premium-Modern dark-spectrum design tokens.
+
+  Two modes, both intentionally dark — Dylan's call:
+  • LIGHT = medium charcoal (oklch 0.20). Not white. Tinted violet-zinc.
+  • DARK  = very dark, near-black (oklch 0.08). Slight violet hue.
+
+  Both modes share: violet primary (#7C3AED-ish), cyan secondary (#06B6D4-ish).
+  Glass cards (bg-white/5 backdrop-blur) work in both modes.
+
+  Inspired by Linear / Resend / Vercel — premium SaaS dark aesthetic.
+*/
 
 :root {
-  /* Light theme — designed to feel "darker, less chunky" than a
-     typical white-on-grey shadcn palette. Page bg is a deep tinted
-     lavender (oklch 0.95) so pure-white cards have somewhere to
-     elevate against. Borders carry real chroma (0.04 at 280) so
-     they read as intentional design, not invisible hairlines.
-     Inspired by Linear's product pages and Stripe Atlas. */
-  --background: oklch(0.95 0.025 282);
-  --foreground: oklch(0.16 0.05 275);
+  /* LIGHT MODE — medium charcoal, NOT white. */
+  --background: oklch(0.20 0.020 280);
+  --foreground: oklch(0.95 0.005 280);
 
-  /* elevated surfaces — pure white cards pop against the tinted bg */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.05 275);
+  /* Cards float a touch above bg. Keep the chroma so it doesn't read flat. */
+  --card: oklch(0.24 0.020 280);
+  --card-foreground: oklch(0.96 0.005 280);
 
-  /* secondary surface (table headers, sub-panels) — has its own
-     identity, clearly different from bg AND card */
-  --muted: oklch(0.91 0.035 285);
-  --muted-foreground: oklch(0.40 0.07 280);
+  /* Secondary surfaces (table headers, sub-panels). */
+  --muted: oklch(0.27 0.020 280);
+  --muted-foreground: oklch(0.70 0.015 280);
 
-  /* hover / interactive accent — strong violet wash */
-  --accent: oklch(0.89 0.05 290);
-  --accent-foreground: oklch(0.16 0.05 275);
+  /* Hover / interactive surface (NOT the bright accent — shadcn semantic). */
+  --accent: oklch(0.30 0.030 280);
+  --accent-foreground: oklch(0.96 0.005 280);
 
-  /* primary CTA — deep saturated brand violet */
-  --primary: oklch(0.40 0.255 290);
+  /* Primary CTA — vivid violet that pops on charcoal. */
+  --primary: oklch(0.62 0.245 290);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* borders + dividers — visibly tinted, real definition */
-  --border: oklch(0.83 0.04 280);
-  --input: oklch(0.83 0.04 280);
-  --ring: oklch(0.55 0.225 290);
+  /* Borders / dividers — visible against bg + card. */
+  --border: oklch(0.32 0.025 280);
+  --input: oklch(0.32 0.025 280);
 
-  /* destructive */
-  --destructive: oklch(0.56 0.235 22);
+  /* Focus ring — same hue as primary, brighter. */
+  --ring: oklch(0.70 0.230 290);
+
+  /* Destructive (red). */
+  --destructive: oklch(0.65 0.230 22);
   --destructive-foreground: oklch(0.99 0 0);
 
-  /* brand purple */
-  --brand: oklch(0.50 0.245 290);
+  /* Brand 1 — violet (same family as primary, semantic alias). */
+  --brand: oklch(0.62 0.245 290);
   --brand-foreground: oklch(0.99 0 0);
+
+  /* Brand 2 — cyan (secondary accent for variety). */
+  --brand-2: oklch(0.78 0.135 215);
+  --brand-2-foreground: oklch(0.10 0.010 220);
 }
 
 .dark {
-  --background: oklch(0.10 0.005 240);
+  /* DARK MODE — very dark, near-black, tiny violet hue. */
+  --background: oklch(0.08 0.005 280);
   --foreground: oklch(0.98 0 0);
 
-  --card: oklch(0.13 0.005 240);
+  --card: oklch(0.12 0.008 280);
   --card-foreground: oklch(0.98 0 0);
 
-  --muted: oklch(0.18 0.005 240);
-  --muted-foreground: oklch(0.65 0.01 240);
+  --muted: oklch(0.16 0.010 280);
+  --muted-foreground: oklch(0.68 0.015 280);
 
-  --accent: oklch(0.20 0.005 240);
+  --accent: oklch(0.20 0.012 280);
   --accent-foreground: oklch(0.98 0 0);
 
-  --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.15 0.01 240);
+  /* Primary stays violet, slightly brighter so it lifts off near-black. */
+  --primary: oklch(0.68 0.240 290);
+  --primary-foreground: oklch(0.99 0 0);
 
-  --border: oklch(0.22 0.005 240);
-  --input: oklch(0.22 0.005 240);
-  --ring: oklch(0.65 0.18 280);
+  --border: oklch(0.22 0.010 280);
+  --input: oklch(0.22 0.010 280);
+  --ring: oklch(0.75 0.220 290);
 
-  --destructive: oklch(0.62 0.21 22);
+  --destructive: oklch(0.66 0.225 22);
   --destructive-foreground: oklch(0.99 0 0);
 
-  --brand: oklch(0.65 0.22 295);
+  --brand: oklch(0.68 0.240 290);
   --brand-foreground: oklch(0.99 0 0);
+
+  --brand-2: oklch(0.80 0.135 215);
+  --brand-2-foreground: oklch(0.10 0.010 220);
 }
 
-/* Register tokens as Tailwind colors so `bg-background`, `text-foreground`,
-   `border-border` etc. become valid utilities. */
+/* Register tokens as Tailwind utilities (`bg-background`, `text-foreground`,
+   `border-border`, `bg-brand`, `bg-brand-2`, etc). */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -97,6 +109,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-brand-2: var(--brand-2);
+  --color-brand-2-foreground: var(--brand-2-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -105,51 +119,29 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
-  /* Lock the page horizontally — trackpad two-finger gestures should
-     scroll inside the table containers (which have overflow-x-auto +
-     overscroll-x-contain), never the page itself or browser back/fwd. */
+  /* Lock the page horizontally — trackpad two-finger gestures should scroll
+     inside table containers (overflow-x-auto + overscroll-x-contain), never
+     the page itself or browser back/fwd. */
   overflow-x: hidden;
   overscroll-behavior-x: none;
 }
 html {
   overflow-x: hidden;
   overscroll-behavior-x: none;
+  /* Avoid theme-flip flicker. */
+  color-scheme: dark;
 }
 
-/* Light-mode designer canvas: violet/blue/pink/peach radial washes
-   with intentional saturation, slowly drifting. Adds real color to
-   the page without overwhelming content. Inspired by Linear's hero
-   gradient + Stripe's drifting backdrops. */
-:root body::before {
-  content: '';
-  position: fixed;
-  inset: -10%;
-  z-index: -1;
-  background:
-    radial-gradient(ellipse 60% 50% at 12% 8%,  oklch(0.84 0.18 295 / 0.75), transparent 62%),
-    radial-gradient(ellipse 55% 45% at 92% 92%, oklch(0.86 0.17 245 / 0.65), transparent 62%),
-    radial-gradient(ellipse 45% 40% at 55% 95%, oklch(0.89 0.16 330 / 0.55), transparent 65%),
-    radial-gradient(ellipse 40% 35% at 85% 18%, oklch(0.91 0.14 30 / 0.45), transparent 65%);
-  pointer-events: none;
-  animation: aurora-drift 32s ease-in-out infinite alternate;
-  filter: blur(6px);
-}
-.dark body::before {
-  display: none;
-}
-@keyframes aurora-drift {
-  0%   { transform: translate3d(0, 0, 0) scale(1); }
-  50%  { transform: translate3d(2%, -2%, 0) scale(1.04); }
-  100% { transform: translate3d(-1%, 1%, 0) scale(1.02); }
-}
-@media (prefers-reduced-motion: reduce) {
-  :root body::before { animation: none; }
-}
+/*
+  No more bright-aurora body::before — removed because the page bg is now
+  dark in both modes; the previous orange/pink wash looked wrong against
+  charcoal. The Aurora component still provides atmospheric violet/cyan
+  orbs in the hero only.
+*/
 
-/* Animated gradient beam traveling along a card border. Magic UI's
-   BorderBeam component animates an `::after` pseudo with offset-path
-   set to a rect — driving offset-distance 0→100% sweeps it around the
-   border once per cycle. The component sets --duration / --delay. */
+/* Animated gradient beam traveling along a card border (Magic UI BorderBeam).
+   The component sets --duration / --delay; this drives offset-distance from
+   0 to 100% so the gradient sweep makes one lap per cycle. */
 @keyframes border-beam {
   100% { offset-distance: 100%; }
 }
@@ -158,8 +150,7 @@ html {
   animation-delay: var(--delay, 0s);
 }
 
-/* Marquee — infinite horizontal/vertical scroll. Magic UI's marquee
-   pairs `--duration` with `--gap` so child gap and translation match. */
+/* Marquee — infinite horizontal/vertical scroll. */
 @keyframes marquee {
   from { transform: translateX(0); }
   to   { transform: translateX(calc(-100% - var(--gap))); }
@@ -175,16 +166,24 @@ html {
   animation: marquee-vertical var(--duration) linear infinite;
 }
 
-/* Meteors — diagonal falling streaks for the hero. The component
-   places spans at top:-5%, random `left:`, rotated 215deg. The
-   keyframe sweeps them down-and-to-the-left, fading out. */
+/* Meteors — diagonal falling streaks (Magic UI Meteors). */
 @keyframes meteor {
   0%   { transform: rotate(215deg) translateX(0);     opacity: 1; }
   70%  {                                              opacity: 1; }
   100% { transform: rotate(215deg) translateX(-700px); opacity: 0; }
 }
 .animate-meteor {
-  animation: meteor 5s linear infinite;
+  animation: meteor 8s linear infinite; /* slowed from 5s for cleanness */
+}
+
+/* Live-preview pulsing dot — sits on the AppPreview frame, signals
+   "this is the real product." */
+@keyframes live-pulse {
+  0%, 100% { transform: scale(1);   opacity: 1;   }
+  50%      { transform: scale(1.3); opacity: 0.6; }
+}
+.animate-live-pulse {
+  animation: live-pulse 2s ease-in-out infinite;
 }
 
 /* Slow shimmer sheen for primary CTAs. */
@@ -205,3 +204,13 @@ html {
   animation: shimmer 3.5s linear infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-meteor,
+  .animate-live-pulse,
+  .animate-border-beam,
+  .animate-marquee,
+  .animate-marquee-vertical,
+  .shimmer-bg {
+    animation: none;
+  }
+}

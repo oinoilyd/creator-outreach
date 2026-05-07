@@ -10,7 +10,7 @@ export default async function CheckEmailPage({
 
   return (
     <AuthShell>
-      <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-2xl shadow-black/10 dark:shadow-black/40 text-center">
+      <div className="w-full max-w-sm bg-card/80 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl shadow-black/40 text-center">
         <div className="text-5xl mb-4">📬</div>
         <h1 className="text-2xl font-bold text-foreground mb-2">Check your email</h1>
         <p className="text-muted-foreground text-sm mb-6">
@@ -20,7 +20,7 @@ export default async function CheckEmailPage({
         </p>
         <p className="text-xs text-muted-foreground/70">
           Didn&apos;t get it? Check your spam folder, or{' '}
-          <Link href="/auth/signup" className="text-blue-400 hover:text-blue-300">try again</Link>.
+          <Link href="/auth/signup" className="text-brand hover:text-brand/80 transition-colors">try again</Link>.
         </p>
       </div>
     </AuthShell>
