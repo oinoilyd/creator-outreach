@@ -8,7 +8,6 @@ import { ContactForm } from '@/components/landing/ContactForm'
 import { FAQ } from '@/components/landing/FAQ'
 import { StatsStrip } from '@/components/landing/StatsStrip'
 import { HowItWorks } from '@/components/landing/HowItWorks'
-import { Testimonials } from '@/components/landing/Testimonials'
 import {
   BentoGrid, BentoCard,
   SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual,
@@ -150,24 +149,6 @@ export default async function LandingPage() {
               delay={0.25}
             />
           </BentoGrid>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="relative px-6 pb-20 md:pb-28 z-10">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 mb-3">
-              From the people using it
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-              Why people switched.
-            </h2>
-            <p className="text-gray-600 max-w-xl mx-auto">
-              Indie founders, agency operators, and creators replacing $400/mo tools and the spreadsheet circus.
-            </p>
-          </div>
-          <Testimonials />
         </div>
       </section>
 
