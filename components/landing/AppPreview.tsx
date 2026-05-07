@@ -64,11 +64,15 @@ export function AppPreview() {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.9, delay: 0.6, ease: 'easeOut' }}
-      // Per Dylan: "make the visual larger — that is the whole
-      // overview." Was max-w-5xl growing on xl/2xl. Now starts at
-      // 4xl on phones, jumps to 6xl on tablets, full 1400px on
-      // laptops/desktop — the screenshot is the centerpiece.
-      className="relative mx-auto w-full max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-[1400px]"
+      // Sizing has been tuned twice: max-w-5xl (1024px) felt right
+      // proportionally but text inside the screenshot was too small
+      // to read; max-w-[1400px] read clearly but felt too big and
+      // dominant. This is the inbetween — original 1024px on
+      // phones/tablets, modest bump to 1152px (6xl) on xl+ where
+      // there's room without overpowering. Heading inside the
+      // screenshot stays legible; the page composition stays
+      // balanced (hero + screenshot + bento read as one flow).
+      className="relative mx-auto w-full max-w-5xl xl:max-w-6xl"
     >
       {/* Outer glow — violet + cyan wash to lift the dark screenshot
           off the dark page background */}
