@@ -24,49 +24,60 @@ import { motion } from 'motion/react'
  *   - prefers-reduced-motion respects via the existing CSS rule.
  */
 export function Aurora({ className = '' }: { className?: string }) {
-  // Each orb has its own organic movement profile. The x/y arrays
-  // are intentionally NOT mirrored — staggered keyframes prevent
-  // the orbs from looking like a synchronized dance.
+  // Faster, more dramatic per Dylan: "lava lamp should move faster
+  // and more visually appealing." Movement amplitude bumped (~2x),
+  // durations dropped (was 22-35s, now 12-18s), opacity bumped from
+  // 0.18-0.32 → 0.30-0.45 so the colors actually register through
+  // the section backdrop-blurs that occlude content areas.
   const orbs = [
     {
-      size: 720, color: 'rgba(124, 58, 237, 0.32)', // violet
-      top: '-22%', left: '-12%',
-      x: [0, 80, -50, 30, 0],
-      y: [0, -60, 40, -20, 0],
-      scale: [1, 1.15, 0.92, 1.08, 1],
-      duration: 22, delay: 0,
+      size: 760, color: 'rgba(124, 58, 237, 0.42)', // violet
+      top: '-20%', left: '-10%',
+      x: [0, 160, -100, 60, 0],
+      y: [0, -120, 80, -40, 0],
+      scale: [1, 1.20, 0.88, 1.10, 1],
+      duration: 14, delay: 0,
     },
     {
-      size: 640, color: 'rgba(6, 182, 212, 0.22)', // cyan
-      top: '8%', right: '-15%',
-      x: [0, -70, 45, -25, 0],
-      y: [0, 50, -35, 25, 0],
-      scale: [1, 0.94, 1.12, 0.98, 1],
-      duration: 27, delay: 4,
+      size: 680, color: 'rgba(6, 182, 212, 0.34)', // cyan
+      top: '12%', right: '-15%',
+      x: [0, -140, 90, -50, 0],
+      y: [0, 100, -70, 50, 0],
+      scale: [1, 0.90, 1.18, 0.96, 1],
+      duration: 16, delay: 3,
     },
     {
-      size: 560, color: 'rgba(99, 102, 241, 0.24)', // indigo
-      bottom: '-28%', left: '20%',
-      x: [0, 55, -65, 20, 0],
-      y: [0, -45, 30, -15, 0],
+      size: 600, color: 'rgba(99, 102, 241, 0.36)', // indigo
+      bottom: '-25%', left: '22%',
+      x: [0, 110, -130, 40, 0],
+      y: [0, -90, 60, -30, 0],
+      scale: [1, 1.14, 0.92, 1.06, 1],
+      duration: 17, delay: 6,
+    },
+    {
+      size: 520, color: 'rgba(168, 85, 247, 0.32)', // brighter violet
+      top: '38%', left: '46%',
+      x: [0, -80, 120, -60, 0],
+      y: [0, 70, -100, 40, 0],
+      scale: [1, 1.08, 0.94, 1.16, 1],
+      duration: 18, delay: 1.5,
+    },
+    {
+      size: 460, color: 'rgba(34, 211, 238, 0.30)', // brighter cyan
+      bottom: '12%', right: '6%',
+      x: [0, 100, -60, 80, 0],
+      y: [0, -50, 90, -20, 0],
+      scale: [1, 0.94, 1.12, 0.90, 1],
+      duration: 13, delay: 4,
+    },
+    {
+      // Extra wandering orb in the lower-left for variety on long pages.
+      size: 540, color: 'rgba(124, 58, 237, 0.28)', // violet, dimmer
+      bottom: '-15%', left: '-8%',
+      x: [0, 90, -70, 50, 0],
+      y: [0, -100, 70, -40, 0],
       scale: [1, 1.10, 0.96, 1.04, 1],
-      duration: 31, delay: 8,
-    },
-    {
-      size: 480, color: 'rgba(168, 85, 247, 0.20)', // brighter violet
-      top: '40%', left: '45%',
-      x: [0, -40, 60, -30, 0],
-      y: [0, 35, -50, 20, 0],
-      scale: [1, 1.06, 0.98, 1.12, 1],
-      duration: 35, delay: 2,
-    },
-    {
-      size: 420, color: 'rgba(34, 211, 238, 0.18)', // brighter cyan
-      bottom: '15%', right: '8%',
-      x: [0, 50, -30, 40, 0],
-      y: [0, -25, 45, -10, 0],
-      scale: [1, 0.96, 1.08, 0.94, 1],
-      duration: 29, delay: 6,
+      duration: 15, delay: 7,
     },
   ]
 

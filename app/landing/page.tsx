@@ -45,22 +45,22 @@ export default async function LandingPage() {
   const isAuthed = !!user
 
   return (
-    <main className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
+    <main className="relative min-h-screen text-foreground overflow-x-hidden">
+      {/* Page-wide lava-lamp backdrop. Per Dylan: "the background of
+          the rest of the page should match the effect as well, just
+          fade and blur it when there is content." Aurora is now
+          fixed inset-0 z-[-1] so the orbs flow behind every section,
+          not just the hero. Each section with content gets a
+          translucent bg + backdrop-blur so the lamp shows through
+          subtly without competing with text/UI. */}
+      <div className="fixed inset-0 z-[-1] bg-background">
+        <Aurora />
+      </div>
+
       <LandingNav isAuthed={isAuthed} />
 
-      {/* Hero — centered. Tried asymmetric (text left, preview right
-          col-span-5) in iter-1 but it shrank AppPreview to ~583px on
-          1400px viewports, defeating Dylan's "make the visual at the
-          top LARGER — that is the whole overview" intent. Centered
-          hero + full-width AppPreview below = bigger product canvas.
-
-          Container max-w-[1400px] per taste-skill default. */}
+      {/* Hero — centered. */}
       <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-16 overflow-hidden">
-        {/* Aurora carries the lava-lamp atmosphere now (5 violet/cyan
-            blobs on independent movement orbits + scale breathing).
-            Spotlight removed — Dylan's note: "spotlight follows the
-            cursor, it's laggy and chunky." */}
-        <Aurora className="z-0" />
         <Meteors number={10} />
 
         <div className="relative z-10 max-w-3xl w-full mx-auto text-center">
@@ -258,9 +258,14 @@ export default async function LandingPage() {
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-6">
             Built by someone who needed it.
           </h2>
-          <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-            Creator Outreach started as a tool I built for myself. I was running outreach to creators across YouTube, Instagram, and TikTok with a spreadsheet, three browser tabs, and a Notion page that was always out of date. The pricier tools cost more than my rent and still couldn&apos;t tell me what made a good lead — so I built this. It searches every major platform directly, scores creators against criteria you describe in plain English, and runs the whole pipeline — pitch, status, follow-up cadence, analytics — without copy-pasting between five tabs. It&apos;s still early, run by one person, and growing every week from feedback by the people using it. If you&apos;re using it and something&apos;s off, tell me — that&apos;s how it gets better.
-          </p>
+          {/* Frosted scrim behind the long paragraph so the lava-lamp
+              orbs don't fight with the text. backdrop-blur-md +
+              bg-background/60 keeps the lamp visible but readable. */}
+          <div className="relative rounded-2xl bg-background/60 backdrop-blur-md p-6 md:p-8 border border-border/50 dark:border-white/10">
+            <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
+              Creator Outreach started as a tool I built for myself. I was running outreach to creators across YouTube, Instagram, and TikTok with a spreadsheet, three browser tabs, and a Notion page that was always out of date. The pricier tools cost more than my rent and still couldn&apos;t tell me what made a good lead — so I built this. It searches every major platform directly, scores creators against criteria you describe in plain English, and runs the whole pipeline — pitch, status, follow-up cadence, analytics — without copy-pasting between five tabs. It&apos;s still early, run by one person, and growing every week from feedback by the people using it. If you&apos;re using it and something&apos;s off, tell me — that&apos;s how it gets better.
+            </p>
+          </div>
         </div>
       </section>
 
