@@ -1,80 +1,77 @@
 import Link from 'next/link'
-import { Aurora } from '@/components/landing/Aurora'
 import { VersionSwitcher } from '@/components/landing/VersionSwitcher'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { V3Nav } from '@/components/landing/V3Nav'
 import { getLandingAuthState } from '@/components/landing/getLandingData'
 
 /**
- * V3 — MULTI-PAGE SHELL
+ * V3 — PIPEDRIVE MULTI-PAGE CRM SHELL
  *
- * Per Dylan: "take the one we are currently using and make it so it
- * isn't one continuous page like keep the visual feel and most the
- * content but lay it out as an official webpage."
+ * Per Dylan: "professional CRM/Lead identifying website" feel +
+ * multi-page structure rather than one continuous scroll.
  *
- * Same Aurora lava-lamp backdrop as production (V2). Same color
- * palette. Same component vocabulary (BentoGrid, FAQ, ContactForm,
- * etc). What changes is structure: the long single-page scroll is
- * split across:
+ * Reference shape: pipedrive.com — clean B2B sales-CRM marketing
+ * site with multiple proper pages (Home / Product / Pricing /
+ * Customers). White substrate, slate-navy text, single lime-green
+ * accent (#1FBC9C — Pipedrive's signature). Big sitemap footer.
  *
- *   /landing/v3              → Home (hero + preview + 4-step CTA)
- *   /landing/v3/product      → Bento + More features + How it works
+ * Same content as V2 but split across pages for navigation. The
+ * Aurora lava-lamp from the prior V3 is GONE — that was webapp-y.
+ * Clean white substrate now matches the corporate-CRM feel.
+ *
+ * Pages:
+ *   /landing/v3              → Home (hero + persona tiles + CTA)
+ *   /landing/v3/product      → Product modules + features deep-dive
  *   /landing/v3/pricing      → Pricing tiers + FAQ
- *   /landing/v3/about        → About + Contact + final CTA
- *
- * Top nav links route between pages. Footer is shared. The Aurora
- * background is fixed inset-0 so it persists across navigation
- * without re-mounting (no flash on page transitions).
+ *   /landing/v3/about        → About + Customers + Contact
  */
 
 export default async function V3Layout({ children }: { children: React.ReactNode }) {
   const { isAuthed } = await getLandingAuthState()
-
   return (
-    <main className="relative min-h-screen text-foreground overflow-x-hidden flex flex-col">
+    <main className="min-h-screen flex flex-col font-[family-name:var(--font-geist-sans)]" style={{ backgroundColor: '#FFFFFF', color: '#162032' }}>
       <VersionSwitcher />
-
-      {/* Page-wide lava-lamp backdrop — same as V2 / production. */}
-      <div className="fixed inset-0 z-[-1] bg-background pointer-events-none">
-        <Aurora />
-      </div>
 
       <V3Nav isAuthed={isAuthed} />
 
-      <div className="relative z-10 flex-1">
+      <div className="flex-1">
         {children}
       </div>
 
-      {/* Footer — shared across all V3 pages */}
-      <footer className="relative z-10 px-6 py-10 border-t border-border dark:border-white/10">
-        <div className="max-w-[1400px] mx-auto grid md:grid-cols-4 gap-8">
-          <div>
-            <Link href="/landing/v3" className="flex items-center gap-2 mb-3">
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 text-white text-sm font-bold">C</span>
-              <span className="font-semibold tracking-tight text-foreground">Creator Outreach</span>
+      {/* Big sitemap footer — shared across all V3 pages */}
+      <footer className="bg-[#162032] text-white px-6 py-14 mt-auto">
+        <div className="max-w-[1280px] mx-auto grid md:grid-cols-6 gap-8">
+          <div className="md:col-span-2">
+            <Link href="/landing/v3" className="flex items-center gap-2 mb-4">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#1FBC9C] text-[#162032] text-[14px] font-bold">C</span>
+              <span className="font-bold tracking-tight text-[16px]">Creator Outreach</span>
             </Link>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Find creators that fit. Score them in plain English. Run the whole pipeline in one place.
+            <p className="text-[13px] text-white/60 leading-[1.55] max-w-[36ch]">
+              Modern creator-prospecting CRM. Source, score, pitch, and track creator partnerships across five platforms.
             </p>
+            <div className="mt-6 text-[12px] text-white/50">
+              © 2026 Creator Outreach
+            </div>
           </div>
           <FooterCol heading="Product" links={[
-            ['Overview',   '/landing/v3/product'],
-            ['How it works','/landing/v3/product#how-it-works'],
-            ['Pricing',    '/landing/v3/pricing'],
+            ['Overview',     '/landing/v3/product'],
+            ['Sourcing',     '/landing/v3/product#sourcing'],
+            ['Outreach',     '/landing/v3/product#outreach'],
+            ['Analytics',    '/landing/v3/product#analytics'],
+          ]} />
+          <FooterCol heading="Pricing" links={[
+            ['Plans',        '/landing/v3/pricing'],
+            ['FAQ',          '/landing/v3/pricing#faq'],
+            ['Compare',      '/landing/v3/pricing'],
           ]} />
           <FooterCol heading="Company" links={[
-            ['About',     '/landing/v3/about'],
-            ['Contact',   '/landing/v3/about#contact'],
-            ['FAQ',       '/landing/v3/pricing#faq'],
+            ['About',        '/landing/v3/about'],
+            ['Customers',    '/landing/v3/about#customers'],
+            ['Contact',      '/landing/v3/about#contact'],
           ]} />
           <FooterCol heading="Legal" links={[
-            ['Privacy', '/privacy'],
-            ['Terms',   '/terms'],
+            ['Privacy',      '/privacy'],
+            ['Terms',        '/terms'],
           ]} />
-        </div>
-        <div className="max-w-[1400px] mx-auto mt-10 pt-6 border-t border-border/60 dark:border-white/[0.05] flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-          <div>© {new Date().getFullYear()} Creator Outreach</div>
-          <ThemeToggle />
         </div>
       </footer>
     </main>
@@ -84,11 +81,11 @@ export default async function V3Layout({ children }: { children: React.ReactNode
 function FooterCol({ heading, links }: { heading: string; links: [string, string][] }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-3 font-medium">{heading}</div>
-      <ul className="space-y-1.5">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-white/45 mb-4 font-semibold">{heading}</div>
+      <ul className="space-y-2">
         {links.map(([label, href]) => (
           <li key={label}>
-            <Link href={href} className="text-sm text-foreground/75 hover:text-foreground transition-colors">{label}</Link>
+            <Link href={href} className="text-[13px] text-white/75 hover:text-[#1FBC9C] transition-colors">{label}</Link>
           </li>
         ))}
       </ul>

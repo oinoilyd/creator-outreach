@@ -15,9 +15,9 @@ import { usePathname } from 'next/navigation'
  */
 
 const VERSIONS: { slug: string; label: string; sub: string }[] = [
-  { slug: 'v1', label: 'V1', sub: 'Linear × Clay hybrid' },
-  { slug: 'v2', label: 'V2', sub: 'Current production' },
-  { slug: 'v3', label: 'V3', sub: 'Multi-page split' },
+  { slug: 'v1', label: 'V1', sub: 'Apollo / Clay-style' },
+  { slug: 'v2', label: 'V2', sub: 'HubSpot / Lemlist' },
+  { slug: 'v3', label: 'V3', sub: 'Pipedrive multi-page' },
 ]
 
 export function VersionSwitcher() {

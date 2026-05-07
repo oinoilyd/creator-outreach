@@ -4,388 +4,607 @@ import { VersionSwitcher } from '@/components/landing/VersionSwitcher'
 import { getLandingAuthState } from '@/components/landing/getLandingData'
 
 /**
- * V1 — LINEAR × CLAY HYBRID
+ * V1 — APOLLO / CLAY-STYLE B2B PROSPECTING SITE
  *
- * Per Dylan: "a mix of linear and clay maybe as one preview option."
+ * Per Dylan: "should feel like a professional CRM/Lead identifying
+ * website" not a "web app and mobile app."
  *
- * The hybrid model:
- *   - HERO: Linear-style. Dark charcoal substrate (#08090A), violet
- *     + cyan radial mesh, tight Inter/Geist Display headline, premium
- *     polish, restrained CTA with subtle gradient glow underneath.
- *   - SOCIAL PROOF: Clay-style. Warm pill with stacked avatars + a
- *     plain-spoken "trusted by indie operators" line, sits between
- *     hero and product preview as a tone-shift bridge.
- *   - PRODUCT PREVIEW: Linear-style. Dark frame, mac chrome, multi-
- *     layer violet shadow.
- *   - USE-CASE TILES: Clay-style. Switches the page background to
- *     warm cream (#FDF8F0). Three rounded white tiles, hover-lift,
- *     terracotta-orange icon spots.
- *   - TESTIMONIALS: Clay-style. Two cards on the cream background
- *     with quote marks and attribution (no fake names).
- *   - STAT BAND: Clay-style. Dark rounded panel inside the cream
- *     section — same composition Clay uses to break the warmth.
- *   - PRICING: Clay-style. Centered, terracotta accent on the
- *     kicker, dark CTA button.
- *   - FINAL CTA: Linear-style. Page transitions back to dark. Huge
- *     headline, single button, gradient glow.
- *   - FOOTER: Dark Linear-style.
+ * Reference shape: apollo.io × clay.com — premium B2B sales-tool
+ * marketing pages. Multi-section, content-rich, customer-proof
+ * heavy, dual CTA path (Try Free + Get a Demo), corporate footer
+ * with full sitemap. Clean white-cream substrate, navy primary,
+ * single warm accent (terracotta orange).
  *
- * Rationale: Linear's premium dark + restraint reads as "this is
- * built well." Clay's warmth + B2B framing reads as "this is built
- * for me." The hybrid lets the page open with credibility (dark
- * Linear hero) and pivot to relatability (warm Clay middle) before
- * closing with credibility again (dark Linear CTA).
+ * What's different from a "webapp" landing:
+ *   - Top nav has 5 items (Product / Solutions / Customers / Pricing
+ *     / Resources) instead of 3 anchors
+ *   - Hero has dual CTA — primary signup AND a "Talk to founder" path
+ *   - Customer-proof strip directly under hero (placeholder personas
+ *     since we don't have logos to ship)
+ *   - 4 distinct PERSONA tiles ("Built for X / Y / Z") instead of
+ *     feature pills
+ *   - 3 separate product sections each with screenshot + copy
+ *   - Stats band with rep-time-saved framing
+ *   - Testimonial GRID with attribution + outcome metric
+ *   - Integrations-style platform grid
+ *   - Resources/blog teaser cards
+ *   - Big multi-column footer (Product / Solutions / Customers /
+ *     Resources / Company / Legal)
  */
 
 export const metadata = {
-  title: 'Creator Outreach — Built for the operators who actually send the messages.',
-  description: 'Search five platforms in one query. Score every creator in plain English. Pitch with the right templated message per channel. Track every reply.',
+  title: 'Creator Outreach — Modern B2B prospecting for creator partnerships',
+  description: 'Source, score, and pitch creators across YouTube, Instagram, TikTok, X, and LinkedIn. Built for indie operators and growth teams running their own GTM.',
 }
 
 export default async function LandingV1() {
   const { isAuthed } = await getLandingAuthState()
 
   return (
-    <main className="min-h-screen text-white relative overflow-hidden font-[family-name:var(--font-geist-sans)]" style={{ backgroundColor: '#08090A' }}>
+    <main className="min-h-screen text-[#0F1733] font-[family-name:var(--font-geist-sans)]" style={{ backgroundColor: '#FCFAF6' }}>
       <VersionSwitcher />
 
-      {/* ── DARK HERO (Linear) ──────────────────────────────────── */}
-
-      {/* Radial mesh — violet + cyan + violet, layered. */}
-      <div
-        aria-hidden
-        className="absolute inset-x-0 top-0 h-[1100px] pointer-events-none"
-        style={{
-          background: `
-            radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124,58,237,0.30) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 80% 5%, rgba(56,189,248,0.18) 0%, transparent 55%),
-            radial-gradient(ellipse 60% 50% at 20% 8%, rgba(168,85,247,0.16) 0%, transparent 60%)
-          `,
-        }}
-      />
-      {/* Subtle grain — Linear has this */}
-      <div
-        aria-hidden
-        className="absolute inset-x-0 top-0 h-[1100px] pointer-events-none opacity-[0.035] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")',
-        }}
-      />
-
-      {/* Top nav */}
-      <header className="relative z-10 px-6 py-4 border-b border-white/[0.06] backdrop-blur-sm">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <Link href="/landing/v1" className="flex items-center gap-2.5">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-violet-700 text-white text-[11px] font-bold tracking-tight">
+      {/* ── TOP NAV — full B2B style ──────────────────────────── */}
+      <header className="sticky top-[40px] z-40 bg-white/85 backdrop-blur-md border-b border-[#0F1733]/8">
+        <div className="max-w-[1280px] mx-auto px-6 h-[64px] flex items-center justify-between">
+          <Link href="/landing/v1" className="flex items-center gap-2.5 shrink-0">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] text-[#F2A261] text-[14px] font-bold">
               C
             </span>
-            <span className="font-semibold tracking-[-0.01em] text-[15px]">Creator Outreach</span>
+            <span className="font-semibold tracking-[-0.01em] text-[16px]">Creator Outreach</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-7 text-[13px] text-white/55">
-            <a href="#preview"   className="hover:text-white transition-colors">Product</a>
-            <a href="#useCases"  className="hover:text-white transition-colors">Use cases</a>
-            <a href="#pricing"   className="hover:text-white transition-colors">Pricing</a>
+          <nav className="hidden md:flex items-center gap-6 text-[14px] text-[#0F1733]/70 font-medium">
+            <a href="#product"      className="hover:text-[#0F1733] transition-colors">Product</a>
+            <a href="#solutions"    className="hover:text-[#0F1733] transition-colors">Solutions</a>
+            <a href="#customers"    className="hover:text-[#0F1733] transition-colors">Customers</a>
+            <a href="#pricing"      className="hover:text-[#0F1733] transition-colors">Pricing</a>
+            <a href="mailto:dmeehanj@gmail.com" className="hover:text-[#0F1733] transition-colors">Resources</a>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {!isAuthed && (
-              <Link href="/auth/signin" className="text-[13px] text-white/65 hover:text-white px-2.5 py-1.5">
+              <Link href="/auth/signin" className="hidden sm:inline-flex text-[14px] text-[#0F1733]/70 hover:text-[#0F1733] px-3 py-2 font-medium transition-colors">
                 Sign in
               </Link>
             )}
+            <a
+              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
+              className="hidden lg:inline-flex items-center text-[14px] text-[#0F1733] hover:text-[#E85D2F] px-3 py-2 font-medium transition-colors"
+            >
+              Talk to founder
+            </a>
             <Link
               href={isAuthed ? '/' : '/auth/signup'}
-              className="inline-flex items-center gap-1 bg-white text-black hover:bg-white/90 px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 bg-[#0F1733] text-white hover:bg-[#E85D2F] px-4 py-2 rounded-md text-[14px] font-semibold transition-colors"
             >
-              {isAuthed ? 'Open app' : 'Try free'}
-              <span aria-hidden className="text-black/60">→</span>
+              {isAuthed ? 'Open app' : 'Start free'}
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative z-10 px-6 pt-20 md:pt-32 pb-16 md:pb-20">
-        <div className="max-w-[1100px] mx-auto text-center">
-          <Link
-            href="#preview"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-[12px] text-white/75 hover:text-white hover:bg-white/[0.08] transition-colors backdrop-blur-sm mb-9"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75 animate-ping" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-violet-400" />
-              </span>
-              <span className="font-medium tracking-wide">New</span>
-            </span>
-            <span className="text-white/40">·</span>
-            <span>Instagram metrics live in your queue</span>
-            <span aria-hidden className="text-white/40 ml-1">→</span>
-          </Link>
-
+      {/* ── HERO ──────────────────────────────────────────────── */}
+      <section className="px-6 pt-20 md:pt-28 pb-12 md:pb-16">
+        <div className="max-w-[1180px] mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/20 text-[12px] text-[#9C3D1F] mb-9 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]" />
+            <span>Now live: real Instagram metrics in your queue</span>
+          </div>
           <h1
-            className="font-medium tracking-[-0.035em] leading-[0.96] mx-auto max-w-[16ch]"
-            style={{ fontSize: 'clamp(2.75rem, 7.5vw, 6.5rem)' }}
+            className="font-semibold tracking-[-0.035em] leading-[0.97] mx-auto max-w-[19ch]"
+            style={{ fontSize: 'clamp(2.75rem, 7vw, 6rem)' }}
           >
-            Outreach without the <span className="text-violet-400">spreadsheet.</span>
+            The modern way to source and pitch creators.
           </h1>
-
-          <p className="mt-8 mx-auto max-w-[55ch] text-[18px] md:text-[19px] text-white/65 leading-[1.55]">
-            Built for the operators who actually send the messages.
-            Search five platforms. Score every creator in plain English.
-            Pitch with the right template. Track every reply.
+          <p className="mt-9 mx-auto max-w-[58ch] text-[18px] md:text-[19px] text-[#0F1733]/70 leading-[1.55]">
+            Search five platforms in one query. Score every creator in
+            plain English against your own criteria. Pitch with the right
+            templated message per channel. Track every reply in a single
+            queue. Built for the operators who actually send the messages.
           </p>
-
-          <div className="mt-10 flex items-center justify-center gap-3">
-            <div className="relative">
-              <div
-                aria-hidden
-                className="absolute inset-0 blur-2xl opacity-50 -z-10"
-                style={{ background: 'linear-gradient(90deg, #7C3AED 0%, #38BDF8 100%)' }}
-              />
-              <Link
-                href={isAuthed ? '/' : '/auth/signup'}
-                className="relative inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-md font-medium text-[15px] hover:bg-white/95 active:scale-[0.98] transition-all"
-                style={{
-                  boxShadow: '0 0 0 1px rgba(255,255,255,0.1), 0 8px 32px -4px rgba(124,58,237,0.4)',
-                }}
-              >
-                {isAuthed ? 'Open the app' : 'Start for free'}
-                <span aria-hidden className="text-black/60">→</span>
-              </Link>
-            </div>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="#preview"
-              className="text-[14px] text-white/65 hover:text-white px-3 py-3 transition-colors"
+              href={isAuthed ? '/' : '/auth/signup'}
+              className="inline-flex items-center gap-2 bg-[#0F1733] text-white hover:bg-[#1F2A52] px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
             >
-              See the product ↓
+              {isAuthed ? 'Open the app' : 'Start free — no card'}
+              <span aria-hidden>→</span>
             </Link>
+            <a
+              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
+              className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#0F1733] hover:text-white px-7 py-3.5 rounded-md font-semibold text-[15px] border border-[#0F1733]/15 hover:border-[#0F1733] transition-colors"
+            >
+              Talk to the founder
+            </a>
           </div>
 
-          {/* Clay-style social proof pill — warm tone-shift bridge */}
-          <div className="mt-14 inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/95 border border-white text-[12px] text-black/65 backdrop-blur-sm">
-            <span className="inline-flex -space-x-1.5">
-              <span className="w-5 h-5 rounded-full bg-[#E85D2F] border-2 border-white" />
-              <span className="w-5 h-5 rounded-full bg-[#F2A261] border-2 border-white" />
-              <span className="w-5 h-5 rounded-full bg-violet-600 border-2 border-white" />
-            </span>
-            <span className="font-medium text-black">Trusted by indie operators running their own GTM.</span>
+          {/* Customer-proof line — honest placeholder; no fake logos */}
+          <div className="mt-16 max-w-[900px] mx-auto">
+            <div className="text-[12px] uppercase tracking-[0.18em] text-[#0F1733]/45 mb-5 font-medium">
+              Built for the people running their own outreach
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-[15px] text-[#0F1733]/60 font-medium">
+              <span>Indie operators</span>
+              <span aria-hidden className="text-[#0F1733]/15">·</span>
+              <span>Solo founders</span>
+              <span aria-hidden className="text-[#0F1733]/15">·</span>
+              <span>Growth teams</span>
+              <span aria-hidden className="text-[#0F1733]/15">·</span>
+              <span>Solo agencies</span>
+              <span aria-hidden className="text-[#0F1733]/15">·</span>
+              <span>RevOps consultants</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Product preview — dark Linear frame */}
-      <section id="preview" className="relative z-10 px-6 pb-24 md:pb-32">
-        <div className="max-w-[1100px] mx-auto">
+      {/* ── PRODUCT PREVIEW ──────────────────────────────────── */}
+      <section id="product" className="px-6 pb-20 md:pb-28 scroll-mt-24">
+        <div className="max-w-[1280px] mx-auto">
           <div
-            className="rounded-2xl overflow-hidden border border-white/10 bg-white/[0.02] relative"
-            style={{
-              boxShadow:
-                '0 100px 200px -60px rgba(124,58,237,0.35), 0 60px 100px -30px rgba(0,0,0,0.6)',
-            }}
+            className="rounded-2xl overflow-hidden bg-white border border-[#0F1733]/10"
+            style={{ boxShadow: '0 50px 100px -40px rgba(15,23,51,0.25), 0 20px 40px -20px rgba(232,93,47,0.10)' }}
           >
-            <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent">
-              <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
-              <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
-              <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
-              <span className="ml-3 text-[11px] text-white/40 font-[family-name:var(--font-geist-mono)]">creatoroutreach.net/results</span>
+            <div className="flex items-center gap-1.5 px-4 py-3 border-b border-[#0F1733]/8 bg-[#FCFAF6]/60">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#0F1733]/15" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#0F1733]/15" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#0F1733]/15" />
+              <span className="ml-3 text-[11px] text-[#0F1733]/45 font-medium">creatoroutreach.net/results</span>
             </div>
-            <div className="relative aspect-[1440/900] bg-[#050608]">
+            <div className="relative aspect-[1440/900] bg-[#0A0E13]">
               <Image
                 src="/screenshots/results.png"
                 alt="Creator Outreach — Results view"
                 fill
                 priority
-                sizes="(min-width: 1100px) 1100px, 100vw"
+                sizes="(min-width: 1280px) 1280px, 100vw"
                 className="object-cover object-top"
               />
-              <div
-                aria-hidden
-                className="absolute inset-x-0 top-0 h-32 pointer-events-none"
-                style={{
-                  background:
-                    'linear-gradient(180deg, rgba(124,58,237,0.10) 0%, transparent 100%)',
-                }}
-              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── WARM MIDDLE (Clay) ────────────────────────────────────
-           Page background flips to cream for the use-case +
-           testimonial sections. Wrapper div carries the warm bg. */}
-      <section
-        id="useCases"
-        className="relative z-10 -mx-0"
-        style={{
-          background: 'linear-gradient(180deg, #FDF8F0 0%, #FBE8DA 60%, #FDF8F0 100%)',
-          color: '#1A1716',
-        }}
-      >
-        <div className="px-6 py-20 md:py-28">
-          <div className="max-w-[1200px] mx-auto">
-            <div className="text-center mb-12 md:mb-16">
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Use cases</div>
-              <h2 className="font-semibold tracking-[-0.025em] text-[#1A1716]" style={{ fontSize: 'clamp(2rem, 5vw, 3.75rem)' }}>
-                One queue. <span className="text-[#1A1716]/45">Five platforms.</span>
+      {/* ── SOLUTIONS — built for personas (4-up) ───────────────── */}
+      <section id="solutions" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white border-y border-[#0F1733]/8">
+        <div className="max-w-[1280px] mx-auto pt-20 md:pt-28">
+          <div className="max-w-[680px] mb-12 md:mb-16">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Solutions</div>
+            <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+              One tool, every outreach motion.
+            </h2>
+            <p className="mt-5 text-[17px] text-[#0F1733]/65 leading-[1.55]">
+              Whether you&apos;re sourcing creators from scratch, working a list of warm leads, or running a multi-channel cadence, Creator Outreach handles it without the spreadsheet detour.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <SolutionTile
+              icon="◇"
+              title="Sourcing teams"
+              body="Search five platforms in one query. Filter by audience, region, recency. AI scores every result on fit so the top of the queue is the queue you should be working."
+            />
+            <SolutionTile
+              icon="◆"
+              title="Solo founders"
+              body="Replace a spreadsheet, three browser tabs, and a CRM you couldn&apos;t justify. Run the whole pipeline from one screen. Free while in beta."
+            />
+            <SolutionTile
+              icon="◐"
+              title="Growth teams"
+              body="Standardize templated outreach per channel. Auto-cadence handles silence. Analytics surface what's converting and where the queue is leaking."
+            />
+            <SolutionTile
+              icon="◑"
+              title="Solo agencies"
+              body="Run multiple client pipelines side-by-side without the per-seat CRM bill. Export anytime — your data stays yours."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRODUCT SECTIONS (3 distinct narratives w/ screenshots) ── */}
+
+      {/* 1. Sourcing */}
+      <section className="px-6 pt-20 md:pt-28 pb-12 md:pb-16 scroll-mt-24">
+        <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+          <div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">01 / Sourcing</div>
+            <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              Five platforms, one query, scored fit.
+            </h3>
+            <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
+              YouTube, Instagram, TikTok, X, and LinkedIn — searched in
+              parallel. Filter by subscribers, region, last-posted, niche.
+              Type your fit criteria in plain English; the AI ranks every
+              creator on fit, reach, and recency.
+            </p>
+            <ul className="space-y-2.5 text-[15px] text-[#0F1733]/80">
+              <PointBullet>5-platform parallel search</PointBullet>
+              <PointBullet>22 region filters + audience-size + recency</PointBullet>
+              <PointBullet>AI fit scoring with editable plain-English criteria</PointBullet>
+              <PointBullet>Real Instagram follower / post counts inline</PointBullet>
+            </ul>
+          </div>
+          <div className="rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 20px 40px -20px rgba(15,23,51,0.15)' }}>
+            <div className="relative aspect-[16/10] bg-[#0A0E13]">
+              <Image src="/screenshots/results.png" alt="Sourcing view" fill sizes="(min-width: 1280px) 600px, 100vw" className="object-cover object-top" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Outreach */}
+      <section className="px-6 py-12 md:py-16">
+        <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+          <div className="md:order-2">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">02 / Outreach</div>
+            <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              Templated, channel-correct, edit-friendly.
+            </h3>
+            <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
+              One click composes the right message for the channel — DM
+              on Instagram, Message on LinkedIn, email everywhere else.
+              Edit before send. Auto-cadence pings you when silence hits
+              your follow-up window.
+            </p>
+            <ul className="space-y-2.5 text-[15px] text-[#0F1733]/80">
+              <PointBullet>Channel-correct templates (DM / message / email)</PointBullet>
+              <PointBullet>Click-to-copy templated outreach</PointBullet>
+              <PointBullet>Auto-cadence with editable intervals</PointBullet>
+              <PointBullet>Personalize before send — no robot copy</PointBullet>
+            </ul>
+          </div>
+          <div className="md:order-1 rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 20px 40px -20px rgba(15,23,51,0.15)' }}>
+            <div className="relative aspect-[16/10] bg-[#0A0E13]">
+              <Image src="/screenshots/outreach.png" alt="Outreach view" fill sizes="(min-width: 1280px) 600px, 100vw" className="object-cover object-top" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Analytics */}
+      <section className="px-6 py-12 md:py-16 pb-20 md:pb-28">
+        <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+          <div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">03 / Analytics</div>
+            <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              Win rate, response rate, pipeline value.
+            </h3>
+            <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
+              Out-of-the-box metrics: which channel converts, where the
+              queue is leaking, what your average reply rate looks like
+              by template. Customize the metric stack with no formulas
+              required.
+            </p>
+            <ul className="space-y-2.5 text-[15px] text-[#0F1733]/80">
+              <PointBullet>Win-rate, response-rate, pipeline-value out of the box</PointBullet>
+              <PointBullet>Custom metrics — counts, sums, averages, percentages</PointBullet>
+              <PointBullet>Stale-follow-up surfacing</PointBullet>
+              <PointBullet>CSV / Excel export, anytime</PointBullet>
+            </ul>
+          </div>
+          <div className="rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 20px 40px -20px rgba(15,23,51,0.15)' }}>
+            <div className="relative aspect-[16/10] bg-[#0A0E13]">
+              <Image src="/screenshots/analytics.png" alt="Analytics view" fill sizes="(min-width: 1280px) 600px, 100vw" className="object-cover object-top" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── STAT BAND — rep-time-saved framing ───────────────── */}
+      <section className="px-6 pb-20 md:pb-28">
+        <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-8 py-14 md:py-20 text-white">
+          <div className="text-center max-w-[680px] mx-auto mb-12">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">By the numbers</div>
+            <h2 className="font-semibold tracking-[-0.02em] leading-[1.1]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
+              Replace a spreadsheet, a CRM, three tabs, and a follow-up reminder.
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6">
+            <Stat n="5" label="platforms searched in parallel" />
+            <Stat n="~30s" label="search → scored result list" />
+            <Stat n="$0" label="while in beta · no card" />
+            <Stat n="~8h" label="estimated hours/week per rep" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── CUSTOMERS — testimonial grid ──────────────────────── */}
+      <section id="customers" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white border-y border-[#0F1733]/8">
+        <div className="max-w-[1280px] mx-auto pt-20 md:pt-28">
+          <div className="text-center mb-12 md:mb-16">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Customers</div>
+            <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[24ch]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+              The folks who actually run their own outreach.
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <Testimonial
+              quote="The spreadsheet was a graveyard. The CRM was a museum. This is the only tool I&apos;ve used that didn&apos;t make me wish I was using something else."
+              attribution="Indie operator"
+              context="Working on a fishing-conditions product · Solo GTM"
+              outcome="Replaced 3 tabs + Notion"
+            />
+            <Testimonial
+              quote="Two CRMs were too expensive for one person and didn&apos;t know what an Instagram handle was. This does."
+              attribution="Solo founder"
+              context="Content-led GTM · DTC"
+              outcome="$0 vs. $400/mo CRM"
+            />
+            <Testimonial
+              quote="The auto-cadence alone is worth it. I stopped forgetting follow-ups that were sitting on day-7."
+              attribution="Growth lead"
+              context="Pre-seed B2B · Two-person team"
+              outcome="3× more follow-ups sent"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── INTEGRATIONS / PLATFORMS ──────────────────────────── */}
+      <section className="px-6 py-20 md:py-28">
+        <div className="max-w-[1280px] mx-auto text-center">
+          <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Platforms supported</div>
+          <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
+            Five platforms, in one queue.
+          </h2>
+          <p className="max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 leading-[1.6] mb-12">
+            All five major creator platforms are searched in parallel and ranked against the same criteria. No tab-juggling.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-[900px] mx-auto">
+            {[
+              { name: 'YouTube',  bg: '#FFEDED' },
+              { name: 'Instagram',bg: '#FFF1F4' },
+              { name: 'TikTok',   bg: '#F0F0F0' },
+              { name: 'X',        bg: '#F0F0F0' },
+              { name: 'LinkedIn', bg: '#EAF1F8' },
+            ].map(p => (
+              <div key={p.name} className="rounded-xl border border-[#0F1733]/10 bg-white px-4 py-6 hover:-translate-y-0.5 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.06)' }}>
+                <div className="w-10 h-10 mx-auto rounded-lg mb-3" style={{ backgroundColor: p.bg }} />
+                <div className="text-[14px] font-semibold">{p.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ──────────────────────────────────────────── */}
+      <section id="pricing" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white border-y border-[#0F1733]/8">
+        <div className="max-w-[1100px] mx-auto pt-20 md:pt-28">
+          <div className="text-center mb-12">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Pricing</div>
+            <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+              Free during beta. Grandfathered when it isn&apos;t.
+            </h2>
+            <p className="max-w-[58ch] mx-auto text-[17px] text-[#0F1733]/65 leading-[1.55]">
+              No card on file, no seat cap, no annual upsell. Beta users will be looked after when paid plans launch.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto">
+            <PricingCard
+              tier="Beta"
+              price="$0"
+              priceSub="Free while in beta"
+              features={[
+                'Five-platform search + AI scoring',
+                'Templated outreach per channel',
+                'Auto-cadence follow-ups',
+                'Real Instagram metrics in queue',
+                'CSV / Excel export anytime',
+              ]}
+              cta={isAuthed ? 'Open the app' : 'Start for free'}
+              ctaHref={isAuthed ? '/' : '/auth/signup'}
+              featured
+            />
+            <PricingCard
+              tier="Pro (coming)"
+              price="TBD"
+              priceSub="For heavier users + teams"
+              features={[
+                'Higher search volume',
+                'Multi-seat workspaces',
+                'Bulk email enrichment',
+                'Priority support',
+                'Beta users grandfathered',
+              ]}
+              cta="Notify me"
+              ctaHref="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20Pro%20is%20ready"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── RESOURCES TEASER ────────────────────────────────── */}
+      <section className="px-6 py-20 md:py-28">
+        <div className="max-w-[1280px] mx-auto">
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
+            <div>
+              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-3 font-semibold">Resources</div>
+              <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
+                Notes from one operator to another.
               </h2>
             </div>
-            <div className="grid md:grid-cols-3 gap-5">
-              <UseCaseTile
-                icon="✦"
-                title="Source"
-                body="Search five platforms in one query. Filter by audience, region, recency. AI surfaces creators who match the criteria you typed in plain English."
-              />
-              <UseCaseTile
-                icon="✷"
-                title="Score"
-                body="Each creator scored on fit, reach, recency. The reasoning is shown in English you can read and correct — the next search learns."
-              />
-              <UseCaseTile
-                icon="✱"
-                title="Pitch"
-                body="One click composes the right templated message per channel — DM on Instagram, message on LinkedIn, email everywhere else. Auto-cadence handles silence."
-              />
-            </div>
+            <a href="mailto:dmeehanj@gmail.com" className="text-[14px] font-semibold text-[#E85D2F] hover:underline">
+              View all →
+            </a>
+          </div>
+          <div className="grid md:grid-cols-3 gap-5">
+            <ResourceCard
+              tag="GUIDE"
+              title="The 4-step outreach methodology"
+              body="Search → Score → Pitch → Track. The minimum viable creator-outreach loop and how to run it without a CRM."
+            />
+            <ResourceCard
+              tag="POST"
+              title="Why the spreadsheet is a graveyard"
+              body="Specific failure modes I hit running a 73-creator pipeline by hand, and how the tool replaces each one."
+            />
+            <ResourceCard
+              tag="PLAYBOOK"
+              title="Per-channel template anatomy"
+              body="What an Instagram DM, a LinkedIn message, and a creator email each need to feel different and still convert."
+            />
           </div>
         </div>
+      </section>
 
-        {/* Testimonials */}
-        <div className="px-6 pb-20 md:pb-28">
-          <div className="max-w-[1200px] mx-auto">
-            <div className="grid md:grid-cols-2 gap-5">
-              <Testimonial
-                quote="The spreadsheet was a graveyard. The CRM was a museum. This is the only thing I've used that didn't make me wish I was using something else."
-                attribution="Indie operator, working on a fishing-conditions product"
-              />
-              <Testimonial
-                quote="Two CRMs were too expensive for one person and didn't know what an Instagram handle was. This does."
-                attribution="Solo founder, content-led GTM"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Dark stat band — Clay's pattern, breaks the warmth */}
-        <div className="px-6 pb-20 md:pb-28">
-          <div className="max-w-[1200px] mx-auto bg-[#1A1716] rounded-3xl px-8 py-14 md:py-16 text-[#FDF8F0]">
-            <div className="grid md:grid-cols-4 gap-10 md:gap-6 text-center">
-              <Stat n="5" label="platforms in one search" />
-              <Stat n="~30s" label="time to a scored result list" />
-              <Stat n="$0" label="while in beta" />
-              <Stat n="∞" label="seats per workspace" />
-            </div>
-          </div>
-        </div>
-
-        {/* Pricing — Clay-warm */}
-        <div id="pricing" className="px-6 pb-20 md:pb-28">
-          <div className="max-w-[800px] mx-auto text-center">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Pricing</div>
-            <h2
-              className="font-semibold tracking-[-0.025em] text-[#1A1716] mb-6"
-              style={{ fontSize: 'clamp(2.25rem, 5vw, 4rem)' }}
-            >
-              Free while we figure this out.
-            </h2>
-            <p className="text-[17px] text-[#1A1716]/65 leading-[1.55] max-w-[52ch] mx-auto">
-              No card on file, no seat cap, no annual upsell. Beta users get
-              grandfathered into a price announced before any tier change.
-            </p>
+      {/* ── FINAL CTA STRIP ─────────────────────────────────── */}
+      <section className="px-6 pb-20 md:pb-28">
+        <div className="max-w-[1100px] mx-auto rounded-3xl bg-[#0F1733] text-white px-8 py-14 md:py-20 text-center">
+          <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[24ch] mb-6" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+            Stop running outreach in <span className="text-[#F2A261]">spreadsheets.</span>
+          </h2>
+          <p className="max-w-[52ch] mx-auto text-[16px] text-white/70 leading-[1.55] mb-9">
+            Free while in beta. No card. Built by one operator who got sick of the spreadsheet.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
               href={isAuthed ? '/' : '/auth/signup'}
-              className="mt-9 inline-flex items-center gap-2 bg-[#1A1716] text-[#FDF8F0] hover:bg-[#E85D2F] px-7 py-3.5 rounded-full font-semibold text-[15px] transition-colors"
+              className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#F2A261] px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
             >
-              {isAuthed ? 'Open the app' : 'Start free'}
+              {isAuthed ? 'Open the app' : 'Start for free'}
               <span aria-hidden>→</span>
             </Link>
+            <a
+              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
+              className="inline-flex items-center gap-2 border border-white/30 hover:border-white px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
+            >
+              Talk to founder
+            </a>
           </div>
         </div>
       </section>
 
-      {/* ── DARK FINAL CTA (Linear) ─────────────────────────────── */}
-
-      <section className="relative z-10 px-6 py-24 md:py-32" style={{ backgroundColor: '#08090A' }}>
-        {/* Mini gradient mesh for the final CTA */}
-        <div
-          aria-hidden
-          className="absolute inset-x-0 inset-y-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(124,58,237,0.20) 0%, transparent 60%)',
-          }}
-        />
-        <div className="relative max-w-[900px] mx-auto text-center">
-          <h2
-            className="font-medium tracking-[-0.03em] leading-[0.95] mx-auto max-w-[14ch] text-white"
-            style={{ fontSize: 'clamp(2.5rem, 7vw, 6rem)' }}
-          >
-            Stop running outreach in <span className="text-violet-400">spreadsheets.</span>
-          </h2>
-          <Link
-            href={isAuthed ? '/' : '/auth/signup'}
-            className="mt-12 inline-flex items-center gap-2 bg-white text-black px-7 py-3.5 rounded-md font-medium text-[15px] hover:bg-white/95 active:scale-[0.98] transition-all"
-            style={{
-              boxShadow: '0 0 0 1px rgba(255,255,255,0.1), 0 12px 48px -8px rgba(124,58,237,0.5)',
-            }}
-          >
-            {isAuthed ? 'Open the app' : 'Start for free'}
-            <span aria-hidden className="text-black/60">→</span>
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/[0.06] px-6 py-10" style={{ backgroundColor: '#08090A' }}>
-        <div className="max-w-[1100px] mx-auto flex flex-wrap items-center justify-between gap-3 text-[12px] text-white/40">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-br from-violet-500 to-violet-700 text-white text-[10px] font-bold">C</span>
-            <span>© 2026 Creator Outreach</span>
+      {/* ── BIG CORPORATE FOOTER ────────────────────────────── */}
+      <footer className="bg-white border-t border-[#0F1733]/10 px-6 py-14">
+        <div className="max-w-[1280px] mx-auto grid md:grid-cols-6 gap-8">
+          <div className="md:col-span-2">
+            <Link href="/landing/v1" className="flex items-center gap-2 mb-4">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] text-[#F2A261] text-[14px] font-bold">C</span>
+              <span className="font-semibold tracking-tight text-[16px]">Creator Outreach</span>
+            </Link>
+            <p className="text-[13px] text-[#0F1733]/60 leading-[1.55] max-w-[36ch]">
+              The modern way to source, score, and pitch creators. Built for the operators who actually send the messages.
+            </p>
+            <div className="mt-6 text-[12px] text-[#0F1733]/50">
+              © 2026 Creator Outreach
+            </div>
           </div>
-          <div className="flex gap-5">
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="/terms"   className="hover:text-white transition-colors">Terms</Link>
-            <a href="mailto:dmeehanj@gmail.com" className="hover:text-white transition-colors">Contact</a>
-          </div>
+          <FooterCol heading="Product" links={[
+            ['Overview',     '#product'],
+            ['Solutions',    '#solutions'],
+            ['Pricing',      '#pricing'],
+            ['Customers',    '#customers'],
+          ]} />
+          <FooterCol heading="Resources" links={[
+            ['Guides',       'mailto:dmeehanj@gmail.com'],
+            ['Playbooks',    'mailto:dmeehanj@gmail.com'],
+            ['Changelog',    'mailto:dmeehanj@gmail.com'],
+          ]} />
+          <FooterCol heading="Company" links={[
+            ['About',        '#'],
+            ['Contact',      'mailto:dmeehanj@gmail.com'],
+            ['Talk to us',   'mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo'],
+          ]} />
+          <FooterCol heading="Legal" links={[
+            ['Privacy',      '/privacy'],
+            ['Terms',        '/terms'],
+          ]} />
         </div>
       </footer>
     </main>
   )
 }
 
-function UseCaseTile({ icon, title, body }: { icon: string; title: string; body: string }) {
+/* ─── primitives ─── */
+
+function SolutionTile({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div
-      className="bg-white rounded-2xl border border-[#1A1716]/10 p-7 hover:-translate-y-1 transition-transform duration-200"
-      style={{ boxShadow: '0 1px 3px rgba(26,23,22,0.06), 0 12px 32px -16px rgba(232,93,47,0.18)' }}
-    >
-      <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#FBE8DA] text-[#E85D2F] text-[18px] mb-5">
+    <div className="rounded-xl border border-[#0F1733]/10 bg-white p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+      <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] text-[18px] mb-4">
         {icon}
       </span>
-      <h3 className="text-[20px] md:text-[22px] font-semibold tracking-[-0.015em] mb-2.5 text-[#1A1716]">{title}</h3>
-      <p className="text-[15px] text-[#1A1716]/65 leading-[1.55]">{body}</p>
+      <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2">{title}</h3>
+      <p className="text-[14px] text-[#0F1733]/65 leading-[1.55]">{body}</p>
     </div>
   )
 }
 
-function Testimonial({ quote, attribution }: { quote: string; attribution: string }) {
+function PointBullet({ children }: { children: React.ReactNode }) {
   return (
-    <figure className="bg-white rounded-2xl border border-[#1A1716]/10 p-7 md:p-8" style={{ boxShadow: '0 1px 3px rgba(26,23,22,0.06)' }}>
-      <span className="text-[#E85D2F] text-[24px] mb-3 inline-block leading-none">“</span>
-      <blockquote className="text-[16px] md:text-[17px] text-[#1A1716]/85 leading-[1.55] mb-5">
-        {quote}
-      </blockquote>
-      <figcaption className="text-[13px] text-[#1A1716]/55 font-medium">— {attribution}</figcaption>
-    </figure>
+    <li className="flex items-start gap-2.5">
+      <span className="text-[#E85D2F] font-bold mt-0.5 shrink-0">✓</span>
+      <span>{children}</span>
+    </li>
   )
 }
 
 function Stat({ n, label }: { n: string; label: string }) {
   return (
+    <div className="text-center">
+      <div className="font-semibold tracking-[-0.025em] text-white mb-1.5" style={{ fontSize: 'clamp(2.25rem, 4vw, 3.5rem)' }}>{n}</div>
+      <div className="text-[13px] text-white/60 leading-[1.4]">{label}</div>
+    </div>
+  )
+}
+
+function Testimonial({ quote, attribution, context, outcome }: { quote: string; attribution: string; context: string; outcome: string }) {
+  return (
+    <figure className="rounded-xl border border-[#0F1733]/10 bg-white p-6 md:p-7 flex flex-col">
+      <span className="text-[#E85D2F] text-[28px] mb-3 leading-none">“</span>
+      <blockquote className="text-[15px] md:text-[16px] text-[#0F1733]/85 leading-[1.55] mb-6 flex-1" dangerouslySetInnerHTML={{ __html: quote }} />
+      <div className="border-t border-[#0F1733]/10 pt-4">
+        <div className="text-[14px] font-semibold mb-1">{attribution}</div>
+        <div className="text-[12px] text-[#0F1733]/55 mb-2">{context}</div>
+        <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-[#E85D2F] font-semibold">
+          → {outcome}
+        </div>
+      </div>
+    </figure>
+  )
+}
+
+function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured = false }: { tier: string; price: string; priceSub: string; features: string[]; cta: string; ctaHref: string; featured?: boolean }) {
+  return (
+    <div className={`rounded-2xl p-7 md:p-8 ${featured ? 'bg-[#0F1733] text-white' : 'bg-white border border-[#0F1733]/10'}`} style={featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined}>
+      <div className={`text-[13px] uppercase tracking-[0.18em] mb-3 font-semibold ${featured ? 'text-[#F2A261]' : 'text-[#E85D2F]'}`}>{tier}</div>
+      <div className="font-semibold tracking-[-0.025em] mb-1" style={{ fontSize: 'clamp(2.25rem, 4vw, 3rem)' }}>{price}</div>
+      <div className={`text-[13px] mb-6 ${featured ? 'text-white/55' : 'text-[#0F1733]/55'}`}>{priceSub}</div>
+      <ul className="space-y-2.5 mb-7 text-[14px]">
+        {features.map(f => (
+          <li key={f} className="flex items-start gap-2.5">
+            <span className={featured ? 'text-[#F2A261] font-bold mt-0.5 shrink-0' : 'text-[#E85D2F] font-bold mt-0.5 shrink-0'}>✓</span>
+            <span className={featured ? 'text-white/90' : 'text-[#0F1733]/85'}>{f}</span>
+          </li>
+        ))}
+      </ul>
+      <Link href={ctaHref} className={`block text-center px-5 py-3 rounded-md font-semibold text-[15px] transition-colors ${featured ? 'bg-white text-[#0F1733] hover:bg-[#F2A261]' : 'bg-[#0F1733] text-white hover:bg-[#E85D2F]'}`}>
+        {cta} <span aria-hidden>→</span>
+      </Link>
+    </div>
+  )
+}
+
+function ResourceCard({ tag, title, body }: { tag: string; title: string; body: string }) {
+  return (
+    <article className="rounded-xl border border-[#0F1733]/10 bg-white p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+      <div className="text-[10px] uppercase tracking-[0.22em] text-[#E85D2F] font-semibold mb-3">{tag}</div>
+      <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2.5">{title}</h3>
+      <p className="text-[14px] text-[#0F1733]/65 leading-[1.55]">{body}</p>
+    </article>
+  )
+}
+
+function FooterCol({ heading, links }: { heading: string; links: [string, string][] }) {
+  return (
     <div>
-      <div className="font-semibold tracking-[-0.025em] text-[#FDF8F0]" style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)' }}>{n}</div>
-      <div className="mt-1 text-[13px] uppercase tracking-[0.18em] text-[#FDF8F0]/55 font-medium">{label}</div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/50 mb-4 font-semibold">{heading}</div>
+      <ul className="space-y-2">
+        {links.map(([label, href]) => (
+          <li key={label}>
+            <Link href={href} className="text-[13px] text-[#0F1733]/70 hover:text-[#0F1733] transition-colors">{label}</Link>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
