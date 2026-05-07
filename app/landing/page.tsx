@@ -174,8 +174,8 @@ export default async function LandingPage() {
             />
             <BentoCard
               className="md:col-start-3 md:row-span-2"
-              title="Build any metric"
-              description="Count, percentage, sum, average — over any filter. Saves to your dashboard. No formulas, no spreadsheets."
+              title="Customize your metrics"
+              description="Counts, percentages, sums, averages — over the filters you set. Saves to your dashboard. No formulas, no spreadsheets."
               icon={<BarChart3 className="w-3.5 h-3.5" />}
               visual={<CustomMetricsVisual />}
               delay={0.1}
@@ -270,7 +270,7 @@ export default async function LandingPage() {
             Free while in beta.
           </h2>
           <p className="text-muted-foreground mb-10 max-w-xl mx-auto">
-            No credit card. No usage cap on outreach. When pricing lands, beta users keep a generous free tier forever.
+            No credit card to start. Beta users will be looked after when pricing arrives — early supporters get treated like early supporters.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
