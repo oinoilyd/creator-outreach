@@ -3289,7 +3289,7 @@ export default function Home() {
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Sticky glass top bar — same width-feel as the page below */}
       <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className={`${activeTab === 'outreach' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
+        <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity">
@@ -3329,7 +3329,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className={`${activeTab === 'outreach' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} pt-6 pb-16`}>
+      <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} pt-6 pb-16`}>
 
         {/* Premium search bar */}
         <div className="flex gap-2 mb-2 flex-wrap">
