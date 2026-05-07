@@ -824,6 +824,11 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
   const keyword = clampString(searchParams.get('keyword'), 200)
+  // Optional: a comma-separated list of pre-expanded keywords. When
+  // provided, we skip the topic-map expansion and use each entry as
+  // its own search query. This is what the niche-bucket button on the
+  // client uses to search every occupation in a niche at once.
+  const keywordsParam = clampString(searchParams.get('keywords'), 2000)
   const maxResults = clampInt(searchParams.get('maxResults'), 1, 150, 100)
   const minViews   = clampInt(searchParams.get('minViews'), 0, 1_000_000_000, 0)
   const maxViews   = clampInt(searchParams.get('maxViews'), 0, 1_000_000_000, 200_000)
@@ -831,11 +836,24 @@ export async function GET(req: NextRequest) {
   const glRaw = searchParams.get('gl') || ''
   const gl = /^[A-Z]{2}$/.test(glRaw.toUpperCase()) ? glRaw.toUpperCase() : ''
 
-  if (!keyword) return NextResponse.json({ error: 'keyword is required' }, { status: 400 })
+  if (!keyword && !keywordsParam) {
+    return NextResponse.json({ error: 'keyword or keywords is required' }, { status: 400 })
+  }
 
-  const baseQueries = expandTopic(keyword)
-  const queries = applyRegion(baseQueries, keyword, gl)
-  const terms = keyword.toLowerCase().split(/\s+/)
+  // Niche / multi-keyword path: take the comma-separated list as-is,
+  // skip TOPIC_MAP expansion (the niche bucket already enumerated the
+  // specific occupations the user wants), and use the joined string
+  // for relevance scoring.
+  const keywordsList = keywordsParam
+    ? keywordsParam.split(',').map(s => s.trim()).filter(Boolean).slice(0, 30)
+    : []
+  const usingMultiKeywords = keywordsList.length > 0
+
+  const baseQueries = usingMultiKeywords
+    ? keywordsList
+    : expandTopic(keyword!)
+  const queries = applyRegion(baseQueries, keyword || keywordsList.join(' '), gl)
+  const terms = (keyword || keywordsList.join(' ')).toLowerCase().split(/\s+/)
 
   try {
     const yt = await Innertube.create({ retrieve_player: false, ...(gl ? { location: gl } : {}) })

@@ -2034,6 +2034,9 @@ export default function Home() {
   const [loadMoreCreators, setLoadMoreCreators] = useState<Creator[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [currentKeyword, setCurrentKeyword] = useState('')
+  // For niche-style searches, hold the underlying occupation list so
+  // Load More can keep using the same multi-keyword expansion.
+  const [currentKeywordsList, setCurrentKeywordsList] = useState<string[]>([])
   const [regions, setRegions] = useState<string[]>([])
   const [scoreWeights, setScoreWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS)
   const [scoreNarrative, setScoreNarrative] = useState('')
@@ -2672,13 +2675,14 @@ export default function Home() {
     saveDismissed(dismissed.filter(c => c.channelId !== id))
   }
 
-  const runSearch = useCallback(async (kw: string) => {
-    if (!kw.trim()) return
+  const runSearch = useCallback(async (kw: string, keywordsList?: string[]) => {
+    if (!kw.trim() && !(keywordsList && keywordsList.length)) return
     const version = ++searchVersion.current
     setLoading(true)
     setCreators([])
     setLoadMoreCreators([])
     setCurrentKeyword(kw)
+    setCurrentKeywordsList(keywordsList ?? [])
     seenChannelIds.current = new Set()
     setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
@@ -2762,10 +2766,16 @@ export default function Home() {
 
     try {
       const regionCodes = regions.length > 0 ? regions : ['']
+      // Niche-mode: pass the full list of occupations to the API as
+      // `keywords=` so the server skips topic-map expansion and uses
+      // each occupation directly. Single-keyword mode unchanged.
+      const queryFragment = keywordsList && keywordsList.length
+        ? `keywords=${encodeURIComponent(keywordsList.join(','))}`
+        : `keyword=${encodeURIComponent(kw)}`
       const allResponses = await Promise.all(
         regionCodes.map(code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          return fetch(`/api/search?keyword=${encodeURIComponent(kw)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
+          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
         })
       )
       if (version !== searchVersion.current) return  // superseded by newer search
@@ -2838,10 +2848,13 @@ export default function Home() {
     setLoadingMore(true)
     try {
       const regionCodes = regions.length > 0 ? regions : ['']
+      const queryFragment = currentKeywordsList.length > 0
+        ? `keywords=${encodeURIComponent(currentKeywordsList.join(','))}`
+        : `keyword=${encodeURIComponent(currentKeyword)}`
       const allResponses = await Promise.all(
         regionCodes.map(code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          return fetch(`/api/search?keyword=${encodeURIComponent(currentKeyword)}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
+          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
         })
       )
       if (allResponses.some(d => d.error)) return
@@ -2909,7 +2922,7 @@ export default function Home() {
       }
     } catch { /* ignore */ }
     finally { setLoadingMore(false) }
-  }, [currentKeyword, loadingMore, loading, minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
+  }, [currentKeyword, currentKeywordsList, loadingMore, loading, minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
 
   async function handleExportExcel(list: Creator[]) {
     setShowExport(false)
@@ -3286,7 +3299,7 @@ export default function Home() {
           </div>
           {showSuggestions && (
             <>
-              {/* Niche filter row */}
+              {/* Niche filter row — clicking a niche kicks off a multi-occupation search */}
               <div className="flex flex-wrap gap-1.5 mb-3">
                 <button
                   onClick={() => setSelectedNiche(null)}
@@ -3297,8 +3310,12 @@ export default function Home() {
                 {NICHE_BUCKETS.map(n => (
                   <button
                     key={n.id}
-                    onClick={() => setSelectedNiche(prev => prev === n.id ? null : n.id)}
-                    title={`${n.occupations.length} occupations: ${n.occupations.slice(0, 4).join(', ')}${n.occupations.length > 4 ? '…' : ''}`}
+                    onClick={() => {
+                      setSelectedNiche(n.id)
+                      setKeyword(n.label)
+                      runSearch(n.label, n.occupations)
+                    }}
+                    title={`Search all ${n.occupations.length} occupations: ${n.occupations.slice(0, 4).join(', ')}${n.occupations.length > 4 ? '…' : ''}`}
                     className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${selectedNiche === n.id ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
                   >
                     <span>{n.emoji}</span>
@@ -3307,7 +3324,9 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Occupations: filtered by niche if one is selected, otherwise random sample */}
+              {/* Occupation chips — quick single-occupation searches.
+                  When a niche is selected we still show the constituent
+                  occupations so the user can drill into one at a time. */}
               <div className="flex flex-wrap gap-2">
                 {(selectedNiche
                   ? (NICHE_BUCKETS.find(n => n.id === selectedNiche)?.occupations || [])
