@@ -342,26 +342,29 @@ export async function POST(req: NextRequest) {
     }),
   )
 
-  // FINAL SCRUB — the last line of defense. Every per-creator result
-  // gets re-validated through the hard blocklist + isPlausibleEmail.
-  // If anything slipped past the source-level filters, it dies here.
-  const scrubbedResults = results.map(scrubResult)
+  // FINAL SCRUB — the last line of defense, no mutation tricks. Build
+  // a fresh array of cleaned results and use it for ALL downstream
+  // computation + the response itself. Any aggregate computed off the
+  // raw `results` array would skip the scrub.
+  const cleanedResults = results.map(r => {
+    if (!r.hasEmail || !r.email) return r
+    if (isBlockedEmail(r.email)) {
+      console.warn(`[email-test scrub] DROPPING email="${r.email}" source=${r.source}`)
+      return { ...r, hasEmail: false, email: '', source: null as null }
+    }
+    return r
+  })
 
-  // Replace the working set so all aggregates downstream see the
-  // scrubbed values too.
-  for (let i = 0; i < results.length; i++) {
-    Object.assign(results[i], scrubbedResults[i])
-  }
-
-  const total = results.length
-  const withEmail = results.filter(r => r.hasEmail).length
+  // From here on, everything reads from cleanedResults — never `results`.
+  const total = cleanedResults.length
+  const withEmail = cleanedResults.filter(r => r.hasEmail).length
   const hitRate = total > 0 ? Number(((withEmail / total) * 100).toFixed(2)) : 0
   const tookMs = Date.now() - start
 
   // Track which fallback (if any) was responsible for each win — useful
   // for understanding where the lift is coming from.
-  const fromAssumption = results.filter(r => r.source === 'educated_assumption').length
-  const fromMethodology = results.filter(r => r.source === 'new_methodology').length
+  const fromAssumption = cleanedResults.filter(r => r.source === 'educated_assumption').length
+  const fromMethodology = cleanedResults.filter(r => r.source === 'new_methodology').length
   const fromPrimary = withEmail - fromAssumption - fromMethodology
 
   // 3) Save the run record. Saved strategy reflects what was REQUESTED
@@ -400,6 +403,6 @@ export async function POST(req: NextRequest) {
     fromAssumption,
     hitRate,
     tookMs,
-    results,
+    results: cleanedResults,
   })
 }
