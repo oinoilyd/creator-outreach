@@ -25,12 +25,14 @@ export function ScreenshotFrame({
   imgClassName?: string
   children?: React.ReactNode
 }) {
+  // No border. No fake browser chrome. Just a rounded clip and a
+  // violet-tinted soft shadow so the dark screenshot lifts off the
+  // lavender page without a chunky white frame around it.
   return (
     <div
       className={cn(
-        'relative rounded-xl border border-gray-200/80 bg-white overflow-hidden',
-        'shadow-[0_30px_80px_-20px_rgba(76,29,149,0.18),0_10px_30px_-10px_rgba(0,0,0,0.1)]',
-        'dark:border-white/10 dark:bg-gray-950',
+        'relative rounded-xl overflow-hidden',
+        'shadow-[0_40px_100px_-30px_rgba(76,29,149,0.35),0_18px_50px_-20px_rgba(0,0,0,0.18)]',
         className,
       )}
     >
