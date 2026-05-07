@@ -31,8 +31,12 @@ def crop(source: str, region: tuple[int, int, int, int], out: str) -> None:
 
 
 # Card 1 — "Smart search across every platform" (wide, col-span-2)
-# Top of Results: search bar + Suggested Searches + tabs + table header + first rows.
-crop("results.png", (0, 0, 2472, 950), "bento-search.png")
+# Top of Results: search bar + tabs + table header + first rows.
+# Source updated 2026-05-07: new "day trader" search with multi-sort
+# active (Email priority 1, LinkedIn priority 1, Fit Score priority 3)
+# + Instagram column visible + "Message" / "DM" links populated. Source
+# now 2472×1182 (was 2472×1370); using full top portion 950 tall.
+crop("results.png", (0, 0, 2472, 1000), "bento-search.png")
 
 # Card 2 — "AI fit scoring" (single col)
 # Extended right edge so "Avg Views" column header doesn't get cut.
@@ -56,7 +60,10 @@ crop("outreach.png", (0, 270, 2784, 700), "bento-status.png")
 # "First follow-up · X touches · reached Yd ago" meta lines.
 crop("followups.png", (0, 530, 1500, 700), "bento-priority.png")
 
-# Card 5 — "Analytics + custom metrics" (col-span-3) — zoom in on
-# KPI cards + status breakdown only. Skip the velocity/medium row
-# at the bottom which clutters at small card size.
-crop("analytics.png", (0, 240, 2822, 600), "bento-analytics.png")
+# Card 5 — "Analytics dashboard" (col-span-2 next to Custom Metrics
+# col-span-1). Dylan's note: "the analytics has a small description
+# with a massive text box bigger than the visual fix the fitting."
+# Solution: include MORE vertical content so the visual occupies the
+# full card height (KPIs + status breakdown + velocity row).
+# h: 600 → 800.
+crop("analytics.png", (0, 240, 2822, 800), "bento-analytics.png")

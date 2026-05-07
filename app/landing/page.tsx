@@ -168,8 +168,8 @@ export default async function LandingPage() {
               delay={0.15}
             />
             <BentoCard
-              title="Smart follow-up cadence"
-              description="When you reach out, the system schedules the next ping — 3d, 7d, 14d, then 21d. Your queue stays sharp without you babysitting it."
+              title="Templated follow-ups, on cadence"
+              description="When it's time to ping (3d / 7d / 14d / 21d), one click copies the right template per platform — Instagram DM, LinkedIn message, or email."
               icon={<MailPlus className="w-3.5 h-3.5" />}
               visual={<CadenceVisual />}
               delay={0.2}

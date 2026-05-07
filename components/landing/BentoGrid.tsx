@@ -121,8 +121,9 @@ function CropImage({
 }
 
 // 1 — Smart search · top of Results page (search bar + tabs + first rows)
+// New source 2026-05-07: 2472×1000 with multi-sort badges visible.
 export function SearchVisual() {
-  return <CropImage src="/screenshots/bento-search.png" alt="Search results across platforms" className="aspect-[2472/950]" />
+  return <CropImage src="/screenshots/bento-search.png" alt="Search results across platforms" className="aspect-[2472/1000]" />
 }
 
 // 2 — AI fit scoring · Channel + Fit Score columns showing colored chips
@@ -152,7 +153,7 @@ export function CadenceVisual() {
 // (skips the velocity / by-medium row that clutters at small card
 // scale). Aspect matches the new 2822×600 source crop.
 export function AnalyticsVisual() {
-  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPIs + status breakdown" className="aspect-[2822/600]" />
+  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPIs + status breakdown" className="aspect-[2822/800]" />
 }
 
 // 6 — Custom metrics builder · the Customize Analytics modal showing

@@ -83,13 +83,13 @@ export function AppPreview() {
                 setIdx(i)
               }}
               className={
-                'group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ' +
+                'group inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ' +
                 (active
-                  ? 'bg-primary text-primary-foreground border-primary shadow-[0_0_24px_-4px_rgba(124,58,237,0.6)]'
+                  ? 'bg-primary text-primary-foreground border-primary shadow-[0_2px_8px_-2px_rgba(124,58,237,0.4)]'
                   : 'bg-card text-muted-foreground hover:text-foreground border-border hover:border-brand/40 dark:bg-white/5 dark:border-white/10 dark:hover:border-white/30')
               }
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-4 h-4" />
               {v.label}
             </button>
           )
