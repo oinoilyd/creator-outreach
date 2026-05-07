@@ -146,9 +146,33 @@ html {
   :root body::before { animation: none; }
 }
 
-/* Animated gradient beam traveling along a card border. */
+/* Animated gradient beam traveling along a card border. Magic UI's
+   BorderBeam component animates an `::after` pseudo with offset-path
+   set to a rect — driving offset-distance 0→100% sweeps it around the
+   border once per cycle. The component sets --duration / --delay. */
 @keyframes border-beam {
   100% { offset-distance: 100%; }
+}
+.animate-border-beam {
+  animation: border-beam calc(var(--duration) * 1s) infinite linear;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Marquee — infinite horizontal/vertical scroll. Magic UI's marquee
+   pairs `--duration` with `--gap` so child gap and translation match. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-100% - var(--gap))); }
+}
+@keyframes marquee-vertical {
+  from { transform: translateY(0); }
+  to   { transform: translateY(calc(-100% - var(--gap))); }
+}
+.animate-marquee {
+  animation: marquee var(--duration) linear infinite;
+}
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--duration) linear infinite;
 }
 
 /* Slow shimmer sheen for primary CTAs. */

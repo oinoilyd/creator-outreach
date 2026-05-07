@@ -6,10 +6,15 @@ import { AppPreview } from '@/components/landing/AppPreview'
 import { LandingNav } from '@/components/landing/LandingNav'
 import { ContactForm } from '@/components/landing/ContactForm'
 import { FAQ } from '@/components/landing/FAQ'
+import { StatsStrip } from '@/components/landing/StatsStrip'
+import { HowItWorks } from '@/components/landing/HowItWorks'
+import { Testimonials } from '@/components/landing/Testimonials'
 import {
   BentoGrid, BentoCard,
   SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual,
 } from '@/components/landing/BentoGrid'
+import { Spotlight } from '@/components/ui/spotlight'
+import { ScreenshotFrame } from '@/components/ui/screenshot-frame'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
@@ -31,6 +36,7 @@ export default async function LandingPage() {
       {/* Hero */}
       <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-20">
         <Aurora className="z-0" />
+        <Spotlight size={700} color="rgba(168, 85, 247, 0.20)" />
         <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900/5 dark:bg-white/5 border border-gray-900/10 dark:border-white/10 backdrop-blur-md text-xs text-gray-700 dark:text-gray-300 mb-7">
             <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-300" />
@@ -63,8 +69,33 @@ export default async function LandingPage() {
       </section>
 
       {/* App preview */}
-      <section className="relative px-6 -mt-8 md:-mt-4 mb-24 md:mb-32 z-10">
+      <section className="relative px-6 -mt-8 md:-mt-4 mb-16 md:mb-20 z-10">
         <AppPreview />
+      </section>
+
+      {/* Stats strip */}
+      <section className="relative px-6 mb-20 md:mb-28 z-10">
+        <div className="max-w-4xl mx-auto">
+          <StatsStrip />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="relative px-6 pb-20 md:pb-28 z-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-6">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 mb-3">
+              How it works
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
+              Three steps. No spreadsheet.
+            </h2>
+            <p className="text-gray-600 max-w-xl mx-auto">
+              Search every major platform, score by your criteria, run outreach with auto follow-ups.
+            </p>
+          </div>
+          <HowItWorks />
+        </div>
       </section>
 
       {/* Bento features */}
@@ -119,6 +150,24 @@ export default async function LandingPage() {
               delay={0.25}
             />
           </BentoGrid>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="relative px-6 pb-20 md:pb-28 z-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-purple-600/90 mb-3">
+              From the people using it
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
+              Why people switched.
+            </h2>
+            <p className="text-gray-600 max-w-xl mx-auto">
+              Indie founders, agency operators, and creators replacing $400/mo tools and the spreadsheet circus.
+            </p>
+          </div>
+          <Testimonials />
         </div>
       </section>
 

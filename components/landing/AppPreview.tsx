@@ -57,7 +57,7 @@ export function AppPreview() {
         <button
           onClick={() => go(-1)}
           aria-label="Previous view"
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-full w-10 h-10 rounded-full bg-gray-900/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-gray-900 text-gray-300 hover:text-white flex items-center justify-center transition-colors shadow-xl"
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-full w-10 h-10 rounded-full bg-white backdrop-blur-md border border-gray-200 hover:border-purple-300 hover:bg-purple-50 text-gray-600 hover:text-purple-700 flex items-center justify-center transition-colors shadow-lg dark:bg-gray-900/80 dark:border-white/10 dark:text-gray-300 dark:hover:text-white"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -66,7 +66,7 @@ export function AppPreview() {
         <button
           onClick={() => go(1)}
           aria-label="Next view"
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-full w-10 h-10 rounded-full bg-gray-900/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-gray-900 text-gray-300 hover:text-white flex items-center justify-center transition-colors shadow-xl"
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-full w-10 h-10 rounded-full bg-white backdrop-blur-md border border-gray-200 hover:border-purple-300 hover:bg-purple-50 text-gray-600 hover:text-purple-700 flex items-center justify-center transition-colors shadow-lg dark:bg-gray-900/80 dark:border-white/10 dark:text-gray-300 dark:hover:text-white"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -81,15 +81,15 @@ export function AppPreview() {
               onClick={() => { setDirection(i > idx ? 1 : -1); setIdx(i) }}
               aria-label={`Show ${v.label}`}
               className={`h-1.5 rounded-full transition-all ${
-                i === idx ? 'w-8 bg-white' : 'w-1.5 bg-white/20 hover:bg-white/40'
+                i === idx ? 'w-8 bg-purple-600' : 'w-1.5 bg-gray-300 hover:bg-gray-400'
               }`}
             />
           ))}
         </div>
       </div>
-      <div className="text-center mt-3 text-[12px] text-gray-400">
-        <span className="text-gray-200 font-medium">{view.label}</span>
-        <span className="text-gray-600 mx-1.5">·</span>
+      <div className="text-center mt-3 text-[12px] text-gray-500">
+        <span className="text-gray-900 font-medium">{view.label}</span>
+        <span className="text-gray-400 mx-1.5">·</span>
         <span>{view.sub}</span>
       </div>
     </motion.div>
