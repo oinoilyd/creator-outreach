@@ -12,6 +12,8 @@ import {
   SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual,
 } from '@/components/landing/BentoGrid'
 import { Spotlight } from '@/components/ui/spotlight'
+import { Meteors } from '@/components/ui/meteors'
+import { BorderBeam } from '@/components/ui/border-beam'
 import { ScreenshotFrame } from '@/components/ui/screenshot-frame'
 import { createClient } from '@/lib/supabase/server'
 
@@ -32,9 +34,11 @@ export default async function LandingPage() {
       <LandingNav isAuthed={isAuthed} />
 
       {/* Hero */}
-      <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-20">
+      <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-20 overflow-hidden">
         <Aurora className="z-0" />
         <Spotlight size={700} color="rgba(168, 85, 247, 0.20)" />
+        {/* Falling meteor streaks for movement */}
+        <Meteors number={18} />
         <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900/5 dark:bg-white/5 border border-gray-900/10 dark:border-white/10 backdrop-blur-md text-xs text-gray-700 dark:text-gray-300 mb-7">
             <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-300" />
@@ -48,12 +52,15 @@ export default async function LandingPage() {
             Find creators across YouTube, Instagram, TikTok and more. Score them by fit, and run your whole outreach pipeline — without the spreadsheet circus.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Link
-              href={isAuthed ? '/' : '/auth/signup'}
-              className="bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200 px-6 py-3 rounded-lg font-semibold transition-colors shadow-[0_0_60px_-12px_rgba(168,85,247,0.6)]"
-            >
-              {isAuthed ? 'Open app' : 'Get started — free'}
-            </Link>
+            <span className="relative inline-block rounded-lg overflow-hidden">
+              <Link
+                href={isAuthed ? '/' : '/auth/signup'}
+                className="relative z-10 inline-block bg-gray-900 text-white hover:bg-gray-800 px-6 py-3 rounded-lg font-semibold transition-colors shadow-[0_0_60px_-12px_rgba(168,85,247,0.6)]"
+              >
+                {isAuthed ? 'Open app' : 'Get started — free'}
+              </Link>
+              <BorderBeam size={90} duration={8} colorFrom="#a855f7" colorTo="#3b82f6" />
+            </span>
             {!isAuthed && (
               <Link
                 href="/auth/signin"

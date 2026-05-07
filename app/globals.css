@@ -175,6 +175,18 @@ html {
   animation: marquee-vertical var(--duration) linear infinite;
 }
 
+/* Meteors — diagonal falling streaks for the hero. The component
+   places spans at top:-5%, random `left:`, rotated 215deg. The
+   keyframe sweeps them down-and-to-the-left, fading out. */
+@keyframes meteor {
+  0%   { transform: rotate(215deg) translateX(0);     opacity: 1; }
+  70%  {                                              opacity: 1; }
+  100% { transform: rotate(215deg) translateX(-700px); opacity: 0; }
+}
+.animate-meteor {
+  animation: meteor 5s linear infinite;
+}
+
 /* Slow shimmer sheen for primary CTAs. */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
