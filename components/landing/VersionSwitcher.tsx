@@ -15,11 +15,9 @@ import { usePathname } from 'next/navigation'
  */
 
 const VERSIONS: { slug: string; label: string; sub: string }[] = [
-  { slug: 'v1', label: 'V1', sub: 'Linear-style' },
-  { slug: 'v2', label: 'V2', sub: 'Clay-style' },
-  { slug: 'v3', label: 'V3', sub: 'Vercel-style' },
-  { slug: 'v4', label: 'V4', sub: 'Gumroad-style' },
-  { slug: 'v5', label: 'V5', sub: 'Anthropic-style' },
+  { slug: 'v1', label: 'V1', sub: 'Linear × Clay hybrid' },
+  { slug: 'v2', label: 'V2', sub: 'Current production' },
+  { slug: 'v3', label: 'V3', sub: 'Multi-page split' },
 ]
 
 export function VersionSwitcher() {

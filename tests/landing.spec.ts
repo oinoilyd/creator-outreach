@@ -1,20 +1,21 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Landing-page smoke tests — five-variant redesign.
+ * Landing-page smoke tests — three-variant redesign.
  *
- * Each /landing/v[1-5] page is a wildly different visual direction
- * (Editorial, Maximalist, Premium Tech, Trading Terminal, Operator's
- * Notebook). The shared invariants we care about: every variant
- * renders an h1, has a primary CTA link, has a footer, and produces
- * no console errors. /landing redirects to /landing/v1.
+ *   V1 — Linear × Clay hybrid
+ *   V2 — Current production landing (lava-lamp / Aurora baseline)
+ *   V3 — Multi-page split of V2 (Home / Product / Pricing / About)
  *
- * Variant-specific copy is intentionally NOT asserted — it's the
- * point of having five concepts that the wording differs. We verify
- * structure only.
+ * Per-variant invariants (kept structural, not copy-bound): h1
+ * present, primary CTA present, footer present, no console errors.
+ *
+ * V3 has additional sub-page coverage: /landing/v3/product,
+ * /landing/v3/pricing, /landing/v3/about each load and link back to
+ * the home page via the V3Nav.
  */
 
-const VARIANTS = ['v1', 'v2', 'v3', 'v4', 'v5'] as const
+const VARIANTS = ['v1', 'v2', 'v3'] as const
 
 test.describe('Landing — version switcher', () => {
   test('/landing redirects to /landing/v1', async ({ page }) => {
@@ -22,7 +23,7 @@ test.describe('Landing — version switcher', () => {
     await expect(page).toHaveURL(/\/landing\/v1/)
   })
 
-  test('switcher bar exposes all 5 variants', async ({ page }) => {
+  test('switcher bar exposes all 3 variants', async ({ page }) => {
     await page.goto('/landing/v1')
     for (const v of VARIANTS) {
       await expect(
@@ -31,10 +32,10 @@ test.describe('Landing — version switcher', () => {
     }
   })
 
-  test('clicking V3 navigates to /landing/v3', async ({ page }) => {
+  test('clicking V2 navigates to /landing/v2', async ({ page }) => {
     await page.goto('/landing/v1')
-    await page.getByRole('link', { name: /^V3\s*·/i }).click()
-    await expect(page).toHaveURL(/\/landing\/v3/)
+    await page.getByRole('link', { name: /^V2\s*·/i }).click()
+    await expect(page).toHaveURL(/\/landing\/v2/)
   })
 })
 
@@ -52,9 +53,6 @@ for (const variant of VARIANTS) {
     })
 
     test('has a primary CTA link to signup or app', async ({ page }) => {
-      // Each variant uses different copy ("Try free", "Start free",
-      // "Try it FREE", "EXEC NEW SESSION", "Try it (it's free)").
-      // Catch-all: at least one link points to /auth/signup or /.
       const cta = page.locator('a[href="/auth/signup"], a[href="/"]').first()
       await expect(cta).toBeVisible()
     })
@@ -75,3 +73,32 @@ for (const variant of VARIANTS) {
     })
   })
 }
+
+test.describe('V3 multi-page navigation', () => {
+  const SUBPAGES = ['/landing/v3/product', '/landing/v3/pricing', '/landing/v3/about'] as const
+
+  for (const path of SUBPAGES) {
+    test(`${path} loads with h1 + footer + no console errors`, async ({ page }) => {
+      const errors: string[] = []
+      page.on('console', msg => {
+        if (msg.type() === 'error') errors.push(msg.text())
+      })
+      await page.goto(path)
+      await page.waitForLoadState('networkidle')
+
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await expect(page.locator('footer')).toBeVisible()
+
+      const ours = errors.filter(e => !/sentry|google|fb|twitter|hotjar/i.test(e))
+      expect(ours).toEqual([])
+    })
+  }
+
+  test('V3Nav links route between pages', async ({ page }) => {
+    await page.goto('/landing/v3')
+    await page.getByRole('link', { name: /^pricing$/i }).first().click()
+    await expect(page).toHaveURL(/\/landing\/v3\/pricing/)
+    await page.getByRole('link', { name: /^about$/i }).first().click()
+    await expect(page).toHaveURL(/\/landing\/v3\/about/)
+  })
+})
