@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react'
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'What is Creator Outreach?',
-    a: 'A tool for finding YouTube creators and running your outreach pipeline — search, score by fit, pitch, follow up, and track results in one place.',
+    a: 'A tool for finding creators across YouTube, Instagram, TikTok, X, and LinkedIn, and running your outreach pipeline — search, score by fit, pitch, follow up, and track results in one place.',
   },
   {
     q: 'How is it different from a spreadsheet?',
@@ -17,7 +17,7 @@ const FAQS: { q: string; a: string }[] = [
     a: 'Free while in beta. When pricing lands later, free users will keep a generous limit forever — paying tiers will be for heavier search volume and team features.',
   },
   {
-    q: 'Do I need a YouTube API key?',
+    q: 'Do I need an API key for any of the platforms?',
     a: 'No. Search runs through the tool — you don\'t manage credentials.',
   },
   {

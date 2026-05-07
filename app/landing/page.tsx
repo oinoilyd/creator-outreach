@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
   title: 'Creator Outreach — find them, score them, pitch them, close them',
-  description: 'Search YouTube, score creators by fit, run your whole outreach pipeline in one place.',
+  description: 'Find creators across YouTube, Instagram, TikTok and more. Score them by fit, run your whole outreach pipeline in one place.',
 }
 
 export default async function LandingPage() {
@@ -34,14 +34,14 @@ export default async function LandingPage() {
         <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900/5 dark:bg-white/5 border border-gray-900/10 dark:border-white/10 backdrop-blur-md text-xs text-gray-700 dark:text-gray-300 mb-7">
             <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-300" />
-            <span>YouTube outreach, end to end</span>
+            <span>Creator outreach, end to end</span>
           </div>
           <TextGenerateEffect
             words="Find them. Score them. Pitch them. Close them."
             className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-500 dark:from-white dark:via-white dark:to-gray-400 bg-clip-text text-transparent leading-[1.05]"
           />
           <p className="text-base md:text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto mb-9 leading-relaxed">
-            Search YouTube, score creators by fit, and run your whole outreach pipeline — without the spreadsheet circus.
+            Find creators across YouTube, Instagram, TikTok and more. Score them by fit, and run your whole outreach pipeline — without the spreadsheet circus.
           </p>
           <div className="flex items-center justify-center gap-3">
             <Link
@@ -76,15 +76,15 @@ export default async function LandingPage() {
               Everything you need, nothing you don't.
             </h2>
             <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-              One tool replaces YouTube discovery, a spreadsheet, a CRM, and a cadence reminder.
+              One tool replaces creator discovery, a spreadsheet, a CRM, and a cadence reminder. Works across YouTube, Instagram, TikTok, X, and LinkedIn.
             </p>
           </div>
 
           <BentoGrid>
             <BentoCard
               className="md:col-span-2"
-              title="Smart search across YouTube"
-              description="Filter by keyword, audience size, region, and last-posted date. Skip the dead channels and ghost towns automatically."
+              title="Smart search across every platform"
+              description="Search YouTube, Instagram, TikTok, X, and LinkedIn. Filter by occupation, niche, audience size, region, and last-posted date. Skip the dead channels automatically."
               icon={<Search className="w-3.5 h-3.5" />}
               visual={<SearchVisual />}
             />
@@ -130,7 +130,7 @@ export default async function LandingPage() {
             Built by someone who needed it.
           </h2>
           <p className="text-base md:text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
-            Creator Outreach started as a tool I built for myself. I was running outreach to YouTube creators with a spreadsheet, three browser tabs, and a Notion page that was always out of date. The pricier tools cost more than my rent and still couldn't tell me what made a good lead — so I built this. It searches YouTube directly, scores creators against criteria you describe in plain English, and runs the whole pipeline — pitch, status, follow-up cadence, analytics — without copy-pasting between five tabs. It's still early, run by one person, and growing every week from feedback by the people using it. If you're using it and something's off, tell me — that's how it gets better.
+            Creator Outreach started as a tool I built for myself. I was running outreach to creators across YouTube, Instagram, and TikTok with a spreadsheet, three browser tabs, and a Notion page that was always out of date. The pricier tools cost more than my rent and still couldn&apos;t tell me what made a good lead — so I built this. It searches every major platform directly, scores creators against criteria you describe in plain English, and runs the whole pipeline — pitch, status, follow-up cadence, analytics — without copy-pasting between five tabs. It&apos;s still early, run by one person, and growing every week from feedback by the people using it. If you&apos;re using it and something&apos;s off, tell me — that&apos;s how it gets better.
           </p>
         </div>
       </section>

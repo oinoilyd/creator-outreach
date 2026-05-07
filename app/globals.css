@@ -10,42 +10,43 @@
    automatically when the .dark class flips. */
 
 :root {
-  /* Light theme with intentional COLOR — neutrals carry meaningful
-     violet/indigo undertones (chroma ~0.025 at hue 285) and the page
-     is slightly darker than pure white so cards visibly elevate. The
-     palette is "tinted lavender on warm slate" rather than greyscale.
-     Inspired by Linear / Stripe / Vercel light surfaces. */
-  --background: oklch(0.965 0.020 285);
-  --foreground: oklch(0.18 0.045 275);
+  /* Light theme — designed to feel "darker, less chunky" than a
+     typical white-on-grey shadcn palette. Page bg is a deep tinted
+     lavender (oklch 0.95) so pure-white cards have somewhere to
+     elevate against. Borders carry real chroma (0.04 at 280) so
+     they read as intentional design, not invisible hairlines.
+     Inspired by Linear's product pages and Stripe Atlas. */
+  --background: oklch(0.95 0.025 282);
+  --foreground: oklch(0.16 0.05 275);
 
-  /* elevated surfaces — pure white cards pop against tinted bg */
+  /* elevated surfaces — pure white cards pop against the tinted bg */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.045 275);
+  --card-foreground: oklch(0.16 0.05 275);
 
-  /* secondary surface (table headers, sub-panels) — clearly visible
-     against bg without being heavy */
-  --muted: oklch(0.92 0.030 285);
-  --muted-foreground: oklch(0.42 0.060 280);
+  /* secondary surface (table headers, sub-panels) — has its own
+     identity, clearly different from bg AND card */
+  --muted: oklch(0.91 0.035 285);
+  --muted-foreground: oklch(0.40 0.07 280);
 
-  /* hover / interactive accent — saturated violet wash */
-  --accent: oklch(0.91 0.045 290);
-  --accent-foreground: oklch(0.18 0.045 275);
+  /* hover / interactive accent — strong violet wash */
+  --accent: oklch(0.89 0.05 290);
+  --accent-foreground: oklch(0.16 0.05 275);
 
   /* primary CTA — deep saturated brand violet */
-  --primary: oklch(0.42 0.245 290);
+  --primary: oklch(0.40 0.255 290);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* borders + dividers — visibly tinted, not invisible */
-  --border: oklch(0.85 0.035 285);
-  --input: oklch(0.85 0.035 285);
-  --ring: oklch(0.58 0.22 290);
+  /* borders + dividers — visibly tinted, real definition */
+  --border: oklch(0.83 0.04 280);
+  --input: oklch(0.83 0.04 280);
+  --ring: oklch(0.55 0.225 290);
 
   /* destructive */
-  --destructive: oklch(0.58 0.23 22);
+  --destructive: oklch(0.56 0.235 22);
   --destructive-foreground: oklch(0.99 0 0);
 
   /* brand purple */
-  --brand: oklch(0.52 0.235 290);
+  --brand: oklch(0.50 0.245 290);
   --brand-foreground: oklch(0.99 0 0);
 }
 
