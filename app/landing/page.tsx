@@ -12,7 +12,6 @@ import {
   BentoGrid, BentoCard,
   CrmVisual, AnalyticsVisual, CustomMetricsVisual, FiltersVisual,
 } from '@/components/landing/BentoGrid'
-import { Spotlight } from '@/components/ui/spotlight'
 import { Meteors } from '@/components/ui/meteors'
 import { BorderBeam } from '@/components/ui/border-beam'
 import { createClient } from '@/lib/supabase/server'
@@ -57,8 +56,11 @@ export default async function LandingPage() {
 
           Container max-w-[1400px] per taste-skill default. */}
       <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-16 overflow-hidden">
+        {/* Aurora carries the lava-lamp atmosphere now (5 violet/cyan
+            blobs on independent movement orbits + scale breathing).
+            Spotlight removed — Dylan's note: "spotlight follows the
+            cursor, it's laggy and chunky." */}
         <Aurora className="z-0" />
-        <Spotlight size={700} color="rgba(124, 58, 237, 0.22)" />
         <Meteors number={10} />
 
         <div className="relative z-10 max-w-3xl w-full mx-auto text-center">
