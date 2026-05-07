@@ -31,52 +31,74 @@ export default async function LandingPage() {
     <main className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
       <LandingNav isAuthed={isAuthed} />
 
-      {/* Hero */}
-      <section className="relative px-6 pt-12 md:pt-16 pb-12 md:pb-20 overflow-hidden">
+      {/* Hero — dramatic, oversized typography, accent word in
+          violet→cyan, layered atmosphere (Aurora + Spotlight +
+          Meteors), CTAs with motion. */}
+      <section className="relative px-6 pt-16 md:pt-24 pb-20 md:pb-32 overflow-hidden min-h-[80vh] flex items-center">
         <Aurora className="z-0" />
-        <Spotlight size={700} color="rgba(124, 58, 237, 0.22)" />
-        {/* Toned meteors: 12 streaks, slower (8s in CSS) for cleanness */}
+        <Spotlight size={800} color="rgba(124, 58, 237, 0.28)" />
         <Meteors number={12} />
-        <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-muted-foreground mb-7">
+
+        <div className="relative z-10 max-w-6xl w-full mx-auto text-center">
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/15 backdrop-blur-md text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-8">
             <Sparkles className="w-3.5 h-3.5 text-brand" />
             <span>Creator outreach, end to end</span>
           </div>
+
           {/*
-            Headline alternates committed for fast swap (Dylan's still
-            picking the final voice):
-              "From scattered leads to closed deals."
-              "Creator outreach, finally solved."
-              "Cold outreach that actually moves the needle."
-              "The last outreach tool you'll buy this year."
-              "Built for operators who run outreach for a living."
+            Headline — accent word "spreadsheets" renders in the
+            brand→brand-2 gradient, the rest in foreground gradient.
+            Each word fades + un-blurs in sequence.
+            Alternates if Dylan picks differently:
+              "From scattered leads to closed deals."  (accent: closed)
+              "Creator outreach, finally solved."      (accent: solved)
+              "Cold outreach that actually moves the needle." (accent: needle)
+              "The last outreach tool you'll buy this year."  (accent: last)
           */}
           <TextGenerateEffect
             words="Stop burning leads in spreadsheets."
-            className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-foreground via-foreground to-brand bg-clip-text text-transparent leading-[1.05]"
+            accentWord="spreadsheets"
+            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8 leading-[0.98]"
           />
-          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-9 leading-relaxed">
+
+          {/* Subline */}
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
             Find creators that fit. Score them in plain English. Run the whole pipeline — discovery, pitch, follow-ups, analytics — without the spreadsheet circus.
           </p>
-          <div className="flex items-center justify-center gap-3">
+
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <span className="relative inline-block rounded-lg overflow-hidden">
               <Link
                 href={isAuthed ? '/' : '/auth/signup'}
-                className="relative z-10 inline-block bg-primary text-primary-foreground hover:opacity-90 px-6 py-3 rounded-lg font-semibold transition-opacity shadow-[0_0_70px_-10px_rgba(124,58,237,0.65)]"
+                className="relative z-10 inline-flex items-center gap-2 bg-primary text-primary-foreground hover:opacity-90 px-7 py-3.5 rounded-lg font-semibold text-base transition-opacity shadow-[0_0_80px_-10px_rgba(124,58,237,0.75),0_8px_30px_-6px_rgba(124,58,237,0.4)]"
               >
                 {isAuthed ? 'Open app' : 'Get started — free'}
+                <span aria-hidden>→</span>
               </Link>
-              <BorderBeam size={90} duration={8} colorFrom="#7c3aed" colorTo="#06b6d4" />
+              <BorderBeam size={110} duration={7} colorFrom="#7c3aed" colorTo="#06b6d4" />
             </span>
             {!isAuthed && (
               <Link
                 href="/auth/signin"
-                className="px-6 py-3 rounded-lg font-medium text-muted-foreground hover:text-foreground border border-white/10 hover:border-white/30 backdrop-blur-sm transition-colors"
+                className="px-6 py-3.5 rounded-lg font-medium text-muted-foreground hover:text-foreground border border-white/15 hover:border-white/30 backdrop-blur-sm transition-colors"
               >
                 Sign in
               </Link>
             )}
           </div>
+
+          {/* Subtle trust line — what's free, what's required */}
+          <p className="mt-6 text-xs text-muted-foreground/70">
+            Free while in beta · No credit card · Cancel anytime
+          </p>
+        </div>
+
+        {/* Scroll indicator — subtle pulse pulling eye downward */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1 text-muted-foreground/60">
+          <span className="text-[10px] uppercase tracking-[0.2em]">Scroll</span>
+          <span className="w-px h-8 bg-gradient-to-b from-muted-foreground/40 to-transparent" />
         </div>
       </section>
 

@@ -101,7 +101,12 @@ function CropImage({
       <img
         src={src}
         alt={alt}
-        className="block w-full h-full object-cover"
+        // object-contain guarantees no cropping — full image always
+        // visible. With aspect-[X/Y] matching the source dims, the
+        // image fills the container with no letterbox. If browsers
+        // round dims down by a fraction, contain falls back to a
+        // tiny letterbox in the bg color rather than clipping pixels.
+        className="block w-full h-full object-contain"
         style={{ objectPosition: position }}
       />
     </motion.div>
