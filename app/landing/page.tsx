@@ -150,18 +150,13 @@ export default async function LandingPage() {
           </div>
 
           {/*
-            Bento, post-iter-5: removed "Smart search" card (its
-            visual was the Results-table top, which the AppPreview
-            at the top of the hero section already shows) AND
-            removed "AI fit scoring" (sat next to Smart search,
-            also showed Results-table fit chips — Dylan: "duplicative
-            for the fit score as well"). AI scoring narrative is
-            still carried by the HowItWorks "Score" pill.
-
-            Layout now: 4 cards across 3 rows.
+            Bento layout, iter-6 reorder per Dylan: "shift up custom
+            analysis next to the one you just deleted" (Build any
+            metric stays in row 1, top — already there) "and have
+            the [analytics] edit be the bottom on its own."
               Row 1: CRM (col-2)        + Build any metric (col-1)
-              Row 2: Analytics (col-3 full)
-              Row 3: Region search (col-3 full)
+              Row 2: Region search (col-3 full)
+              Row 3: Analytics (col-3 full)   ← bottom, on its own
           */}
           <BentoGrid>
             <BentoCard
@@ -180,18 +175,18 @@ export default async function LandingPage() {
             />
             <BentoCard
               className="md:col-span-3"
-              title="Analytics dashboard"
-              description="Win rate, response rate, pipeline value, stale follow-ups, status breakdown — out of the box."
-              icon={<BarChart3 className="w-3.5 h-3.5" />}
-              visual={<AnalyticsVisual />}
-              delay={0.15}
-            />
-            <BentoCard
-              className="md:col-span-3"
               title="Region-targeted, precision search"
               description="Pin views, subscribers, last-posted, has-email, language, and 22 specific regions to focus your queue on the creators who fit your market — instead of dredging through global noise."
               icon={<Globe className="w-3.5 h-3.5" />}
               visual={<FiltersVisual />}
+              delay={0.15}
+            />
+            <BentoCard
+              className="md:col-span-3"
+              title="Analytics dashboard"
+              description="Win rate, response rate, pipeline value, stale follow-ups, status breakdown — out of the box."
+              icon={<BarChart3 className="w-3.5 h-3.5" />}
+              visual={<AnalyticsVisual />}
               delay={0.2}
             />
           </BentoGrid>
