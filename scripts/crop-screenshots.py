@@ -38,19 +38,23 @@ crop("results.png", (0, 0, 2472, 950), "bento-search.png")
 # Channel + Fit Score columns, header through row 5 — chips are the hero.
 crop("results.png", (130, 380, 870, 940), "bento-fit.png")
 
-# Card 3 — "Built-in CRM" (single col)
-# A wider crop showing right-side columns of the Outreach table:
-# Reached (pink check), Status (Successful/Open/Rejected pills), Medium
-# (Email selector). This gives full CRM context, not isolated cells.
-crop("outreach.png", (1280, 270, 1110, 700), "bento-status.png")
+# Card 3 — "Built-in CRM" — promoted to col-span-2 (wide) so we can
+# show the full table context: Channel + YT + Email + Status pills.
+# Skip the customize/manually-add row at top, start at table header,
+# show 4 rows of complete CRM data.
+crop("outreach.png", (130, 270, 2270, 700), "bento-status.png")
 
-# Card 4 — "Smart follow-up cadence" (wide, col-span-2)
-# Skip the priority KPI cards (which Dylan said look analytics-y) and
-# focus on the LEADS LIST below them — the "🔥 High priority" header
-# plus 4 leads with their "6D LATE" red badges and purple "Followed
-# up" buttons. THAT is the cadence-system signal.
-crop("followups.png", (0, 470, 2810, 760), "bento-priority.png")
+# Card 4 — "Smart follow-up cadence" — demoted to col-span-1 (narrow).
+# Crop the LEFT half of leads list (avatar + name + meta) for 5 leads.
+# Source is 2810x1234, so y=530 + h=700 = 1230 keeps us in-bounds —
+# previously had h=900 which extended past the image and rendered as
+# a big white block at the bottom of the visual.
+# Badges/buttons live on the right edge so they don't survive a
+# narrow-column crop; the cadence concept comes through via the
+# "First follow-up · X touches · reached Yd ago" meta lines.
+crop("followups.png", (0, 530, 1500, 700), "bento-priority.png")
 
-# Card 5 — "Analytics + custom metrics" (full-width, col-span-3)
-# KPI cards row + status breakdown bar.
-crop("analytics.png", (0, 240, 2822, 720), "bento-analytics.png")
+# Card 5 — "Analytics + custom metrics" (col-span-3) — zoom in on
+# KPI cards + status breakdown only. Skip the velocity/medium row
+# at the bottom which clutters at small card size.
+crop("analytics.png", (0, 240, 2822, 600), "bento-analytics.png")

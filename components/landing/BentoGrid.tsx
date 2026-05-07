@@ -118,23 +118,27 @@ export function ScoringVisual() {
   return <CropImage src="/screenshots/bento-fit.png" alt="AI fit scoring chips" className="aspect-[870/940]" />
 }
 
-// 3 — Built-in CRM · right-side columns of the real Outreach table
-// (Product / Reached / Status / Medium). The Status pill column with
-// Successful / Open / Rejected gives full CRM context, not isolated
-// cells like the previous tighter crop.
+// 3 — Built-in CRM (col-span-2 wide) · full Outreach table strip
+// showing Channel + YT + Email + Description + Product + Reached
+// (pink ✓) + Status pills + Medium. Real CRM context, not isolated
+// cells. The wide layout finally has horizontal room for everything.
 export function CrmVisual() {
-  return <CropImage src="/screenshots/bento-status.png" alt="CRM table with status pills" className="aspect-[1110/700]" />
+  return <CropImage src="/screenshots/bento-status.png" alt="CRM table — channel, email, status, medium" className="aspect-[2270/700]" />
 }
 
-// 4 — Smart follow-up cadence · the leads list from Follow-ups page.
-// Skipped the priority KPI cards (which read as analytics) and
-// focused on the rows showing "6D LATE" red badges + purple
-// "Followed up" buttons — the actual cadence-system signal.
+// 4 — Smart follow-up cadence (col-span-1 narrow) · vertical stack
+// of 5 leads from the Follow-ups page. Avatar + name + "First
+// follow-up · X touches · reached Yd ago" meta is the cadence
+// signal at narrow width. (LATE badges + Followed-up buttons live
+// on the right edge of the source and don't survive the narrow
+// crop — covered in the description text instead.)
 export function CadenceVisual() {
-  return <CropImage src="/screenshots/bento-priority.png" alt="Follow-up leads with late badges" className="aspect-[2810/760]" />
+  return <CropImage src="/screenshots/bento-priority.png" alt="Follow-up leads with reach-ago meta" className="aspect-[1500/700]" />
 }
 
-// 5 — Analytics + custom metrics · KPI cards + status breakdown
+// 5 — Analytics + custom metrics · KPI cards row + status breakdown
+// bar (skips the velocity / by-medium row that clutters at small
+// card scale). Aspect matches the new 2822×600 source crop.
 export function AnalyticsVisual() {
-  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard" className="aspect-[2822/720]" />
+  return <CropImage src="/screenshots/bento-analytics.png" alt="Analytics dashboard — KPIs + status breakdown" className="aspect-[2822/600]" />
 }

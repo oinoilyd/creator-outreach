@@ -40,14 +40,14 @@ export default async function LandingPage() {
         <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-muted-foreground mb-7">
             <Sparkles className="w-3.5 h-3.5 text-brand" />
-            <span>Creator outreach, end to end</span>
+            <span>The creator outreach OS</span>
           </div>
           <TextGenerateEffect
-            words="Find them. Score them. Pitch them. Close them."
+            words="Outreach that actually closes."
             className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-foreground via-foreground to-brand bg-clip-text text-transparent leading-[1.05]"
           />
-          <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto mb-9 leading-relaxed">
-            Find creators across YouTube, Instagram, TikTok and more. Score them by fit, and run your whole outreach pipeline — without the spreadsheet circus.
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-9 leading-relaxed">
+            Find creators that fit. Score them in plain English. Run the whole pipeline — discovery, pitch, follow-ups, analytics — without the spreadsheet circus.
           </p>
           <div className="flex items-center justify-center gap-3">
             <span className="relative inline-block rounded-lg overflow-hidden">
@@ -129,14 +129,14 @@ export default async function LandingPage() {
               delay={0.1}
             />
             <BentoCard
+              className="md:col-span-2"
               title="Built-in CRM"
-              description="Track every outreach, status, response, and follow-up. Replace your spreadsheet."
+              description="Track every outreach, status, response, and follow-up. Channel, email, and status pills in one row — replace your spreadsheet."
               icon={<KanbanSquare className="w-3.5 h-3.5" />}
               visual={<CrmVisual />}
               delay={0.15}
             />
             <BentoCard
-              className="md:col-span-2"
               title="Smart follow-up cadence"
               description="When you reach out, the system schedules the next ping — 3d, 7d, 14d, then 21d. Your queue stays sharp without you babysitting it."
               icon={<MailPlus className="w-3.5 h-3.5" />}

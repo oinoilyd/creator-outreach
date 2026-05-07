@@ -46,7 +46,11 @@ const VIEWS: { id: View; label: string; sub: string; src: string; Icon: typeof S
 ]
 
 export function AppPreview() {
-  const [idx, setIdx] = useState(1) // start on Outreach — strongest CRM visual
+  // Default to the first tab (Results). Dylan's note: "default it to be
+  // at the top when loaded not the first visual" — landing on tab 0
+  // (Results) instead of tab 1 (Outreach) so the carousel reads
+  // top-to-bottom, left-to-right.
+  const [idx, setIdx] = useState(0)
   const [direction, setDirection] = useState<1 | -1>(1)
   const view = VIEWS[idx]
 
