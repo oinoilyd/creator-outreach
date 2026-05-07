@@ -563,5 +563,31 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ABSOLUTE FINAL SCRUB — same nuclear substring filter the admin
+  // email-test orchestrator uses. Any email whose lowercased form
+  // contains a known platform/infra/placeholder/DMARC substring gets
+  // nuked here, no matter what code path produced it. This is the
+  // belt-and-suspenders the user has been asking for: even if every
+  // upstream filter somehow misses a case, this catches it.
+  const NUCLEAR_SUBSTRINGS = [
+    'stanwith', 'stan.store',
+    'patreon.com', 'sentry.io',
+    'buymeacoffee', 'ko-fi', 'kofi',
+    'allmylinks', 'lnk.bio', 'bio.fm',
+    'beehiiv', 'substack', 'mailchimp',
+    'campsite.bio', 'about.me', 'msha.ke',
+    'gumroad', 'convertkit',
+    '@example.com', '@example.org', '@example.net',
+    '@yourdomain', '@yoursite', '@yourcompany',
+    'dmarc-reports@', 'aggregate@', 'forensic@', 'rua@', 'ruf@',
+  ]
+  if (email) {
+    const lc = email.toLowerCase()
+    if (NUCLEAR_SUBSTRINGS.some(s => lc.includes(s))) {
+      console.warn(`[enrich nuclear] dropping ${email}`)
+      email = ''
+    }
+  }
+
   return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials })
 }
