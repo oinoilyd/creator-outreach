@@ -36,9 +36,25 @@ const HARD_BLOCK_PATTERNS: RegExp[] = [
   /@gumroad\.com$/i,
 ]
 
+// Substring nuclear list — any email containing these anywhere in the
+// string gets dropped. Catches Unicode-escaped variants from JSON-encoded
+// JS source (u003efriends@stanwith.me etc.) and any future weirdness
+// where a normal regex domain check might not match exactly.
+const NUCLEAR_SUBSTRINGS = [
+  'stanwith', 'stan.store',
+  'patreon.com', 'sentry.io',
+  'buymeacoffee', 'ko-fi', 'kofi',
+  'allmylinks', 'lnk.bio', 'bio.fm',
+  'beehiiv', 'substack', 'mailchimp',
+  'campsite.bio', 'about.me', 'msha.ke',
+  'gumroad', 'convertkit',
+]
+
 function isBlockedEmail(email: string): boolean {
   if (!email) return true
   const lc = email.toLowerCase().trim()
+  // Nuclear: any email containing a known platform/infra string anywhere
+  if (NUCLEAR_SUBSTRINGS.some(s => lc.includes(s))) return true
   if (HARD_BLOCK_PATTERNS.some(re => re.test(lc))) return true
   if (!isPlausibleEmail(lc)) return true
   return false
