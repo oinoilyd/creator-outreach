@@ -566,9 +566,7 @@ export async function GET(req: NextRequest) {
   // ABSOLUTE FINAL SCRUB — same nuclear substring filter the admin
   // email-test orchestrator uses. Any email whose lowercased form
   // contains a known platform/infra/placeholder/DMARC substring gets
-  // nuked here, no matter what code path produced it. This is the
-  // belt-and-suspenders the user has been asking for: even if every
-  // upstream filter somehow misses a case, this catches it.
+  // nuked here, no matter what code path produced it.
   const NUCLEAR_SUBSTRINGS = [
     'stanwith', 'stan.store',
     'patreon.com', 'sentry.io',
@@ -583,10 +581,20 @@ export async function GET(req: NextRequest) {
   ]
   if (email) {
     const lc = email.toLowerCase()
-    if (NUCLEAR_SUBSTRINGS.some(s => lc.includes(s))) {
-      console.warn(`[enrich nuclear] dropping ${email}`)
+    const hit = NUCLEAR_SUBSTRINGS.find(s => lc.includes(s))
+    if (hit) {
+      console.warn(`[enrich nuclear] DROPPED email="${email}" (matched substring "${hit}") channelId=${channelId}`)
       email = ''
     }
+  }
+
+  // Forensic logging — this fires on every enrich call. If Dylan ever
+  // sees friends@stanwith.me again, search Vercel logs for the channel
+  // and we'll see whether the filter was reached + what email was
+  // ultimately returned.
+  console.log(`[enrich done] channelId=${channelId} email="${email}" allCandidates=${allEmails.length}`)
+  if (allEmails.some(e => /stanwith/i.test(e))) {
+    console.warn(`[enrich CANDIDATE LEAK] channelId=${channelId} candidates contained stanwith. Full list: ${JSON.stringify(allEmails)}`)
   }
 
   return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials })
