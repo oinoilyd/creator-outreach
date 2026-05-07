@@ -24,6 +24,7 @@ import { BorderBeam } from '@/components/BorderBeam'
 import { motion } from 'motion/react'
 import { CadencePopover, FollowedUpPopover } from '@/components/CadencePopover'
 import { InstagramCell } from '@/components/InstagramCell'
+import { useInstagramMetrics, formatFollowers } from '@/lib/hooks/useInstagramMetrics'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
   pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount, buildOutreachEmail,
@@ -40,7 +41,7 @@ import {
 } from '@/lib/scoring'
 import {
   ALL_OUTREACH_COLS, DEFAULT_OUTREACH_COLS, DEFAULT_COLS,
-  YOUTUBE_ONLY_COL_IDS, COL_SORT,
+  YOUTUBE_ONLY_COL_IDS, COL_SORT, PLATFORM_AUTOSHOW_COLS,
 } from '@/lib/columns'
 import { PLATFORM_CONFIGS, PLATFORM_LOCK_ID } from '@/lib/platform'
 import { REGIONS } from '@/lib/regions'
@@ -490,7 +491,50 @@ function renderCell(
     )
     case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
     case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'igFollowers': return <td key={id} className="px-4 py-3 text-xs tabular-nums"><InstagramMetricCell instagramUrl={c.instagram} field="followers" /></td>
+    case 'igPosts':     return <td key={id} className="px-4 py-3 text-xs tabular-nums"><InstagramMetricCell instagramUrl={c.instagram} field="posts" /></td>
   }
+}
+
+/**
+ * Tiny render-only cell for IG-API-derived metric columns (followers,
+ * posts). Reuses the same useInstagramMetrics polling hook the
+ * InstagramCell uses, so the network roundtrip dedupes per handle.
+ *
+ * States:
+ *   - no IG handle on the row     →  '—'
+ *   - polling                     →  spinner dot
+ *   - ready                       →  formatted number (1.2M / 538K)
+ *   - unavailable / unconfigured  →  '—' with tooltip explaining why
+ */
+function InstagramMetricCell({ instagramUrl, field }: { instagramUrl: string; field: 'followers' | 'posts' }) {
+  const status = useInstagramMetrics(instagramUrl || undefined)
+
+  if (!instagramUrl) {
+    return <span className="text-muted-foreground/40">—</span>
+  }
+  if (status.status === 'pending' || status.status === 'idle') {
+    return <span className="text-muted-foreground/40 animate-pulse">⋯</span>
+  }
+  if (status.status === 'ready') {
+    const m = status.metrics as { followers?: number; mediaCount?: number; posts?: number }
+    const value = field === 'followers' ? m.followers : (m.posts ?? m.mediaCount)
+    if (value == null) return <span className="text-muted-foreground/40">—</span>
+    return (
+      <span title={`${(value).toLocaleString()} ${field}`}>
+        {formatFollowers(value)}
+      </span>
+    )
+  }
+  // unavailable / timeout / unconfigured / invalid_handle
+  const reason =
+    status.status === 'unavailable' ? (status as any).reason
+    : status.status === 'unconfigured' ? 'Meta Graph API not configured yet'
+    : status.status === 'timeout' ? 'IG metrics lookup timed out'
+    : 'IG metrics unavailable'
+  return (
+    <span className="text-muted-foreground/40" title={reason}>—</span>
+  )
 }
 
 // Follow-up date cell — shows a colored urgency pill and opens a popover
@@ -2320,12 +2364,24 @@ export default function Home() {
   // Effective col config: bring the platform's column to the front and ensure it's visible
   const effectiveColConfig = useMemo(() => {
     const isYouTube = platformConfig.id === 'youtube'
+    // Per-platform metric columns to auto-show — IG today, more later
+    // (TikTok / Twitter / LinkedIn would slot in here when we wire
+    // those data sources). Comes from PLATFORM_AUTOSHOW_COLS in
+    // lib/columns.ts so the platform-data plumbing stays in one
+    // place.
+    const autoShow = PLATFORM_AUTOSHOW_COLS[platformConfig.id] ?? []
+
     // For non-YouTube platforms: hide YouTube-only metrics, show & front-load the platform column
     let cols = colConfig.map(c => {
       if (!isYouTube && (c.id === 'avgViews' || c.id === 'subscribers' || c.id === 'lastVideo' || c.id === 'lastShort')) {
         return { ...c, visible: false }
       }
       if (platformConfig.column && c.id === platformConfig.column) {
+        return { ...c, visible: true }
+      }
+      // Platform-specific auto-show columns (e.g. IG followers + posts
+      // when activePlatform === 'instagram').
+      if (autoShow.includes(c.id)) {
         return { ...c, visible: true }
       }
       return c
@@ -2336,6 +2392,21 @@ export default function Home() {
         const [moved] = cols.splice(idx, 1)
         cols.unshift(moved)
       }
+    }
+    // Move the auto-show metric columns right after the platform
+    // column so the user sees them next to the handle they came from.
+    if (autoShow.length > 0) {
+      const insertAfter = cols.findIndex(c => c.id === platformConfig.column)
+      const target = insertAfter >= 0 ? insertAfter + 1 : 0
+      const moved: ColConfig[] = []
+      for (const id of autoShow) {
+        const idx = cols.findIndex(c => c.id === id)
+        if (idx >= 0 && idx !== target + moved.length) {
+          const [m] = cols.splice(idx, 1)
+          moved.push(m)
+        }
+      }
+      cols.splice(target, 0, ...moved)
     }
     return cols
   }, [colConfig, platformConfig])

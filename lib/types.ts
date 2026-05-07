@@ -23,6 +23,9 @@ export type SortCol =
   | 'channelName' | 'avgViews' | 'subscribers' | 'lastVideo' | 'lastShort'
   | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
   | 'fitScore'
+  // Instagram-API-derived metrics. Sortable columns the user can
+  // surface via Customize Columns or auto-shown when filtering by IG.
+  | 'igFollowers' | 'igPosts'
 export type SortDir = 'asc' | 'desc'
 
 /**
@@ -37,6 +40,7 @@ export type ColId =
   | 'avgViews' | 'subscribers' | 'lastVideo' | 'lastShort'
   | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok'
   | 'fitScore'
+  | 'igFollowers' | 'igPosts'
 export type ActiveTab = 'results' | 'outreach' | 'dismissed'
 
 export interface ScoreWeights {

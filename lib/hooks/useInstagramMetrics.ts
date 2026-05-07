@@ -26,15 +26,21 @@ import { useEffect, useState, useRef } from 'react'
 export interface InstagramMetricsLite {
   username: string
   followers: number
-  follows: number
-  mediaCount: number
-  biography: string
-  website: string
-  profilePictureUrl: string
-  name: string
-  avgLikesPerPost: number
-  engagementRate: number
-  fetchedAt: string
+  // Source-dependent fields. Meta Graph API returns mediaCount +
+  // engagement metrics; the public-page scrape fallback returns
+  // posts (no engagement data). Either source populates `posts`
+  // for caller convenience.
+  follows?: number
+  mediaCount?: number
+  posts?: number
+  biography?: string
+  website?: string
+  profilePictureUrl?: string
+  name?: string
+  avgLikesPerPost?: number
+  engagementRate?: number
+  source?: string                  // 'meta_graph' | 'instagram_public_scrape'
+  fetchedAt?: string
 }
 
 export type InstagramStatus =

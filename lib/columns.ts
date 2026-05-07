@@ -54,11 +54,28 @@ export const DEFAULT_COLS: ColConfig[] = [
   // into the search results immediately so users see it before
   // adding to outreach.
   { id: 'instagram',   label: 'Instagram',   visible: true  },
+  // Instagram-derived metrics — defaults OFF (the Instagram column
+  // already gives you the DM link). They auto-show when the user
+  // flips the platform filter to Instagram (per platform config in
+  // app/page.tsx) and are always available via Customize Columns.
+  { id: 'igFollowers', label: 'IG Followers',visible: false },
+  { id: 'igPosts',     label: 'IG Posts',    visible: false },
   { id: 'twitter',     label: 'X',           visible: false },
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 
 export const YOUTUBE_ONLY_COL_IDS: ColId[] = ['avgViews', 'subscribers', 'lastVideo', 'lastShort']
+
+/** Columns that are surfaced ONLY when the platform filter is set to
+ *  the matching channel. The platform-tab change handler in
+ *  app/page.tsx flips these visible / hidden as the active platform
+ *  changes, so the user doesn't have to dig into Customize Columns
+ *  to see followers when they pick Instagram. */
+export const PLATFORM_AUTOSHOW_COLS: Record<string, ColId[]> = {
+  instagram: ['igFollowers', 'igPosts'],
+  // Future: tiktok / twitter / linkedin metric columns when we wire
+  // those data sources too.
+}
 
 // Non-Partial Record so TypeScript compile-fails when a new ColId is
 // added without a sort mapping. Guarantees every column header — both
@@ -68,4 +85,5 @@ export const COL_SORT: Record<ColId, SortCol> = {
   lastVideo: 'lastVideo', lastShort: 'lastShort',
   email: 'email', linkedin: 'linkedin', website: 'website',
   instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
+  igFollowers: 'igFollowers', igPosts: 'igPosts',
 }

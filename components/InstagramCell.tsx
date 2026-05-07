@@ -92,14 +92,23 @@ function InstagramMetricsBadge({ status }: { status: ReturnType<typeof useInstag
 
   if (status.status === 'ready') {
     const m = status.metrics
+    // ER may be undefined when the source is the public-page scrape
+    // (no per-post engagement data without Meta Graph API).
+    const erText = typeof m.engagementRate === 'number'
+      ? formatEngagementRate(m.engagementRate)
+      : null
     return (
       <span
-        title={`@${m.username} · ${m.followers.toLocaleString()} followers · ${formatEngagementRate(m.engagementRate)} engagement`}
+        title={`@${m.username} · ${m.followers.toLocaleString()} followers${erText ? ` · ${erText} engagement` : ''}`}
         className="text-[10px] text-muted-foreground tabular-nums"
       >
         {formatFollowers(m.followers)}
-        <span className="opacity-50 mx-0.5">·</span>
-        {formatEngagementRate(m.engagementRate)}
+        {erText && (
+          <>
+            <span className="opacity-50 mx-0.5">·</span>
+            {erText}
+          </>
+        )}
       </span>
     )
   }
