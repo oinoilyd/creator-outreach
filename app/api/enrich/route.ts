@@ -3,6 +3,7 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
+import { newMethodology, isPlausibleEmail } from '@/lib/newMethodology'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -499,7 +500,45 @@ export async function GET(req: NextRequest) {
   const wantGuess = isEnabled('domain_guess') && (strategyParam != null || aggressive)
   const guessEmails = wantGuess ? await fromDomainGuesses(website, realEmails).catch(() => []) : []
   const allEmails = [...realEmails, ...guessEmails]
-  const email = bestEmail(allEmails)
+  let email = bestEmail(allEmails)
+
+  // Filter out platform-infra junk that the production primary pipeline
+  // doesn't have native awareness of (stanwith.me, sentry.io, etc.).
+  if (email && !isPlausibleEmail(email.toLowerCase())) {
+    email = ''
+  }
+
+  // NEW METHODOLOGY FALLBACK — fires when primary came up empty.
+  // Recent video descriptions, sitemap discovery, JSON-LD parsing,
+  // creator-platform profiles, alternate TLD probing, cert transparency,
+  // multi-snapshot Wayback, AI text extraction, AI vision on banner.
+  // Each method is timeout-bounded so this is safe to run inline.
+  //
+  // Skipped when the admin benchmark passes a strategy that doesn't
+  // include 'new_methodology' — that's how the benchmark's "current
+  // methodology" baseline stays a fair comparison.
+  const wantsFallback = strategyParam == null
+    || strategyParam.split(',').map(s => s.trim()).includes('new_methodology')
+
+  if (!email && wantsFallback) {
+    try {
+      const nm = await newMethodology({
+        channelId,
+        channelName,
+        description,
+        website,
+        instagram: socials.instagram,
+        twitter: socials.twitter,
+        tiktok: socials.tiktok,
+        linkedin: socials.linkedin,
+      })
+      if (nm.email && isPlausibleEmail(nm.email)) {
+        email = nm.email
+      }
+    } catch (e) {
+      console.error('[enrich] new-methodology fallback failed:', (e as Error).message)
+    }
+  }
 
   return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, avgViews, ...socials })
 }
