@@ -20,6 +20,12 @@ export const ALL_OUTREACH_COLS: OutreachColDef[] = [
   { id: 'avgViews',        label: 'Avg Views',         defaultVisible: false, defaultWidth: 110, tooltip: 'Average views per video.' },
   { id: 'fitScore',        label: 'Fit Score',         defaultVisible: false, defaultWidth: 100, tooltip: 'Lead-fit score from your scoring weights when this creator was added.' },
   { id: 'linkedin',        label: 'LinkedIn',          defaultVisible: false, defaultWidth: 100, tooltip: 'LinkedIn profile URL for the creator.' },
+  // Instagram defaults VISIBLE — Dylan: "Instagram has such a large
+  // success rate, default a column to include Instagram." Existing
+  // users pick this up automatically because the merge logic in
+  // app/page.tsx falls back to defaultVisible when a column isn't
+  // present in their stored config.
+  { id: 'instagram',       label: 'Instagram',         defaultVisible: true,  defaultWidth: 130, tooltip: 'Creator\'s Instagram handle. Click to open the profile in a new tab — DM templating coming soon.' },
   { id: 'contentNiche',    label: 'Content Niche',     defaultVisible: false, defaultWidth: 130, tooltip: 'Content niche or category, free-form.' },
   { id: 'phone',           label: 'Phone',             defaultVisible: false, defaultWidth: 130, tooltip: 'Phone number if you have one.' },
   { id: 'dealValue',       label: 'Pipeline $',        defaultVisible: true,  defaultWidth: 110, tooltip: 'Estimated $ value of this deal. Summed in Analytics → Pipeline $ across non-rejected entries.' },
@@ -43,7 +49,11 @@ export const DEFAULT_COLS: ColConfig[] = [
   { id: 'email',       label: 'Email',       visible: true  },
   { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
   { id: 'website',     label: 'Website',     visible: false },
-  { id: 'instagram',   label: 'Instagram',   visible: false },
+  // Instagram defaults VISIBLE in the Results table too — same
+  // reasoning as the Outreach default above. Drives the IG handle
+  // into the search results immediately so users see it before
+  // adding to outreach.
+  { id: 'instagram',   label: 'Instagram',   visible: true  },
   { id: 'twitter',     label: 'X',           visible: false },
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
