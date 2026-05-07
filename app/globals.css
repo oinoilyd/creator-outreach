@@ -10,39 +10,42 @@
    automatically when the .dark class flips. */
 
 :root {
-  /* page bg + primary text — every neutral carries a violet whisper
-     (chroma ~0.015 at hue 290) so the light theme feels designed, not
-     stock. Pure white was too clinical. */
-  --background: oklch(0.985 0.012 290);
-  --foreground: oklch(0.20 0.025 280);
+  /* Light theme with intentional COLOR — neutrals carry meaningful
+     violet/indigo undertones (chroma ~0.025 at hue 285) and the page
+     is slightly darker than pure white so cards visibly elevate. The
+     palette is "tinted lavender on warm slate" rather than greyscale.
+     Inspired by Linear / Stripe / Vercel light surfaces. */
+  --background: oklch(0.965 0.020 285);
+  --foreground: oklch(0.18 0.045 275);
 
-  /* elevated surfaces — pure white cards pop against the tinted bg */
+  /* elevated surfaces — pure white cards pop against tinted bg */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.025 280);
+  --card-foreground: oklch(0.18 0.045 275);
 
-  /* secondary surface (table headers, sub-panels) — slightly more violet */
-  --muted: oklch(0.965 0.018 290);
-  --muted-foreground: oklch(0.48 0.04 285);
+  /* secondary surface (table headers, sub-panels) — clearly visible
+     against bg without being heavy */
+  --muted: oklch(0.92 0.030 285);
+  --muted-foreground: oklch(0.42 0.060 280);
 
-  /* hover / interactive accent */
-  --accent: oklch(0.95 0.025 290);
-  --accent-foreground: oklch(0.20 0.025 280);
+  /* hover / interactive accent — saturated violet wash */
+  --accent: oklch(0.91 0.045 290);
+  --accent-foreground: oklch(0.18 0.045 275);
 
-  /* primary CTA — deep saturated violet, not boring black */
-  --primary: oklch(0.45 0.22 295);
+  /* primary CTA — deep saturated brand violet */
+  --primary: oklch(0.42 0.245 290);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* borders + dividers — violet-tinted, not warm gray */
-  --border: oklch(0.91 0.018 290);
-  --input: oklch(0.91 0.018 290);
-  --ring: oklch(0.62 0.20 295);
+  /* borders + dividers — visibly tinted, not invisible */
+  --border: oklch(0.85 0.035 285);
+  --input: oklch(0.85 0.035 285);
+  --ring: oklch(0.58 0.22 290);
 
   /* destructive */
-  --destructive: oklch(0.62 0.21 22);
+  --destructive: oklch(0.58 0.23 22);
   --destructive-foreground: oklch(0.99 0 0);
 
   /* brand purple */
-  --brand: oklch(0.55 0.22 295);
+  --brand: oklch(0.52 0.235 290);
   --brand-foreground: oklch(0.99 0 0);
 }
 
@@ -112,23 +115,23 @@ html {
   overscroll-behavior-x: none;
 }
 
-/* Light-mode designer canvas: violet/blue/pink radial washes that
-   slowly drift, giving the page ambient depth without distracting
-   from content. Three blobs at different speeds + slight position
-   shifts create a subtle aurora. */
+/* Light-mode designer canvas: violet/blue/pink/peach radial washes
+   with intentional saturation, slowly drifting. Adds real color to
+   the page without overwhelming content. Inspired by Linear's hero
+   gradient + Stripe's drifting backdrops. */
 :root body::before {
   content: '';
   position: fixed;
   inset: -10%;
   z-index: -1;
   background:
-    radial-gradient(ellipse 60% 50% at 12% 8%,  oklch(0.88 0.14 295 / 0.65), transparent 62%),
-    radial-gradient(ellipse 55% 45% at 92% 92%, oklch(0.90 0.13 250 / 0.55), transparent 62%),
-    radial-gradient(ellipse 45% 40% at 55% 95%, oklch(0.92 0.12 330 / 0.45), transparent 65%),
-    radial-gradient(ellipse 40% 35% at 85% 18%, oklch(0.93 0.10 280 / 0.40), transparent 65%);
+    radial-gradient(ellipse 60% 50% at 12% 8%,  oklch(0.84 0.18 295 / 0.75), transparent 62%),
+    radial-gradient(ellipse 55% 45% at 92% 92%, oklch(0.86 0.17 245 / 0.65), transparent 62%),
+    radial-gradient(ellipse 45% 40% at 55% 95%, oklch(0.89 0.16 330 / 0.55), transparent 65%),
+    radial-gradient(ellipse 40% 35% at 85% 18%, oklch(0.91 0.14 30 / 0.45), transparent 65%);
   pointer-events: none;
   animation: aurora-drift 32s ease-in-out infinite alternate;
-  filter: blur(8px);
+  filter: blur(6px);
 }
 .dark body::before {
   display: none;
