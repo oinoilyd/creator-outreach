@@ -9,6 +9,8 @@ Three skill bundles are installed at `~/.claude/skills/`:
 - **superpowers** (`obra/superpowers`) — methodology: `writing-plans`, `executing-plans`, `verification-before-completion`, `systematic-debugging`, `brainstorming`, `subagent-driven-development`.
 - **ui-ux-pro-max** (`nextlevelbuilder/ui-ux-pro-max-skill`) — design intelligence: 67 UI styles, 161 palettes, 57 font pairings, 99 UX guidelines, 8 landing-page archetypes, pre-delivery validation checklist (375px → 1440px breakpoints, contrast, focus, hover).
 - **everything-claude-code** (`affaan-m/everything-claude-code`) — 68 slash commands, 48 agents, TypeScript/JS rules under `~/.claude/rules/ecc/`, MCP configs (Vercel, Supabase, GitHub) at `/tmp/everything-claude-code/mcp-configs/mcp-servers.json` (not yet wired with API keys).
+- **taste-skill** (`Leonxlnx/taste-skill`) — anti-slop frontend skills (12 skills): `taste-skill`, `redesign-skill`, `minimalist-skill`, `soft-skill`, `brutalist-skill`, `brandkit`, `stitch-skill`, `image-to-code-skill`, `imagegen-frontend-web`, `imagegen-frontend-mobile`, `gpt-tasteskill`, `output-skill`. Use when refining typography, layout, motion quality on premium frontends; use `redesign-skill` for full-page redesigns.
+- **emil-design-eng** (`emilkowalski/skill`) — Emil Kowalski's design engineering skill. Use for high-craft motion details, hover states, animation timing curves, micro-interactions on the level of vercel.com / emilkowal.ski.
 
 **Mandatory order on any landing/UI change:**
 
