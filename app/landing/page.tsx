@@ -6,7 +6,6 @@ import { AppPreview } from '@/components/landing/AppPreview'
 import { LandingNav } from '@/components/landing/LandingNav'
 import { ContactForm } from '@/components/landing/ContactForm'
 import { FAQ } from '@/components/landing/FAQ'
-import { StatsStrip } from '@/components/landing/StatsStrip'
 import { HowItWorks } from '@/components/landing/HowItWorks'
 import {
   BentoGrid, BentoCard,
@@ -70,13 +69,6 @@ export default async function LandingPage() {
       {/* App preview */}
       <section className="relative px-6 -mt-8 md:-mt-4 mb-16 md:mb-20 z-10">
         <AppPreview />
-      </section>
-
-      {/* Stats strip */}
-      <section className="relative px-6 mb-20 md:mb-28 z-10">
-        <div className="max-w-4xl mx-auto">
-          <StatsStrip />
-        </div>
       </section>
 
       {/* How it works */}
