@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Innertube } from 'youtubei.js'
+import { cacheGet, cacheSet, searchCacheKey, CACHE_TTL } from '@/lib/cache'
 import { clampString, clampInt } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 
@@ -885,6 +886,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'keyword or keywords is required' }, { status: 400 })
   }
 
+  // ── Backend cache check ─────────────────────────────────────────
+  // Repeat searches for the same query+filters within 24h get served
+  // from Redis instead of re-running the 30+ youtubei.js queries.
+  // Key includes ALL query-affecting params so cache stays correct
+  // when the user changes filters.
+  const cacheKey = searchCacheKey(keyword || keywordsParam || '', {
+    keywordsParam,
+    maxResults,
+    minViews,
+    maxViews,
+    gl,
+  })
+  const cached = await cacheGet<{ channels: unknown[]; expandedQueries: string[] }>(cacheKey)
+  if (cached) {
+    return NextResponse.json(cached)
+  }
+  // ───────────────────────────────────────────────────────────────
+
   // Niche / multi-keyword path: take the comma-separated list as-is,
   // skip TOPIC_MAP expansion (the niche bucket already enumerated the
   // specific occupations the user wants), and use the joined string
@@ -966,7 +985,11 @@ export async function GET(req: NextRequest) {
     }
 
     channels.sort((a, b) => b.relevanceScore - a.relevanceScore)
-    return NextResponse.json({ channels, expandedQueries: queries })
+    const payload = { channels, expandedQueries: queries }
+    // Fire-and-forget: cache the response for repeat queries within
+    // the next 24h. Doesn't block the return.
+    void cacheSet(cacheKey, payload, CACHE_TTL.searchResults)
+    return NextResponse.json(payload)
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

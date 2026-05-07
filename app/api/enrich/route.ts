@@ -3,6 +3,7 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
+import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL } from '@/lib/cache'
 import { newMethodology, isPlausibleEmail } from '@/lib/newMethodology'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -464,6 +465,24 @@ export async function GET(req: NextRequest) {
     return strategyParam.split(',').map(s => s.trim()).includes(key)
   }
 
+  // ── Backend cache check ─────────────────────────────────────────
+  // Skip the cache when:
+  //   1. strategyParam is set — admin email-test harness needs fresh
+  //      runs to compare strategy variants
+  //   2. aggressive=true — user explicitly opted into the slow deep
+  //      search and expects fresh results
+  // Otherwise, cache by channelId for 7 days. The supplied hints
+  // (website/instagram/tiktok/description/niche) are best-effort
+  // input that nudge discovery; the channelId is the canonical key.
+  const skipCache = strategyParam != null || aggressive
+  if (!skipCache) {
+    const cached = await cacheGet<unknown>(enrichmentCacheKey(channelId))
+    if (cached) {
+      return NextResponse.json(cached)
+    }
+  }
+  // ───────────────────────────────────────────────────────────────
+
   const descEmails = extractEmails(description)
 
   // Phase 1: About page — discovers description emails, all social/website
@@ -597,5 +616,12 @@ export async function GET(req: NextRequest) {
     console.warn(`[enrich CANDIDATE LEAK] channelId=${channelId} candidates contained stanwith. Full list: ${JSON.stringify(allEmails)}`)
   }
 
-  return NextResponse.json({ email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials })
+  const payload = { email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials }
+  // Fire-and-forget cache write. Skip when strategy/aggressive paths
+  // ran (per skipCache check above) — those want fresh data each
+  // time and shouldn't poison the cache for normal flows.
+  if (!skipCache) {
+    void cacheSet(enrichmentCacheKey(channelId), payload, CACHE_TTL.creatorEnrichment)
+  }
+  return NextResponse.json(payload)
 }
