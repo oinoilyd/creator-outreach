@@ -24,8 +24,135 @@ export const VIEW_PRESETS = [
   { label: '0 – 10K', min: 0, max: 10000 },
   { label: '10K – 50K', min: 10000, max: 50000 },
   { label: '50K – 200K', min: 50000, max: 200000 },
-  { label: '0 – 200K', min: 0, max: 200000 },
-  { label: '0 – 500K', min: 0, max: 500000 },
+  { label: '200K – 1M', min: 200_000, max: 1_000_000 },
+  { label: '1M – 5M', min: 1_000_000, max: 5_000_000 },
+  { label: '5M+', min: 5_000_000, max: 0 },
+  { label: '0 – 500K', min: 0, max: 500_000 },
+  { label: 'Any', min: 0, max: 0 },
+]
+
+export const SUBSCRIBER_PRESETS = [
+  { label: '< 1K', min: 0, max: 1_000 },
+  { label: '1K – 10K', min: 1_000, max: 10_000 },
+  { label: '10K – 100K', min: 10_000, max: 100_000 },
+  { label: '100K – 500K', min: 100_000, max: 500_000 },
+  { label: '500K – 1M', min: 500_000, max: 1_000_000 },
+  { label: '1M – 5M', min: 1_000_000, max: 5_000_000 },
+  { label: '5M – 10M', min: 5_000_000, max: 10_000_000 },
+  { label: '10M+', min: 10_000_000, max: 0 },
+  { label: 'Any', min: 0, max: 0 },
+]
+
+// Niche → occupation buckets. Lets users add a whole category of related
+// search keywords in one click instead of picking them one-by-one.
+// Keep occupations only from ALL_OCCUPATIONS so chip-mode stays consistent.
+export const NICHE_BUCKETS: { id: string; label: string; emoji: string; occupations: string[] }[] = [
+  {
+    id: 'fitness_health',
+    label: 'Fitness & Health',
+    emoji: '💪',
+    occupations: [
+      'fitness coach', 'personal trainer', 'nutritionist', 'yoga instructor',
+      'CrossFit trainer', 'boxing coach', 'martial arts instructor',
+      'physical therapist', 'chiropractor', 'acupuncturist', 'wellness coach',
+      'mental health coach',
+    ],
+  },
+  {
+    id: 'finance_wealth',
+    label: 'Finance & Wealth',
+    emoji: '💰',
+    occupations: [
+      'financial advisor', 'stock trader', 'accountant', 'tax advisor',
+      'insurance agent', 'financial planner', 'wealth manager', 'estate planner',
+      'crypto trader', 'blockchain developer', 'NFT artist', 'DeFi expert',
+      'web3 founder',
+    ],
+  },
+  {
+    id: 'real_estate',
+    label: 'Real Estate',
+    emoji: '🏡',
+    occupations: ['real estate agent', 'mortgage broker', 'estate planner'],
+  },
+  {
+    id: 'tech_startups',
+    label: 'Tech & Startups',
+    emoji: '💻',
+    occupations: [
+      'software developer', 'UX designer', 'product manager', 'data scientist',
+      'cybersecurity expert', 'startup founder', 'venture capitalist',
+      'coding instructor',
+    ],
+  },
+  {
+    id: 'coaching',
+    label: 'Coaching & Self-Improvement',
+    emoji: '🎯',
+    occupations: [
+      'life coach', 'business coach', 'sales trainer', 'executive coach',
+      'career coach', 'public speaking coach', 'mindset coach',
+    ],
+  },
+  {
+    id: 'sports',
+    label: 'Sports',
+    emoji: '🏀',
+    occupations: [
+      'basketball coach', 'soccer coach', 'golf instructor', 'tennis coach',
+      'swimming coach', 'sports agent',
+    ],
+  },
+  {
+    id: 'creative_media',
+    label: 'Creative & Media',
+    emoji: '🎬',
+    occupations: [
+      'photographer', 'videographer', 'graphic designer', 'music producer',
+      'podcast host', 'social media manager', 'brand strategist', 'PR consultant',
+      'content creator', 'influencer', 'copywriter', 'marketing consultant',
+      'SEO expert',
+    ],
+  },
+  {
+    id: 'legal',
+    label: 'Legal',
+    emoji: '⚖️',
+    occupations: ['lawyer', 'divorce lawyer', 'immigration attorney'],
+  },
+  {
+    id: 'education',
+    label: 'Education',
+    emoji: '🎓',
+    occupations: [
+      'math tutor', 'language teacher', 'coding instructor', 'SAT prep tutor',
+      'homeschool educator',
+    ],
+  },
+  {
+    id: 'food',
+    label: 'Food & Hospitality',
+    emoji: '🍽️',
+    occupations: ['chef', 'baker', 'restaurant owner', 'food blogger', 'meal prep coach'],
+  },
+  {
+    id: 'home_building',
+    label: 'Home & Building',
+    emoji: '🛠️',
+    occupations: ['interior designer', 'architect', 'contractor', 'electrician', 'plumber'],
+  },
+  {
+    id: 'travel',
+    label: 'Travel & Lifestyle',
+    emoji: '✈️',
+    occupations: ['travel blogger', 'digital nomad', 'tour guide', 'travel agent', 'adventure coach'],
+  },
+  {
+    id: 'hr_recruiting',
+    label: 'HR & Recruiting',
+    emoji: '🧑‍💼',
+    occupations: ['HR consultant', 'executive recruiter'],
+  },
 ]
 
 export function pickRandom(arr: string[], n: number): string[] {

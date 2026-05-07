@@ -19,7 +19,7 @@ import { BorderBeam } from '@/components/BorderBeam'
 import { motion } from 'motion/react'
 import { CadencePopover, FollowedUpPopover } from '@/components/CadencePopover'
 import {
-  ALL_OCCUPATIONS, VIEW_PRESETS,
+  ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
   pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount, buildOutreachEmail,
 } from '@/lib/format'
 import {
@@ -1544,7 +1544,7 @@ function StackedBar({ segments, total }: { segments: { label: string; value: num
   )
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant, onOpenEntry }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -1558,6 +1558,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   bulkRunning: boolean
   profile: UserProfile | null
   emptyVariant?: 'all' | 'favorites'
+  onOpenEntry?: (id: string) => void
 }) {
   const visibleCols = colConfig.filter(c => c.visible)
   const [widths, setWidths] = useState<Record<string, number>>(() =>
@@ -1797,8 +1798,21 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                     {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
                   </td>
                 ))}
-                <td className="px-3 py-2 align-top" style={{ width: 36 }}>
-                  <button onClick={() => onRemove(e.id)} className="text-muted-foreground/50 hover:text-red-700 dark:text-red-400 transition-colors"><TrashIcon /></button>
+                <td className="px-3 py-2 align-top whitespace-nowrap" style={{ width: 60 }}>
+                  <div className="flex items-center gap-2">
+                    {onOpenEntry && (
+                      <button
+                        onClick={() => onOpenEntry(e.id)}
+                        className="text-muted-foreground/60 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                        title="Edit lead — open detail panel for full inline edits"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    )}
+                    <button onClick={() => onRemove(e.id)} className="text-muted-foreground/50 hover:text-red-700 dark:text-red-400 transition-colors" title="Remove from outreach"><TrashIcon /></button>
+                  </div>
                 </td>
               </AnimatedRow>
             ))}
@@ -1984,6 +1998,8 @@ export default function Home() {
   const [minSubs, setMinSubs] = useState(0)
   const [maxSubs, setMaxSubs] = useState(0) // 0 = no upper limit
   const [maxAgeDays, setMaxAgeDays] = useState<number>(Infinity)
+  // Niche filter for suggestions: null = all niches mixed.
+  const [selectedNiche, setSelectedNiche] = useState<string | null>(null)
   const [showFilter, setShowFilter] = useState(false)
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(false)
@@ -3147,11 +3163,15 @@ export default function Home() {
                 placeholder="Max" />
               <span className="text-muted-foreground/70 text-xs">|</span>
               {[
+                { label: '< 1K', min: 0, max: 1_000 },
+                { label: '1K – 10K', min: 1_000, max: 10_000 },
+                { label: '10K – 100K', min: 10_000, max: 100_000 },
+                { label: '100K – 500K', min: 100_000, max: 500_000 },
+                { label: '500K – 1M', min: 500_000, max: 1_000_000 },
+                { label: '1M – 5M', min: 1_000_000, max: 5_000_000 },
+                { label: '5M – 10M', min: 5_000_000, max: 10_000_000 },
+                { label: '10M+', min: 10_000_000, max: 0 },
                 { label: 'Any', min: 0, max: 0 },
-                { label: '1K–10K', min: 1_000, max: 10_000 },
-                { label: '10K–100K', min: 10_000, max: 100_000 },
-                { label: '100K–1M', min: 100_000, max: 1_000_000 },
-                { label: '1M+', min: 1_000_000, max: 0 },
               ].map(p => (
                 <button key={p.label} onClick={() => { setMinSubs(p.min); setMaxSubs(p.max) }}
                   className={`text-xs px-3 py-1 rounded border transition-colors ${minSubs === p.min && maxSubs === p.max ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}>
@@ -3247,7 +3267,7 @@ export default function Home() {
 
         {!loading && status && <p className="text-xs text-muted-foreground mb-4">{status}</p>}
 
-        {/* Suggestions bar */}
+        {/* Suggestions bar — niche filter on top, occupations below */}
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
             <button onClick={() => setShowSuggestions(v => !v)} className="text-xs text-muted-foreground hover:text-foreground/80 uppercase tracking-wide flex items-center gap-1 transition-colors">
@@ -3256,7 +3276,7 @@ export default function Home() {
               </svg>
               Suggested searches
             </button>
-            {showSuggestions && (
+            {showSuggestions && !selectedNiche && (
               <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} title="Shuffle suggestions" className="text-muted-foreground hover:text-foreground/80 border border-border rounded p-0.5 hover:border-border transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -3265,14 +3285,41 @@ export default function Home() {
             )}
           </div>
           {showSuggestions && (
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map(s => (
-                <button key={s} onClick={() => { setKeyword(s); runSearch(s) }}
-                  className="text-xs px-3 py-1.5 rounded-full bg-muted text-foreground/80 hover:bg-muted hover:text-foreground border border-border hover:border-border transition-colors">
-                  {s}
+            <>
+              {/* Niche filter row */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <button
+                  onClick={() => setSelectedNiche(null)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${selectedNiche == null ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+                >
+                  All niches
                 </button>
-              ))}
-            </div>
+                {NICHE_BUCKETS.map(n => (
+                  <button
+                    key={n.id}
+                    onClick={() => setSelectedNiche(prev => prev === n.id ? null : n.id)}
+                    title={`${n.occupations.length} occupations: ${n.occupations.slice(0, 4).join(', ')}${n.occupations.length > 4 ? '…' : ''}`}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors flex items-center gap-1 ${selectedNiche === n.id ? 'bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+                  >
+                    <span>{n.emoji}</span>
+                    <span>{n.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Occupations: filtered by niche if one is selected, otherwise random sample */}
+              <div className="flex flex-wrap gap-2">
+                {(selectedNiche
+                  ? (NICHE_BUCKETS.find(n => n.id === selectedNiche)?.occupations || [])
+                  : suggestions
+                ).map(s => (
+                  <button key={s} onClick={() => { setKeyword(s); runSearch(s) }}
+                    className="text-xs px-3 py-1.5 rounded-full bg-muted text-foreground/80 hover:bg-muted hover:text-foreground border border-border hover:border-border transition-colors">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
@@ -3599,6 +3646,7 @@ export default function Home() {
                 bulkRunning={outreachBulkRunning}
                 profile={profile}
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
+                onOpenEntry={(id: string) => setViewingLeadId(id)}
               />
             )}
           </>
