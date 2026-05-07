@@ -21,7 +21,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Cap local workers at 2 — `next dev` running under 5+ concurrent
+  // chromium contexts hits resource contention and tests start to
+  // hang/timeout (saw 8/13 fails on iter-3 push). 2 is the sweet spot.
+  workers: process.env.CI ? 1 : 2,
   reporter: process.env.CI ? [['html'], ['github']] : [['list']],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',

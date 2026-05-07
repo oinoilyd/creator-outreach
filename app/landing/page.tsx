@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3 } from 'lucide-react'
+import { Search, Sparkles, KanbanSquare, MailPlus, BarChart3, Globe } from 'lucide-react'
 import { Aurora } from '@/components/landing/Aurora'
 import { TextGenerateEffect } from '@/components/landing/TextGenerateEffect'
 import { AppPreview } from '@/components/landing/AppPreview'
@@ -10,7 +10,7 @@ import { HowItWorks } from '@/components/landing/HowItWorks'
 import { PlatformMarquee } from '@/components/landing/PlatformMarquee'
 import {
   BentoGrid, BentoCard,
-  SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual, CustomMetricsVisual,
+  SearchVisual, ScoringVisual, CrmVisual, CadenceVisual, AnalyticsVisual, CustomMetricsVisual, FiltersVisual,
 } from '@/components/landing/BentoGrid'
 import { Spotlight } from '@/components/ui/spotlight'
 import { Meteors } from '@/components/ui/meteors'
@@ -175,6 +175,14 @@ export default async function LandingPage() {
               icon={<BarChart3 className="w-3.5 h-3.5" />}
               visual={<CustomMetricsVisual />}
               delay={0.3}
+            />
+            <BentoCard
+              className="md:col-span-3"
+              title="Region-targeted, precision search"
+              description="Pin views, subscribers, last-posted, has-email, language, and 22 specific regions to focus your queue on the creators who fit your market — instead of dredging through global noise."
+              icon={<Globe className="w-3.5 h-3.5" />}
+              visual={<FiltersVisual />}
+              delay={0.35}
             />
           </BentoGrid>
         </div>

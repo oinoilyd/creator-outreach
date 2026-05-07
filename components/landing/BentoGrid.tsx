@@ -164,3 +164,11 @@ export function AnalyticsVisual() {
 export function CustomMetricsVisual() {
   return <CropImage src="/screenshots/customize-analytics.png" alt="Custom metrics builder modal" className="aspect-[752/1034]" />
 }
+
+// 7 — Region & precision filters · the expanded search filter panel
+// (Avg views, Subscribers, Last posted, Show only Has-email,
+// Region targeting with 22 country flags). Wide source 2782×722,
+// full-width col-span-3 treatment so country flags are legible.
+export function FiltersVisual() {
+  return <CropImage src="/screenshots/bento-filters.png" alt="Search filter panel — region targeting and precision filters" className="aspect-[2782/722]" />
+}
