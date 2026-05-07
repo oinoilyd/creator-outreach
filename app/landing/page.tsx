@@ -40,10 +40,19 @@ export default async function LandingPage() {
         <div className="relative z-10 max-w-5xl w-full mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs text-muted-foreground mb-7">
             <Sparkles className="w-3.5 h-3.5 text-brand" />
-            <span>The creator outreach OS</span>
+            <span>Creator outreach, end to end</span>
           </div>
+          {/*
+            Headline alternates committed for fast swap (Dylan's still
+            picking the final voice):
+              "From scattered leads to closed deals."
+              "Creator outreach, finally solved."
+              "Cold outreach that actually moves the needle."
+              "The last outreach tool you'll buy this year."
+              "Built for operators who run outreach for a living."
+          */}
           <TextGenerateEffect
-            words="Outreach that actually closes."
+            words="Stop burning leads in spreadsheets."
             className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-br from-foreground via-foreground to-brand bg-clip-text text-transparent leading-[1.05]"
           />
           <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-9 leading-relaxed">
