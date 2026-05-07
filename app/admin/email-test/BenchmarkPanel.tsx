@@ -3,9 +3,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-// Wide spread of occupations so the average isn't dominated by one
-// niche. Both buckets hit the same query so the comparison is fair.
-const BENCH_QUERIES = [
+// Default mix of occupations spanning B2B-leaning, creator-leaning, and
+// skill niches so the average isn't dominated by one type. Editable
+// from the UI — Dylan can swap any of these out for a different set
+// to verify the methodology across whatever occupations he's curious
+// about.
+const DEFAULT_QUERIES = [
   'real estate agent',
   'fitness coach',
   'tech founder',
@@ -18,7 +21,53 @@ const BENCH_QUERIES = [
   'graphic designer',
   'photographer',
   'travel blogger',
-] as const
+]
+
+// Curated presets so Dylan can flip between mixes without retyping.
+const QUERY_PRESETS: { id: string; label: string; queries: string[] }[] = [
+  {
+    id: 'default',
+    label: 'Default mix',
+    queries: DEFAULT_QUERIES,
+  },
+  {
+    id: 'b2b',
+    label: 'B2B-leaning',
+    queries: [
+      'real estate agent', 'mortgage broker', 'financial advisor',
+      'business coach', 'sales trainer', 'tech founder',
+      'recruiter', 'lawyer', 'accountant', 'marketing consultant',
+    ],
+  },
+  {
+    id: 'creator',
+    label: 'Creator-leaning',
+    queries: [
+      'lifestyle vlogger', 'beauty influencer', 'gaming creator',
+      'comedy creator', 'fashion influencer', 'food blogger',
+      'travel vlogger', 'mom blogger', 'fitness influencer',
+      'lifestyle creator',
+    ],
+  },
+  {
+    id: 'fitness',
+    label: 'Fitness niche',
+    queries: [
+      'fitness coach', 'personal trainer', 'yoga instructor',
+      'crossfit coach', 'powerlifting coach', 'nutritionist',
+      'wellness coach', 'physical therapist',
+    ],
+  },
+  {
+    id: 'tech',
+    label: 'Tech niche',
+    queries: [
+      'tech founder', 'software engineer', 'developer advocate',
+      'AI founder', 'SaaS founder', 'data scientist',
+      'cybersecurity expert', 'startup CEO',
+    ],
+  },
+]
 
 // Two buckets head-to-head: what the live site currently does for email
 // pulling vs what it would do with the new methodology layered on top.
@@ -81,11 +130,31 @@ export function BenchmarkPanel() {
   const [rows, setRows] = useState<QueryRow[]>([])
   const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [queries, setQueries] = useState<string[]>(DEFAULT_QUERIES)
+  const [queriesText, setQueriesText] = useState(DEFAULT_QUERIES.join('\n'))
+  const [editingQueries, setEditingQueries] = useState(false)
 
-  const totalRuns = BENCH_QUERIES.length * BENCH_BUCKETS.length
+  const totalRuns = queries.length * BENCH_BUCKETS.length
+
+  function applyQueriesText(raw: string) {
+    const parsed = raw
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 30) // hard cap to keep wall-clock manageable
+    setQueries(parsed)
+    setQueriesText(parsed.join('\n'))
+  }
+
+  function loadPreset(presetId: string) {
+    const preset = QUERY_PRESETS.find(p => p.id === presetId)
+    if (!preset) return
+    setQueries(preset.queries)
+    setQueriesText(preset.queries.join('\n'))
+  }
 
   function blankRows(): QueryRow[] {
-    return BENCH_QUERIES.map(q => ({
+    return queries.map(q => ({
       query: q,
       results: Object.fromEntries(BENCH_BUCKETS.map(b => [b.id, null])) as Record<BucketId, QueryRunSlot | null>,
     }))
@@ -151,8 +220,8 @@ export function BenchmarkPanel() {
     let completed = 0
 
     try {
-      for (let i = 0; i < BENCH_QUERIES.length; i++) {
-        const query = BENCH_QUERIES[i]
+      for (let i = 0; i < queries.length; i++) {
+        const query = queries[i]
         setProgress({
           done: completed,
           total: totalRuns,
@@ -238,18 +307,83 @@ export function BenchmarkPanel() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">🏁 Benchmark — Current methodology vs New methodology</h2>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-            {BENCH_QUERIES.length} occupation queries × {BENCH_BUCKETS.length} buckets ={' '}
+            {queries.length} occupation queries × {BENCH_BUCKETS.length} buckets ={' '}
             <strong>{totalRuns}</strong> test runs ({CREATORS_PER_QUERY} creators each).
             Current methodology = what the live site pulls today. New methodology = same pipeline + the new fallback layer. Both buckets fire in parallel per query so the comparison is apples-to-apples.
           </p>
         </div>
         <button
           onClick={runBenchmark}
-          disabled={running}
+          disabled={running || queries.length === 0}
           className="px-4 py-2 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-semibold transition-colors shadow-sm disabled:opacity-60 disabled:cursor-wait shrink-0"
         >
           {running ? 'Running…' : 'Run benchmark'}
         </button>
+      </div>
+
+      {/* Query editor — collapsed by default, expand to swap in different occupations */}
+      <div className="mb-4 rounded-lg border border-border bg-background/50">
+        <button
+          onClick={() => setEditingQueries(v => !v)}
+          className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-muted/30 transition-colors rounded-lg"
+        >
+          <div className="text-sm">
+            <span className="font-medium">Occupations</span>
+            <span className="text-muted-foreground ml-2">({queries.length})</span>
+          </div>
+          <div className="flex items-center gap-2 flex-1 min-w-0 ml-3">
+            <div className="text-[11px] text-muted-foreground truncate">
+              {queries.slice(0, 5).join(' · ')}
+              {queries.length > 5 && ` · +${queries.length - 5} more`}
+            </div>
+          </div>
+          <span className="text-muted-foreground text-xs shrink-0">{editingQueries ? '✕ close' : 'edit'}</span>
+        </button>
+
+        {editingQueries && (
+          <div className="px-4 pb-4 pt-1 space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {QUERY_PRESETS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => loadPreset(p.id)}
+                  className="text-[11px] px-2.5 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
+                >
+                  {p.label}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setQueries(DEFAULT_QUERIES)
+                  setQueriesText(DEFAULT_QUERIES.join('\n'))
+                }}
+                className="text-[11px] px-2.5 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
+              >
+                ↺ Reset
+              </button>
+            </div>
+
+            <textarea
+              value={queriesText}
+              onChange={e => setQueriesText(e.target.value)}
+              onBlur={() => applyQueriesText(queriesText)}
+              rows={Math.min(14, Math.max(6, queriesText.split('\n').length))}
+              spellCheck={false}
+              className="w-full px-3 py-2 rounded-lg bg-background border border-border focus:outline-none focus:border-purple-500 text-sm font-mono"
+              placeholder="One occupation per line, e.g. fitness coach"
+            />
+
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>One per line · max 30 · trailing whitespace ignored</span>
+              <button
+                onClick={() => applyQueriesText(queriesText)}
+                className="px-2 py-1 rounded border border-border hover:bg-muted/50 transition-colors"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {progress && (
@@ -302,11 +436,11 @@ export function BenchmarkPanel() {
                   <PlatformStat label="TikTok" rate={a.tiktokRate} count={a.totalTiktok} />
                   <PlatformStat label="Website" rate={a.websiteRate} count={a.totalWebsite} />
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-3">{a.runs}/{BENCH_QUERIES.length} queries complete</div>
+                <div className="text-[11px] text-muted-foreground mt-3">{a.runs}/{queries.length} queries complete</div>
               </div>
             )
           })}
-          {winner && winner.runs === BENCH_QUERIES.length && margin > 0 && !running && (
+          {winner && winner.runs === queries.length && margin > 0 && !running && (
             <div className="col-span-2 text-xs text-center text-muted-foreground">
               <strong className="text-emerald-700 dark:text-emerald-300">{winner.label}</strong> wins by {margin.toFixed(1)} points
             </div>
