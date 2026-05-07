@@ -161,10 +161,18 @@ export function BenchmarkPanel() {
   }
 
   async function runOne(query: string, bucket: typeof BENCH_BUCKETS[number], benchmarkId: string): Promise<QueryRunSlot> {
+    // Abort any single bucket-run that hangs longer than this. Without
+    // a client-side timeout, a Vercel function that exceeds its server
+    // timeout can leave the fetch pending forever, freezing the loop
+    // on the offending occupation.
+    const controller = new AbortController()
+    const abortTimer = setTimeout(() => controller.abort(), 120_000) // 2 min
+
     try {
       const resp = await fetch('/api/admin/email-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           query,
           max: CREATORS_PER_QUERY,
@@ -201,12 +209,18 @@ export function BenchmarkPanel() {
         })),
       }
     } catch (e) {
+      const err = e as Error
+      const message = err.name === 'AbortError'
+        ? 'timed out after 2 min'
+        : err.message
       return {
         bucketId: bucket.id,
         total: 0, withEmail: 0, hitRate: 0, tookMs: 0,
         roster: [],
-        error: (e as Error).message,
+        error: message,
       }
+    } finally {
+      clearTimeout(abortTimer)
     }
   }
 

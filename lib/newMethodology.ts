@@ -732,8 +732,20 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
   const handle = tokens[0] || ''
   const websiteDomain = input.website ? extractDomain(input.website) : ''
 
+  // Per-method timeout helper — if any single method hangs, it returns
+  // its empty default and the orchestrator continues. Without this, a
+  // slow crt.sh or wayback lookup can block the whole Promise.all and
+  // push the orchestrator past its Vercel function timeout.
+  const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+    ])
+
   // Run all the cheap sources in parallel — DNS, HTTP fetches, RSS,
-  // youtubei calls. ~13 methods firing simultaneously.
+  // youtubei calls. ~13 methods firing simultaneously, each with its
+  // own per-method timeout budget.
+  const empty: string[] = []
   const [
     videoDescs,
     sitemapHtmls,
@@ -747,20 +759,20 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
     dnsTxtEmails,
     substackPosts,
   ] = await Promise.all([
-    recentVideoDescriptions(input.channelId),
-    input.website ? fromSitemap(input.website) : Promise.resolve<string[]>([]),
-    fromCreatorPlatforms(input),
-    fromCommunityTab(input.channelId),
-    input.website ? fromCreatorWebsiteEnhanced(input.website) : Promise.resolve<string[]>([]),
-    fromPodcastFeed(input),
-    handle ? fromAlternateTlds(handle) : Promise.resolve<string[]>([]),
-    websiteDomain ? fromCertTransparency(websiteDomain) : Promise.resolve<string[]>([]),
-    websiteDomain ? fromMultiSnapshotWayback(websiteDomain) : Promise.resolve<string[]>([]),
+    withTimeout(recentVideoDescriptions(input.channelId), 12_000, empty),
+    input.website ? withTimeout(fromSitemap(input.website), 8_000, empty) : Promise.resolve(empty),
+    withTimeout(fromCreatorPlatforms(input), 10_000, empty),
+    withTimeout(fromCommunityTab(input.channelId), 8_000, empty),
+    input.website ? withTimeout(fromCreatorWebsiteEnhanced(input.website), 10_000, empty) : Promise.resolve(empty),
+    withTimeout(fromPodcastFeed(input), 8_000, empty),
+    handle ? withTimeout(fromAlternateTlds(handle), 6_000, empty) : Promise.resolve(empty),
+    websiteDomain ? withTimeout(fromCertTransparency(websiteDomain), 8_000, empty) : Promise.resolve(empty),
+    websiteDomain ? withTimeout(fromMultiSnapshotWayback(websiteDomain), 8_000, empty) : Promise.resolve(empty),
     // DNS TXT method disabled — returns ~100% DMARC reporting addresses
     // which are real but useless for outreach. Keep the function around
     // in case we want to revisit, but skip it from the orchestrator.
     Promise.resolve<string[]>([]),
-    handle ? fromSubstackPosts(handle) : Promise.resolve<string[]>([]),
+    handle ? withTimeout(fromSubstackPosts(handle), 8_000, empty) : Promise.resolve(empty),
   ])
 
   // JSON-LD parsing across every HTML we fetched — sites embed
@@ -813,7 +825,7 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
   ].join('\n').slice(0, 20000)
 
   if (hits.length === 0 && corpus.trim()) {
-    const ai = await aiExtract(corpus)
+    const ai = await withTimeout(aiExtract(corpus), 12_000, null as { email: string; reasoning: string } | null)
     if (ai) hits.push({ email: ai.email, method: 'ai_extraction', evidence: ai.reasoning })
   }
 
@@ -821,7 +833,7 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
   // text-based method came up empty. Many creators put email in big
   // text on their banner art specifically to defeat regex scrapers.
   if (hits.length === 0) {
-    const visionEmail = await fromBannerVision(input.channelId)
+    const visionEmail = await withTimeout(fromBannerVision(input.channelId), 15_000, null as string | null)
     if (visionEmail && isPlausibleEmail(visionEmail)) {
       hits.push({
         email: visionEmail,
