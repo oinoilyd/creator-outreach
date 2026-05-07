@@ -3083,7 +3083,7 @@ export default function Home() {
       return
     }
 
-    setStatus('Searching YouTube...')
+    setStatus('Searching...')
 
     try {
       const regionCodes = regions.length > 0 ? regions : ['']
@@ -3117,49 +3117,99 @@ export default function Home() {
       const enriched = visible.map(c => ({ ...c, enriching: true }))
       setCreators([...enriched])
       setEnrichProgress({ current: 0, total: enriched.length })
-      setStatus(`Found ${enriched.length} creators. Enriching contact info...`)
+      setStatus(`Found ${enriched.length} creators. Resolving handles...`)
 
-      const BATCH = 10
-      for (let i = 0; i < enriched.length; i += BATCH) {
-        if (version !== searchVersion.current) return
-        const batchIndices = Array.from({ length: Math.min(BATCH, enriched.length - i) }, (_, k) => i + k)
-        await Promise.all(batchIndices.map(async (idx) => {
-          const c = enriched[idx]
-          try {
-            const params = new URLSearchParams({
-              name: c.channelName, channelId: c.channelId,
-              website: c.website || '', instagram: c.instagram || '',
-              tiktok: c.tiktok || '', description: c.description || '',
-            })
-            const r = await fetch(`/api/enrich?${params}`)
-            const extra = await r.json()
-            enriched[idx] = {
-              ...c, enriching: false,
-              email: c.email || extra.email || '',
-              subscribers: c.subscribers || extra.subscribers || '',
-              videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
-              shortDates: (extra.shortDates?.length ? extra.shortDates : c.shortDates) || [],
-              avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : c.avgViews,
-              linkedin: c.linkedin || extra.linkedin || '',
-              instagram: c.instagram || extra.instagram || '',
-              twitter: c.twitter || extra.twitter || '',
-              tiktok: c.tiktok || extra.tiktok || '',
-              website: c.website || extra.website || '',
+      // Two-phase enrichment.
+      //
+      // Phase A (fast, blocking): /api/enrich?fast=true for everyone,
+      // BATCH=20 in parallel. ~1.5–2s per creator → ~10–15s for 100.
+      // Returns YouTube /about + videos + shorts only — i.e. all
+      // social handles (IG/TT/X/LinkedIn) + subscribers + recency.
+      // Email column stays empty until Phase B fills it in. The IG /
+      // TikTok / X / LinkedIn filter tabs work immediately at the
+      // end of Phase A.
+      //
+      // Phase B (slow, background): /api/enrich (full mode) for
+      // everyone, BATCH=8 to be polite to DDG. Fills in emails as
+      // they resolve. User keeps interacting; rows update in place.
+      // Doesn't block setLoading(false); the spinner stops after A.
+
+      async function runPhase(fast: boolean, concurrency: number, statusFn: (i: number, total: number) => string) {
+        for (let i = 0; i < enriched.length; i += concurrency) {
+          if (version !== searchVersion.current) return
+          const batchIndices = Array.from({ length: Math.min(concurrency, enriched.length - i) }, (_, k) => i + k)
+          await Promise.all(batchIndices.map(async (idx) => {
+            const c = enriched[idx]
+            try {
+              const params = new URLSearchParams({
+                name: c.channelName, channelId: c.channelId,
+                website: c.website || '', instagram: c.instagram || '',
+                tiktok: c.tiktok || '', description: c.description || '',
+              })
+              if (fast) params.set('fast', 'true')
+              const r = await fetch(`/api/enrich?${params}`)
+              const extra = await r.json()
+              // In Phase A we keep `enriching:true` so the email
+              // column shows "looking..." until Phase B writes the
+              // email. In Phase B we flip it to false.
+              enriched[idx] = {
+                ...c,
+                enriching: fast ? true : false,
+                email: c.email || extra.email || enriched[idx].email || '',
+                subscribers: c.subscribers || extra.subscribers || enriched[idx].subscribers || '',
+                videoDates: (extra.videoDates?.length ? extra.videoDates : enriched[idx].videoDates) || [],
+                shortDates: (extra.shortDates?.length ? extra.shortDates : enriched[idx].shortDates) || [],
+                avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : enriched[idx].avgViews,
+                linkedin: c.linkedin || extra.linkedin || enriched[idx].linkedin || '',
+                instagram: c.instagram || extra.instagram || enriched[idx].instagram || '',
+                twitter: c.twitter || extra.twitter || enriched[idx].twitter || '',
+                tiktok: c.tiktok || extra.tiktok || enriched[idx].tiktok || '',
+                website: c.website || extra.website || enriched[idx].website || '',
+              }
+            } catch {
+              if (!fast) enriched[idx] = { ...enriched[idx], enriching: false }
             }
-          } catch {
-            enriched[idx] = { ...c, enriching: false }
+          }))
+          if (version === searchVersion.current) {
+            setEnrichProgress({ current: Math.min(i + concurrency, enriched.length), total: enriched.length })
+            setStatus(statusFn(Math.min(i + concurrency, enriched.length), enriched.length))
+            setCreators([...enriched])
           }
-        }))
-        if (version === searchVersion.current) {
-          setEnrichProgress({ current: Math.min(i + BATCH, enriched.length), total: enriched.length })
-          setCreators([...enriched])
         }
       }
-      if (version === searchVersion.current) setStatus(`Done — ${enriched.length} creators found.`)
+
+      // Phase A — fast pass (fills socials + subs + recency).
+      await runPhase(
+        true,
+        20,
+        (done, total) => `Resolving handles ${done} / ${total}...`,
+      )
+
+      if (version !== searchVersion.current) return
+
+      // Phase A done — user can already see + filter rows. Drop the
+      // blocking spinner and let Phase B trickle emails in.
+      setLoading(false)
+      setStatus(`Found ${enriched.length} creators. Looking up emails in background...`)
+      setEnrichProgress({ current: 0, total: enriched.length })
+
+      // Phase B — slow pass, in background. Lower concurrency to be
+      // polite to DDG (we don't want to get rate-limited mid-search).
+      await runPhase(
+        false,
+        8,
+        (done, total) => `Looking up emails ${done} / ${total}...`,
+      )
+
+      if (version === searchVersion.current) {
+        setStatus(`Done — ${enriched.length} creators found.`)
+        setEnrichProgress({ current: 0, total: 0 })
+      }
     } catch (err: any) {
-      if (version === searchVersion.current) setStatus(`Error: ${err.message}`)
-    } finally {
-      if (version === searchVersion.current) setLoading(false)
+      if (version === searchVersion.current) {
+        setStatus(`Error: ${err.message}`)
+        setLoading(false)
+      }
     }
   }, [minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
 
@@ -3202,9 +3252,10 @@ export default function Home() {
       })
       setLoadMoreCreators(prev => [...prev, ...preSorted])
 
-      // Enrich in parallel batches
+      // Enrich in parallel batches. Bumped from 10 → 20 since user
+      // already sees rows; we want load-more to fill in fast.
       const enriched = [...batch]
-      const BATCH = 10
+      const BATCH = 20
       for (let i = 0; i < enriched.length; i += BATCH) {
         const idxs = Array.from({ length: Math.min(BATCH, enriched.length - i) }, (_, k) => i + k)
         await Promise.all(idxs.map(async (idx) => {
@@ -3596,7 +3647,7 @@ export default function Home() {
               <Spinner />
               <span className="text-sm text-foreground/80">
                 {enrichProgress.total === 0
-                  ? 'Searching YouTube...'
+                  ? 'Searching...'
                   : `Enriching ${enrichProgress.current} / ${enrichProgress.total} creators`}
               </span>
               <span className="text-xs text-muted-foreground ml-auto">{elapsed}s elapsed</span>
@@ -3709,7 +3760,35 @@ export default function Home() {
             tabs={[
               {
                 id: 'results',
-                label: <>Results {currentList.length > 0 && <span className="ml-1 text-xs text-muted-foreground">({currentList.length}{currentList.length !== creators.length ? ` of ${creators.length}` : ''})</span>}</>,
+                // Tab counter — show filtered count when a platform filter
+                // is on so the visible row count and the displayed number
+                // match. Earlier behavior showed e.g. "(100)" when only
+                // 5 rows were visible because IG-filtered. Now: amber
+                // pill highlights the filter-narrowed count.
+                label: (() => {
+                  const filtered = currentList.length
+                  const total = creators.length
+                  if (total === 0) return <>Results</>
+                  const isNarrowed = filtered !== total
+                  const platformLabel = activePlatform !== 'youtube'
+                    ? PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label
+                    : null
+                  return (
+                    <>Results{' '}
+                      {isNarrowed ? (
+                        <span className="ml-1 text-xs inline-flex items-center gap-1">
+                          <span className="text-amber-700 dark:text-amber-400 font-medium">{filtered}</span>
+                          <span className="text-muted-foreground">of {total}</span>
+                          {platformLabel && (
+                            <span className="text-muted-foreground/70 hidden sm:inline">· {platformLabel}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="ml-1 text-xs text-muted-foreground">({total})</span>
+                      )}
+                    </>
+                  )
+                })(),
               },
               {
                 id: 'outreach',

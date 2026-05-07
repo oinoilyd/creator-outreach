@@ -456,13 +456,28 @@ export async function GET(req: NextRequest) {
   const niche         = clampString(searchParams.get('niche'), 80)
   const aggressive    = searchParams.get('aggressive') === 'true'
 
+  // Fast mode: skip every slow source (DDG search, biolink scrape,
+  // bio-pages, wayback, domain-guess, new-methodology fallback) and
+  // return only YouTube /about + videos + shorts. The /about scrape
+  // alone gives us subscribers + every social handle (IG/TT/X/LI/web)
+  // a creator has linked from their channel — which is enough for
+  // platform-filtered searches (the IG / TT / X / LinkedIn tabs).
+  // Email discovery still happens in a second pass without ?fast,
+  // so the email column fills in moments later in the background.
+  //
+  // Latency: fast mode is ~1.5–2s per creator vs. ~5–12s for full.
+  // For a 100-result search at BATCH=20, that's ~5–10s of fast
+  // enrichment vs. ~50–120s of full sequential.
+  const fastMode      = searchParams.get('fast') === 'true'
+
   // Strategy toggle — comma-separated list of enabled enrichment sources
   // for the admin email-test harness. When absent, every source runs
-  // (production behavior). Recognized keys:
+  // (production behavior unless fastMode is on). Recognized keys:
   //   web_scrape, biolink, bio_pages, ddg, wayback, domain_guess
   // (yt_about and description-extract always run — they're free.)
   const strategyParam = searchParams.get('strategy')
   const isEnabled = (key: string): boolean => {
+    if (fastMode) return false   // fast mode disables every optional source
     if (strategyParam == null) return true
     return strategyParam.split(',').map(s => s.trim()).includes(key)
   }
@@ -473,9 +488,11 @@ export async function GET(req: NextRequest) {
   //      runs to compare strategy variants
   //   2. aggressive=true — user explicitly opted into the slow deep
   //      search and expects fresh results
-  // Otherwise, cache by channelId for 7 days. The supplied hints
-  // (website/instagram/tiktok/description/niche) are best-effort
-  // input that nudge discovery; the channelId is the canonical key.
+  //   3. fastMode — fast results are intentionally partial (no email
+  //      data); writing them to cache would poison subsequent full
+  //      reads. Reading is OK though: a prior full-enrichment cache
+  //      entry has everything fast mode would return AND more, so
+  //      use it.
   const skipCache = strategyParam != null || aggressive
   if (!skipCache) {
     const cached = await cacheGet<unknown>(enrichmentCacheKey(channelId))
@@ -505,7 +522,10 @@ export async function GET(req: NextRequest) {
     fromYouTubeVideos(channelId),
     fromShortsPage(channelId),
     isEnabled('web_scrape') ? fromWebsite(website) : Promise.resolve(noWeb),
-    fromDDGLinkedIn(channelName),
+    // DDG LinkedIn — wrapped in fast-mode gate. DDG is the slowest
+    // source in the pipeline (3–8s); skipping it cuts fast-mode
+    // latency in half.
+    fastMode ? Promise.resolve('') : fromDDGLinkedIn(channelName),
     isEnabled('ddg') ? fromDDGEmail(channelName, website, niche, aggressive) : Promise.resolve([] as string[]),
     isEnabled('biolink') ? fromBioLink(website) : Promise.resolve(noWeb),
   ])
@@ -561,8 +581,11 @@ export async function GET(req: NextRequest) {
   // Skipped when the admin benchmark passes a strategy that doesn't
   // include 'new_methodology' — that's how the benchmark's "current
   // methodology" baseline stays a fair comparison.
-  const wantsFallback = strategyParam == null
-    || strategyParam.split(',').map(s => s.trim()).includes('new_methodology')
+  // Skip the heavy new-methodology fallback in fast mode — its AI
+  // vision + Wayback multi-snapshot work is the heaviest single
+  // pass in the pipeline (can add 8–15s on its own).
+  const wantsFallback = !fastMode && (strategyParam == null
+    || strategyParam.split(',').map(s => s.trim()).includes('new_methodology'))
 
   if (!email && wantsFallback) {
     try {
@@ -621,8 +644,11 @@ export async function GET(req: NextRequest) {
   const payload = { email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials }
   // Fire-and-forget cache write. Skip when strategy/aggressive paths
   // ran (per skipCache check above) — those want fresh data each
-  // time and shouldn't poison the cache for normal flows.
-  if (!skipCache) {
+  // time and shouldn't poison the cache for normal flows. Also skip
+  // for fastMode: its result is intentionally partial (no email
+  // data), and a later full-enrich call for the same channel will
+  // populate the cache properly.
+  if (!skipCache && !fastMode) {
     void cacheSet(enrichmentCacheKey(channelId), payload, CACHE_TTL.creatorEnrichment)
   }
 
