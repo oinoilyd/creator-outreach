@@ -21,8 +21,9 @@ const Pill = forwardRef<HTMLDivElement, { className?: string; children?: React.R
       ref={ref}
       className={cn(
         'z-10 flex h-20 items-center justify-center gap-3 rounded-2xl border px-7',
-        'bg-white/[0.04] backdrop-blur-md shadow-[0_0_40px_-8px_rgba(124,58,237,0.6)]',
-        'border-brand/40',
+        // Light: clean card. Dark: glass with subtle white tint.
+        'bg-card border-brand/40 shadow-[0_0_40px_-8px_rgba(124,58,237,0.4)]',
+        'dark:bg-white/[0.04] dark:backdrop-blur-md dark:shadow-[0_0_40px_-8px_rgba(124,58,237,0.6)]',
         className,
       )}
     >

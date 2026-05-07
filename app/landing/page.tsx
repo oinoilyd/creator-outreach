@@ -41,7 +41,7 @@ export default async function LandingPage() {
 
         <div className="relative z-10 max-w-6xl w-full mx-auto text-center">
           {/* Eyebrow badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/15 backdrop-blur-md text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-8">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-card border border-border text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-8 shadow-sm dark:bg-white/[0.06] dark:border-white/15 dark:backdrop-blur-md dark:shadow-none">
             <Sparkles className="w-3.5 h-3.5 text-brand" />
             <span>Creator outreach, end to end</span>
           </div>
@@ -82,7 +82,7 @@ export default async function LandingPage() {
             {!isAuthed && (
               <Link
                 href="/auth/signin"
-                className="px-6 py-3.5 rounded-lg font-medium text-muted-foreground hover:text-foreground border border-white/15 hover:border-white/30 backdrop-blur-sm transition-colors"
+                className="px-6 py-3.5 rounded-lg font-medium text-muted-foreground hover:text-foreground border border-border hover:border-brand/40 transition-colors dark:border-white/15 dark:hover:border-white/30"
               >
                 Sign in
               </Link>
@@ -218,7 +218,7 @@ export default async function LandingPage() {
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
-            <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm dark:bg-white/5 dark:backdrop-blur-md dark:border-white/10 dark:shadow-none">
               <div className="text-sm font-medium text-foreground mb-1">Beta</div>
               <div className="text-3xl font-bold tracking-tight mb-2">$0</div>
               <div className="text-xs text-muted-foreground mb-4">Free, no card required</div>
@@ -229,7 +229,7 @@ export default async function LandingPage() {
                 <li>· Analytics + custom metrics</li>
               </ul>
             </div>
-            <div className="rounded-2xl border border-brand/30 bg-gradient-to-br from-brand/10 to-brand-2/10 backdrop-blur-md p-6">
+            <div className="rounded-2xl border border-brand/30 bg-gradient-to-br from-brand/10 to-brand-2/10 p-6 shadow-sm dark:backdrop-blur-md dark:shadow-none">
               <div className="text-sm font-medium text-brand mb-1">Coming later</div>
               <div className="text-3xl font-bold tracking-tight mb-2">TBD</div>
               <div className="text-xs text-muted-foreground mb-4">For heavier users + teams</div>
@@ -265,7 +265,7 @@ export default async function LandingPage() {
           <p className="text-muted-foreground mb-8 text-center">
             Feedback, bugs, feature ideas, partnership questions — all land in the same inbox.
           </p>
-          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 md:p-8">
+          <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm dark:bg-white/5 dark:backdrop-blur-md dark:border-white/10 dark:shadow-none">
             <ContactForm />
           </div>
         </div>
@@ -274,7 +274,7 @@ export default async function LandingPage() {
       {/* CTA strip */}
       {!isAuthed && (
         <section className="relative px-6 pb-20 z-10">
-          <div className="max-w-3xl mx-auto rounded-2xl border border-white/10 bg-gradient-to-br from-brand/10 via-transparent to-brand-2/10 backdrop-blur-md p-8 md:p-10 text-center">
+          <div className="max-w-3xl mx-auto rounded-2xl border border-border bg-gradient-to-br from-brand/10 via-card to-brand-2/10 p-8 md:p-10 text-center shadow-sm dark:bg-gradient-to-br dark:from-brand/10 dark:via-transparent dark:to-brand-2/10 dark:backdrop-blur-md dark:border-white/10 dark:shadow-none">
             <h3 className="text-xl md:text-2xl font-bold tracking-tight mb-2">
               Stop emailing the wrong creators.
             </h3>
@@ -291,7 +291,7 @@ export default async function LandingPage() {
         </section>
       )}
 
-      <footer className="relative z-10 px-6 py-6 border-t border-white/10 text-center text-xs text-muted-foreground">
+      <footer className="relative z-10 px-6 py-6 border-t border-border dark:border-white/10 text-center text-xs text-muted-foreground">
         © {new Date().getFullYear()} Creator Outreach. <a href="#contact" className="hover:text-foreground transition-colors">Contact</a>
       </footer>
     </main>

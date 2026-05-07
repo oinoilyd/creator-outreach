@@ -86,7 +86,7 @@ export function AppPreview() {
                 'group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ' +
                 (active
                   ? 'bg-primary text-primary-foreground border-primary shadow-[0_0_24px_-4px_rgba(124,58,237,0.6)]'
-                  : 'bg-white/5 text-muted-foreground hover:text-foreground border-white/10 hover:border-white/30')
+                  : 'bg-card text-muted-foreground hover:text-foreground border-border hover:border-brand/40 dark:bg-white/5 dark:border-white/10 dark:hover:border-white/30')
               }
             >
               <Icon className="w-3.5 h-3.5" />
@@ -127,7 +127,7 @@ export function AppPreview() {
         <button
           onClick={() => go(-1)}
           aria-label="Previous view"
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-full w-10 h-10 rounded-full bg-card/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-card text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shadow-lg"
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 md:-translate-x-full w-10 h-10 rounded-full bg-card border border-border hover:border-brand/40 hover:bg-card text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shadow-lg dark:bg-card/80 dark:backdrop-blur-md dark:border-white/10 dark:hover:border-white/30"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -136,7 +136,7 @@ export function AppPreview() {
         <button
           onClick={() => go(1)}
           aria-label="Next view"
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-full w-10 h-10 rounded-full bg-card/80 backdrop-blur-md border border-white/10 hover:border-white/30 hover:bg-card text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shadow-lg"
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 md:translate-x-full w-10 h-10 rounded-full bg-card border border-border hover:border-brand/40 hover:bg-card text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shadow-lg dark:bg-card/80 dark:backdrop-blur-md dark:border-white/10 dark:hover:border-white/30"
         >
           <ChevronRight className="w-5 h-5" />
         </button>

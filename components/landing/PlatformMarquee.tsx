@@ -71,7 +71,7 @@ const PLATFORMS = [
 function PlatformCard({ p }: { p: (typeof PLATFORMS)[number] }) {
   const Icon = p.Icon
   return (
-    <div className="flex items-center gap-2.5 px-5 py-3 mx-2 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm whitespace-nowrap">
+    <div className="flex items-center gap-2.5 px-5 py-3 mx-2 rounded-xl border border-border bg-card shadow-sm whitespace-nowrap dark:border-white/10 dark:bg-white/5 dark:backdrop-blur-sm dark:shadow-none">
       <Icon className={`w-5 h-5 ${p.tint}`} />
       <span className="text-sm font-medium text-foreground">{p.name}</span>
     </div>

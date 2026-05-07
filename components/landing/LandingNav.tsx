@@ -57,7 +57,7 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
             onClick={() => setOpen(v => !v)}
             aria-label="Open menu"
             aria-expanded={open}
-            className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-colors ${open ? 'bg-white/10 border-white/20 text-foreground' : 'bg-transparent border-white/10 text-muted-foreground hover:border-white/20 hover:text-foreground'}`}
+            className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-colors ${open ? 'bg-muted border-border text-foreground' : 'bg-transparent border-border text-muted-foreground hover:border-brand/40 hover:text-foreground dark:border-white/10 dark:hover:border-white/20'}`}
           >
             <span className="block w-5 h-px bg-current rounded" />
             <span className="block w-5 h-px bg-current rounded" />
@@ -71,7 +71,7 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ type: 'spring', bounce: 0.18, duration: 0.3 }}
-                className="absolute right-0 top-12 w-56 bg-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden py-1"
+                className="absolute right-0 top-12 w-56 bg-card border border-border rounded-xl shadow-2xl shadow-black/10 dark:shadow-black/40 dark:bg-card/95 dark:backdrop-blur-xl dark:border-white/10 z-50 overflow-hidden py-1"
               >
                 {/* Section anchors */}
                 {sectionItems.map(item => (
@@ -79,13 +79,13 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                    className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/5 transition-colors"
                   >
                     {item.label}
                   </a>
                 ))}
 
-                <div className="mx-4 my-1 border-t border-white/10" />
+                <div className="mx-4 my-1 border-t border-border dark:border-white/10" />
 
                 {/* Auth row */}
                 {isAuthed ? (
@@ -93,7 +93,7 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                     <Link
                       href="/"
                       onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/5 transition-colors"
                     >
                       Open app
                     </Link>
@@ -109,14 +109,14 @@ export function LandingNav({ isAuthed }: { isAuthed: boolean }) {
                     <Link
                       href="/auth/signin"
                       onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/5 transition-colors"
                     >
                       Sign in
                     </Link>
                     <Link
                       href="/auth/signup"
                       onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                      className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/5 transition-colors"
                     >
                       Sign up
                     </Link>

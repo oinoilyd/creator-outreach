@@ -17,44 +17,52 @@
 */
 
 :root {
-  /* LIGHT MODE — medium charcoal, NOT white. */
-  --background: oklch(0.20 0.020 280);
-  --foreground: oklch(0.95 0.005 280);
+  /*
+    LIGHT MODE — actually light. Near-white bg with a subtle lavender
+    tint. App interior reads as "clean light SaaS" (close to the
+    pre-redesign light theme). Landing layers Aurora violet/cyan
+    orbs over this same bg to feel richer / more dramatic without
+    needing a separate token set.
+  */
+  --background: oklch(0.97 0.012 282);
+  --foreground: oklch(0.18 0.045 275);
 
-  /* Cards float a touch above bg. Keep the chroma so it doesn't read flat. */
-  --card: oklch(0.24 0.020 280);
-  --card-foreground: oklch(0.96 0.005 280);
+  /* Pure white cards lift cleanly off the lavender-tinted bg. */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.045 275);
 
   /* Secondary surfaces (table headers, sub-panels). */
-  --muted: oklch(0.27 0.020 280);
-  --muted-foreground: oklch(0.70 0.015 280);
+  --muted: oklch(0.93 0.020 282);
+  --muted-foreground: oklch(0.45 0.045 280);
 
-  /* Hover / interactive surface (NOT the bright accent — shadcn semantic). */
-  --accent: oklch(0.30 0.030 280);
-  --accent-foreground: oklch(0.96 0.005 280);
+  /* Hover / interactive surface. */
+  --accent: oklch(0.90 0.040 285);
+  --accent-foreground: oklch(0.18 0.045 275);
 
-  /* Primary CTA — vivid violet that pops on charcoal. */
-  --primary: oklch(0.62 0.245 290);
+  /* Primary — DEEP rich violet (darker / more saturated than the
+     pre-redesign 0.40/0.255). Dylan: "with darker purples and stuff
+     than the original." */
+  --primary: oklch(0.40 0.265 290);
   --primary-foreground: oklch(0.99 0 0);
 
   /* Borders / dividers — visible against bg + card. */
-  --border: oklch(0.32 0.025 280);
-  --input: oklch(0.32 0.025 280);
+  --border: oklch(0.86 0.030 282);
+  --input: oklch(0.86 0.030 282);
 
-  /* Focus ring — same hue as primary, brighter. */
-  --ring: oklch(0.70 0.230 290);
+  /* Focus ring — primary hue, brighter for visibility on light bg. */
+  --ring: oklch(0.55 0.245 290);
 
-  /* Destructive (red). */
-  --destructive: oklch(0.65 0.230 22);
+  --destructive: oklch(0.55 0.235 22);
   --destructive-foreground: oklch(0.99 0 0);
 
-  /* Brand 1 — violet (same family as primary, semantic alias). */
-  --brand: oklch(0.62 0.245 290);
+  /* Brand 1 — violet (same as primary, semantic alias). */
+  --brand: oklch(0.40 0.265 290);
   --brand-foreground: oklch(0.99 0 0);
 
-  /* Brand 2 — cyan (secondary accent for variety). */
-  --brand-2: oklch(0.78 0.135 215);
-  --brand-2-foreground: oklch(0.10 0.010 220);
+  /* Brand 2 — DARKER cyan than the dark-mode equivalent so it reads
+     as "rich teal" against light bg, not washed out. */
+  --brand-2: oklch(0.50 0.150 215);
+  --brand-2-foreground: oklch(0.99 0 0);
 }
 
 .dark {
@@ -128,7 +136,11 @@ body {
 html {
   overflow-x: hidden;
   overscroll-behavior-x: none;
-  /* Avoid theme-flip flicker. */
+  /* Default to light scheme (matches :root tokens). The `.dark` class
+     toggles to dark via next-themes. */
+  color-scheme: light;
+}
+html.dark {
   color-scheme: dark;
 }
 

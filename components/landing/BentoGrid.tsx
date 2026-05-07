@@ -42,10 +42,10 @@ export function BentoCard({
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.6, delay, ease: 'easeOut' }}
       whileHover={{ y: -4, boxShadow: '0 28px 56px -16px rgba(124,58,237,0.40)' }}
-      // Glass card on charcoal: subtle white tint + backdrop blur, ring
-      // in the brand violet at low opacity. Aurora + meteors show
-      // through. Hover brightens the ring.
-      className={`group relative overflow-hidden rounded-2xl bg-white/[0.04] backdrop-blur-md ring-1 ring-white/10 hover:ring-brand/50 transition-all flex flex-col shadow-[0_10px_40px_-20px_rgba(0,0,0,0.4)] ${className}`}
+      // Light mode: clean white card on lavender-tinted bg.
+      // Dark mode: translucent glass with backdrop blur (Aurora +
+      // meteors show through). Hover brightens the ring/border.
+      className={`group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-brand/60 transition-all flex flex-col shadow-[0_10px_40px_-20px_rgba(76,29,149,0.18)] dark:bg-white/[0.04] dark:backdrop-blur-md dark:border-white/10 dark:hover:border-brand/50 dark:shadow-[0_10px_40px_-20px_rgba(0,0,0,0.4)] ${className}`}
     >
       {/* Soft violet/cyan hover wash */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-brand/10 via-transparent to-brand-2/10" />

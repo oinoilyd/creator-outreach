@@ -44,7 +44,7 @@ export function PlatformDropdown({ activePlatform, onChange }: { activePlatform:
             >
               <PlatformIcon id={p.id} className={p.id === 'twitter' ? 'w-4 h-4 shrink-0' : 'w-4 h-4 shrink-0'} />
               {p.id !== 'twitter' && <span className="font-medium">{p.label}</span>}
-              {p.id === 'youtube' && <span className="text-[10px] text-muted-foreground ml-1">(suggested)</span>}
+              {(p.id === 'youtube' || p.id === 'instagram') && <span className="text-[10px] text-muted-foreground ml-1">(suggested)</span>}
               {p.id === activePlatform && (
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 ml-auto text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
               )}

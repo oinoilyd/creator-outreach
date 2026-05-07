@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell>
-      <div className="w-full max-w-sm bg-card/80 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl shadow-black/40">
+      <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-xl shadow-purple-200/20 dark:bg-card/80 dark:backdrop-blur-md dark:border-white/10 dark:shadow-black/40">
         <h1 className="text-2xl font-bold text-foreground mb-1">Reset your password</h1>
         <p className="text-muted-foreground text-sm mb-6">
           {sent
@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors dark:bg-white/[0.04] dark:border-white/10"
               />
             </div>
 

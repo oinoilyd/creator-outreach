@@ -40,11 +40,11 @@ export function FAQ() {
         return (
           <div
             key={i}
-            className="border border-white/10 rounded-lg bg-white/[0.04] backdrop-blur-md overflow-hidden"
+            className="border border-border rounded-lg bg-card overflow-hidden dark:bg-white/[0.04] dark:backdrop-blur-md dark:border-white/10"
           >
             <button
               onClick={() => setOpenIdx(isOpen ? null : i)}
-              className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.06] transition-colors"
+              className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-muted/60 dark:hover:bg-white/[0.06] transition-colors"
             >
               <span className="text-sm md:text-base font-medium text-foreground">{item.q}</span>
               <motion.span
