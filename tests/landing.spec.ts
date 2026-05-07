@@ -47,12 +47,11 @@ test.describe('Landing page', () => {
     expect(count).toBeGreaterThanOrEqual(5)
   })
 
-  test('how-it-works section present with 2 steps', async ({ page }) => {
+  test('how-it-works section present with 4 steps', async ({ page }) => {
     await expect(page.getByText(/how it works/i)).toBeVisible()
-    // Match the section heading specifically (not the pill label) to
-    // avoid strict-mode multi-match when "Search & Score" exists in
-    // both the h2 and a step pill.
-    await expect(page.getByRole('heading', { name: /two steps/i })).toBeVisible()
+    // Section heading is now "Four steps. From search to signed."
+    // (was "Two steps" — restructured to 4-step methodology).
+    await expect(page.getByRole('heading', { name: /four steps/i })).toBeVisible()
   })
 
   test('pricing section shows free tier', async ({ page }) => {

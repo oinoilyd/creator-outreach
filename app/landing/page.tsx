@@ -128,10 +128,10 @@ export default async function LandingPage() {
               How it works
             </div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-              Two steps. From search to closed.
+              Four steps. From search to signed.
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Search every platform and let AI score the fits. Pitch them and let auto follow-ups do the rest.
+              Search every platform, score for fit, pitch with the right template, track every touch — all in one queue.
             </p>
           </div>
           <HowItWorks />
