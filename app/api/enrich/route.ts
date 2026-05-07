@@ -19,7 +19,11 @@ async function fetchHtml(url: string, timeout = 8000): Promise<string> {
   return data as string
 }
 
-const BAD_EMAIL = /example|duckduckgo|sentry|wixpress|w3\.org|schema\.org|noreply|no-reply|@2x|\.png|\.jpg|\.svg|\.gif|\.webp|\.css|\.js/i
+// Substring patterns that disqualify an extracted email upfront. Includes
+// every platform-infra domain we've seen leak through, so the regex
+// doesn't even surface them as candidates. Same nuclear list the admin
+// scrub uses, applied at extraction time so bestEmail() never sees them.
+const BAD_EMAIL = /stanwith|stan\.store|patreon\.com|@.+\.sentry\.io|@sentry\.io|buymeacoffee|ko-?fi|allmylinks|lnk\.bio|bio\.fm|solo\.to|pillar\.io|about\.me|msha\.ke|withkoji|campsite\.bio|beehiiv|substack|convertkit|mailchimp|gumroad|example|duckduckgo|wixpress|w3\.org|schema\.org|noreply|no-reply|@yourdomain|@yoursite|@yourcompany|dmarc-reports?@|aggregate@|forensic@|rua@|ruf@|@2x|\.png|\.jpg|\.svg|\.gif|\.webp|\.css|\.js/i
 
 function extractEmails(text: string): string[] {
   const matches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []

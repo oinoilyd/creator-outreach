@@ -3000,6 +3000,10 @@ export default function Home() {
 
   const baseList = creators
   const currentList = baseList
+    // Hide dismissed creators immediately even if they linger in
+    // `creators` state momentarily — same logic the icon uses, so the
+    // row + icon are always in sync.
+    .filter(c => !dismissedIds.has(c.channelId))
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
     .filter(c => {
       if (minSubs === 0 && maxSubs === 0) return true
@@ -3713,6 +3717,7 @@ export default function Home() {
               sortCol={sortCol} sortDir={sortDir} onSort={handleSort}
               colConfig={effectiveColConfig}
               loadMoreBatch={activeTab === 'results' ? loadMoreCreators.filter(c =>
+                !dismissedIds.has(c.channelId) &&
                 c.avgViews >= minViews && c.avgViews <= maxViews &&
                 (maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays) &&
                 (!emailOnly || !!c.email) &&
