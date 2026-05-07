@@ -1,24 +1,27 @@
 'use client'
 
 import { forwardRef, useRef } from 'react'
-import { Search, Sparkles, MailPlus } from 'lucide-react'
+import { Search, Sparkles, MailPlus, Clock } from 'lucide-react'
 import { AnimatedBeam } from '@/components/ui/animated-beam'
 import { cn } from '@/lib/utils'
 
 /**
- * "How it works" — three labeled steps connected by animated beams.
- * Mirrors the actual product flow: discover → score → outreach.
+ * "How it works" — TWO labeled steps connected by a single animated
+ * beam. Per Dylan: "the first step should be search and score, the
+ * second should be add to outreach & trigger follow up. Simplify it."
  *
- * The beams (purple gradient with a flowing highlight) connect the
- * center of each circular step. Resizing the window re-projects the
- * beam paths via the AnimatedBeam component's ResizeObserver.
+ * Each step is a chunky pill that holds TWO icons stacked horizontally
+ * — visually communicates the combined concept ("Search & Score" =
+ * search-icon + sparkles-icon together) without inflating to 3 visual
+ * stages.
  */
-const Circle = forwardRef<HTMLDivElement, { className?: string; children?: React.ReactNode }>(
+const Pill = forwardRef<HTMLDivElement, { className?: string; children?: React.ReactNode }>(
   ({ className, children }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'z-10 flex h-16 w-16 items-center justify-center rounded-full border bg-white/[0.04] backdrop-blur-md shadow-[0_0_30px_-8px_rgba(124,58,237,0.6)]',
+        'z-10 flex h-20 items-center justify-center gap-3 rounded-2xl border px-7',
+        'bg-white/[0.04] backdrop-blur-md shadow-[0_0_40px_-8px_rgba(124,58,237,0.6)]',
         'border-brand/40',
         className,
       )}
@@ -27,39 +30,43 @@ const Circle = forwardRef<HTMLDivElement, { className?: string; children?: React
     </div>
   ),
 )
-Circle.displayName = 'Circle'
+Pill.displayName = 'Pill'
 
 export function HowItWorks() {
   const containerRef = useRef<HTMLDivElement>(null)
   const stepARef = useRef<HTMLDivElement>(null)
   const stepBRef = useRef<HTMLDivElement>(null)
-  const stepCRef = useRef<HTMLDivElement>(null)
 
   return (
     <div className="max-w-4xl mx-auto">
       <div
         ref={containerRef}
-        className="relative flex w-full items-center justify-between gap-4 py-12 px-4"
+        className="relative flex w-full items-center justify-between gap-4 py-12 px-4 flex-col md:flex-row"
       >
-        <Step refEl={stepARef} icon={<Search className="h-7 w-7 text-brand" />} label="Search" sub="Discover creators" />
-        <Step refEl={stepBRef} icon={<Sparkles className="h-7 w-7 text-brand" />} label="Score" sub="AI ranks fit" />
-        <Step refEl={stepCRef} icon={<MailPlus className="h-7 w-7 text-brand" />} label="Pitch" sub="With auto follow-ups" />
+        <Step
+          refEl={stepARef}
+          icons={[
+            <Search key="s" className="h-6 w-6 text-brand" />,
+            <Sparkles key="sp" className="h-6 w-6 text-brand-2" />,
+          ]}
+          label="Search & Score"
+          sub="Find creators across every platform. AI ranks by fit."
+        />
+        <Step
+          refEl={stepBRef}
+          icons={[
+            <MailPlus key="m" className="h-6 w-6 text-brand" />,
+            <Clock key="c" className="h-6 w-6 text-brand-2" />,
+          ]}
+          label="Outreach & Follow-up"
+          sub="Add to pipeline. Auto-cadence pings the right ones."
+        />
 
         <AnimatedBeam
           containerRef={containerRef}
           fromRef={stepARef}
           toRef={stepBRef}
-          duration={4}
-          curvature={-30}
-          gradientStartColor="#7c3aed"
-          gradientStopColor="#06b6d4"
-        />
-        <AnimatedBeam
-          containerRef={containerRef}
-          fromRef={stepBRef}
-          toRef={stepCRef}
-          duration={4}
-          delay={0.5}
+          duration={5}
           curvature={-30}
           gradientStartColor="#7c3aed"
           gradientStopColor="#06b6d4"
@@ -71,21 +78,25 @@ export function HowItWorks() {
 
 function Step({
   refEl,
-  icon,
+  icons,
   label,
   sub,
 }: {
   refEl: React.RefObject<HTMLDivElement | null>
-  icon: React.ReactNode
+  icons: React.ReactNode[]
   label: string
   sub: string
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 flex-1">
-      <Circle ref={refEl}>{icon}</Circle>
+    <div className="flex flex-col items-center gap-3 flex-1 max-w-sm">
+      <Pill ref={refEl}>
+        {icons.map((icon, i) => (
+          <span key={i}>{icon}</span>
+        ))}
+      </Pill>
       <div className="text-center">
-        <div className="text-sm font-semibold text-foreground">{label}</div>
-        <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>
+        <div className="text-base font-semibold text-foreground">{label}</div>
+        <div className="text-sm text-muted-foreground mt-1">{sub}</div>
       </div>
     </div>
   )

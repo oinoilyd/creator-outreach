@@ -121,10 +121,10 @@ export default async function LandingPage() {
               How it works
             </div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-              Three steps. No spreadsheet.
+              Two steps. From search to closed.
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Search every major platform, score by your criteria, run outreach with auto follow-ups.
+              Search every platform and let AI score the fits. Pitch them and let auto follow-ups do the rest.
             </p>
           </div>
           <HowItWorks />
