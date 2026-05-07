@@ -122,6 +122,39 @@ function copyInstagramDm(channelName: string) {
   )
 }
 
+/**
+ * LinkedIn-specific message template — slightly more business-formal
+ * than the IG DM. Same flow: click the LinkedIn cell → opens profile
+ * in a new tab + writes this template to the clipboard so the user
+ * can paste it directly into a connection note or DM.
+ */
+function composeLinkedInMessage(channelName: string): string {
+  const name = (channelName || '').trim() || 'there'
+  const firstName = name.split(/\s+/)[0] || name
+  return `Hi ${firstName},
+
+Came across ${name} on LinkedIn and really liked [insert specific post/topic].
+
+I'm building [your product] and saw a potential fit for what you do. Would love to connect and share what we're up to if it's of interest.
+
+Best,
+[your name]`
+}
+
+function copyLinkedInMessage(channelName: string) {
+  const msg = composeLinkedInMessage(channelName)
+  if (!navigator.clipboard?.writeText) {
+    toast.error('Clipboard not available — copy message manually')
+    return
+  }
+  navigator.clipboard.writeText(msg).then(
+    () => toast.success('LinkedIn message copied', {
+      description: `Paste in connection note or DM to ${channelName || 'creator'}`,
+    }),
+    () => toast.error('Failed to copy message'),
+  )
+}
+
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
   const [guidanceView, setGuidanceView] = useState(false)
@@ -436,7 +469,7 @@ function renderCell(
         )}
       </td>
     )
-    case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" rel="noopener noreferrer" onClick={() => copyLinkedInMessage(c.channelName)} title="Open LinkedIn + copy message template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
     case 'website':   return <td key={id} className="px-4 py-3">{c.website   ? <a href={c.website}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
     case 'instagram': return <td key={id} className="px-4 py-3">{c.instagram ? <a href={c.instagram} target="_blank" rel="noopener noreferrer" onClick={() => copyInstagramDm(c.channelName)} title="Open IG + copy DM template" className="text-pink-700 dark:text-pink-400 hover:underline">DM</a> : '—'}</td>
     case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
@@ -663,7 +696,22 @@ function renderOutreachCell(
       return <span className={`text-xs font-bold ${color}`}>{e.fitScore || 0} <span className="font-normal opacity-70">{label}</span></span>
     }
     case 'linkedin':
-      return e.linkedin ? <a href={e.linkedin} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-muted-foreground" />
+      // Click LinkedIn → opens profile + copies templated message.
+      // Same pattern as Instagram (LinkedIn has no DM deep-link).
+      return e.linkedin ? (
+        <a
+          href={e.linkedin}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => copyLinkedInMessage(e.channelName)}
+          title="Open LinkedIn + copy message template to clipboard"
+          className="text-blue-800 dark:text-blue-400 hover:underline text-xs"
+        >
+          Message
+        </a>
+      ) : (
+        <AutoTextarea value={e.linkedin || ''} onChange={v => onUpdate(e.id, 'linkedin', v)} placeholder="Add URL..." className="text-muted-foreground" />
+      )
     case 'instagram':
       // Instagram link: clicking opens the profile AND copies a
       // templated DM to the clipboard (per Dylan: "click on the
