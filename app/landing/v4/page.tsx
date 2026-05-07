@@ -1,283 +1,292 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { VersionSwitcher } from '@/components/landing/VersionSwitcher'
 import { getLandingAuthState } from '@/components/landing/getLandingData'
 
 /**
- * V4 — TRADING TERMINAL
+ * V4 — GUMROAD-STYLE
  *
- * Direction: Bloomberg terminal × TradingView × Plausible analytics ×
- * what a Wall Street operator would actually want a software landing
- * page to look like. Dark mode locked. Mono everywhere. Numbers as
- * the hero. Live tickers. Trader-palette accents (amber #FFB800,
- * pit green #00C56A, hazard red #FF3D55).
+ * Reference: gumroad.com (the modern era — saturated color blocks,
+ * Migra-flavored serif display, hard 3D shadows, neo-brutalist
+ * borders, no apologies).
  *
- * Reads as: "this is a tool, here are the numbers, here's what it
- * does, here's the price." No hype copy, just signal density.
+ * Visual signatures we're modeling:
+ *   - Hot pink primary substrate (#FF90E8 — Gumroad's signature)
+ *   - Black borders (3-4px) on every container
+ *   - Hard 3D drop-shadows (no blur — solid color offset boxes)
+ *   - Chunky serif display font (Fraunces 800)
+ *   - Yellow + cyan + black secondary blocks
+ *   - "Get paid when..." copy energy: punchy, plain-spoken
+ *   - Buttons are big chunky boxes with the same shadow as cards
+ *   - Personality-forward: the design IS the brand
+ *
+ * Distinct from V2 (Clay): Clay is warm + soft + restrained. V4 is
+ * loud + saturated + uncompromising. They're both "warm" palettes
+ * but they feel like different planets.
  */
 
 export const metadata = {
-  title: 'CREATOR OUTREACH | TERMINAL',
-  description: 'Operator-grade creator outreach. Live pipeline metrics, five-platform search, AI fit scoring. Free in beta.',
+  title: 'CREATOR OUTREACH ◆ Make outreach easier than the spreadsheet.',
+  description: 'A loud little tool for indie operators. Search five platforms, score every creator, pitch with templated messages, and track every reply.',
 }
-
-const TICKER_ROW: { sym: string; val: string; delta: string; pos: boolean }[] = [
-  { sym: 'YT.SUB', val: '142.3K', delta: '+2.1%', pos: true },
-  { sym: 'IG.FOL', val: '88.7K',  delta: '+1.4%', pos: true },
-  { sym: 'TT.FOL', val: '54.2K',  delta: '-0.3%', pos: false },
-  { sym: 'X.FOL',  val: '31.8K',  delta: '+0.2%', pos: true },
-  { sym: 'LI.FOL', val: '22.1K',  delta: '+0.6%', pos: true },
-  { sym: 'REPLY%', val: '34.1',   delta: '+4.2',  pos: true },
-  { sym: 'PIPE$',  val: '184K',   delta: '+12K',  pos: true },
-  { sym: 'CACHE',  val: '94.7%',  delta: '+1.1',  pos: true },
-]
 
 export default async function LandingV4() {
   const { isAuthed } = await getLandingAuthState()
 
   return (
-    <main className="min-h-screen text-[#E8E8E8] font-mono" style={{ backgroundColor: '#0A0E13' }}>
+    <main className="min-h-screen relative overflow-hidden text-black" style={{ backgroundColor: '#FF90E8' }}>
       <VersionSwitcher />
 
-      {/* Status bar — terminal chrome */}
-      <div className="border-b border-[#1F2530] bg-[#0E141C] text-[11px] tracking-[0.06em]">
-        <div className="max-w-[1400px] mx-auto px-5 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#00C56A] animate-pulse" />
-              <span className="text-[#00C56A]">CONNECTED</span>
+      {/* Top nav — chunky black bar */}
+      <header className="border-b-[3px] border-black bg-black text-[#FFE066]">
+        <div className="max-w-[1280px] mx-auto px-5 h-14 flex items-center justify-between">
+          <Link href="/landing/v4" className="flex items-center gap-2.5 font-[family-name:var(--font-fraunces)] font-extrabold">
+            <span className="inline-flex items-center justify-center w-7 h-7 bg-[#FFE066] text-black text-[14px] font-bold border-[2px] border-[#FFE066]">
+              ◆
             </span>
-            <span className="text-[#E8E8E8]/40">|</span>
-            <span className="text-[#E8E8E8]/60">SESSION 2026.05.07 · LIVE FEED · v0.5.0</span>
-          </div>
-          <div className="hidden md:flex items-center gap-3 text-[#E8E8E8]/50">
-            <span>UTC {new Date().toISOString().slice(11, 16)}</span>
-            <span>|</span>
-            <span>NODE US-EAST</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Top nav — terminal command line look */}
-      <header className="border-b border-[#1F2530]">
-        <div className="max-w-[1400px] mx-auto px-5 py-3 flex items-center justify-between gap-4">
-          <Link href="/landing/v4" className="flex items-baseline gap-3">
-            <span className="text-[#FFB800] text-[14px] font-bold">▣</span>
-            <span className="text-[15px] tracking-[0.05em] uppercase">CREATOR_OUTREACH<span className="text-[#FFB800]">::</span>TERMINAL</span>
+            <span className="text-[18px]">Creator Outreach</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-5 text-[12px] uppercase tracking-[0.1em] text-[#E8E8E8]/60">
-            <a href="#metrics" className="hover:text-[#FFB800]">METRICS</a>
-            <a href="#methodology" className="hover:text-[#FFB800]">METHOD</a>
-            <a href="#pricing" className="hover:text-[#FFB800]">PRICING</a>
-          </nav>
           <Link
             href={isAuthed ? '/' : '/auth/signup'}
-            className="inline-flex items-center gap-2 border border-[#FFB800] text-[#FFB800] hover:bg-[#FFB800] hover:text-[#0A0E13] px-3 py-1.5 text-[12px] uppercase tracking-[0.1em] transition-colors"
+            className="bg-[#FFE066] text-black hover:bg-white px-4 py-1.5 font-[family-name:var(--font-fraunces)] font-bold text-[14px] border-[2px] border-[#FFE066] hover:border-white transition-colors"
           >
-            {isAuthed ? '↗ OPEN APP' : '↗ EXEC NEW SESSION'}
+            {isAuthed ? 'Open app →' : 'Try free →'}
           </Link>
         </div>
       </header>
 
-      {/* Live ticker */}
-      <div className="border-b border-[#1F2530] bg-[#0E141C] py-2 overflow-hidden whitespace-nowrap text-[12px]">
-        <div className="inline-block animate-[ticker_45s_linear_infinite]">
-          {[...TICKER_ROW, ...TICKER_ROW].map((t, i) => (
-            <span key={i} className="mx-6 inline-flex items-center gap-2">
-              <span className="text-[#E8E8E8]/55">{t.sym}</span>
-              <span className="text-[#E8E8E8] tabular-nums">{t.val}</span>
-              <span className={t.pos ? 'text-[#00C56A] tabular-nums' : 'text-[#FF3D55] tabular-nums'}>
-                {t.pos ? '▲' : '▼'} {t.delta}
-              </span>
-              <span className="text-[#1F2530] mx-2">|</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Hero — numbers-first */}
-      <section className="px-5 py-14 md:py-20 border-b border-[#1F2530]">
-        <div className="max-w-[1400px] mx-auto grid md:grid-cols-12 gap-8">
+      {/* Hero — chunky, loud */}
+      <section className="relative px-5 py-16 md:py-24">
+        <div className="max-w-[1200px] mx-auto grid md:grid-cols-12 gap-8 items-center">
           <div className="md:col-span-7">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-[#FFB800]/80 mb-4">
-              › PIPELINE OPS / OUTREACH DESK
+            <div className="inline-flex items-center gap-2 bg-black text-[#FFE066] px-3 py-1.5 mb-7 font-bold text-[12px] uppercase tracking-[0.16em] border-[3px] border-black" style={{ boxShadow: '5px 5px 0 0 #FFFFFF' }}>
+              ◆ A loud little outreach tool
             </div>
-            <h1 className="font-bold uppercase leading-[1.0] tracking-tight" style={{ fontSize: 'clamp(2.25rem, 6vw, 5rem)' }}>
-              Creator outreach,<br />
-              priced in <span className="text-[#FFB800]">replies</span>,<br />
-              not <span className="text-[#FF3D55]">spreadsheet hours</span>.
+            <h1
+              className="font-[family-name:var(--font-fraunces)] font-black tracking-[-0.04em] leading-[0.86] text-black"
+              style={{ fontSize: 'clamp(3rem, 9vw, 8rem)' }}
+            >
+              Outreach,<br />
+              <span className="bg-[#FFE066] inline-block px-3 border-[4px] border-black" style={{ boxShadow: '8px 8px 0 0 #000' }}>
+                made easy.
+              </span>
             </h1>
-            <p className="mt-7 max-w-[60ch] text-[15px] text-[#E8E8E8]/70 leading-[1.55]">
-              An operator-grade tool for finding, scoring, and pitching
-              creators across YouTube, Instagram, TikTok, X, and
-              LinkedIn. Live pipeline metrics. Auto-cadence follow-ups.
-              Plain-English fit scoring. No CRM cosplay.
+            <p className="mt-9 max-w-[48ch] text-[18px] md:text-[20px] text-black font-medium leading-[1.4]">
+              Source creators across five platforms. Score them in
+              plain English. Pitch them with the right templated
+              message per channel. Track every reply.{' '}
+              <span className="font-[family-name:var(--font-fraunces)] italic">No CRM cosplay.</span>
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3 text-[12px] uppercase tracking-[0.1em]">
+
+            <div className="mt-10 flex flex-wrap items-center gap-3 font-[family-name:var(--font-fraunces)] font-extrabold">
               <Link
                 href={isAuthed ? '/' : '/auth/signup'}
-                className="inline-flex items-center gap-2 bg-[#FFB800] text-[#0A0E13] hover:bg-[#FFCC44] px-5 py-3 font-bold transition-colors"
+                className="inline-flex items-center gap-2 bg-black text-[#FFE066] px-6 py-3.5 text-[16px] border-[3px] border-black hover:bg-[#FFE066] hover:text-black active:translate-y-[3px] transition-all"
+                style={{ boxShadow: '6px 6px 0 0 #000' }}
               >
-                {isAuthed ? '↗ OPEN APP' : '↗ EXEC NEW SESSION [F1]'}
+                {isAuthed ? 'Open the app →' : 'Try it free →'}
               </Link>
-              {!isAuthed && (
-                <Link
-                  href="/auth/signin"
-                  className="inline-flex items-center gap-2 border border-[#1F2530] hover:border-[#FFB800] px-5 py-3 transition-colors"
-                >
-                  ↻ RESUME SESSION
-                </Link>
-              )}
+              <Link
+                href="#preview"
+                className="inline-flex items-center gap-2 bg-white text-black px-6 py-3.5 text-[16px] border-[3px] border-black hover:bg-[#FFE066] active:translate-y-[3px] transition-all"
+                style={{ boxShadow: '6px 6px 0 0 #000' }}
+              >
+                Watch it work ↓
+              </Link>
+            </div>
+
+            <div className="mt-7 inline-flex items-center gap-2 text-[13px] font-bold uppercase tracking-[0.14em] bg-white text-black px-3 py-1.5 border-[3px] border-black">
+              ◆ NO CARD ◆ FREE BETA ◆ GRANDFATHERED FOREVER
             </div>
           </div>
 
-          {/* Pipeline metrics card — looks like a Bloomberg panel */}
-          <aside className="md:col-span-5 border border-[#1F2530] bg-[#0E141C]">
-            <div className="border-b border-[#1F2530] px-4 py-2.5 flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-[0.18em] text-[#FFB800]">PIPELINE OVERVIEW</span>
-              <span className="text-[10px] text-[#E8E8E8]/40">REAL-TIME</span>
-            </div>
-            <div className="grid grid-cols-2 divide-x divide-[#1F2530]">
-              <Cell sym="LEADS·SEARCHED" val="14,820" delta="+221" pos />
-              <Cell sym="LEADS·CONTACTED" val="3,114" delta="+47" pos />
-              <Cell sym="REPLY·RATE" val="34.1%" delta="+4.2" pos />
-              <Cell sym="CADENCE·ACTIVE" val="612" delta="+12" pos />
-            </div>
-            <div className="border-t border-[#1F2530] px-4 py-3 grid grid-cols-5 gap-1 text-[10px] uppercase tracking-[0.1em] text-[#E8E8E8]/55">
-              <span>YT</span>
-              <span>IG</span>
-              <span>TT</span>
-              <span>X</span>
-              <span>LI</span>
-            </div>
-            <div className="px-4 pb-4 grid grid-cols-5 gap-1">
-              {[42, 28, 14, 9, 7].map((h, i) => (
-                <div key={i} className="h-20 bg-[#0A0E13] border border-[#1F2530] flex items-end">
-                  <div className="w-full bg-[#FFB800]/80" style={{ height: `${h * 1.5}%` }} />
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-[#1F2530] px-4 py-2 text-[10px] tracking-[0.1em] text-[#E8E8E8]/45 flex items-center justify-between">
-              <span>PLATFORM MIX (LAST 30D)</span>
-              <span className="text-[#00C56A]">▲ HEALTHY</span>
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      {/* Metrics grid */}
-      <section id="metrics" className="px-5 py-12 md:py-16 border-b border-[#1F2530]">
-        <div className="max-w-[1400px] mx-auto">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-[#FFB800]/80 mb-6">› SYSTEM METRICS</div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#1F2530]">
-            <Stat label="PLATFORMS·INDEXED" val="5" sub="YT · IG · TT · X · LI" />
-            <Stat label="MEDIAN·SEARCH·MS" val="430" sub="cache HIT rate 94%" />
-            <Stat label="AI·SCORING·VER"  val="v3.1" sub="plain-english fit" />
-            <Stat label="PRICE·BETA"      val="$0" sub="no card · no seat cap" />
+          {/* Hero stack — three chunky offset cards */}
+          <div className="md:col-span-5 relative h-[420px] md:h-[480px]">
+            <BrutalistCard
+              className="absolute top-0 right-2 w-[78%] z-30"
+              bg="#FFE066"
+              tag="◆ FIVE PLATFORMS"
+              rotate={-2}
+            >
+              <span className="font-[family-name:var(--font-fraunces)] font-black text-[28px] leading-[0.95]">
+                YouTube · Instagram · TikTok · X · LinkedIn
+              </span>
+            </BrutalistCard>
+            <BrutalistCard
+              className="absolute top-[28%] left-2 w-[80%] z-20"
+              bg="#9DEAFF"
+              tag="◆ PLAIN ENGLISH"
+              rotate={3}
+            >
+              <span className="font-[family-name:var(--font-fraunces)] font-black text-[26px] leading-[0.95]">
+                "Strong fit. Posts about commercial real estate weekly."
+              </span>
+            </BrutalistCard>
+            <BrutalistCard
+              className="absolute bottom-0 right-3 w-[72%] z-10"
+              bg="#FFFFFF"
+              tag="◆ ONE QUEUE"
+              rotate={-3}
+            >
+              <span className="font-[family-name:var(--font-fraunces)] font-black text-[28px] leading-[0.95]">
+                Pitch. Track. Follow up. Auto-cadence.
+              </span>
+            </BrutalistCard>
           </div>
         </div>
       </section>
 
-      {/* Methodology — terminal command list */}
-      <section id="methodology" className="px-5 py-14 md:py-20 border-b border-[#1F2530]">
-        <div className="max-w-[1400px] mx-auto">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-[#FFB800]/80 mb-6">› METHODOLOGY · 4 STAGES</div>
-          <div className="border border-[#1F2530] bg-[#0E141C] divide-y divide-[#1F2530]">
-            <Stage cmd="$ SEARCH" desc="Five platforms in one query. Filter by audience, region, recency, niche." status="EXEC" />
-            <Stage cmd="$ SCORE"  desc="AI ranks fit, reach, and recency. Reasoning shown in plain English; criteria editable." status="EXEC" />
-            <Stage cmd="$ PITCH"  desc="One click composes a templated message per channel — DM / email / LinkedIn." status="EXEC" />
-            <Stage cmd="$ TRACK"  desc="Replies update status. Auto-cadence pings you when silence hits 3 days." status="EXEC" />
+      {/* Big yellow stat band */}
+      <section className="border-y-[3px] border-black bg-[#FFE066]">
+        <div className="max-w-[1200px] mx-auto px-5 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <Stat n="5" label="platforms" />
+          <Stat n="~30s" label="to a list" />
+          <Stat n="$0" label="while in beta" />
+          <Stat n="∞" label="seats" />
+        </div>
+      </section>
+
+      {/* Product preview — chunky white panel */}
+      <section id="preview" className="px-5 py-16 md:py-24">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="border-[4px] border-black bg-white" style={{ boxShadow: '12px 12px 0 0 #000' }}>
+            <div className="border-b-[3px] border-black bg-[#FFE066] px-4 py-2.5 flex items-center justify-between text-[12px] font-bold uppercase tracking-[0.14em]">
+              <span>creatoroutreach.net/results</span>
+              <span className="hidden sm:inline">◆ LIVE PRODUCT</span>
+            </div>
+            <div className="relative aspect-[1440/900] bg-black">
+              <Image
+                src="/screenshots/results.png"
+                alt="Creator Outreach — Results view"
+                fill
+                priority
+                sizes="(min-width: 1200px) 1200px, 100vw"
+                className="object-cover object-top"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing — terminal-style price table */}
-      <section id="pricing" className="px-5 py-14 md:py-20 border-b border-[#1F2530]">
-        <div className="max-w-[1400px] mx-auto">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-[#FFB800]/80 mb-6">› PRICING SCHEDULE</div>
-          <div className="border border-[#1F2530] bg-[#0E141C]">
-            <div className="grid grid-cols-12 border-b border-[#1F2530] text-[11px] uppercase tracking-[0.16em] text-[#E8E8E8]/55">
-              <div className="col-span-3 px-4 py-3 border-r border-[#1F2530]">PLAN</div>
-              <div className="col-span-3 px-4 py-3 border-r border-[#1F2530]">PRICE</div>
-              <div className="col-span-6 px-4 py-3">INCLUDED</div>
+      {/* Feature blocks — 4 chunky tiles, each different color */}
+      <section className="px-5 pb-16 md:pb-24">
+        <div className="max-w-[1200px] mx-auto">
+          <h2 className="font-[family-name:var(--font-fraunces)] font-black text-black mb-10 leading-[0.95]" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)' }}>
+            Four moves.<br />
+            <span className="bg-black text-[#FFE066] inline-block px-3 mt-1">No bloat.</span>
+          </h2>
+          <div className="grid md:grid-cols-2 gap-5">
+            <FeatureTile bg="#FFE066" idx="01" title="Search" body="Five platforms in one query. Filter by audience, region, recency." />
+            <FeatureTile bg="#9DEAFF" idx="02" title="Score"  body="Every creator scored on fit, reach, recency. The reasoning shows." />
+            <FeatureTile bg="#FFFFFF" idx="03" title="Pitch"  body="One click composes the right templated message for the channel." />
+            <FeatureTile bg="#C0FFB3" idx="04" title="Track"  body="Replies update status. Auto-cadence pings you when silence hits." />
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing block */}
+      <section id="pricing" className="px-5 pb-16 md:pb-24">
+        <div className="max-w-[1100px] mx-auto border-[4px] border-black bg-white p-8 md:p-12 grid md:grid-cols-12 gap-8 items-center" style={{ boxShadow: '14px 14px 0 0 #000' }}>
+          <div className="md:col-span-7">
+            <div className="inline-flex items-center gap-2 bg-black text-[#FFE066] px-3 py-1.5 mb-5 font-bold text-[11px] uppercase tracking-[0.16em] border-[3px] border-black">
+              ◆ PRICING
             </div>
-            <div className="grid grid-cols-12 border-b border-[#1F2530] text-[14px]">
-              <div className="col-span-3 px-4 py-5 border-r border-[#1F2530] flex items-center gap-2">
-                <span className="text-[#00C56A]">●</span>
-                <span className="uppercase tracking-[0.1em]">BETA</span>
+            <h2 className="font-[family-name:var(--font-fraunces)] font-black tracking-[-0.025em] leading-[0.95]" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)' }}>
+              Free<br />
+              <span className="italic">while in beta.</span>
+            </h2>
+            <p className="mt-6 max-w-[44ch] text-[16px] font-medium text-black leading-[1.5]">
+              No card. No seat cap. Beta users get grandfathered into a
+              price announced before any tier change. Tell me if it's
+              broken before I make you pay for it.
+            </p>
+          </div>
+          <div className="md:col-span-5">
+            <div className="bg-[#FFE066] border-[3px] border-black p-6">
+              <div className="font-[family-name:var(--font-fraunces)] font-black text-black flex items-baseline gap-2" style={{ fontSize: 'clamp(3rem, 7vw, 5rem)' }}>
+                $0
+                <span className="text-[14px] font-bold normal-case tracking-normal">/forever<sup>*</sup></span>
               </div>
-              <div className="col-span-3 px-4 py-5 border-r border-[#1F2530] flex items-baseline gap-2">
-                <span className="text-2xl md:text-3xl font-bold tabular-nums">$0</span>
-                <span className="text-[11px] text-[#E8E8E8]/50">/forever for early users</span>
+              <ul className="mt-4 space-y-2 text-[15px] font-medium">
+                {[
+                  'Five-platform search',
+                  'AI scoring + plain-English reasoning',
+                  'Templated outreach per channel',
+                  'Auto-cadence follow-ups',
+                  'CSV export, anytime',
+                ].map(s => (
+                  <li key={s} className="flex items-start gap-2">
+                    <span className="text-black font-black mt-0.5">✓</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href={isAuthed ? '/' : '/auth/signup'}
+                className="mt-6 block text-center bg-black text-[#FFE066] py-3.5 font-[family-name:var(--font-fraunces)] font-extrabold text-[16px] border-[3px] border-black hover:bg-[#FFE066] hover:text-black active:translate-y-[3px] transition-all"
+                style={{ boxShadow: '4px 4px 0 0 #FFFFFF' }}
+              >
+                {isAuthed ? 'Open the app →' : 'Try it free →'}
+              </Link>
+              <div className="mt-3 text-[10px] uppercase tracking-[0.14em] font-bold opacity-70">
+                <sup>*</sup> for early users — grandfathered when paid plans drop.
               </div>
-              <div className="col-span-6 px-4 py-5 text-[#E8E8E8]/85">
-                Search, scoring, templates, auto-cadence, exports. No
-                seat cap, no usage meter. Beta users grandfathered.
-              </div>
-            </div>
-            <div className="grid grid-cols-12 text-[14px] text-[#E8E8E8]/55">
-              <div className="col-span-3 px-4 py-5 border-r border-[#1F2530] uppercase tracking-[0.1em]">PRO</div>
-              <div className="col-span-3 px-4 py-5 border-r border-[#1F2530]">— TBA</div>
-              <div className="col-span-6 px-4 py-5">Announced before any tier change.</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="px-5 py-8 text-[11px] uppercase tracking-[0.18em] text-[#E8E8E8]/50">
-        <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <footer className="border-t-[3px] border-black bg-black text-[#FFE066] px-5 py-8">
+        <div className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-3 font-[family-name:var(--font-fraunces)] font-bold text-[14px]">
           <div className="flex items-center gap-2">
-            <span className="text-[#FFB800]">▣</span>
-            © 2026 CREATOR_OUTREACH::TERMINAL
+            <span className="inline-flex items-center justify-center w-6 h-6 bg-[#FFE066] text-black text-[12px] border-[2px] border-[#FFE066]">◆</span>
+            © 2026 CREATOR OUTREACH
           </div>
           <div className="flex gap-5">
-            <Link href="/privacy" className="hover:text-[#FFB800]">PRIVACY</Link>
-            <Link href="/terms" className="hover:text-[#FFB800]">TERMS</Link>
-            <a href="mailto:dmeehanj@gmail.com" className="hover:text-[#FFB800]">CONTACT</a>
+            <Link href="/privacy" className="hover:text-white">Privacy</Link>
+            <Link href="/terms" className="hover:text-white">Terms</Link>
+            <a href="mailto:dmeehanj@gmail.com" className="hover:text-white">Contact</a>
           </div>
         </div>
       </footer>
-
-      <style>{`
-        @keyframes ticker {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
     </main>
   )
 }
 
-function Cell({ sym, val, delta, pos }: { sym: string; val: string; delta: string; pos: boolean }) {
+function BrutalistCard({ children, className = '', bg, tag, rotate = 0 }: { children: React.ReactNode; className?: string; bg: string; tag: string; rotate?: number }) {
   return (
-    <div className="px-4 py-3 border-b border-[#1F2530]">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-[#E8E8E8]/50">{sym}</div>
-      <div className="text-2xl tabular-nums mt-1 flex items-baseline gap-2">
-        {val}
-        <span className={pos ? 'text-[10px] text-[#00C56A]' : 'text-[10px] text-[#FF3D55]'}>
-          {pos ? '▲' : '▼'} {delta}
-        </span>
+    <div
+      className={'border-[4px] border-black p-5 ' + className}
+      style={{
+        backgroundColor: bg,
+        transform: `rotate(${rotate}deg)`,
+        boxShadow: '8px 8px 0 0 #000',
+      }}
+    >
+      <div className="text-[10px] uppercase tracking-[0.16em] font-bold mb-2 text-black/70">{tag}</div>
+      {children}
+    </div>
+  )
+}
+
+function Stat({ n, label }: { n: string; label: string }) {
+  return (
+    <div>
+      <div className="font-[family-name:var(--font-fraunces)] font-black text-black tabular-nums leading-[0.9]" style={{ fontSize: 'clamp(2.5rem, 6vw, 4.5rem)' }}>{n}</div>
+      <div className="mt-1 text-[12px] uppercase tracking-[0.16em] font-bold">{label}</div>
+    </div>
+  )
+}
+
+function FeatureTile({ bg, idx, title, body }: { bg: string; idx: string; title: string; body: string }) {
+  return (
+    <div className="border-[4px] border-black p-6 md:p-8 hover:translate-x-[-3px] hover:translate-y-[-3px] transition-transform" style={{ backgroundColor: bg, boxShadow: '8px 8px 0 0 #000' }}>
+      <div className="flex items-baseline gap-3 mb-3">
+        <span className="inline-flex items-center justify-center w-9 h-9 bg-black text-[#FFE066] font-[family-name:var(--font-fraunces)] font-extrabold text-[14px]">{idx}</span>
+        <h3 className="font-[family-name:var(--font-fraunces)] font-black text-[28px] md:text-[32px] tracking-[-0.02em] text-black">{title}</h3>
       </div>
-    </div>
-  )
-}
-
-function Stat({ label, val, sub }: { label: string; val: string; sub: string }) {
-  return (
-    <div className="bg-[#0A0E13] px-5 py-6">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-[#E8E8E8]/50">{label}</div>
-      <div className="font-bold tabular-nums text-[#FFB800] mt-2" style={{ fontSize: 'clamp(2rem, 4vw, 3.5rem)' }}>{val}</div>
-      <div className="text-[11px] text-[#E8E8E8]/55 mt-1">{sub}</div>
-    </div>
-  )
-}
-
-function Stage({ cmd, desc, status }: { cmd: string; desc: string; status: string }) {
-  return (
-    <div className="grid grid-cols-12 px-4 py-4 hover:bg-[#0A0E13] transition-colors">
-      <div className="col-span-3 text-[#FFB800] tabular-nums uppercase tracking-[0.06em]">{cmd}</div>
-      <div className="col-span-7 text-[14px] text-[#E8E8E8]/85">{desc}</div>
-      <div className="col-span-2 text-right text-[10px] text-[#00C56A] uppercase tracking-[0.18em]">[{status}]</div>
+      <p className="text-[16px] font-medium text-black leading-[1.5]">{body}</p>
     </div>
   )
 }

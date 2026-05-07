@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Archivo_Black, IBM_Plex_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Archivo_Black, IBM_Plex_Mono, Instrument_Serif, Fraunces } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
@@ -14,20 +14,37 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Brutalist redesign — extra display + mono families. Loaded
-// project-wide because the landing page uses both, but kept as
-// CSS variables so the rest of the app's chrome (the data tool)
-// stays in Geist as before.
+// Landing redesign — variant-specific display + serif families.
+// Kept as CSS variables so the authenticated app's chrome (the data
+// tool) stays in Geist; only /landing/v* routes opt in to these.
+
+// V4 (Gumroad-style) — chunky display headlines.
 const archivoBlack = Archivo_Black({
   variable: "--font-archivo-black",
   subsets: ["latin"],
   weight: "400",
 });
 
+// V3 (Vercel-style) — mono details + version stamps.
 const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-ibm-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+});
+
+// V5 (Anthropic-style) — editorial display serif.
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+});
+
+// V4 (Gumroad-style) alt — Fraunces for chunky serif moments.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
@@ -44,7 +61,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${archivoBlack.variable} ${ibmPlexMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${archivoBlack.variable} ${ibmPlexMono.variable} ${instrumentSerif.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>

@@ -4,199 +4,269 @@ import { VersionSwitcher } from '@/components/landing/VersionSwitcher'
 import { getLandingAuthState } from '@/components/landing/getLandingData'
 
 /**
- * V5 — OPERATOR'S NOTEBOOK
+ * V5 — ANTHROPIC-STYLE
  *
- * Direction: Pieter Levels' personal site × Paul Graham essays ×
- * indie-hacker journals × Notion changelog × handwritten zine.
- * Off-white paper, ink-blue ballpoint underlines, hand-drawn arrows
- * pointing at things, polaroid-style screenshot frames with caption
- * tape, mixed font sizes, casual humanizing voice.
+ * Reference: anthropic.com
  *
- * Reads like the actual operator's notebook — not a marketing site,
- * not a brand. The product is the byproduct of a person solving
- * their own problem and offering the result to anyone else who has it.
+ * Visual signatures we're modeling:
+ *   - Cream/off-white substrate (#F4EFE8)
+ *   - Editorial display serif headlines (Instrument Serif), italic
+ *     accents on key words
+ *   - Sans body (Geist Sans), generous line-height, narrow column
+ *   - Single warm accent: terracotta-rust (#A0501F)
+ *   - Restrained, editorial layout — long single-column scroll, big
+ *     quiet hero, ample whitespace
+ *   - Section dividers as thin warm-rust horizontal rules
+ *   - Reading-optimized: 70ch max width on prose, lead paragraph in
+ *     larger size with tighter leading
+ *   - Quiet authority — speaks softly, no exclamation marks
+ *
+ * Distinct from V1 (Linear premium dark) and V2 (Clay warm B2B): this
+ * is the "intellectual / institutional" register. Less product-shop,
+ * more publication.
  */
 
 export const metadata = {
-  title: "Dylan's notebook — building Creator Outreach",
-  description: 'A tool I built to stop running creator outreach in spreadsheets. Free while in beta. Made by one person, used by a few dozen.',
+  title: 'Creator Outreach — A precise tool for the work of finding and writing to creators.',
+  description: 'A small piece of software for the operators who actually send the messages. Five platforms, plain-English scoring, templated outreach per channel.',
 }
 
 export default async function LandingV5() {
   const { isAuthed } = await getLandingAuthState()
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: '#FBF7EE', color: '#1B2A4E' }}>
+    <main className="min-h-screen relative" style={{ backgroundColor: '#F4EFE8', color: '#1A1410' }}>
       <VersionSwitcher />
 
-      {/* Top — handwritten title block */}
-      <header className="px-6 pt-14 md:pt-20 max-w-[820px] mx-auto">
-        <div className="text-[13px] text-[#1B2A4E]/60 italic mb-3">
-          dylan's notebook · vol. 1 / page 1 · written 2026
-        </div>
-        <h1
-          className="leading-[0.95] tracking-tight"
-          style={{
-            fontFamily: 'ui-serif, Georgia, "Times New Roman", serif',
-            fontSize: 'clamp(2.5rem, 6vw, 5rem)',
-            fontWeight: 600,
-          }}
-        >
-          I built a tool because I hated{' '}
-          <span className="relative inline-block">
-            spreadsheets
-            <Underline />
-          </span>{' '}
-          for outreach.
-        </h1>
-        <p className="mt-7 text-[18px] leading-[1.65]" style={{ fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' }}>
-          It's called <strong>Creator Outreach</strong>. It searches
-          five platforms in one query, scores creators in plain
-          English, drafts the right templated message per channel, and
-          reminds me to follow up. It's free while I figure it out.
-          You can{' '}
-          <Link href={isAuthed ? '/' : '/auth/signup'} className="border-b-2 border-[#1B2A4E] hover:text-[#C45C27]">
-            try it{' '}
-            <ArrowDoodle />
+      {/* Top nav */}
+      <header className="border-b border-[#1A1410]/10">
+        <div className="max-w-[1180px] mx-auto px-6 py-5 flex items-center justify-between">
+          <Link href="/landing/v5" className="flex items-baseline gap-3">
+            <span className="font-[family-name:var(--font-instrument-serif)] text-[24px] tracking-tight text-[#1A1410]">
+              Creator Outreach
+            </span>
+            <span className="hidden sm:inline-block font-[family-name:var(--font-geist-sans)] text-[11px] uppercase tracking-[0.18em] text-[#A0501F]">
+              An indie tool
+            </span>
           </Link>
-          {' '}or keep reading.
-        </p>
+          <nav className="hidden md:flex items-center gap-8 text-[13px] text-[#1A1410]/65 font-[family-name:var(--font-geist-sans)]">
+            <a href="#manifesto" className="hover:text-[#1A1410] transition-colors">Why</a>
+            <a href="#preview"   className="hover:text-[#1A1410] transition-colors">Product</a>
+            <a href="#pricing"   className="hover:text-[#1A1410] transition-colors">Pricing</a>
+          </nav>
+          <div className="flex items-center gap-2 font-[family-name:var(--font-geist-sans)]">
+            {!isAuthed && (
+              <Link href="/auth/signin" className="text-[13px] text-[#1A1410]/65 hover:text-[#1A1410] px-3 py-2 transition-colors">
+                Sign in
+              </Link>
+            )}
+            <Link
+              href={isAuthed ? '/' : '/auth/signup'}
+              className="inline-flex items-center gap-1.5 bg-[#1A1410] text-[#F4EFE8] hover:bg-[#A0501F] px-4 py-2 text-[13px] font-medium transition-colors"
+            >
+              {isAuthed ? 'Open' : 'Begin'}
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+        </div>
       </header>
 
-      {/* Polaroid screenshot — taped to page */}
-      <section className="px-6 mt-16 md:mt-20 max-w-[820px] mx-auto">
-        <Polaroid
-          caption="The Results table. This is the screen I look at the most."
-          tilt={-2}
-          src="/screenshots/results.png"
-        />
-      </section>
-
-      {/* Why I built it */}
-      <article
-        className="px-6 mt-16 md:mt-24 max-w-[680px] mx-auto"
-        style={{ fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' }}
-      >
-        <h2 className="text-[14px] uppercase tracking-[0.22em] text-[#1B2A4E]/55 mb-3">
-          Why I built it
-        </h2>
-        <div className="text-[18px] leading-[1.7] space-y-5 text-[#1B2A4E]">
-          <p>
-            For a year I ran outreach for a fishing-conditions product
-            using a spreadsheet, three Outlook templates, and a
-            running tab of "still alive?" searches. I forgot to follow
-            up with everyone twice.{' '}
-            <Marginalia>(this was the worst part)</Marginalia>
+      {/* Hero */}
+      <section className="px-6 pt-24 md:pt-36 pb-20 md:pb-28">
+        <div className="max-w-[940px] mx-auto">
+          <div className="font-[family-name:var(--font-geist-sans)] text-[12px] uppercase tracking-[0.22em] text-[#A0501F] mb-8">
+            ◇ Vol. I · An Essay on a Small Tool
+          </div>
+          <h1
+            className="font-[family-name:var(--font-instrument-serif)] tracking-[-0.015em] leading-[0.99] text-[#1A1410]"
+            style={{ fontSize: 'clamp(3rem, 8vw, 7rem)' }}
+          >
+            A precise tool for the <em className="text-[#A0501F]">work</em> of finding and writing to creators.
+          </h1>
+          <p className="mt-10 max-w-[60ch] font-[family-name:var(--font-geist-sans)] text-[18px] md:text-[19px] text-[#1A1410]/75 leading-[1.65]">
+            Search five platforms in one query. Score every creator in
+            plain English. Pitch with the right templated message per
+            channel. Track every reply in a single quiet queue. Built
+            for operators who care about how the tools they use feel
+            in the hand.
           </p>
-          <p>
-            Two CRMs were too expensive for one person and didn't know
-            what an Instagram handle was. So I wrote my own. It is
-            <em> tiny</em>. It is a queue with discipline, and it
-            ships every day.
-          </p>
+          <div className="mt-12 flex items-center gap-5 font-[family-name:var(--font-geist-sans)]">
+            <Link
+              href={isAuthed ? '/' : '/auth/signup'}
+              className="inline-flex items-center gap-2 bg-[#1A1410] text-[#F4EFE8] hover:bg-[#A0501F] px-6 py-3 text-[15px] font-medium transition-colors"
+            >
+              {isAuthed ? 'Open the app' : 'Begin reading'}
+              <span aria-hidden>→</span>
+            </Link>
+            <Link
+              href="#manifesto"
+              className="text-[14px] text-[#1A1410]/70 hover:text-[#A0501F] underline decoration-1 decoration-[#1A1410]/25 hover:decoration-[#A0501F] underline-offset-[5px] transition-colors"
+            >
+              On why this exists ↓
+            </Link>
+          </div>
         </div>
-      </article>
-
-      {/* What it does — bulleted notes */}
-      <article
-        className="px-6 mt-16 md:mt-20 max-w-[680px] mx-auto"
-        style={{ fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' }}
-      >
-        <h2 className="text-[14px] uppercase tracking-[0.22em] text-[#1B2A4E]/55 mb-3">
-          What it does
-        </h2>
-        <ul className="space-y-3 text-[17px] leading-[1.55]">
-          <NoteItem>
-            <strong>Searches 5 platforms</strong> at once: YouTube,
-            Instagram, TikTok, X, LinkedIn. <em>Filter by audience size, recency, region.</em>
-          </NoteItem>
-          <NoteItem>
-            <strong>Scores fit in plain English.</strong> "Strong fit
-            — posts about commercial real estate weekly, 80k
-            followers, last upload 3 days ago." You correct it; the
-            next search learns.
-          </NoteItem>
-          <NoteItem>
-            <strong>Composes a templated message</strong> per channel
-            in one click — DM on IG, message on LinkedIn, email
-            elsewhere. Edit before send.
-          </NoteItem>
-          <NoteItem>
-            <strong>Auto-cadence</strong> pings me when a reply lapses
-            beyond a few days, so nothing rots in the queue.
-          </NoteItem>
-        </ul>
-      </article>
-
-      {/* Margin annotated screenshot 2 */}
-      <section className="px-6 mt-16 md:mt-20 max-w-[820px] mx-auto">
-        <Polaroid
-          caption="Outreach board. Each card = one creator I'm pitching."
-          tilt={1.5}
-          src="/screenshots/outreach.png"
-        />
       </section>
 
-      {/* What it costs */}
-      <article
-        className="px-6 mt-16 md:mt-20 max-w-[680px] mx-auto"
-        style={{ fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' }}
-      >
-        <h2 className="text-[14px] uppercase tracking-[0.22em] text-[#1B2A4E]/55 mb-3">
-          What it costs
-        </h2>
-        <p className="text-[18px] leading-[1.7]">
-          <strong className="text-[28px] block mb-2">Nothing, yet.</strong>
-          Beta is free. No card. No seat cap. When I start charging,
-          everyone using it now gets grandfathered into a price I
-          announce in advance. I'd rather you tell me it's broken
-          than pay me for it being broken.
-        </p>
-      </article>
+      {/* Editorial divider */}
+      <div className="max-w-[940px] mx-auto px-6">
+        <hr className="border-t border-[#A0501F]/40" />
+      </div>
 
-      {/* Sign in / sign up — handwritten button feel */}
-      <section className="px-6 mt-12 md:mt-16 max-w-[680px] mx-auto">
-        <div className="flex flex-wrap items-center gap-4">
+      {/* Manifesto / why — single-column reading */}
+      <section id="manifesto" className="px-6 py-20 md:py-28">
+        <article className="max-w-[680px] mx-auto font-[family-name:var(--font-geist-sans)] text-[17px] md:text-[18px] leading-[1.75] text-[#1A1410]/85">
+          <div className="text-[12px] uppercase tracking-[0.22em] text-[#A0501F] mb-5">
+            ◇ I — On The Spreadsheet
+          </div>
+          <h2 className="font-[family-name:var(--font-instrument-serif)] text-[#1A1410] mb-10 leading-[1.05]" style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
+            On the spreadsheet, and why I stopped using one.
+          </h2>
+          <p className="mb-6">
+            For the better part of a year I ran creator outreach for a
+            consumer product the way most operators do: a multi-tab
+            spreadsheet, three message templates copy-pasted from
+            Notion, a tab in Outlook with the search query{' '}
+            <em className="font-[family-name:var(--font-instrument-serif)]">"still alive?"</em> pinned to the top.
+            By Friday afternoon I could not tell you which of the
+            seventy-three creators I had emailed had replied, which
+            had agreed, or which had quietly ghosted three touches ago.
+          </p>
+          <p className="mb-6">
+            I tried two CRMs. Both were too expensive for one person,
+            both required a setup ritual I never finished, and neither
+            knew what an Instagram handle was. I went back to the
+            spreadsheet. The spreadsheet, of course, did not get
+            better.
+          </p>
+          <p>
+            So I built the smallest tool I could that would not let
+            me forget. Five platforms in one query, plain-English
+            scoring, the right templated message per channel,
+            auto-cadence pings me when a reply lapses. It is not, in
+            any meaningful sense, a CRM. It is{' '}
+            <em className="font-[family-name:var(--font-instrument-serif)]">a queue with discipline.</em>
+          </p>
+        </article>
+      </section>
+
+      {/* Product preview — restrained frame */}
+      <section id="preview" className="px-6 pb-20 md:pb-28">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="text-[12px] uppercase tracking-[0.22em] text-[#A0501F] mb-5 text-center font-[family-name:var(--font-geist-sans)]">
+            ◇ II — The Tool, Captured
+          </div>
+          <figure>
+            <div className="border border-[#1A1410]/15 bg-white p-3" style={{ boxShadow: '0 30px 60px -30px rgba(160,80,31,0.18), 0 12px 24px -12px rgba(26,20,16,0.10)' }}>
+              <div className="relative aspect-[1440/900] bg-[#0A0E13] overflow-hidden">
+                <Image
+                  src="/screenshots/results.png"
+                  alt="Creator Outreach — Results view"
+                  fill
+                  priority
+                  sizes="(min-width: 1100px) 1100px, 100vw"
+                  className="object-cover object-top"
+                />
+              </div>
+            </div>
+            <figcaption className="mt-4 text-center font-[family-name:var(--font-instrument-serif)] italic text-[15px] text-[#1A1410]/65">
+              Fig. 1 — the Results view, with five platforms searched in one query and scored on fit.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <div className="max-w-[940px] mx-auto px-6">
+        <hr className="border-t border-[#A0501F]/40" />
+      </div>
+
+      {/* Three column features — editorial */}
+      <section className="px-6 py-20 md:py-28">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="text-[12px] uppercase tracking-[0.22em] text-[#A0501F] mb-5 font-[family-name:var(--font-geist-sans)]">
+            ◇ III — The Method
+          </div>
+          <h2 className="font-[family-name:var(--font-instrument-serif)] text-[#1A1410] mb-12 leading-[1.05] max-w-[18ch]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)' }}>
+            Three motions, repeated until the queue is quiet.
+          </h2>
+          <div className="grid md:grid-cols-3 gap-x-10 gap-y-12 font-[family-name:var(--font-geist-sans)]">
+            <Chapter
+              numeral="i."
+              title="Source"
+              body="A single search returns YouTube, Instagram, TikTok, X, and LinkedIn creators in the same table. Filter by audience, region, recency. AI surfaces fits matching the criteria you typed in plain English."
+            />
+            <Chapter
+              numeral="ii."
+              title="Score"
+              body="Each creator is scored on fit, reach, and recency. The reasoning is shown in English you can read and correct. The next search learns."
+            />
+            <Chapter
+              numeral="iii."
+              title="Pitch"
+              body="One click composes the right templated message per channel — DM on Instagram, message on LinkedIn, email everywhere else. Auto-cadence pings you when silence hits three days."
+            />
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-[940px] mx-auto px-6">
+        <hr className="border-t border-[#A0501F]/40" />
+      </div>
+
+      {/* Pull-quote — full bleed text moment */}
+      <section className="px-6 py-24 md:py-32">
+        <div className="max-w-[820px] mx-auto text-center">
+          <blockquote className="font-[family-name:var(--font-instrument-serif)] italic text-[#1A1410] leading-[1.15]" style={{ fontSize: 'clamp(1.75rem, 4vw, 3rem)' }}>
+            “The spreadsheet was a graveyard. The CRM was a museum. I
+            wanted a queue with discipline.”
+          </blockquote>
+          <div className="mt-7 font-[family-name:var(--font-geist-sans)] text-[12px] uppercase tracking-[0.22em] text-[#1A1410]/55">
+            — From <em className="not-italic">Vol. I, Section I</em>
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-[940px] mx-auto px-6">
+        <hr className="border-t border-[#A0501F]/40" />
+      </div>
+
+      {/* Pricing — restrained editorial */}
+      <section id="pricing" className="px-6 py-20 md:py-28">
+        <div className="max-w-[820px] mx-auto">
+          <div className="text-[12px] uppercase tracking-[0.22em] text-[#A0501F] mb-5 font-[family-name:var(--font-geist-sans)]">
+            ◇ IV — On What It Costs
+          </div>
+          <h2 className="font-[family-name:var(--font-instrument-serif)] text-[#1A1410] mb-8 leading-[1.05]" style={{ fontSize: 'clamp(2.25rem, 5vw, 4rem)' }}>
+            <em className="text-[#A0501F]">Nothing,</em> for now.
+          </h2>
+          <p className="font-[family-name:var(--font-geist-sans)] text-[17px] text-[#1A1410]/75 leading-[1.65] max-w-[58ch]">
+            $0 while in beta. No card on file, no seat cap, no annual
+            commitment. Beta users will be grandfathered into a price
+            that has not yet been set, and which will be announced
+            before any tier change. I would rather you tell me it is
+            broken than have you have paid for it being broken.
+          </p>
           <Link
             href={isAuthed ? '/' : '/auth/signup'}
-            className="inline-flex items-center gap-2 bg-[#1B2A4E] text-[#FBF7EE] hover:bg-[#C45C27] transition-colors px-6 py-3 border-[3px] border-[#1B2A4E] hover:border-[#C45C27] text-[16px] font-medium"
-            style={{ fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' }}
+            className="mt-10 inline-flex items-center gap-2 bg-[#1A1410] text-[#F4EFE8] hover:bg-[#A0501F] px-6 py-3 font-[family-name:var(--font-geist-sans)] text-[15px] font-medium transition-colors"
           >
-            {isAuthed ? '↗ Open the app' : '↗ Try it (it\'s free)'}
+            {isAuthed ? 'Open the app' : 'Begin'}
+            <span aria-hidden>→</span>
           </Link>
-          {!isAuthed && (
-            <Link
-              href="/auth/signin"
-              className="text-[15px] text-[#1B2A4E]/70 hover:text-[#C45C27] underline decoration-2 decoration-[#1B2A4E]/30 hover:decoration-[#C45C27] underline-offset-4"
-            >
-              or sign in if you've used it before
-            </Link>
-          )}
         </div>
       </section>
 
-      {/* Hand-signed footer */}
-      <footer className="px-6 mt-24 md:mt-32 pb-16 max-w-[680px] mx-auto" style={{ fontFamily: 'ui-serif, Georgia, "Times New Roman", serif' }}>
-        <div className="border-t border-[#1B2A4E]/30 pt-8">
-          <p className="text-[16px] leading-[1.65] text-[#1B2A4E]/85 italic">
-            Tell me what's missing. The form on{' '}
-            <a href="mailto:dmeehanj@gmail.com" className="border-b border-[#1B2A4E] hover:text-[#C45C27]">
-              dmeehanj@gmail.com
-            </a>{' '}
-            goes straight to me. I read every reply. If something is
-            broken, I'm the only one who can fix it — so tell me.
-          </p>
-          <div
-            className="mt-6 text-[28px] text-[#C45C27]"
-            style={{ fontFamily: '"Brush Script MT", "Lucida Handwriting", cursive', transform: 'rotate(-3deg)', display: 'inline-block' }}
-          >
-            — Dylan
+      {/* Footer */}
+      <footer className="border-t border-[#1A1410]/15 px-6 py-10 font-[family-name:var(--font-geist-sans)]">
+        <div className="max-w-[1180px] mx-auto flex flex-wrap items-center justify-between gap-3 text-[13px] text-[#1A1410]/55">
+          <div className="flex items-baseline gap-3">
+            <span className="font-[family-name:var(--font-instrument-serif)] text-[18px] text-[#1A1410]">Creator Outreach</span>
+            <span className="text-[11px] uppercase tracking-[0.18em] text-[#A0501F]">Vol. I · 2026</span>
           </div>
-          <div className="mt-10 text-[12px] text-[#1B2A4E]/50 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span>© 2026 Creator Outreach</span>
-            <Link href="/privacy" className="hover:text-[#C45C27]">privacy</Link>
-            <Link href="/terms" className="hover:text-[#C45C27]">terms</Link>
-            <a href="mailto:dmeehanj@gmail.com" className="hover:text-[#C45C27]">contact</a>
+          <div className="flex gap-5">
+            <Link href="/privacy" className="hover:text-[#1A1410] transition-colors">Privacy</Link>
+            <Link href="/terms"   className="hover:text-[#1A1410] transition-colors">Terms</Link>
+            <a href="mailto:dmeehanj@gmail.com" className="hover:text-[#1A1410] transition-colors">Contact</a>
           </div>
         </div>
       </footer>
@@ -204,103 +274,12 @@ export default async function LandingV5() {
   )
 }
 
-/* ─── tiny notebook primitives ─── */
-
-function Underline() {
-  // Hand-drawn-feel ballpoint underline using SVG
+function Chapter({ numeral, title, body }: { numeral: string; title: string; body: string }) {
   return (
-    <svg
-      aria-hidden
-      viewBox="0 0 200 12"
-      preserveAspectRatio="none"
-      className="absolute left-0 right-0 -bottom-1 w-full h-[10px]"
-    >
-      <path
-        d="M2,8 C40,2 80,11 120,5 C160,1 180,9 198,4"
-        stroke="#C45C27"
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function ArrowDoodle() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 40 12"
-      className="inline-block w-[36px] h-[12px] align-baseline ml-1"
-    >
-      <path
-        d="M2,6 C12,2 22,10 32,6"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <path
-        d="M28,2 L34,6 L28,10"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        fill="none"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function Marginalia({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      className="inline-block text-[14px] text-[#C45C27] italic ml-1"
-      style={{ fontFamily: '"Lucida Handwriting", "Brush Script MT", cursive' }}
-    >
-      {children}
-    </span>
-  )
-}
-
-function NoteItem({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="grid grid-cols-[max-content_1fr] gap-3">
-      <span className="text-[#C45C27] text-[20px] leading-none mt-1">▸</span>
-      <span>{children}</span>
-    </li>
-  )
-}
-
-function Polaroid({ caption, tilt = 0, src }: { caption: string; tilt?: number; src: string }) {
-  return (
-    <figure
-      className="relative bg-white p-3 pb-12 mx-auto max-w-[680px]"
-      style={{
-        transform: `rotate(${tilt}deg)`,
-        boxShadow: '0 12px 30px -10px rgba(27,42,78,0.30), 0 4px 8px -2px rgba(27,42,78,0.12)',
-      }}
-    >
-      {/* Tape strip */}
-      <div
-        aria-hidden
-        className="absolute -top-3 left-1/2 w-20 h-7 -translate-x-1/2 rotate-[-3deg]"
-        style={{ backgroundColor: 'rgba(196,92,39,0.4)', boxShadow: 'inset 0 0 6px rgba(0,0,0,0.08)' }}
-      />
-      <div className="relative aspect-[1440/900] bg-[#080A11] overflow-hidden">
-        <Image
-          src={src}
-          alt={caption}
-          fill
-          sizes="(min-width: 680px) 680px, 100vw"
-          className="object-cover object-top"
-        />
-      </div>
-      <figcaption
-        className="absolute left-0 right-0 bottom-2 text-center text-[14px] text-[#1B2A4E]/85 italic px-4"
-        style={{ fontFamily: '"Lucida Handwriting", "Brush Script MT", cursive' }}
-      >
-        {caption}
-      </figcaption>
-    </figure>
+    <div>
+      <div className="font-[family-name:var(--font-instrument-serif)] italic text-[#A0501F] text-[24px] mb-2">{numeral}</div>
+      <h3 className="font-[family-name:var(--font-instrument-serif)] text-[26px] tracking-[-0.005em] text-[#1A1410] mb-3">{title}</h3>
+      <p className="text-[15px] text-[#1A1410]/70 leading-[1.65]">{body}</p>
+    </div>
   )
 }

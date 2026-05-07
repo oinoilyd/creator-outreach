@@ -15,11 +15,11 @@ import { usePathname } from 'next/navigation'
  */
 
 const VERSIONS: { slug: string; label: string; sub: string }[] = [
-  { slug: 'v1', label: 'V1', sub: 'Editorial' },
-  { slug: 'v2', label: 'V2', sub: 'Maximalist' },
-  { slug: 'v3', label: 'V3', sub: 'Premium Tech' },
-  { slug: 'v4', label: 'V4', sub: 'Terminal' },
-  { slug: 'v5', label: 'V5', sub: 'Notebook' },
+  { slug: 'v1', label: 'V1', sub: 'Linear-style' },
+  { slug: 'v2', label: 'V2', sub: 'Clay-style' },
+  { slug: 'v3', label: 'V3', sub: 'Vercel-style' },
+  { slug: 'v4', label: 'V4', sub: 'Gumroad-style' },
+  { slug: 'v5', label: 'V5', sub: 'Anthropic-style' },
 ]
 
 export function VersionSwitcher() {
