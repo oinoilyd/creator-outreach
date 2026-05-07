@@ -41,6 +41,7 @@ const HARD_BLOCK_PATTERNS: RegExp[] = [
 // JS source (u003efriends@stanwith.me etc.) and any future weirdness
 // where a normal regex domain check might not match exactly.
 const NUCLEAR_SUBSTRINGS = [
+  // Platform/infra
   'stanwith', 'stan.store',
   'patreon.com', 'sentry.io',
   'buymeacoffee', 'ko-fi', 'kofi',
@@ -48,6 +49,14 @@ const NUCLEAR_SUBSTRINGS = [
   'beehiiv', 'substack', 'mailchimp',
   'campsite.bio', 'about.me', 'msha.ke',
   'gumroad', 'convertkit',
+  // Placeholders / examples
+  '@example.com', '@example.org', '@example.net',
+  '@yourdomain', '@yoursite', '@yourcompany', '@yourbusiness',
+  '@mysite.com', '@mydomain.com',
+  '@placeholder.', '@sample.com',
+  // DMARC reporting addresses — real addresses but go to log archives
+  'dmarc-reports@', 'dmarc-failures@', 'dmarc-aggregate@', 'dmarc@',
+  'aggregate@', 'forensic@', 'rua@', 'ruf@',
 ]
 
 function isBlockedEmail(email: string): boolean {

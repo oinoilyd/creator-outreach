@@ -179,13 +179,31 @@ function extractEmailsFromHtml(html: string): string[] {
   return [...out]
 }
 
+// Placeholder / example domains that show up in JSON-LD templates,
+// theme defaults, schema.org examples, etc. — never real creator addresses.
+const PLACEHOLDER_DOMAINS = new Set([
+  'example.com', 'example.org', 'example.net', 'example.co',
+  'domain.com', 'yourdomain.com', 'yoursite.com', 'mysite.com',
+  'mydomain.com', 'site.com', 'website.com', 'company.com',
+  'yourcompany.com', 'yourbusiness.com', 'yourbrand.com',
+  'test.com', 'foo.com', 'foobar.com', 'sample.com',
+  'placeholder.com', 'lorem.com',
+  'email.com', // common placeholder text
+])
+
+// Local-part patterns for DMARC reporting / postmaster-style addresses
+// dredged out of DNS TXT records — real addresses but they only ever
+// receive aggregate reports, never useful for outreach.
+const DMARC_REPORT_LOCAL = /^(dmarc(-reports?|-failures?|-aggr(egate)?)?|aggregate|forensic|rua|ruf|postmaster|abuse|reports?)$/i
+
+// Placeholder local parts seen in templates / examples
+const PLACEHOLDER_LOCAL = /^(your-?(name|email)|name|email|firstname|lastname|test|placeholder|lorem|ipsum|sample|profile|user|admin|example)$/i
+
 // Filter junk (image filenames misread as emails, platform-owned infra
-// addresses, hash-shaped DSN local parts, etc.)
+// addresses, hash-shaped DSN local parts, DMARC reporting boxes,
+// template placeholders, etc.).
 // Exported so the admin email-test orchestrator can apply the same
-// blocklist to emails coming out of the production /api/enrich pipeline
-// (which has its own simpler regex-based extraction without platform
-// awareness). Production app stays untouched; only the admin sandbox
-// validates uniformly.
+// blocklist to emails coming out of the production /api/enrich pipeline.
 export function isPlausibleEmail(email: string): boolean {
   if (email.length < 6 || email.length > 80) return false
   if (/\.(png|jpg|jpeg|gif|svg|webp|css|js)$/.test(email)) return false
@@ -197,12 +215,23 @@ export function isPlausibleEmail(email: string): boolean {
   // Platform / infrastructure domain (subdomain-aware)
   if (isPlatformDomain(domain)) return false
 
-  // Hash-shaped local parts: Sentry DSNs, API keys, token captures.
-  // Real emails almost never have a 16+ pure-hex local part.
+  // Placeholder / example domains
+  if (PLACEHOLDER_DOMAINS.has(domain.toLowerCase())) return false
+
+  // Domains that are obvious examples even if not in our list
+  if (/^(your|my|sample|example|placeholder|test|foo)[a-z]*\.(com|net|org|co)$/i.test(domain)) return false
+
+  // Hash-shaped local parts (Sentry DSNs, API keys, etc.)
   if (/^[a-f0-9]{16,}$/i.test(local)) return false
 
   // Common noreply patterns
   if (/^(no-?reply|donot-?reply|notifications?|alerts?|automated|system)$/i.test(local)) return false
+
+  // DMARC reporting / postmaster local parts — real, but useless for outreach
+  if (DMARC_REPORT_LOCAL.test(local)) return false
+
+  // Placeholder local parts (your-name, profile, name, email, etc.)
+  if (PLACEHOLDER_LOCAL.test(local)) return false
 
   return true
 }
@@ -727,7 +756,10 @@ export async function newMethodology(input: MethodologyInput): Promise<Methodolo
     handle ? fromAlternateTlds(handle) : Promise.resolve<string[]>([]),
     websiteDomain ? fromCertTransparency(websiteDomain) : Promise.resolve<string[]>([]),
     websiteDomain ? fromMultiSnapshotWayback(websiteDomain) : Promise.resolve<string[]>([]),
-    websiteDomain ? fromDnsTxt(websiteDomain) : Promise.resolve<string[]>([]),
+    // DNS TXT method disabled — returns ~100% DMARC reporting addresses
+    // which are real but useless for outreach. Keep the function around
+    // in case we want to revisit, but skip it from the orchestrator.
+    Promise.resolve<string[]>([]),
     handle ? fromSubstackPosts(handle) : Promise.resolve<string[]>([]),
   ])
 
