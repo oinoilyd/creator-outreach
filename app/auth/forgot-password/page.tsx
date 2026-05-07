@@ -17,8 +17,17 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     try {
       const supabase = createClient()
+      // Route the reset email through /auth/callback so the
+      // ?code= that Supabase appends gets exchanged for a real
+      // session BEFORE the user lands on /auth/reset-password.
+      // Without this hop, the reset page calls getSession() too
+      // early — the code hasn't been exchanged yet, hasSession is
+      // false, the user sees "this reset link looks invalid or
+      // expired" even though it's fresh.
+      const callback = new URL('/auth/callback', window.location.origin)
+      callback.searchParams.set('next', '/auth/reset-password')
       const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: callback.toString(),
       })
       if (err) {
         setError(err.message)
