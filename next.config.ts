@@ -2,15 +2,28 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === 'production'
 
-// Production CSP — strict. No 'unsafe-eval', no 'unsafe-inline' on scripts.
-// Inline styles ARE allowed because Next.js + Tailwind generate inline
-// style attributes (e.g. CSS variable assignments) that CSP'd inline-style
-// blocks would break for cosmetic reasons.
+// Production CSP — Next.js 16 (App Router + Turbopack) ships its
+// hydration as inline <script> tags that call self.__next_f.push(...)
+// PLUS uses `eval` / `new Function()` in the runtime for chunk
+// resolution. Both 'unsafe-inline' and 'unsafe-eval' are required
+// or React silently fails to hydrate — buttons render as static
+// HTML with no event handlers attached. Verified empirically
+// 2026-05-08 by reproducing the exact symptom Dylan reported.
+//
+// Honest security tradeoff: 'unsafe-inline' + 'unsafe-eval' on
+// script-src weakens XSS defense. Mitigations still in place:
+// 'self' + vercel.live as the only sources, strict frame-ancestors
+// 'none' (no clickjacking), HSTS preload, no `eval(userInput)`
+// surface in the codebase, every API route validates inputs.
+//
+// Proper long-term fix: nonce-based CSP via middleware.ts that
+// generates a per-request nonce, applies it to every Next.js
+// inline script tag, and uses 'strict-dynamic' to allow chunk
+// loading transitively. Tracking that as a follow-up — for tonight
+// this is the only working CSP that matches Next 16's runtime.
 const productionCsp = [
   "default-src 'self'",
-  // Scripts: self + Vercel feedback only. No unsafe-eval, no unsafe-inline
-  // — defense-in-depth against any reflected/stored XSS hole.
-  "script-src 'self' https://vercel.live",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com https://vercel.live",
