@@ -211,6 +211,46 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* HOW IT ACTUALLY WORKS — 3-step horizontal demo strip with
+          tight bento screenshot crops. Sells the whole loop in 2
+          seconds without marketing copy: pick a niche → see scored
+          results → reach out + track. The screenshots are the real
+          UI (bento-search.png / bento-fit.png / bento-status.png),
+          not synthesized mockups. */}
+      <section className="px-6 pt-20 md:pt-28 pb-4">
+        <div className="max-w-[1280px] mx-auto">
+          <div className="text-center max-w-[640px] mx-auto mb-12 md:mb-14">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">How it actually works</div>
+            <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
+              The whole loop, in three clicks.
+            </h2>
+          </div>
+          <div className="relative grid md:grid-cols-3 gap-6 md:gap-3 items-stretch">
+            <DemoStep
+              n="01"
+              title="Pick a niche"
+              body="Click one of 13 niche buckets. The search fans out across all five platforms in parallel."
+              src="/screenshots/bento-search.png"
+              alt="Search filters with niche bucket selected"
+            />
+            <DemoStep
+              n="02"
+              title="See ranked results"
+              body="Every creator scored against your plain-English criteria. Strong / Possible / Weak labels, sortable per dimension."
+              src="/screenshots/bento-fit.png"
+              alt="Results table with fit score column"
+            />
+            <DemoStep
+              n="03"
+              title="Reach out, track status"
+              body="Status pill, medium tracker, follow-up cadence. Click an Instagram handle and a DM template lands in your clipboard."
+              src="/screenshots/bento-status.png"
+              alt="Outreach board with status pills"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* PRODUCT NARRATIVES (3 stages with screenshots) */}
       <section id="product" className="scroll-mt-24">
         {/* 1 — Sourcing */}
@@ -633,6 +673,39 @@ export default async function LandingPage() {
 }
 
 /* ─── primitives ─── */
+
+function DemoStep({
+  n,
+  title,
+  body,
+  src,
+  alt,
+}: {
+  /** Step number "01" / "02" / "03" — typeset in muted mono */
+  n: string
+  title: string
+  body: string
+  src: string
+  alt: string
+}) {
+  return (
+    <div className="relative flex flex-col rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+      {/* Screenshot strip — locked 16:9 with object-contain on a dark
+          frame so different bento crops (search 2.47:1, fit 1.08:1,
+          status 3.98:1) all sit visibly in the same height slot
+          without forced cropping. Always dark frame regardless of
+          theme so the screenshots match. */}
+      <div className="relative w-full bg-[#0E121C] border-b border-[#0F1733]/10 dark:border-white/10" style={{ aspectRatio: '16 / 9' }}>
+        <Image src={src} alt={alt} fill sizes="(min-width: 1280px) 400px, 100vw" className="object-contain" />
+      </div>
+      <div className="flex-1 p-5 md:p-6">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-[#E85D2F] font-bold font-mono mb-2">{n}</div>
+        <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2">{title}</h3>
+        <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
+      </div>
+    </div>
+  )
+}
 
 function SolutionTile({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
