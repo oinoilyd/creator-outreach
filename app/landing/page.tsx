@@ -56,21 +56,8 @@ export default async function LandingPage() {
       <section className="px-6 pt-14 md:pt-20 pb-12 md:pb-16">
         <div className="max-w-[1320px] mx-auto grid md:grid-cols-12 gap-10 md:gap-12 items-center">
           <div className="md:col-span-5">
-            {/* Changelog text link (replaces template-y pill chip).
-                Reads as a real release note, not a marketing badge. */}
-            <a
-              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20changelog"
-              className="inline-flex items-center gap-2 mb-7 text-[13px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors"
-            >
-              <span className="text-[#0F1733]/35 dark:text-white/35 font-mono tabular-nums">
-                v0.4 · May 7
-              </span>
-              <span className="text-[#0F1733]/20 dark:text-white/20">—</span>
-              <span className="underline underline-offset-4 decoration-[#0F1733]/20 dark:decoration-white/20 hover:decoration-[#E85D2F]/60">
-                real Instagram follower counts inline in the queue
-              </span>
-              <span aria-hidden>→</span>
-            </a>
+            {/* (Changelog link removed — it read as a fake release note
+                rather than something useful for a brand-new visitor.) */}
             <h1
               className="font-semibold tracking-[-0.035em] leading-[0.97]"
               style={{ fontSize: 'clamp(2.5rem, 5.5vw, 5rem)' }}
