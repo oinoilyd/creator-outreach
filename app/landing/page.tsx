@@ -463,97 +463,10 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ROADMAP — vamped up 2026-05-08. Now grouped into 3 lanes
-          (Now shipping / Up next / On the radar) with a column
-          header per lane, a vertical accent bar, and an item count.
-          Reads like a real product roadmap, not a wall of cards. */}
-      <section id="resources" className="px-6 py-20 md:py-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
-        <div className="max-w-[1280px] mx-auto">
-          <div className="flex flex-wrap items-end justify-between gap-4 mb-12 md:mb-14">
-            <div className="max-w-[640px]">
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-3 font-semibold">Roadmap</div>
-              <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)' }}>
-                What&apos;s next, from the operator running it.
-              </h2>
-              <p className="mt-4 text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
-                The actual build queue, sorted by what unblocks the most
-                pipeline next. Items move left as they ship. Email me to
-                vote on priority — the queue updates fast.
-              </p>
-            </div>
-            <a
-              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20roadmap%20feedback"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#E85D2F] hover:bg-[#9C3D1F] transition-colors"
-            >
-              Vote on the queue
-              <span aria-hidden>&rarr;</span>
-            </a>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-            <RoadmapLane
-              label="Now shipping"
-              count={2}
-              accent="#16A34A"
-              caption="Live this week."
-              items={[
-                {
-                  title: 'Real Instagram metrics inline',
-                  body: 'Inline follower counts + recent-post recency on every IG row. Three-strategy scraper handles profiles even when the public APIs deny.',
-                },
-                {
-                  title: 'Per-platform fit-score weights',
-                  body: 'Re-tune Recency / Reach / Reachability / Relevance / Quality independently per platform. Instagram weight isn’t YouTube weight isn’t LinkedIn weight.',
-                },
-              ]}
-            />
-            <RoadmapLane
-              label="Up next"
-              count={3}
-              accent="#E85D2F"
-              caption="Building now — ETA 2–6 weeks."
-              items={[
-                {
-                  title: 'Meta Graph API + bulk email enrichment',
-                  body: 'Verified IG audience signals via Graph API. Turn a list of handles into a reachability-scored sheet in one pass.',
-                },
-                {
-                  title: 'Custom scoring presets',
-                  body: 'Save a fit-criteria recipe (e.g. “Fitness IG sponsorship”), share across platforms, reuse in one click.',
-                },
-                {
-                  title: 'Reply-rate analytics per template',
-                  body: 'A/B opener templates head-to-head. See which DM hooks reply on which platform. Auto-rotate the winner.',
-                },
-              ]}
-            />
-            <RoadmapLane
-              label="On the radar"
-              count={4}
-              accent="#1B6FB5"
-              caption="Researching — vote to bump."
-              items={[
-                {
-                  title: 'Multi-seat workspaces',
-                  body: 'Shared queues, per-user notes, per-seat outreach status — without per-seat pricing punishments.',
-                },
-                {
-                  title: 'Browser extension',
-                  body: 'See a creator on YouTube/IG, hotkey, drop them into the Outreach board. Skip the copy/paste.',
-                },
-                {
-                  title: 'AI-drafted opener per creator',
-                  body: 'One-click first-draft DM or email that references their actual recent posts — not a generic template.',
-                },
-                {
-                  title: 'Slack + Notion sync',
-                  body: 'Push status changes into a Slack channel; mirror the Outreach board into a Notion view.',
-                },
-              ]}
-            />
-          </div>
-        </div>
-      </section>
+      {/* (Roadmap moved to its own dedicated page at /roadmap and
+          surfaced via the hamburger menu only — was an inline
+          section here, but Dylan wanted it lifted off the landing
+          flow so the page reads tighter.) */}
 
       {/* (Final CTA section removed 2026-05-08 — the dark
           'One query. Five platforms. One queue.' banner felt like a
@@ -687,69 +600,13 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
           </li>
         ))}
       </ul>
-      <Link href={ctaHref} className={`mt-auto block text-center px-5 py-3 rounded-md font-semibold text-[15px] transition-colors ${featured ? 'bg-white text-[#0F1733] hover:bg-[#F2A261]' : 'bg-[#0F1733] text-white hover:bg-[#E85D2F]'}`}>
+      <Link href={ctaHref} className={`mt-auto flex w-full items-center justify-center gap-1.5 px-5 py-3 rounded-md font-semibold text-[15px] whitespace-nowrap transition-colors ${featured ? 'bg-white text-[#0F1733] hover:bg-[#F2A261]' : 'bg-[#0F1733] text-white hover:bg-[#E85D2F]'}`}>
         {cta} <span aria-hidden>→</span>
       </Link>
     </div>
   )
 }
 
-/**
- * RoadmapLane — Kanban-style column. Lane header with status chip
- * + item count + caption, vertical accent stripe on the left, and
- * a stack of compact item cards.
- */
-function RoadmapLane({
-  label,
-  count,
-  accent,
-  caption,
-  items,
-}: {
-  label: string
-  count: number
-  accent: string
-  caption: string
-  items: { title: string; body: string }[]
-}) {
-  return (
-    <div className="relative pl-5">
-      {/* Vertical accent stripe — colored to the lane status */}
-      <span
-        aria-hidden
-        className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full"
-        style={{ backgroundColor: accent }}
-      />
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-1.5">
-          <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.18em] font-bold border"
-            style={{ color: accent, borderColor: `${accent}55`, backgroundColor: `${accent}14` }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
-            {label}
-          </span>
-          <span className="text-[12px] font-semibold tracking-tight text-[#0F1733]/45 dark:text-white/45">
-            {count} item{count !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <p className="text-[12.5px] text-[#0F1733]/55 dark:text-white/55">{caption}</p>
-      </div>
-      <div className="space-y-3">
-        {items.map(it => (
-          <article
-            key={it.title}
-            className="rounded-lg border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-4 transition-colors hover:border-[#E85D2F]/40"
-            style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.04)' }}
-          >
-            <h3 className="text-[14.5px] font-semibold tracking-[-0.01em] mb-1.5 leading-[1.3]">{it.title}</h3>
-            <p className="text-[13px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{it.body}</p>
-          </article>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 function FooterCol({ heading, links }: { heading: string; links: [string, string][] }) {
   return (

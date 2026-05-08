@@ -2644,14 +2644,14 @@ export default function Home() {
       const updated = { ...e, [field]: value }
 
       if (field === 'status') {
-        // Celebrate first-time conversions only — Successful is the
-        // dopamine moment. Rejected / No Response previously fired
-        // their own toasts ("X marked as Rejected", "X ghosted") but
-        // those felt noisy for routine triage actions; suppressed
-        // 2026-05-08 per Dylan.
+        // No toasts on status changes (Successful / Rejected / No
+        // Response / Not Outreached / Open) — every transition was
+        // popping a notification in the bottom-right which felt
+        // noisy for routine triage. The confetti animation still
+        // fires on first-time Successful so the dopamine moment
+        // isn't lost.
         if (value === 'Successful' && e.status !== 'Successful') {
           celebrateSuccess()
-          toast.success(`🎉 ${e.channelName} converted!`, { description: 'Marked as Successful' })
         }
 
         // Status drives reachedOut: anything past "Not Outreached" / "" counts.

@@ -74,7 +74,10 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
           <a href="#solutions" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Solutions</a>
           <a href="#customers" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Customers</a>
           <a href="#pricing" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Pricing</a>
-          <a href="#resources" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Resources</a>
+          {/* Roadmap intentionally absent from the desktop bar — it
+              lives in the hamburger menu only so the bar stays focused
+              on the marketing-page anchors (Product / Solutions /
+              Customers / Pricing). */}
         </nav>
 
         {/* Right-side controls — z-50 so neither stacking context from
@@ -164,7 +167,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                   <MenuItem href="#solutions" onSelect={() => setOpen(false)}>Solutions</MenuItem>
                   <MenuItem href="#customers" onSelect={() => setOpen(false)}>Why this exists</MenuItem>
                   <MenuItem href="#pricing" onSelect={() => setOpen(false)}>Pricing</MenuItem>
-                  <MenuItem href="#resources" onSelect={() => setOpen(false)}>Roadmap</MenuItem>
+                  <MenuItem href="/roadmap" onSelect={() => setOpen(false)}>Roadmap</MenuItem>
                 </MenuGroup>
 
                 <MenuGroup label="Connect">
