@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -25,7 +25,7 @@ import { validatePassword, friendlyPasswordError } from '@/lib/password'
  * directly (legacy email, manual nav), we exchange it inline before
  * deciding the link is invalid. That way no flow is dead-ended.
  */
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
@@ -191,5 +191,29 @@ export default function ResetPasswordPage() {
         </p>
       </div>
     </AuthShell>
+  )
+}
+
+/**
+ * Suspense boundary required by Next.js when a client component
+ * uses useSearchParams() — without it, the page can't be statically
+ * pre-rendered (build-time error: "useSearchParams() should be
+ * wrapped in a suspense boundary at page /auth/reset-password").
+ *
+ * Same pattern the signup page uses for its useSearchParams call.
+ */
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthShell>
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-8 shadow-xl shadow-purple-200/20 dark:bg-card/80 dark:backdrop-blur-md dark:border-white/10 dark:shadow-black/40 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin" aria-label="Loading" />
+          </div>
+        </AuthShell>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
