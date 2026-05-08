@@ -52,9 +52,9 @@ const DIMENSIONS: Dimension[] = [
   {
     key: 'reachability',
     label: 'Reachability',
-    short: 'Whether you can actually contact them',
+    short: 'Channels you can actually reach them on, per target platform',
     detail:
-      'Email AND LinkedIn presence = full credit. Email-only = strong partial. LinkedIn-only = light partial. No public contact = zero. The scraper pulls each per platform; a row with no contact info ends up at the bottom of the queue regardless of fit.',
+      'Depends on the platform you target. YouTube outreach scores email + LinkedIn presence. Instagram outreach scores Instagram handle + email. LinkedIn outreach is LinkedIn-first. Each platform has its own definition of "actually reachable" — a creator with no IG DM but a public email scores high for YouTube outreach and low for Instagram outreach. Configurable per platform, weighted to whatever channel you actually use.',
     accent: '#16A34A',
   },
   {
@@ -154,7 +154,7 @@ export function StatBandSpotlight() {
           </div>
 
           {/* Spotlight: animated orbital + interactive dimension panel */}
-          <div className="grid md:grid-cols-12 gap-10 md:gap-12 items-start">
+          <div className="grid md:grid-cols-12 gap-10 md:gap-12 items-center">
             <div className="md:col-span-5 flex items-center justify-center">
               <FitScoreOrbital score={score} accent={active.accent} />
             </div>
@@ -233,18 +233,8 @@ export function StatBandSpotlight() {
             </div>
           </div>
 
-          {/* Supporting row — 3 stats, no "5 platforms in parallel" lead. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 mt-12 md:mt-14 pt-12 md:pt-14 border-t border-white/10">
-            <SmallStat
-              n="Inline"
-              label="email + social handles per result · no manual lookup"
-            />
-            <SmallStat
-              n="Per channel"
-              label="templated outreach + auto-cadence follow-ups"
-            />
-            <SmallStat n="$0" label="free in beta · no card · no seat cap" />
-          </div>
+          {/* (Bottom supporting-stat row removed — felt extra after the
+              chip cloud already sells customizability.) */}
         </div>
 
         <style>{`
@@ -268,6 +258,10 @@ export function StatBandSpotlight() {
             from { transform: rotate(0deg); }
             to   { transform: rotate(360deg); }
           }
+          @keyframes sb-radar-sweep-rev {
+            from { transform: rotate(360deg); }
+            to   { transform: rotate(0deg); }
+          }
           @keyframes sb-twinkle {
             0%, 100% { opacity: 0.15; transform: scale(0.85); }
             50%      { opacity: 1; transform: scale(1.15); }
@@ -276,112 +270,186 @@ export function StatBandSpotlight() {
             0%, 100% { opacity: 0.9; }
             50%      { opacity: 1; }
           }
+          @keyframes sb-pulse-aura {
+            0%, 100% { opacity: 0.5; transform: scale(1); transform-origin: 160px 160px; }
+            50%      { opacity: 1; transform: scale(1.08); transform-origin: 160px 160px; }
+          }
+          @keyframes sb-beam-pulse {
+            0%, 100% { stroke-opacity: 0.2; }
+            50%      { stroke-opacity: 0.6; }
+          }
+          @keyframes sb-dot-halo {
+            0%, 100% { opacity: 0.1; r: 8; }
+            50%      { opacity: 0.3; r: 11; }
+          }
         `}</style>
       </div>
     </section>
   )
 }
 
-function SmallStat({ n, label }: { n: string; label: string }) {
-  return (
-    <div>
-      <div
-        className="font-semibold tracking-[-0.02em] text-[#F2A261] leading-none mb-2"
-        style={{ fontSize: 'clamp(1.5rem, 2.4vw, 1.875rem)' }}
-      >
-        {n}
-      </div>
-      <div className="text-[13px] text-white/65 leading-[1.5]">{label}</div>
-    </div>
-  )
-}
-
 /**
- * FitScoreOrbital — the animated dial. Ten-plus visual layers,
- * synchronized with the score number prop. Colors shift to the
- * currently-selected dimension's accent when the parent re-renders.
+ * FitScoreOrbital — the animated dial. ~20 visual layers cranking
+ * from "designed sci-fi instrument" toward "this is alive."
+ *
+ * Layers (back → front):
+ *  1. Outermost dashed ring (very slow rotation)
+ *  2. Second dashed ring with finer dashes (counter-rotation)
+ *  3. Third dashed ring (medium rotation)
+ *  4. Middle thick-dash ring (counter-rotation, brand color)
+ *  5. Comet streak orbiting at ring-3 radius
+ *  6. Second comet at ring-1 radius (different speed)
+ *  7. Conic-gradient radar sweep (clipped to a ring band)
+ *  8. Counter-rotating second radar sweep, thinner
+ *  9. 12 twinkling particles at varied radii + delays
+ * 10. Glowing pulse halo
+ * 11. Outer glow halo + inner core gradient
+ * 12. Inner brand-stroke ring
+ * 13. 6 connecting beam-lines from each dimension dot to the core
+ *     (active dimension's beam pulses bright)
+ * 14. 6 dimension dots with active-state ring
+ * 15. Score number + STRONG FIT label
+ * 16. Tiny tick-marks around the inner ring (12 ticks, 30° apart)
+ *
+ * `accent` follows the currently-selected dimension's color so
+ * the active beam, score subtitle, and Custom dot all match.
+ * `activeDimension` highlights its beam-line.
  */
 function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
-  // Deterministic positions for 8 twinkling particles at varied radii.
+  // 12 twinkling particles for richer ambience.
   const particles = [
-    { angle: -65, r: 88, delay: 0 },
-    { angle: -20, r: 132, delay: 1.2 },
-    { angle: 35, r: 98, delay: 0.6 },
-    { angle: 72, r: 124, delay: 2.0 },
-    { angle: 120, r: 82, delay: 1.6 },
-    { angle: 165, r: 138, delay: 0.4 },
-    { angle: 215, r: 96, delay: 2.4 },
-    { angle: 268, r: 130, delay: 1.0 },
+    { angle: -65, r: 88, delay: 0, size: 2 },
+    { angle: -20, r: 132, delay: 1.2, size: 2.5 },
+    { angle: 35, r: 98, delay: 0.6, size: 1.8 },
+    { angle: 72, r: 124, delay: 2.0, size: 2 },
+    { angle: 120, r: 82, delay: 1.6, size: 2.2 },
+    { angle: 165, r: 138, delay: 0.4, size: 1.6 },
+    { angle: 215, r: 96, delay: 2.4, size: 2 },
+    { angle: 268, r: 130, delay: 1.0, size: 2.4 },
+    { angle: -45, r: 145, delay: 0.9, size: 1.5 },
+    { angle: 85, r: 148, delay: 1.8, size: 1.7 },
+    { angle: 195, r: 145, delay: 0.2, size: 2 },
+    { angle: 305, r: 142, delay: 2.7, size: 1.8 },
   ]
 
+  // 12 tick marks around the inner ring at 30° intervals.
+  const ticks = Array.from({ length: 12 }, (_, i) => i * 30 - 90)
+
   return (
-    <div className="relative w-full max-w-[340px] aspect-square">
-      {/* Outer rotating ring with dashed stroke */}
+    <div className="relative w-full max-w-[380px] aspect-square">
+      {/* RING 1 — outermost dashed, very slow */}
       <svg
         viewBox="0 0 320 320"
         className="absolute inset-0 w-full h-full motion-reduce:hidden"
-        style={{ animation: 'sb-orbit-spin 32s linear infinite' }}
+        style={{ animation: 'sb-orbit-spin 38s linear infinite' }}
         aria-hidden
       >
-        <circle
-          cx="160"
-          cy="160"
-          r="152"
-          fill="none"
-          stroke="rgba(242,162,97,0.30)"
-          strokeWidth="1"
-          strokeDasharray="2 6"
-        />
+        <circle cx="160" cy="160" r="156" fill="none" stroke="rgba(242,162,97,0.25)" strokeWidth="1" strokeDasharray="2 8" />
       </svg>
-      {/* Second outer ring, finer dashes, opposite rotation */}
+      {/* RING 2 — finer dashes, counter-rotation */}
       <svg
         viewBox="0 0 320 320"
         className="absolute inset-0 w-full h-full motion-reduce:hidden"
         style={{ animation: 'sb-orbit-spin-rev 28s linear infinite' }}
         aria-hidden
       >
-        <circle
-          cx="160"
-          cy="160"
-          r="138"
-          fill="none"
-          stroke="rgba(232,93,47,0.40)"
-          strokeWidth="1.2"
-          strokeDasharray="1 4"
-        />
+        <circle cx="160" cy="160" r="142" fill="none" stroke="rgba(232,93,47,0.40)" strokeWidth="1.2" strokeDasharray="1 4" />
       </svg>
-      {/* Middle counter-rotating ring with thicker dashes */}
+      {/* RING 3 — medium rotation */}
+      <svg
+        viewBox="0 0 320 320"
+        className="absolute inset-0 w-full h-full motion-reduce:hidden"
+        style={{ animation: 'sb-orbit-spin 22s linear infinite' }}
+        aria-hidden
+      >
+        <circle cx="160" cy="160" r="128" fill="none" stroke="rgba(242,162,97,0.50)" strokeWidth="1" strokeDasharray="3 9" />
+      </svg>
+      {/* RING 4 — middle thick-dash, counter-rotation */}
       <svg
         viewBox="0 0 320 320"
         className="absolute inset-0 w-full h-full motion-reduce:hidden"
         style={{ animation: 'sb-orbit-spin-rev 36s linear infinite' }}
         aria-hidden
       >
-        <circle
-          cx="160"
-          cy="160"
-          r="110"
-          fill="none"
-          stroke="rgba(232,93,47,0.55)"
-          strokeWidth="1.5"
-          strokeDasharray="6 14"
-        />
+        <circle cx="160" cy="160" r="110" fill="none" stroke="rgba(232,93,47,0.55)" strokeWidth="1.5" strokeDasharray="6 14" />
       </svg>
 
-      {/* Radar sweep — conic-gradient slice that orbits */}
+      {/* COMET 1 — orbits ring 3 (r=128) */}
+      <div
+        aria-hidden
+        className="absolute inset-0 motion-reduce:hidden"
+        style={{ animation: 'sb-orbit-spin 8s linear infinite' }}
+      >
+        <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full">
+          <defs>
+            <linearGradient id="sb-comet-1" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" stopColor="rgba(242,162,97,0)" />
+              <stop offset="50%" stopColor="rgba(242,162,97,0.6)" />
+              <stop offset="100%" stopColor="#F2A261" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M 160,32 A 128,128 0 0,1 220,52"
+            fill="none"
+            stroke="url(#sb-comet-1)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <circle cx="220" cy="52" r="3" fill="#F2A261" />
+        </svg>
+      </div>
+
+      {/* COMET 2 — orbits outer (r=156), slower, opposite */}
+      <div
+        aria-hidden
+        className="absolute inset-0 motion-reduce:hidden"
+        style={{ animation: 'sb-orbit-spin-rev 12s linear infinite' }}
+      >
+        <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full">
+          <defs>
+            <linearGradient id="sb-comet-2" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" stopColor="rgba(232,93,47,0)" />
+              <stop offset="60%" stopColor="rgba(232,93,47,0.4)" />
+              <stop offset="100%" stopColor="#E85D2F" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M 160,4 A 156,156 0 0,1 232,28"
+            fill="none"
+            stroke="url(#sb-comet-2)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <circle cx="232" cy="28" r="2.5" fill="#E85D2F" />
+        </svg>
+      </div>
+
+      {/* RADAR SWEEP 1 — wide slice, clipped to a ring band */}
       <div
         aria-hidden
         className="absolute inset-0 motion-reduce:hidden"
         style={{
           animation: 'sb-radar-sweep 6s linear infinite',
           background:
-            'conic-gradient(from 0deg, transparent 0deg, transparent 320deg, rgba(242,162,97,0.18) 350deg, rgba(242,162,97,0.30) 358deg, transparent 360deg)',
-          maskImage: 'radial-gradient(circle at center, transparent 28%, black 30%, black 56%, transparent 60%)',
-          WebkitMaskImage: 'radial-gradient(circle at center, transparent 28%, black 30%, black 56%, transparent 60%)',
+            'conic-gradient(from 0deg, transparent 0deg, transparent 318deg, rgba(242,162,97,0.18) 348deg, rgba(242,162,97,0.40) 358deg, transparent 360deg)',
+          maskImage: 'radial-gradient(circle at center, transparent 26%, black 30%, black 58%, transparent 62%)',
+          WebkitMaskImage: 'radial-gradient(circle at center, transparent 26%, black 30%, black 58%, transparent 62%)',
+        }}
+      />
+      {/* RADAR SWEEP 2 — narrower, faster, counter direction */}
+      <div
+        aria-hidden
+        className="absolute inset-0 motion-reduce:hidden"
+        style={{
+          animation: 'sb-radar-sweep-rev 4s linear infinite',
+          background:
+            'conic-gradient(from 0deg, transparent 0deg, transparent 340deg, rgba(232,93,47,0.20) 355deg, rgba(232,93,47,0.50) 359deg, transparent 360deg)',
+          maskImage: 'radial-gradient(circle at center, transparent 12%, black 16%, black 28%, transparent 32%)',
+          WebkitMaskImage: 'radial-gradient(circle at center, transparent 12%, black 16%, black 28%, transparent 32%)',
         }}
       />
 
-      {/* Twinkling particles */}
+      {/* TWINKLING PARTICLES — 12, varied size + delay */}
       <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full motion-reduce:hidden" aria-hidden>
         {particles.map((p, i) => {
           const rad = (p.angle * Math.PI) / 180
@@ -392,7 +460,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
               key={i}
               cx={cx}
               cy={cy}
-              r="2"
+              r={p.size}
               fill="#F2A261"
               style={{
                 animation: `sb-twinkle 2.6s ease-in-out infinite`,
@@ -404,7 +472,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         })}
       </svg>
 
-      {/* Static inner ring with terracotta gradient stroke + glowing core */}
+      {/* CORE + RING + DOTS + BEAMS */}
       <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full" aria-hidden>
         <defs>
           <linearGradient id="sb-orbital-grad" x1="0" y1="0" x2="1" y2="1">
@@ -416,10 +484,23 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
             <stop offset="50%" stopColor="#E85D2F" stopOpacity="0.65" />
             <stop offset="100%" stopColor="#E85D2F" stopOpacity="0" />
           </radialGradient>
+          <radialGradient id="sb-pulse-aura" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%" stopColor={accent} stopOpacity="0.4" />
+            <stop offset="60%" stopColor={accent} stopOpacity="0.1" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0" />
+          </radialGradient>
         </defs>
+        {/* Pulse aura — accent-tinted, breathes */}
+        <circle
+          cx="160"
+          cy="160"
+          r="92"
+          fill="url(#sb-pulse-aura)"
+          style={{ animation: 'sb-pulse-aura 2.8s ease-in-out infinite' }}
+        />
         {/* Outer glow halo */}
         <circle cx="160" cy="160" r="78" fill="url(#sb-orbital-core)" opacity="0.7" />
-        {/* Core glow */}
+        {/* Core glow with breath */}
         <circle
           cx="160"
           cy="160"
@@ -429,7 +510,64 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         />
         {/* Inner ring */}
         <circle cx="160" cy="160" r="72" fill="none" stroke="url(#sb-orbital-grad)" strokeWidth="1.5" />
-        {/* Score number */}
+
+        {/* TICK MARKS — 12 around inner ring */}
+        {ticks.map(angle => {
+          const rad = (angle * Math.PI) / 180
+          const x1 = 160 + Math.cos(rad) * 75
+          const y1 = 160 + Math.sin(rad) * 75
+          const x2 = 160 + Math.cos(rad) * 80
+          const y2 = 160 + Math.sin(rad) * 80
+          return (
+            <line
+              key={angle}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="rgba(242,162,97,0.6)"
+              strokeWidth="1"
+              strokeLinecap="round"
+            />
+          )
+        })}
+
+        {/* BEAM LINES — from each dimension dot inward toward core */}
+        {[
+          { angle: -90, label: 'Recency' },
+          { angle: -30, label: 'Reach' },
+          { angle: 30, label: 'Reachability' },
+          { angle: 90, label: 'Relevance' },
+          { angle: 150, label: 'Quality' },
+          { angle: 210, label: 'Custom' },
+        ].map(({ angle, label }) => {
+          const rad = (angle * Math.PI) / 180
+          const r1 = 80 // beam start (just outside inner ring)
+          const r2 = 105 // beam end (just inside dot)
+          const x1 = 160 + Math.cos(rad) * r1
+          const y1 = 160 + Math.sin(rad) * r1
+          const x2 = 160 + Math.cos(rad) * r2
+          const y2 = 160 + Math.sin(rad) * r2
+          return (
+            <line
+              key={`beam-${label}`}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke={accent}
+              strokeOpacity="0.35"
+              strokeWidth="1"
+              strokeLinecap="round"
+              style={{
+                animation: 'sb-beam-pulse 2.4s ease-in-out infinite',
+                animationDelay: `${(angle + 90) / 60 * 0.2}s`,
+              }}
+            />
+          )
+        })}
+
+        {/* SCORE NUMBER */}
         <text
           x="160"
           y="156"
@@ -438,24 +576,26 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
           fill="#FFFFFF"
           fontFamily="ui-sans-serif, system-ui, sans-serif"
           fontWeight="700"
-          fontSize="44"
+          fontSize="48"
           letterSpacing="-2"
         >
           {score}
         </text>
         <text
           x="160"
-          y="190"
+          y="194"
           textAnchor="middle"
           fill={accent}
           fontFamily="ui-monospace, monospace"
           fontSize="9"
-          letterSpacing="2"
+          letterSpacing="2.5"
           fontWeight="700"
         >
           STRONG FIT
         </text>
-        {/* Six dimension dots — colored to the active dimension */}
+
+        {/* DIMENSION DOTS — color-shift to active accent on the
+            currently-selected one. */}
         {[
           { angle: -90, label: 'Recency' },
           { angle: -30, label: 'Reach' },
@@ -474,6 +614,18 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
           const isCustom = label === 'Custom'
           return (
             <g key={label}>
+              {/* Halo behind dot — pulses with active accent */}
+              <circle
+                cx={cx}
+                cy={cy}
+                r="9"
+                fill={accent}
+                opacity="0.18"
+                style={{
+                  animation: 'sb-dot-halo 2.2s ease-in-out infinite',
+                  animationDelay: `${(angle + 90) / 60 * 0.15}s`,
+                }}
+              />
               <circle
                 cx={cx}
                 cy={cy}

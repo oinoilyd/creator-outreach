@@ -43,10 +43,11 @@ test.describe('Landing page', () => {
     expect(await tiles.count()).toBe(4)
   })
 
-  test('Three product narratives (Sourcing / Outreach / Analytics)', async ({ page }) => {
+  test('Four product narratives (Sourcing / Outreach / Analytics / Follow-ups)', async ({ page }) => {
     await expect(page.getByText(/01\s*\/\s*sourcing/i)).toBeVisible()
     await expect(page.getByText(/02\s*\/\s*outreach/i)).toBeVisible()
     await expect(page.getByText(/03\s*\/\s*analytics/i)).toBeVisible()
+    await expect(page.getByText(/04\s*\/\s*follow-ups/i)).toBeVisible()
   })
 
   test('Pricing section shows $0 free tier', async ({ page }) => {

@@ -231,6 +231,7 @@ export default async function LandingPage() {
                 / Possible / Weak), based on criteria you describe in
                 a sentence.
               </p>
+              <CustomizableChip />
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
                 <Bullet>Customizable AI fit score — any criteria you can name and measure</Bullet>
                 <Bullet>Email + LinkedIn + Instagram handles inline per result</Bullet>
@@ -275,14 +276,12 @@ export default async function LandingPage() {
                 Follow-ups, and Analytics. The whole pipeline lives in one row
                 per creator.
               </p>
-              {/* Bullets aligned with what outreach.png literally shows:
-                  the CRM-style outreach board (status pills, medium
-                  selector, reached-out indicators, sub-tabs). */}
+              <CustomizableChip />
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
-                <Bullet>Status pills: Successful · Open · Rejected · No Response</Bullet>
-                <Bullet>Medium tracker per row (Email / LinkedIn / Other)</Bullet>
-                <Bullet>Favorites + Follow-ups sub-tabs for fast triage</Bullet>
-                <Bullet>Reached-out indicator + product + notes per creator</Bullet>
+                <Bullet>Customizable status pills, mediums, and pipeline stages</Bullet>
+                <Bullet>Status: Successful · Open · Rejected · No Response (rename or add your own)</Bullet>
+                <Bullet>Medium tracker per row (Email / LinkedIn / Other — add your own channel)</Bullet>
+                <Bullet>Favorites + Follow-ups sub-tabs · reached-out indicator · product + notes per creator</Bullet>
               </ul>
             </div>
             <ScreenshotZoom className="md:order-1" caption="Outreach board — click to zoom; ESC to close.">
@@ -307,7 +306,7 @@ export default async function LandingPage() {
         </div>
 
         {/* 3 — Analytics */}
-        <div id="analytics" className="px-6 py-12 md:py-16 pb-20 md:pb-28 scroll-mt-24">
+        <div id="analytics" className="px-6 py-12 md:py-16 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">03 / Analytics</div>
@@ -321,11 +320,12 @@ export default async function LandingPage() {
                 into the dashboard. Status breakdown bar, outreach-by-medium
                 split, velocity card.
               </p>
+              <CustomizableChip />
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
-                <Bullet>7 default KPI cards · 30+ customizable metrics, no formulas</Bullet>
+                <Bullet>7 default KPI cards · 30+ customizable metrics — pin whichever ones matter to you</Bullet>
                 <Bullet>Status breakdown bar (Successful / Open / No Response / Rejected)</Bullet>
                 <Bullet>Outreach-by-medium split (Email / LinkedIn / Other)</Bullet>
-                <Bullet>Velocity card tracks the last 7 days</Bullet>
+                <Bullet>Velocity card tracks the last 7 days · build your own custom metric, no formulas</Bullet>
               </ul>
             </div>
             <ScreenshotZoom caption="Analytics — click to zoom; ESC to close.">
@@ -340,6 +340,50 @@ export default async function LandingPage() {
                 <Image
                   src="/screenshots/analytics.png"
                   alt="Analytics view"
+                  fill
+                  sizes="(min-width: 1280px) 600px, 100vw"
+                  className="object-contain"
+                />
+              </div>
+            </ScreenshotZoom>
+          </div>
+        </div>
+
+        {/* 4 — Follow-ups */}
+        <div id="followups" className="px-6 py-12 md:py-16 pb-20 md:pb-28 scroll-mt-24">
+          <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+            <div className="md:order-2">
+              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">04 / Follow-ups</div>
+              <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+                Cadenced reminders so silence doesn&apos;t leak pipeline.
+              </h3>
+              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
+                Set a reminder cadence per creator the moment you reach out.
+                The Follow-ups tab surfaces every contact that&apos;s due
+                today, sorted by who&apos;s gone cold longest. Mark
+                followed-up with a click and the cadence resets — no spreadsheet
+                of dates, no calendar manual entry.
+              </p>
+              <CustomizableChip />
+              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
+                <Bullet>Customizable cadence per creator (3 / 7 / 14 / 30 days, or your own interval)</Bullet>
+                <Bullet>Dedicated Follow-ups sub-tab — only what&apos;s due today / overdue</Bullet>
+                <Bullet>Reset on click — marks the contact as followed-up + restarts the cadence</Bullet>
+                <Bullet>Stale Follow-ups KPI in Analytics shows where pipeline is leaking</Bullet>
+              </ul>
+            </div>
+            <ScreenshotZoom className="md:order-1" caption="Follow-ups view — click to zoom; ESC to close.">
+              <div
+                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                style={{
+                  // followups.png is 2810×1234 — aspect 2.28
+                  aspectRatio: '2810 / 1234',
+                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
+                }}
+              >
+                <Image
+                  src="/screenshots/followups.png"
+                  alt="Follow-ups view"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
                   className="object-contain"
@@ -394,69 +438,10 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* PLATFORMS — eyebrow ("Platforms supported") removed; the
-          headline ("Five platforms, in one queue") already does that
-          job and one fewer uppercase orange chip helps the page rhythm. */}
-      <section className="px-6 py-20 md:py-28">
-        <div className="max-w-[1280px] mx-auto text-center">
-          <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
-            Five platforms, in one queue.
-          </h2>
-          <p className="max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6] mb-12">
-            All five major creator platforms are searched in parallel and ranked against the same criteria. No tab-juggling.
-          </p>
-          {/* Platform tiles — actual brand glyphs (YouTube/IG/TikTok/X/
-              LinkedIn). Hovering raises the tile and reveals an
-              accent stripe on the left edge so the hover state is a
-              real affordance, not a generic 4px lift.
-              YouTube + Instagram tiles get a subtle "primary" treatment
-              (slightly stronger background tint matching their accent)
-              since they're the highest-traffic platforms for most
-              creator outreach. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-[900px] mx-auto">
-            {PLATFORM_MARKS.map(({ name, Glyph, accent }) => {
-              const isPrimary = name === 'YouTube' || name === 'Instagram'
-              return (
-              <div
-                key={name}
-                className={`group relative rounded-xl border bg-white dark:bg-[#131826] px-4 py-7 hover:-translate-y-1 transition-transform overflow-hidden ${
-                  isPrimary
-                    ? 'border-[#0F1733]/15 dark:border-white/15'
-                    : 'border-[#0F1733]/10 dark:border-white/10'
-                }`}
-                style={{
-                  boxShadow: isPrimary
-                    ? `0 1px 3px rgba(15,23,51,0.05), inset 0 0 0 1px ${accent}10`
-                    : '0 1px 3px rgba(15,23,51,0.05)',
-                }}
-              >
-                {/* Left accent stripe — fades in on hover, colored to the
-                    platform's brand accent. Subtle but reads as a designed
-                    state, not a default hover lift. */}
-                <span
-                  aria-hidden
-                  className="absolute inset-y-3 left-0 w-[3px] rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: accent }}
-                />
-                <div className="flex flex-col items-center justify-center gap-3">
-                  {/* Dark-mode legibility: X's currentColor glyph reads
-                      black-on-dark — flip it to white in dark mode. */}
-                  <Glyph
-                    size={32}
-                    className={
-                      name === 'X' || name === 'TikTok'
-                        ? 'text-[#0F1733] dark:text-white'
-                        : ''
-                    }
-                  />
-                  <div className={`text-[14px] font-semibold ${isPrimary ? 'text-[#0F1733] dark:text-white' : ''}`}>{name}</div>
-                </div>
-              </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
+      {/* (Platform tiles section removed 2026-05-08 — felt redundant
+          after the niche/parallel deemphasis pass; the supported
+          platforms are already named in the Hero subhead and the
+          Sourcing narrative.) */}
 
       {/* PRICING — eyebrow ("Pricing") removed; the $0 in the card
           and the headline do the labelling, no need to also chip it. */}
@@ -464,29 +449,23 @@ export default async function LandingPage() {
         <div className="max-w-[1100px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12">
             <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Free during beta. Grandfathered when it isn&apos;t.
+              Free during beta.
             </h2>
             <p className="max-w-[58ch] mx-auto text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
-              No card on file, no seat cap, no annual upsell. Beta users will be looked after when paid plans launch.
+              No card on file. No seat cap. The full feature set, on the house, while we&apos;re still polishing.
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto">
-            {/* Beta features — every bullet names a real, shipped
-                app feature. Verified against the codebase: niche
-                buckets in lib/format.ts, fit score in lib/scoring.ts,
-                IG scraper in lib/hooks/useInstagramMetrics, cadence in
-                CadencePopover, IG DM composer in app/page.tsx, export
-                in app/api/export. No aspirational bullets here —
-                those live in the Pro tier. */}
             <PricingCard
               tier="Beta"
               price="$0"
               priceSub="Free while in beta · no card · no seat cap"
               features={[
-                '5-platform parallel search + 13 niche buckets',
-                'Plain-English Lead Criteria + 5-dimension fit score',
-                'Outreach board: status pills, medium tracker, follow-up cadence',
-                'Instagram DM auto-composer + real follower data inline',
+                'Lead sourcing across YouTube, Instagram, TikTok, X, LinkedIn',
+                'Customizable AI fit score — any criteria you can name and measure',
+                'Built-in CRM: status pills, medium tracker, follow-up cadence',
+                'Templated outreach per channel + Instagram DM auto-composer',
+                'Customizable analytics — 7 default KPIs, 30+ custom metrics',
                 'CSV / Excel export — your data, anytime',
               ]}
               cta={isAuthed ? 'Open the app' : 'Start for free'}
@@ -494,15 +473,15 @@ export default async function LandingPage() {
               featured
             />
             <PricingCard
-              tier="Pro (coming)"
+              tier="Coming soon"
               price="TBD"
               priceSub="For heavier users + teams"
               features={[
                 'Higher search + enrichment quotas',
                 'Multi-seat workspaces',
                 'Bulk email enrichment via Meta Graph API',
-                'Priority support + custom guidance presets',
-                'Beta users grandfathered into Pro pricing',
+                'Priority support',
+                'Custom scoring presets shareable across teams',
               ]}
               cta="Notify me"
               ctaHref="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20Pro%20is%20ready"
@@ -511,58 +490,93 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ROADMAP — replaces the previous "Resources / Writing in
-          progress" section per Dylan. Real items in the build queue
-          with a status chip per card (Shipping / Building /
-          Researching). Honest framing — Creator Outreach is in beta,
-          this is the actual queue. */}
-      <section id="resources" className="px-6 py-20 md:py-28 scroll-mt-24">
+      {/* ROADMAP — vamped up 2026-05-08. Now grouped into 3 lanes
+          (Now shipping / Up next / On the radar) with a column
+          header per lane, a vertical accent bar, and an item count.
+          Reads like a real product roadmap, not a wall of cards. */}
+      <section id="resources" className="px-6 py-20 md:py-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto">
-          <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
-            <div>
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-12 md:mb-14">
+            <div className="max-w-[640px]">
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-3 font-semibold">Roadmap</div>
-              <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
+              <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)' }}>
                 What&apos;s next, from the operator running it.
               </h2>
-              <p className="mt-3 max-w-[60ch] text-[15px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
-                The actual queue, in order. Each item ships when it stops
-                being a workaround. Email me to vote on what comes next.
+              <p className="mt-4 text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
+                The actual build queue, sorted by what unblocks the most
+                pipeline next. Items move left as they ship. Email me to
+                vote on priority — the queue updates fast.
               </p>
             </div>
-            <a href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20roadmap%20feedback" className="text-[14px] font-semibold text-[#E85D2F] hover:underline">
-              Vote on the queue &rarr;
+            <a
+              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20roadmap%20feedback"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#E85D2F] hover:bg-[#9C3D1F] transition-colors"
+            >
+              Vote on the queue
+              <span aria-hidden>&rarr;</span>
             </a>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <RoadmapCard
-              status="Shipping"
-              title="Real Instagram metrics in the queue"
-              body="Inline follower counts and recent-post recency on every IG row. Three-strategy scraper handles profiles even when the public APIs deny."
+
+          <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+            <RoadmapLane
+              label="Now shipping"
+              count={2}
+              accent="#16A34A"
+              caption="Live this week."
+              items={[
+                {
+                  title: 'Real Instagram metrics inline',
+                  body: 'Inline follower counts + recent-post recency on every IG row. Three-strategy scraper handles profiles even when the public APIs deny.',
+                },
+                {
+                  title: 'Per-platform fit-score weights',
+                  body: 'Re-tune Recency / Reach / Reachability / Relevance / Quality independently per platform. Instagram weight isn’t YouTube weight isn’t LinkedIn weight.',
+                },
+              ]}
             />
-            <RoadmapCard
-              status="Building"
-              title="Meta Graph API + bulk email enrichment"
-              body="Verified IG audience-quality signals via the Graph API. Bulk lookup that turns a list of handles into a reachability-scored sheet in one pass."
+            <RoadmapLane
+              label="Up next"
+              count={3}
+              accent="#E85D2F"
+              caption="Building now — ETA 2–6 weeks."
+              items={[
+                {
+                  title: 'Meta Graph API + bulk email enrichment',
+                  body: 'Verified IG audience signals via Graph API. Turn a list of handles into a reachability-scored sheet in one pass.',
+                },
+                {
+                  title: 'Custom scoring presets',
+                  body: 'Save a fit-criteria recipe (e.g. “Fitness IG sponsorship”), share across platforms, reuse in one click.',
+                },
+                {
+                  title: 'Reply-rate analytics per template',
+                  body: 'A/B opener templates head-to-head. See which DM hooks reply on which platform. Auto-rotate the winner.',
+                },
+              ]}
             />
-            <RoadmapCard
-              status="Building"
-              title="Custom guidance presets"
-              body="Save your fit-criteria recipe, share it across platforms, snapshot a per-niche scoring profile (e.g. 'Fitness IG sponsorship') and reuse in one click."
-            />
-            <RoadmapCard
-              status="Next up"
-              title="Multi-seat workspaces"
-              body="Shared queues, per-user notes, per-seat outreach status without per-seat pricing punishments."
-            />
-            <RoadmapCard
-              status="Researching"
-              title="Browser extension"
-              body="See a creator on YouTube or Instagram, hit a hotkey, drop them into the Outreach board with one keystroke. Skip the copy/paste."
-            />
-            <RoadmapCard
-              status="Researching"
-              title="Reply-rate analytics per template"
-              body="Compare opener templates head-to-head. See which DM hooks produce replies on which platform. Auto-rotate the winner."
+            <RoadmapLane
+              label="On the radar"
+              count={4}
+              accent="#1B6FB5"
+              caption="Researching — vote to bump."
+              items={[
+                {
+                  title: 'Multi-seat workspaces',
+                  body: 'Shared queues, per-user notes, per-seat outreach status — without per-seat pricing punishments.',
+                },
+                {
+                  title: 'Browser extension',
+                  body: 'See a creator on YouTube/IG, hotkey, drop them into the Outreach board. Skip the copy/paste.',
+                },
+                {
+                  title: 'AI-drafted opener per creator',
+                  body: 'One-click first-draft DM or email that references their actual recent posts — not a generic template.',
+                },
+                {
+                  title: 'Slack + Notion sync',
+                  body: 'Push status changes into a Slack channel; mirror the Outreach board into a Notion view.',
+                },
+              ]}
             />
           </div>
         </div>
@@ -669,6 +683,23 @@ function SolutionTile({ icon, title, body, step }: { icon: React.ReactNode; titl
   )
 }
 
+/**
+ * CustomizableChip — small "Fully customizable" pill chip used in
+ * each product narrative to call out that the feature isn't fixed.
+ * Sits above the bullet list so the customizability story reads at
+ * a glance without burying it inside copy.
+ */
+function CustomizableChip() {
+  return (
+    <div className="inline-flex items-center gap-1.5 mb-5 px-2.5 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[10px] uppercase tracking-[0.18em] font-bold text-[#9C3D1F] dark:text-[#F2A261] dark:bg-[#F2A261]/10 dark:border-[#F2A261]/30">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" />
+      </svg>
+      Fully customizable
+    </div>
+  )
+}
+
 function Bullet({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5">
@@ -758,33 +789,60 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
   )
 }
 
-function RoadmapCard({
-  status,
-  title,
-  body,
+/**
+ * RoadmapLane — Kanban-style column. Lane header with status chip
+ * + item count + caption, vertical accent stripe on the left, and
+ * a stack of compact item cards.
+ */
+function RoadmapLane({
+  label,
+  count,
+  accent,
+  caption,
+  items,
 }: {
-  status: 'Shipping' | 'Building' | 'Next up' | 'Researching'
-  title: string
-  body: string
+  label: string
+  count: number
+  accent: string
+  caption: string
+  items: { title: string; body: string }[]
 }) {
-  // Status-specific chip colour — green for shipping (almost there),
-  // terracotta for building (active), amber for next up (queued),
-  // blue for researching (exploration phase).
-  const statusStyles: Record<string, string> = {
-    Shipping: 'bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30 dark:bg-[#16A34A]/15 dark:text-[#4ADE80]',
-    Building: 'bg-[#E85D2F]/10 text-[#9C3D1F] border-[#E85D2F]/30 dark:bg-[#E85D2F]/20 dark:text-[#F2A261]',
-    'Next up': 'bg-[#F2A261]/15 text-[#9C5B22] border-[#F2A261]/30 dark:text-[#F2A261]',
-    Researching: 'bg-[#1B6FB5]/10 text-[#1B6FB5] border-[#1B6FB5]/30 dark:bg-[#1B6FB5]/20 dark:text-[#60A5FA]',
-  }
   return (
-    <article className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] p-6 transition-colors hover:border-[#E85D2F]/40" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
-      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-[0.16em] font-bold border mb-4 ${statusStyles[status]}`}>
-        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-        {status}
+    <div className="relative pl-5">
+      {/* Vertical accent stripe — colored to the lane status */}
+      <span
+        aria-hidden
+        className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full"
+        style={{ backgroundColor: accent }}
+      />
+      <div className="mb-5">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.18em] font-bold border"
+            style={{ color: accent, borderColor: `${accent}55`, backgroundColor: `${accent}14` }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
+            {label}
+          </span>
+          <span className="text-[12px] font-semibold tracking-tight text-[#0F1733]/45 dark:text-white/45">
+            {count} item{count !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <p className="text-[12.5px] text-[#0F1733]/55 dark:text-white/55">{caption}</p>
       </div>
-      <h3 className="text-[17px] font-semibold tracking-[-0.01em] mb-2.5 leading-[1.3]">{title}</h3>
-      <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
-    </article>
+      <div className="space-y-3">
+        {items.map(it => (
+          <article
+            key={it.title}
+            className="rounded-lg border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-4 transition-colors hover:border-[#E85D2F]/40"
+            style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.04)' }}
+          >
+            <h3 className="text-[14.5px] font-semibold tracking-[-0.01em] mb-1.5 leading-[1.3]">{it.title}</h3>
+            <p className="text-[13px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{it.body}</p>
+          </article>
+        ))}
+      </div>
+    </div>
   )
 }
 

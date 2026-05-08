@@ -157,6 +157,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                   <MenuItem href="#sourcing" onSelect={() => setOpen(false)}>Sourcing</MenuItem>
                   <MenuItem href="#outreach" onSelect={() => setOpen(false)}>Outreach</MenuItem>
                   <MenuItem href="#analytics" onSelect={() => setOpen(false)}>Analytics</MenuItem>
+                  <MenuItem href="#followups" onSelect={() => setOpen(false)}>Follow-ups</MenuItem>
                 </MenuGroup>
 
                 <MenuGroup label="Site">
