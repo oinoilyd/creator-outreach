@@ -2644,14 +2644,14 @@ export default function Home() {
       const updated = { ...e, [field]: value }
 
       if (field === 'status') {
-        // Celebrate first-time conversions, lighter feedback for other transitions.
+        // Celebrate first-time conversions only — Successful is the
+        // dopamine moment. Rejected / No Response previously fired
+        // their own toasts ("X marked as Rejected", "X ghosted") but
+        // those felt noisy for routine triage actions; suppressed
+        // 2026-05-08 per Dylan.
         if (value === 'Successful' && e.status !== 'Successful') {
           celebrateSuccess()
           toast.success(`🎉 ${e.channelName} converted!`, { description: 'Marked as Successful' })
-        } else if (value === 'Rejected' && e.status !== 'Rejected') {
-          toast(`${e.channelName} marked as Rejected`, { description: 'Removed from active queue' })
-        } else if (value === 'No Response' && e.status !== 'No Response') {
-          toast(`${e.channelName} ghosted`, { description: 'Moved to No Response' })
         }
 
         // Status drives reachedOut: anything past "Not Outreached" / "" counts.
