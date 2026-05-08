@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { OperatorConsole } from '@/components/landing/OperatorConsole'
 import { LandingTopNav } from '@/components/landing/LandingTopNav'
+import { ScreenshotZoom } from '@/components/landing/ScreenshotZoom'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -101,7 +102,9 @@ export default async function LandingPage() {
           </div>
 
           <div className="md:col-span-7">
-            <OperatorConsole />
+            <ScreenshotZoom caption="Live Results table — click anywhere to zoom out, ESC to close.">
+              <OperatorConsole />
+            </ScreenshotZoom>
           </div>
         </div>
       </section>
@@ -156,23 +159,25 @@ export default async function LandingPage() {
                 <Bullet>22 region filters + audience-size + last-posted recency</Bullet>
               </ul>
             </div>
-            <div
-              className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
-              style={{
-                // Aspect ratio of the actual screenshot file so it
-                // fits without cropping. results.png is 2472×1182.
-                aspectRatio: '2472 / 1182',
-                boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
-              }}
-            >
-              <Image
-                src="/screenshots/results.png"
-                alt="Sourcing view"
-                fill
-                sizes="(min-width: 1280px) 600px, 100vw"
-                className="object-contain"
-              />
-            </div>
+            <ScreenshotZoom caption="Results — click to zoom; ESC to close.">
+              <div
+                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                style={{
+                  // Aspect ratio of the actual screenshot file so it
+                  // fits without cropping. results.png is 2472×1182.
+                  aspectRatio: '2472 / 1182',
+                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
+                }}
+              >
+                <Image
+                  src="/screenshots/results.png"
+                  alt="Sourcing view"
+                  fill
+                  sizes="(min-width: 1280px) 600px, 100vw"
+                  className="object-contain"
+                />
+              </div>
+            </ScreenshotZoom>
           </div>
         </div>
 
@@ -201,22 +206,24 @@ export default async function LandingPage() {
                 <Bullet>Reached-out indicator + product + notes per creator</Bullet>
               </ul>
             </div>
-            <div
-              className="relative md:order-1 rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
-              style={{
-                // outreach.png is 2784×1122 — aspect 2.48
-                aspectRatio: '2784 / 1122',
-                boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
-              }}
-            >
-              <Image
-                src="/screenshots/outreach.png"
-                alt="Outreach view"
-                fill
-                sizes="(min-width: 1280px) 600px, 100vw"
-                className="object-contain"
-              />
-            </div>
+            <ScreenshotZoom className="md:order-1" caption="Outreach board — click to zoom; ESC to close.">
+              <div
+                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                style={{
+                  // outreach.png is 2784×1122 — aspect 2.48
+                  aspectRatio: '2784 / 1122',
+                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
+                }}
+              >
+                <Image
+                  src="/screenshots/outreach.png"
+                  alt="Outreach view"
+                  fill
+                  sizes="(min-width: 1280px) 600px, 100vw"
+                  className="object-contain"
+                />
+              </div>
+            </ScreenshotZoom>
           </div>
         </div>
 
@@ -242,22 +249,24 @@ export default async function LandingPage() {
                 <Bullet>Customize the metric stack — no formulas</Bullet>
               </ul>
             </div>
-            <div
-              className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
-              style={{
-                // analytics.png is 2822×1088 — aspect 2.59
-                aspectRatio: '2822 / 1088',
-                boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
-              }}
-            >
-              <Image
-                src="/screenshots/analytics.png"
-                alt="Analytics view"
-                fill
-                sizes="(min-width: 1280px) 600px, 100vw"
-                className="object-contain"
-              />
-            </div>
+            <ScreenshotZoom caption="Analytics — click to zoom; ESC to close.">
+              <div
+                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                style={{
+                  // analytics.png is 2822×1088 — aspect 2.59
+                  aspectRatio: '2822 / 1088',
+                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
+                }}
+              >
+                <Image
+                  src="/screenshots/analytics.png"
+                  alt="Analytics view"
+                  fill
+                  sizes="(min-width: 1280px) 600px, 100vw"
+                  className="object-contain"
+                />
+              </div>
+            </ScreenshotZoom>
           </div>
         </div>
       </section>
