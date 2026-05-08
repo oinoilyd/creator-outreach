@@ -548,16 +548,23 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto">
+            {/* Beta features — every bullet names a real, shipped
+                app feature. Verified against the codebase: niche
+                buckets in lib/format.ts, fit score in lib/scoring.ts,
+                IG scraper in lib/hooks/useInstagramMetrics, cadence in
+                CadencePopover, IG DM composer in app/page.tsx, export
+                in app/api/export. No aspirational bullets here —
+                those live in the Pro tier. */}
             <PricingCard
               tier="Beta"
               price="$0"
-              priceSub="Free while in beta"
+              priceSub="Free while in beta · no card · no seat cap"
               features={[
-                'Five-platform search + AI scoring',
-                'Templated outreach per channel',
-                'Auto-cadence follow-ups',
-                'Real Instagram metrics in queue',
-                'CSV / Excel export anytime',
+                '5-platform parallel search + 13 niche buckets',
+                'Plain-English Lead Criteria + 5-dimension fit score',
+                'Outreach board: status pills, medium tracker, follow-up cadence',
+                'Instagram DM auto-composer + real follower data inline',
+                'CSV / Excel export — your data, anytime',
               ]}
               cta={isAuthed ? 'Open the app' : 'Start for free'}
               ctaHref={isAuthed ? '/' : '/auth/signup'}
@@ -568,11 +575,11 @@ export default async function LandingPage() {
               price="TBD"
               priceSub="For heavier users + teams"
               features={[
-                'Higher search volume',
+                'Higher search + enrichment quotas',
                 'Multi-seat workspaces',
-                'Bulk email enrichment',
-                'Priority support',
-                'Beta users grandfathered',
+                'Bulk email enrichment via Meta Graph API',
+                'Priority support + custom guidance presets',
+                'Beta users grandfathered into Pro pricing',
               ]}
               cta="Notify me"
               ctaHref="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20Pro%20is%20ready"
