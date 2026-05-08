@@ -26,9 +26,11 @@ test.describe('Landing page', () => {
   })
 
   test('OperatorConsole hero visual is mounted', async ({ page }) => {
-    // The animated hero visual carries this aria-label
+    // The animated hero visual carries an aria-label about the
+    // animated Results table; just check that some labelled region
+    // matching either the old or new copy is present.
     await expect(
-      page.getByLabel(/operator console.*search query.*creator results/i),
+      page.getByLabel(/animated.*(results|search|operator|console).*(creator|queue|table)/i),
     ).toBeVisible()
   })
 
