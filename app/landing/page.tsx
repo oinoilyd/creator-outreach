@@ -6,6 +6,7 @@ import { ScreenshotZoom } from '@/components/landing/ScreenshotZoom'
 import { PLATFORM_MARKS } from '@/components/landing/PlatformBrandMarks'
 import { StatBandSpotlight } from '@/components/landing/StatBandSpotlight'
 import { WhyThisExists } from '@/components/landing/WhyThisExists'
+import { FollowupsMock } from '@/components/landing/FollowupsMock'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -373,24 +374,14 @@ export default async function LandingPage() {
                 <Bullet>Stale Follow-ups KPI in Analytics shows where pipeline is leaking</Bullet>
               </ul>
             </div>
-            <ScreenshotZoom className="md:order-1" caption="Follow-ups view — click to zoom; ESC to close.">
-              <div
-                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
-                style={{
-                  // followups.png is 2810×1234 — aspect 2.28
-                  aspectRatio: '2810 / 1234',
-                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
-                }}
-              >
-                <Image
-                  src="/screenshots/followups.png"
-                  alt="Follow-ups view"
-                  fill
-                  sizes="(min-width: 1280px) 600px, 100vw"
-                  className="object-contain"
-                />
-              </div>
-            </ScreenshotZoom>
+            {/* Stylized FollowupsMock instead of the real screenshot —
+                followups.png was reading as cropped/cluttered at the
+                landing-page size. The mock renders crisp at any width
+                and tells the same story (Due Today list, cadence
+                chips with overdue pulse, reset-on-click). */}
+            <div className="md:order-1">
+              <FollowupsMock />
+            </div>
           </div>
         </div>
       </section>
