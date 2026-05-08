@@ -582,10 +582,16 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
   // and the CTAs need to align horizontally across both.
   return (
     <div
-      className={`rounded-2xl p-7 md:p-8 flex flex-col ${
+      // Both variants get a 1px border so the inner content area (and
+      // therefore the bottom CTA inside) renders at the EXACT same
+      // width across both cards. Featured uses border-transparent;
+      // non-featured uses a visible faint border. Without this the
+      // featured card was 2px wider on the inside, leaving the
+      // CTAs 2px apart in width.
+      className={`rounded-2xl p-7 md:p-8 flex flex-col border ${
         featured
-          ? 'bg-[#0F1733] text-white'
-          : 'bg-white dark:bg-[#131826] border border-[#0F1733]/10 dark:border-white/10'
+          ? 'bg-[#0F1733] text-white border-transparent'
+          : 'bg-white dark:bg-[#131826] border-[#0F1733]/10 dark:border-white/10'
       }`}
       style={featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined}
     >

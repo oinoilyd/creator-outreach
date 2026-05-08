@@ -4,7 +4,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-const PUBLIC_PATHS = ['/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback', '/auth/confirm', '/auth/forgot-password', '/auth/reset-password', '/landing', '/roadmap']
+// /roadmap intentionally NOT public — Dylan wants signin/signup to
+// access it. Unauthed visit → middleware redirects to /auth/signin.
+const PUBLIC_PATHS = ['/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback', '/auth/confirm', '/auth/forgot-password', '/auth/reset-password', '/landing']
 
 /**
  * Refreshes the user's session on every request and gates protected routes.
