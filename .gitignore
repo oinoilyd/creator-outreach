@@ -44,3 +44,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Claude's persistent project memory ("second brain"). Lives only on
+# Dylan's laptop. New Claude sessions read .brain/index.md first to
+# recall design decisions, gotchas, recent shipped work, and Dylan's
+# working style. Open the folder as an Obsidian vault to browse it.
+# Do NOT commit — keeps the knowledge private + per-machine.
+.brain/

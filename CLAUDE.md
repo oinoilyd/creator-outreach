@@ -2,6 +2,21 @@
 
 # Creator Outreach — Working Rules
 
+## 🧠 Read `.brain/` first
+
+This repo has a private "second brain" at `.brain/` (gitignored, lives only on Dylan's laptop). It's a richer persistent-memory than this file. Open `.brain/index.md` at the start of every session — it routes you to:
+
+- `.brain/people/dylan.md` — how Dylan works, what he hates, what he likes
+- `.brain/project/current-state.md` — what's live RIGHT NOW
+- `.brain/project/design-decisions.md` — locked-in choices, don't re-litigate
+- `.brain/project/gotchas.md` — codebase quirks
+- `.brain/features/*.md` — per-feature deep notes
+- `.brain/iterations/YYYY-MM-DD.md` — daily journal
+
+**When you ship something material**, write back to the relevant `features/<thing>.md` and append a 5-line entry to today's `iterations/YYYY-MM-DD.md`. That's how the next Claude session catches up.
+
+If `.brain/` doesn't exist yet (fresh clone, different machine), this CLAUDE.md is the fallback — the most important things from the brain are duplicated here.
+
 ## Before any non-trivial change, run the plan/verify cycle
 
 Three skill bundles are installed at `~/.claude/skills/`:
