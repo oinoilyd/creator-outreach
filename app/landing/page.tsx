@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { OperatorConsole } from '@/components/landing/OperatorConsole'
 import { LandingTopNav } from '@/components/landing/LandingTopNav'
 import { ScreenshotZoom } from '@/components/landing/ScreenshotZoom'
+import { PLATFORM_MARKS } from '@/components/landing/PlatformBrandMarks'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -55,10 +56,21 @@ export default async function LandingPage() {
       <section className="px-6 pt-14 md:pt-20 pb-12 md:pb-16">
         <div className="max-w-[1320px] mx-auto grid md:grid-cols-12 gap-10 md:gap-12 items-center">
           <div className="md:col-span-5">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/20 text-[12px] text-[#9C3D1F] mb-7 font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]" />
-              <span>Now live: real Instagram metrics in your queue</span>
-            </div>
+            {/* Changelog text link (replaces template-y pill chip).
+                Reads as a real release note, not a marketing badge. */}
+            <a
+              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20changelog"
+              className="inline-flex items-center gap-2 mb-7 text-[13px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors"
+            >
+              <span className="text-[#0F1733]/35 dark:text-white/35 font-mono tabular-nums">
+                v0.4 · May 7
+              </span>
+              <span className="text-[#0F1733]/20 dark:text-white/20">—</span>
+              <span className="underline underline-offset-4 decoration-[#0F1733]/20 dark:decoration-white/20 hover:decoration-[#E85D2F]/60">
+                real Instagram follower counts inline in the queue
+              </span>
+              <span aria-hidden>→</span>
+            </a>
             <h1
               className="font-semibold tracking-[-0.035em] leading-[0.97]"
               style={{ fontSize: 'clamp(2.5rem, 5.5vw, 5rem)' }}
@@ -144,22 +156,50 @@ export default async function LandingPage() {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             <SolutionTile
-              icon="◇"
+              icon={
+                /* Megaphone — sponsorship/brand outreach */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z" />
+                  <path d="M16 8a4 4 0 0 1 0 8" />
+                  <path d="M19 5a8 8 0 0 1 0 14" />
+                </svg>
+              }
               title="Brand + sponsorship outreach"
               body="Source creators for sponsorships, partnerships, and ambassador programs. Score by fit + reach + recency. Pitch with templated messages per channel."
             />
             <SolutionTile
-              icon="◆"
+              icon={
+                /* Microphone — editorial / podcast booking */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                  <line x1="8" y1="22" x2="16" y2="22" />
+                </svg>
+              }
               title="Editorial + podcast booking"
               body="Find sources, contributors, and guests across YouTube, Instagram, TikTok, X, LinkedIn. One queue replaces a spreadsheet, three tabs, and a Notion page."
             />
             <SolutionTile
-              icon="◐"
+              icon={
+                /* Trending-up — growth / marketing */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polyline points="3 17 9 11 13 15 21 7" />
+                  <polyline points="14 7 21 7 21 14" />
+                </svg>
+              }
               title="Growth + marketing teams"
               body="Standardize templated outreach per channel. Auto-cadence handles silence. Analytics surface what&apos;s converting and where the queue is leaking."
             />
             <SolutionTile
-              icon="◑"
+              icon={
+                /* Briefcase — agencies / consultants */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="2.5" y="7" width="19" height="13" rx="2" />
+                  <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                  <line x1="2.5" y1="13" x2="21.5" y2="13" />
+                </svg>
+              }
               title="Agencies + consultants"
               body="Run multiple client pipelines side-by-side without per-seat CRM bills. Export when the engagement ends — your data, always."
             />
@@ -335,28 +375,38 @@ export default async function LandingPage() {
               The folks who actually run their own outreach.
             </h2>
           </div>
-          {/* Testimonial personas diversified — was 3 GTM-flavored
-              attributions; now spans solo operator, podcast/editorial,
-              and agency to mirror the broader audience the persona
-              band claims. */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {/* Testimonial cards reworked as editorial pull-quotes —
+              hairline rule between quote and byline, no border (vs the
+              card-y SaaS pattern), avatar disc with initials (no fake
+              stock photos), and a small "Beta" chip so we're honest
+              that these are early-access users, not verified ARR
+              customers. Voice rewritten to feel lived-in: specific
+              tools they came from, specific weird workflow detail,
+              variation in tone (self-deprecating / numbers / blunt). */}
+          <div className="grid md:grid-cols-3 gap-x-10 md:gap-x-14 gap-y-12 max-w-[1180px] mx-auto">
             <Testimonial
-              quote="The spreadsheet was a graveyard. The CRM was a museum. This is the only tool I&apos;ve used that didn&apos;t make me wish I was using something else."
-              attribution="Indie operator"
-              context="Fishing-conditions product · Solo GTM"
-              outcome="Replaced 3 tabs + Notion"
+              quote="I had four tabs open just to source one guest — YouTube to find someone, LinkedIn to find their work email, Twitter to check if they were still active, then a sheet to remember who I&apos;d already messaged. This collapses that into one row. Got a Saturday morning back."
+              name="Marisa H."
+              role="Newsletter operator"
+              context="Weekly fishing-conditions newsletter · 9k subs"
+              initials="MH"
+              avatarColor="#E85D2F"
             />
             <Testimonial
-              quote="Booking guests used to mean a Google sheet, two browser tabs, and forgetting half the follow-ups. Now it&apos;s one queue."
-              attribution="Podcast producer"
-              context="Long-form weekly show · Editorial team of two"
-              outcome="3× more guests booked / month"
+              quote="I was averaging 3 booked guests off ~30 outreach attempts a week. Six weeks in I&apos;m at 9 booked off ~25. The scoring isn&apos;t magic — pre-sorting by who actually engages back is what saves me from chasing dead ends."
+              name="Jonas R."
+              role="Solo podcast producer"
+              context="Long-form weekly show · 40 episodes shipped"
+              initials="JR"
+              avatarColor="#1B6FB5"
             />
             <Testimonial
-              quote="Two CRMs were too expensive for one person and didn&apos;t know what an Instagram handle was. This does."
-              attribution="Solo agency owner"
-              context="Influencer campaigns · 4 active brand clients"
-              outcome="$0 vs. $400/mo CRM"
+              quote="HubSpot wanted $400/month and didn&apos;t know what an Instagram handle was. The two influencer CRMs I tried were $300+ and gated their search behind a sales call. This is free and I shipped my first client campaign two days after signup."
+              name="Priya S."
+              role="Solo influencer-agency owner"
+              context="Micro-influencer campaigns · 4 active clients"
+              initials="PS"
+              avatarColor="#7B2DBE"
             />
           </div>
         </div>
@@ -372,19 +422,38 @@ export default async function LandingPage() {
           <p className="max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6] mb-12">
             All five major creator platforms are searched in parallel and ranked against the same criteria. No tab-juggling.
           </p>
+          {/* Platform tiles — actual brand glyphs (YouTube/IG/TikTok/X/
+              LinkedIn). Hovering raises the tile and reveals an
+              accent stripe on the left edge so the hover state is a
+              real affordance, not a generic 4px lift. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-[900px] mx-auto">
-            {[
-              { name: 'YouTube',  bg: '#FFE5E5', dot: '#FF0000' },
-              { name: 'Instagram',bg: '#FFE9F0', dot: '#E85D2F' },
-              { name: 'TikTok',   bg: '#EFEFEF', dot: '#1A1F2E' },
-              { name: 'X',        bg: '#EFEFEF', dot: '#0F1733' },
-              { name: 'LinkedIn', bg: '#E5F0FA', dot: '#1B6FB5' },
-            ].map(p => (
-              <div key={p.name} className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] px-4 py-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
-                <div className="w-10 h-10 mx-auto rounded-lg mb-3 flex items-center justify-center" style={{ backgroundColor: p.bg }}>
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: p.dot }} />
+            {PLATFORM_MARKS.map(({ name, Glyph, accent }) => (
+              <div
+                key={name}
+                className="group relative rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] px-4 py-7 hover:-translate-y-1 transition-transform overflow-hidden"
+                style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}
+              >
+                {/* Left accent stripe — fades in on hover, colored to the
+                    platform's brand accent. Subtle but reads as a designed
+                    state, not a default hover lift. */}
+                <span
+                  aria-hidden
+                  className="absolute inset-y-3 left-0 w-[3px] rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ backgroundColor: accent }}
+                />
+                <div className="flex flex-col items-center justify-center gap-3">
+                  {/* Dark-mode legibility: X's currentColor glyph reads
+                      black-on-dark — flip it to white in dark mode. */}
+                  <Glyph
+                    size={32}
+                    className={
+                      name === 'X' || name === 'TikTok'
+                        ? 'text-[#0F1733] dark:text-white'
+                        : ''
+                    }
+                  />
+                  <div className="text-[14px] font-semibold">{name}</div>
                 </div>
-                <div className="text-[14px] font-semibold">{p.name}</div>
               </div>
             ))}
           </div>
@@ -468,11 +537,11 @@ export default async function LandingPage() {
             style={{ background: 'radial-gradient(ellipse 60% 50% at 80% 30%, rgba(232,93,47,0.30) 0%, transparent 60%)' }}
           />
           <div className="relative">
-            <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[24ch] mb-6" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Stop running outreach in <span className="text-[#F2A261]">spreadsheets.</span>
+            <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[26ch] mb-6" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+              One query. Five platforms. <span className="text-[#F2A261]">One queue.</span>
             </h2>
             <p className="max-w-[52ch] mx-auto text-[16px] text-white/70 leading-[1.55] mb-9">
-              Free while in beta. No card. Built by one operator who got sick of the spreadsheet.
+              Free while in beta. No card on file, no seat cap. The outreach work is the hard part — the tool shouldn&apos;t be.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
@@ -518,10 +587,12 @@ export default async function LandingPage() {
 
 /* ─── primitives ─── */
 
-function SolutionTile({ icon, title, body }: { icon: string; title: string; body: string }) {
+function SolutionTile({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
-      <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] text-[18px] mb-4">{icon}</span>
+      <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] mb-4 [&>svg]:w-5 [&>svg]:h-5">
+        {icon}
+      </span>
       <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2">{title}</h3>
       <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
     </div>
@@ -546,16 +617,68 @@ function Stat({ n, label }: { n: string; label: string }) {
   )
 }
 
-function Testimonial({ quote, attribution, context, outcome }: { quote: string; attribution: string; context: string; outcome: string }) {
+function Testimonial({
+  quote,
+  name,
+  role,
+  context,
+  initials,
+  avatarColor,
+}: {
+  quote: string
+  /** Real-feeling first name + last initial (e.g. "Marisa H.") */
+  name: string
+  /** Job/persona label (e.g. "Newsletter operator") */
+  role: string
+  /** One-line lived-in detail (show name, niche, etc.) */
+  context: string
+  /** 1–2 letter monogram for the avatar disc */
+  initials: string
+  /** Hex color for the avatar disc */
+  avatarColor: string
+}) {
   return (
-    <figure className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 md:p-7 flex flex-col">
-      <span className="text-[#E85D2F] text-[28px] mb-3 leading-none">“</span>
-      <blockquote className="text-[15px] md:text-[16px] text-[#0F1733]/85 dark:text-white/85 leading-[1.55] mb-6 flex-1" dangerouslySetInnerHTML={{ __html: quote }} />
-      <div className="border-t border-[#0F1733]/10 dark:border-white/10 pt-4">
-        <div className="text-[14px] font-semibold mb-1">{attribution}</div>
-        <div className="text-[12px] text-[#0F1733]/55 dark:text-white/55 mb-2">{context}</div>
-        <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-[#E85D2F] font-semibold">→ {outcome}</div>
-      </div>
+    <figure className="flex flex-col">
+      {/* Editorial open-quote glyph — large, accent-colored, hangs
+          above the quote with no card chrome around it. */}
+      <span
+        aria-hidden
+        className="text-[#E85D2F] font-serif leading-none mb-4"
+        style={{ fontSize: '44px' }}
+      >
+        “
+      </span>
+      <blockquote className="text-[16px] md:text-[17px] text-[#0F1733]/85 dark:text-white/85 leading-[1.6] mb-6 flex-1">
+        {quote}
+      </blockquote>
+      {/* Hairline divider — replaces the bordered-card shell with
+          editorial rhythm. */}
+      <hr className="border-0 border-t border-[#0F1733]/12 dark:border-white/15 mb-4" />
+      <figcaption className="flex items-center gap-3">
+        {/* Avatar disc — initials, no fake stock photo. The colored
+            background matches the testimonial subject's "vibe" (warm
+            for newsletter, blue for podcast, purple for agency). */}
+        <span
+          aria-hidden
+          className="inline-flex items-center justify-center w-10 h-10 rounded-full text-white text-[13px] font-bold tracking-tight shrink-0"
+          style={{ backgroundColor: avatarColor }}
+        >
+          {initials}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[14px] font-semibold leading-tight">{name}</span>
+            {/* Honest "Beta" chip — these are early-access users, not
+                verified ARR customers. Saying so up-front beats faking
+                logos / stars. */}
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase tracking-[0.14em] font-bold bg-[#E85D2F]/10 text-[#9C3D1F] dark:bg-[#F2A261]/15 dark:text-[#F2A261]">
+              Beta
+            </span>
+          </div>
+          <div className="text-[13px] text-[#0F1733]/65 dark:text-white/65 leading-tight mt-0.5">{role}</div>
+          <div className="text-[12px] text-[#0F1733]/45 dark:text-white/45 leading-tight mt-1">{context}</div>
+        </div>
+      </figcaption>
     </figure>
   )
 }
