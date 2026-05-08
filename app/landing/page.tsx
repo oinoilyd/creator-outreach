@@ -415,10 +415,11 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* PLATFORMS */}
+      {/* PLATFORMS — eyebrow ("Platforms supported") removed; the
+          headline ("Five platforms, in one queue") already does that
+          job and one fewer uppercase orange chip helps the page rhythm. */}
       <section className="px-6 py-20 md:py-28">
         <div className="max-w-[1280px] mx-auto text-center">
-          <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Platforms supported</div>
           <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
             Five platforms, in one queue.
           </h2>
@@ -463,11 +464,11 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING */}
+      {/* PRICING — eyebrow ("Pricing") removed; the $0 in the card
+          and the headline do the labelling, no need to also chip it. */}
       <section id="pricing" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1100px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Pricing</div>
             <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
               Free during beta. Grandfathered when it isn&apos;t.
             </h2>
@@ -572,13 +573,18 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* FOOTER — wordmark only (the rounded "C" tile in the nav was
+          already a generic Stripe-Notion-Linear placeholder; doubling
+          it in the footer made the brand read as not-yet-designed).
+          Footer keeps just the wordmark with a thin terracotta
+          underscore that matches the section accent. */}
       <footer className="bg-white dark:bg-[#131826] border-t border-[#0F1733]/10 dark:border-white/10 px-6 py-14">
         <div className="max-w-[1280px] mx-auto grid md:grid-cols-6 gap-8">
           <div className="md:col-span-2">
-            <Link href="/landing" className="flex items-center gap-2 mb-4">
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] text-[#F2A261] text-[14px] font-bold">C</span>
-              <span className="font-semibold tracking-tight text-[16px]">Creator Outreach</span>
+            <Link href="/landing" className="inline-block mb-4">
+              <span className="font-semibold tracking-[-0.01em] text-[18px] text-[#0F1733] dark:text-white border-b-2 border-[#E85D2F] pb-0.5">
+                Creator Outreach
+              </span>
             </Link>
             <p className="text-[13px] text-[#0F1733]/60 dark:text-white/60 leading-[1.55] max-w-[36ch]">
               The modern way to source, score, and pitch creators. Built for the operators who actually send the messages.
