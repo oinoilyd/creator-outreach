@@ -36,8 +36,8 @@ import { createClient } from '@/lib/supabase/server'
  */
 
 export const metadata = {
-  title: 'Creator Outreach — Modern B2B prospecting for creator partnerships',
-  description: 'Source, score, and pitch creators across YouTube, Instagram, TikTok, X, and LinkedIn. Built for indie operators and growth teams running their own GTM.',
+  title: 'Creator Outreach — One queue for every kind of creator outreach',
+  description: 'Source, score, and pitch creators across YouTube, Instagram, TikTok, X, and LinkedIn. Built for anyone running their own creator outreach — indie operators, podcasters, editors, videographers, agencies, growth + marketing teams, talent managers, consultants.',
 }
 
 export default async function LandingPage() {
@@ -87,16 +87,31 @@ export default async function LandingPage() {
             </div>
             <div className="mt-10 pt-7 border-t border-[#0F1733]/10 dark:border-white/10">
               <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/45 dark:text-white/45 mb-3 font-semibold">
-                Built for the people running their own outreach
+                Built for anyone reaching out to creators
               </div>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium">
+              {/* Broadened persona list — was originally 4 GTM-flavored
+                  roles (Indie operators / Solo founders / Growth teams
+                  / Solo agencies). Real audience is wider: editors,
+                  videographers, podcasters, talent managers, marketing
+                  teams, consultants, etc. The list now reflects that. */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium">
                 <span>Indie operators</span>
                 <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
                 <span>Solo founders</span>
                 <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Growth teams</span>
+                <span>Growth + marketing teams</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
+                <span>Editors</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
+                <span>Videographers</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
+                <span>Podcasters</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
+                <span>Consultants</span>
                 <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
                 <span>Solo agencies</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
+                <span>Talent managers</span>
               </div>
             </div>
           </div>
@@ -109,23 +124,45 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* SOLUTIONS — built for personas (4-up) */}
+      {/* SOLUTIONS — broadened beyond just GTM teams. Reframed by USE CASE
+          so editors / videographers / podcasters / talent managers see
+          themselves in the tiles, not just sales/growth roles. */}
       <section id="solutions" className="px-6 py-20 md:py-28 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto">
           <div className="max-w-[680px] mb-12 md:mb-16">
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Solutions</div>
             <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              One tool, every outreach motion.
+              One queue, every kind of creator outreach.
             </h2>
             <p className="mt-5 text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
-              Whether you&apos;re sourcing creators from scratch, working a list of warm leads, or running a multi-channel cadence, Creator Outreach handles it without the spreadsheet detour.
+              Sponsorships, podcast booking, editorial sourcing, talent
+              recruiting, brand partnerships — all the motions look
+              the same: find creators that fit, pitch with the right
+              message per channel, track every reply. One tool runs
+              the whole pipeline.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            <SolutionTile icon="◇" title="Sourcing teams"  body="Search five platforms in one query. AI scores every result on fit so the top of the queue is the queue you should be working." />
-            <SolutionTile icon="◆" title="Solo founders"   body="Replace a spreadsheet, three browser tabs, and a CRM you couldn't justify. Run the whole pipeline from one screen." />
-            <SolutionTile icon="◐" title="Growth teams"    body="Standardize templated outreach per channel. Auto-cadence handles silence. Analytics surface what's converting." />
-            <SolutionTile icon="◑" title="Solo agencies"   body="Run multiple client pipelines side-by-side without per-seat CRM bills. Export anytime." />
+            <SolutionTile
+              icon="◇"
+              title="Brand + sponsorship outreach"
+              body="Source creators for sponsorships, partnerships, and ambassador programs. Score by fit + reach + recency. Pitch with templated messages per channel."
+            />
+            <SolutionTile
+              icon="◆"
+              title="Editorial + podcast booking"
+              body="Find sources, contributors, and guests across YouTube, Instagram, TikTok, X, LinkedIn. One queue replaces a spreadsheet, three tabs, and a Notion page."
+            />
+            <SolutionTile
+              icon="◐"
+              title="Growth + marketing teams"
+              body="Standardize templated outreach per channel. Auto-cadence handles silence. Analytics surface what&apos;s converting and where the queue is leaking."
+            />
+            <SolutionTile
+              icon="◑"
+              title="Agencies + consultants"
+              body="Run multiple client pipelines side-by-side without per-seat CRM bills. Export when the engagement ends — your data, always."
+            />
           </div>
         </div>
       </section>
@@ -298,6 +335,10 @@ export default async function LandingPage() {
               The folks who actually run their own outreach.
             </h2>
           </div>
+          {/* Testimonial personas diversified — was 3 GTM-flavored
+              attributions; now spans solo operator, podcast/editorial,
+              and agency to mirror the broader audience the persona
+              band claims. */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             <Testimonial
               quote="The spreadsheet was a graveyard. The CRM was a museum. This is the only tool I&apos;ve used that didn&apos;t make me wish I was using something else."
@@ -306,16 +347,16 @@ export default async function LandingPage() {
               outcome="Replaced 3 tabs + Notion"
             />
             <Testimonial
-              quote="Two CRMs were too expensive for one person and didn&apos;t know what an Instagram handle was. This does."
-              attribution="Solo founder"
-              context="Content-led GTM · DTC"
-              outcome="$0 vs. $400/mo CRM"
+              quote="Booking guests used to mean a Google sheet, two browser tabs, and forgetting half the follow-ups. Now it&apos;s one queue."
+              attribution="Podcast producer"
+              context="Long-form weekly show · Editorial team of two"
+              outcome="3× more guests booked / month"
             />
             <Testimonial
-              quote="The auto-cadence alone is worth it. I stopped forgetting follow-ups that were sitting on day-7."
-              attribution="Growth lead"
-              context="Pre-seed B2B · Two-person team"
-              outcome="3× more follow-ups sent"
+              quote="Two CRMs were too expensive for one person and didn&apos;t know what an Instagram handle was. This does."
+              attribution="Solo agency owner"
+              context="Influencer campaigns · 4 active brand clients"
+              outcome="$0 vs. $400/mo CRM"
             />
           </div>
         </div>

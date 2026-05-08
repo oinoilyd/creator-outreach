@@ -33,8 +33,8 @@ test.describe('Landing page', () => {
     ).toBeVisible()
   })
 
-  test('Solutions section present with 4 persona tiles', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /one tool, every outreach motion/i })).toBeVisible()
+  test('Solutions section present with 4 use-case tiles', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /one queue, every kind of creator outreach/i })).toBeVisible()
     // Solution tile h3s
     const tiles = page.locator('section#solutions h3')
     expect(await tiles.count()).toBe(4)
