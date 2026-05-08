@@ -109,7 +109,7 @@ export function OperatorConsole() {
         aspectRatio: '1440/810',
         boxShadow: '0 50px 100px -40px rgba(15,23,51,0.30), 0 25px 50px -20px rgba(232,93,47,0.15)',
       }}
-      aria-label="Creator Outreach app — live results table for sustainable fashion influencers, with active queue counter and sourcing activity"
+      aria-label="Creator Outreach app — live results table for a 'day trader' search across five platforms, with fit scores, emails, and outreach links per row"
     >
       {/* Browser chrome */}
       <div className="relative z-20 flex items-center gap-1.5 px-4 py-2.5 border-b border-[#0F1733]/10 bg-[#FCFAF6]">

@@ -174,11 +174,17 @@ export default async function LandingPage() {
                 The AI ranks every creator on fit, reach, and recency
                 against criteria you describe in plain English.
               </p>
+              {/* Bullets aligned with what's literally visible in
+                  results.png: the table columns (Channel / Fit Score /
+                  Avg Views / Subscribers / Last Video / Email /
+                  LinkedIn / Instagram). Earlier "Real IG follower
+                  counts inline" bullet was removed because that data
+                  doesn't appear in this screenshot. */}
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85">
-                <Bullet>5-platform parallel search</Bullet>
-                <Bullet>22 region filters + audience-size + recency</Bullet>
-                <Bullet>AI fit scoring with editable plain-English criteria</Bullet>
-                <Bullet>Real Instagram follower / post counts inline</Bullet>
+                <Bullet>One query → results across all five platforms</Bullet>
+                <Bullet>Fit score with plain-English label per row (Strong / Possible / Weak)</Bullet>
+                <Bullet>Email + LinkedIn + Instagram links inline per creator</Bullet>
+                <Bullet>22 region filters + audience-size + last-posted recency</Bullet>
               </ul>
             </div>
             <div className="rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)' }}>
@@ -195,19 +201,23 @@ export default async function LandingPage() {
             <div className="md:order-2">
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">02 / Outreach</div>
               <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
-                Templated, channel-correct, edit-friendly.
+                Every conversation in one queue.
               </h3>
               <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
-                One click composes the right message for the channel — DM
-                on Instagram, Message on LinkedIn, email everywhere else.
-                Edit before send. Auto-cadence pings you when silence hits
-                your follow-up window.
+                The Outreach board collects every creator you&apos;ve pitched —
+                channel, email, product, status, medium. Status pills track
+                Successful / Open / Rejected. Sub-tabs split out Favorites,
+                Follow-ups, and Analytics. The whole pipeline lives in one row
+                per creator.
               </p>
+              {/* Bullets aligned with what outreach.png literally shows:
+                  the CRM-style outreach board (status pills, medium
+                  selector, reached-out indicators, sub-tabs). */}
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85">
-                <Bullet>Channel-correct templates (DM / message / email)</Bullet>
-                <Bullet>Click-to-copy templated outreach</Bullet>
-                <Bullet>Auto-cadence with editable intervals</Bullet>
-                <Bullet>Personalize before send — no robot copy</Bullet>
+                <Bullet>Status pills: Successful · Open · Rejected · No Response</Bullet>
+                <Bullet>Medium tracker per row (Email / LinkedIn / Other)</Bullet>
+                <Bullet>Favorites + Follow-ups sub-tabs for fast triage</Bullet>
+                <Bullet>Reached-out indicator + product + notes per creator</Bullet>
               </ul>
             </div>
             <div className="md:order-1 rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)' }}>
@@ -227,16 +237,17 @@ export default async function LandingPage() {
                 Win rate, response rate, pipeline value.
               </h3>
               <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
-                Out-of-the-box metrics: which channel converts, where the
-                queue is leaking, what your average reply rate looks like
-                by template. Customize the metric stack with no formulas
-                required.
+                Out-of-the-box: 7 KPIs across the top — In Pipeline, Reached
+                Out, Response Received, Response Rate, Win Rate, Pipeline $,
+                Stale Follow-ups. Status breakdown bar shows where the queue
+                is sitting. Velocity card tracks the last 7 days.
               </p>
+              {/* Bullets aligned with what analytics.png literally shows. */}
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85">
-                <Bullet>Win-rate, response-rate, pipeline-value out of the box</Bullet>
-                <Bullet>Custom metrics — counts, sums, averages, percentages</Bullet>
-                <Bullet>Stale-follow-up surfacing</Bullet>
-                <Bullet>CSV / Excel export, anytime</Bullet>
+                <Bullet>7 KPI cards: In Pipeline · Reached · Responses · Rate · Win % · Pipeline $ · Stale</Bullet>
+                <Bullet>Status breakdown bar (Successful / Open / No Response / Rejected)</Bullet>
+                <Bullet>Outreach-by-medium split (Email / LinkedIn / Other)</Bullet>
+                <Bullet>Customize the metric stack — no formulas</Bullet>
               </ul>
             </div>
             <div className="rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)' }}>
