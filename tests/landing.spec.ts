@@ -26,11 +26,10 @@ test.describe('Landing page', () => {
   })
 
   test('OperatorConsole hero visual is mounted', async ({ page }) => {
-    // The animated hero visual carries an aria-label about the
-    // animated Results table; just check that some labelled region
-    // matching either the old or new copy is present.
+    // The hero visual is a region with an aria-label mentioning Creator Outreach.
+    // Loose match so future label tweaks don't break the test.
     await expect(
-      page.getByLabel(/animated.*(results|search|operator|console).*(creator|queue|table)/i),
+      page.getByLabel(/creator outreach.*(results|queue|table|live)/i),
     ).toBeVisible()
   })
 
