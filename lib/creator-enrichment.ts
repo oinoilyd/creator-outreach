@@ -63,6 +63,63 @@ function getServiceClient() {
 }
 
 /**
+ * Bulk-insert partial snapshots from a search response. The search
+ * route doesn't know emails or socials yet — this just records that
+ * we've seen these channels in this niche, with their subs/views
+ * snapshot. Useful for two things:
+ *   1. Phase 2 read path can detect "already seen this channel."
+ *   2. Builds the corpus quickly when users search a lot, even if
+ *      they never click into per-creator enrichment.
+ *
+ * Fire-and-forget. Subscriber strings get coerced to BIGINT-clean
+ * integers the same way saveEnrichmentSnapshot does.
+ */
+type SearchHit = {
+  channelId: string
+  channelName: string
+  subscribers: string | number
+  avgViews: number | null
+  videoDates?: string[]
+  videoTitles?: string[]
+}
+export async function bulkSaveSearchResults(hits: SearchHit[], niche: string): Promise<void> {
+  if (!hits || hits.length === 0) return
+  const sb = getServiceClient()
+  if (!sb) return
+  const parseSubs = (s: string | number | null): number | null => {
+    if (typeof s === 'number') return Number.isFinite(s) ? Math.round(s) : null
+    if (!s) return null
+    const n = Number(String(s).replace(/[^0-9.]/g, ''))
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null
+  }
+  const rows = hits.slice(0, 50).map(h => ({
+    yt_channel_id: h.channelId,
+    channel_name: h.channelName || null,
+    niche: niche || null,
+    email: null,
+    email_source: null,
+    email_bounced: false,
+    linkedin_url: null,
+    instagram_handle: null,
+    twitter_handle: null,
+    website: null,
+    subscribers: parseSubs(h.subscribers ?? null),
+    avg_views: typeof h.avgViews === 'number' ? h.avgViews : null,
+    last_video_at: null,
+    recent_video_dates: h.videoDates && h.videoDates.length ? h.videoDates : null,
+    raw_response_json: { source: 'search_route', titles: h.videoTitles ?? [] },
+  }))
+  try {
+    const { error } = await sb.from('creator_enrichment').insert(rows)
+    if (error) {
+      console.warn('[creator_enrichment] bulk insert failed:', error.message)
+    }
+  } catch (e) {
+    console.warn('[creator_enrichment] bulk insert threw:', e)
+  }
+}
+
+/**
  * Insert an enrichment snapshot. Fire-and-forget by design —
  * callers shouldn't block on this. Logs failures but never throws.
  */

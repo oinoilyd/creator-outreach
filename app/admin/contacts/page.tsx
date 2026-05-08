@@ -60,6 +60,12 @@ export default async function AdminContactsPage({
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Link
+              href="/admin/contacts/seed"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold"
+            >
+              ⚡ Bulk seed
+            </Link>
+            <Link
               href="/admin"
               className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"
             >

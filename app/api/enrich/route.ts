@@ -28,7 +28,12 @@ async function fetchHtml(url: string, timeout = 8000): Promise<string> {
 // every platform-infra domain we've seen leak through, so the regex
 // doesn't even surface them as candidates. Same nuclear list the admin
 // scrub uses, applied at extraction time so bestEmail() never sees them.
-const BAD_EMAIL = /stanwith|stan\.store|patreon\.com|@.+\.sentry\.io|@sentry\.io|buymeacoffee|ko-?fi|allmylinks|lnk\.bio|bio\.fm|solo\.to|pillar\.io|about\.me|msha\.ke|withkoji|campsite\.bio|beehiiv|substack|convertkit|mailchimp|gumroad|example|duckduckgo|wixpress|w3\.org|schema\.org|noreply|no-reply|@yourdomain|@yoursite|@yourcompany|dmarc-reports?@|aggregate@|forensic@|rua@|ruf@|@2x|\.png|\.jpg|\.svg|\.gif|\.webp|\.css|\.js/i
+// 2026-05-08 expanded to drop generic press / news / media inboxes.
+// CBS News showed up as a top result for "travel agent" with a
+// press@cbs.com style email — exactly the kind of result Dylan
+// doesn\\'t want in the queue. The ^press|news|media|pr|editor|tips@
+// alternation catches those without listing every news domain by hand.
+const BAD_EMAIL = /stanwith|stan\.store|patreon\.com|@.+\.sentry\.io|@sentry\.io|buymeacoffee|ko-?fi|allmylinks|lnk\.bio|bio\.fm|solo\.to|pillar\.io|about\.me|msha\.ke|withkoji|campsite\.bio|beehiiv|substack|convertkit|mailchimp|gumroad|example|duckduckgo|wixpress|w3\.org|schema\.org|noreply|no-reply|@yourdomain|@yoursite|@yourcompany|dmarc-reports?@|aggregate@|forensic@|rua@|ruf@|@2x|\.png|\.jpg|\.svg|\.gif|\.webp|\.css|\.js|^(press|news|media|pr|editor|editors|tips|newsroom|newsdesk|releases|publicity|advertising)@|@(cbsnews|nbcnews|abcnews|foxnews|cnn|reuters|bbc|nytimes|wsj|bloomberg|axios|politico|theguardian|forbes|wired)\.|@(ap|reuters)\.org/i
 
 function extractEmails(text: string): string[] {
   const matches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []

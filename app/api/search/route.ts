@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Innertube } from 'youtubei.js'
 import { cacheGet, cacheSet, searchCacheKey, CACHE_TTL } from '@/lib/cache'
+import { bulkSaveSearchResults } from '@/lib/creator-enrichment'
 import { clampString, clampInt } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 
@@ -957,6 +958,20 @@ export async function GET(req: NextRequest) {
     // build channel list — filter by avg views
     const channels: any[] = []
 
+    // Helper: parse a subscriber string ("5.4M", "245K") to an int.
+    // Used for the news/big-channel hard-filter below.
+    const parseSubs = (s: string): number => {
+      if (!s) return 0
+      const t = s.toLowerCase().replace(/[, ]/g, '')
+      const m = t.match(/[\d.]+/)
+      if (!m) return 0
+      const n = parseFloat(m[0])
+      if (t.includes('b')) return Math.round(n * 1_000_000_000)
+      if (t.includes('m')) return Math.round(n * 1_000_000)
+      if (t.includes('k')) return Math.round(n * 1_000)
+      return Math.round(n)
+    }
+
     for (const [channelId, data] of channelMap) {
       if (channels.length >= maxResults) break
       if (data.views.length === 0) continue
@@ -966,6 +981,22 @@ export async function GET(req: NextRequest) {
 
       const channelName = data.name || 'Unknown'
       const nameScore = scoreBio(channelName.toLowerCase(), terms)
+      const titleScore = data.titles.length
+        ? scoreBio(data.titles.join(' ').toLowerCase(), terms)
+        : 0
+      // Combined relevance: channel name match dominates, video-title
+      // match contributes a smaller weight. A channel with title-match
+      // but no name-match still ranks above a pure 'related' channel.
+      const relevanceScore = nameScore * 4 + titleScore
+
+      // News / mega-network filter (2026-05-08): channels with no
+      // name-match AND no title-match AND >1M subscribers are almost
+      // always big news orgs (CBS News, NBC News, etc.) that
+      // incidentally covered the niche topic. They\\'re not creators
+      // we\\'d ever DM. Dropping them at the search layer keeps the
+      // result set focused.
+      const subsCount = parseSubs(data.subscribers)
+      if (relevanceScore === 0 && subsCount > 1_000_000) continue
 
       channels.push({
         channelId,
@@ -978,8 +1009,8 @@ export async function GET(req: NextRequest) {
         shortDates: [],
         subscribers: data.subscribers,
         email: '',
-        relevanceScore: nameScore,
-        matchedVia: nameScore > 0 ? 'name' : 'related',
+        relevanceScore,
+        matchedVia: nameScore > 0 ? 'name' : titleScore > 0 ? 'title' : 'related',
         instagram: '', twitter: '', tiktok: '', linkedin: '', website: '',
       })
     }
@@ -989,6 +1020,17 @@ export async function GET(req: NextRequest) {
     // Fire-and-forget: cache the response for repeat queries within
     // the next 24h. Doesn't block the return.
     void cacheSet(cacheKey, payload, CACHE_TTL.searchResults)
+
+    // PHASE 1.5 (2026-05-08): dual-write every search hit to the
+    // creator_enrichment durable cache. This builds the corpus on
+    // every user search — not just on explicit /api/enrich calls.
+    // Writes are partial (no email yet, no socials) but the
+    // channelId + channelName + subs + avgViews + niche snapshot is
+    // valuable on its own. Phase 2 read path will check Postgres
+    // first; partial rows mean we know we've seen this channel
+    // before, even if we haven't enriched it yet.
+    void bulkSaveSearchResults(channels, keyword || keywordsList.join(', '))
+
     return NextResponse.json(payload)
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
