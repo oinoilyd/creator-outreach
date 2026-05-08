@@ -2,28 +2,30 @@
 
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
-import { FollowupsMock } from './FollowupsMock'
-import { PLATFORM_MARKS } from './PlatformBrandMarks'
 
 /**
  * WhyThisExists — the centerpiece visual section.
  *
- * Dylan asked for max-overboard graphic treatment. Each chapter now
- * has 6+ layered visual elements composed together:
- *   - Atmospheric gradient mesh + blueprint grid
- *   - Faded "before-state" iconography (drifting platform marks,
- *     greyed metric chips, struck-through dates) tied to the chapter
- *   - Connecting flow arrows + animated particle dots
- *   - Hero product visual (real screenshot in tilted dark frame for
- *     chapters 01 + 02; stylized FollowupsMock for chapter 03)
- *   - Decorative annotations: serif chapter labels, monospace tag
- *     captions, ornamental rules
- *   - Subtle motion: scroll-triggered fade-up, drift on background
- *     elements, pulse on the active accent
+ * Each chapter is a layered editorial composition built around a
+ * real product screenshot. The earlier version surrounded each
+ * screenshot with text-heavy chip clouds (line-through platform
+ * names / greyed metrics / stale dates) which Dylan flagged as
+ * busy and word-cluttered.
  *
- * Voice: tool-focused (no "I built this" / "my friend"). The
- * walls described are the realities of running creator outreach
- * by hand; the answer is always framed as what the tool does.
+ * Replaced those chip clouds with cleaner atmospheric layers:
+ *   - A large diffuse accent-tinted glow halo behind the screenshot
+ *     (chapter-themed color)
+ *   - Floating abstract geometric orbs that drift slowly
+ *   - A diagonal accent-line slash that anchors the composition
+ *   - Particle dots flowing toward the hero (kept — visual, no text)
+ *   - S-curve connector arrow that draws on reveal (kept — visual)
+ *   - Bracket label `[ TAG ]` hanging off the corner (small text,
+ *     functional)
+ *   - Caption strip below: `Live capture · {tag}` + chapter counter
+ *     (small text, navigational)
+ *
+ * The hero in every chapter is now a real screenshot rendered at its
+ * natural aspect ratio with object-contain — never distorted.
  */
 
 type Chapter = {
@@ -31,16 +33,10 @@ type Chapter = {
   tag: string
   pain: string
   italic?: string
-  /** Short prose paragraph stating the workaround. */
   note: string
-  /** What the tool does — the answer. */
   answer: string
-  /** Color theme that tints this chapter's accents. */
-  hue: { primary: string; soft: string; ring: string }
-  /** Bg motif chips that drift behind the visual. */
-  motif: { items: string[]; tone: 'platforms' | 'metrics' | 'dates' }
-  /** Render function for the hero visual. */
-  renderHero: (revealed: boolean, flipped: boolean) => React.ReactNode
+  hue: { primary: string; soft: string; ring: string; glow: string }
+  screenshot: { src: string; alt: string; aspect: string }
 }
 
 const CHAPTERS: Chapter[] = [
@@ -52,20 +48,17 @@ const CHAPTERS: Chapter[] = [
     note: 'YouTube to find them. LinkedIn to dig out an email. X to confirm they’re still active. A Google Sheet to remember who’s already been messaged. Five sources of truth, none of them talking to each other.',
     answer:
       'One query searches every platform at once. Email and social handles surface inline on every row. Five tabs collapse into one queue.',
-    hue: { primary: '#E85D2F', soft: 'rgba(232,93,47,0.08)', ring: 'rgba(232,93,47,0.30)' },
-    motif: {
-      tone: 'platforms',
-      items: ['YouTube', 'Instagram', 'TikTok', 'X', 'LinkedIn', 'Sheet', 'Twitter'],
+    hue: {
+      primary: '#E85D2F',
+      soft: 'rgba(232,93,47,0.08)',
+      ring: 'rgba(232,93,47,0.30)',
+      glow: 'rgba(232,93,47,0.45)',
     },
-    renderHero: (revealed, flipped) => (
-      <ScreenshotHero
-        src="/screenshots/results.png"
-        alt="Results table — one row per creator with email + social handles inline"
-        aspect="2472 / 1182"
-        flipped={flipped}
-        revealed={revealed}
-      />
-    ),
+    screenshot: {
+      src: '/screenshots/results.png',
+      alt: 'Results table — one row per creator with email + social handles inline',
+      aspect: '2472 / 1182',
+    },
   },
   {
     num: '02',
@@ -75,20 +68,17 @@ const CHAPTERS: Chapter[] = [
     note: 'Off-the-shelf creator scores rank by audience size or engagement rate. The right question is fit: US-based weekly poster, talks about value investing, under 100K subs. No generic score gets that.',
     answer:
       'Plain-English Lead Criteria. The AI scores every result on five dimensions you control — fully customizable, weighted per platform.',
-    hue: { primary: '#F2A261', soft: 'rgba(242,162,97,0.10)', ring: 'rgba(242,162,97,0.32)' },
-    motif: {
-      tone: 'metrics',
-      items: ['Subs · 245K', 'ER · 5.2%', 'Vertical · Finance', 'Reach · ↑', 'Audience · 18–34'],
+    hue: {
+      primary: '#F2A261',
+      soft: 'rgba(242,162,97,0.10)',
+      ring: 'rgba(242,162,97,0.32)',
+      glow: 'rgba(242,162,97,0.50)',
     },
-    renderHero: (revealed, flipped) => (
-      <ScreenshotHero
-        src="/screenshots/bento-fit.png"
-        alt="Fit score column — Strong / Possible / Weak labels per row"
-        aspect="1352 / 1256"
-        flipped={flipped}
-        revealed={revealed}
-      />
-    ),
+    screenshot: {
+      src: '/screenshots/bento-fit.png',
+      alt: 'Fit score column — Strong / Possible / Weak labels per row',
+      aspect: '1352 / 1256',
+    },
   },
   {
     num: '03',
@@ -98,14 +88,17 @@ const CHAPTERS: Chapter[] = [
     note: 'Reach out. Forget for a week. Reach out again. Then realize the same creator was already messaged last month. The follow-up is the bottleneck — not the outreach.',
     answer:
       'Auto-cadence per creator. The Follow-ups tab surfaces what’s due today, sorted by who’s gone cold longest. One click resets the cadence.',
-    hue: { primary: '#16A34A', soft: 'rgba(22,163,74,0.08)', ring: 'rgba(22,163,74,0.30)' },
-    motif: {
-      tone: 'dates',
-      items: ['Mon · 3d', 'Tue · 7d', 'Wed · 14d', 'Thu · ?', 'Fri · ?', 'Sat · cold', 'Sun · cold'],
+    hue: {
+      primary: '#16A34A',
+      soft: 'rgba(22,163,74,0.08)',
+      ring: 'rgba(22,163,74,0.30)',
+      glow: 'rgba(22,163,74,0.45)',
     },
-    renderHero: (revealed, flipped) => (
-      <FollowupsHero revealed={revealed} flipped={flipped} />
-    ),
+    screenshot: {
+      src: '/screenshots/followups.png',
+      alt: 'Follow-ups view — Due-today list with cadence chips per creator',
+      aspect: '2810 / 1234',
+    },
   },
 ]
 
@@ -115,9 +108,9 @@ export function WhyThisExists() {
       id="customers"
       className="relative px-6 py-24 md:py-32 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10 overflow-hidden"
     >
-      {/* LAYER 1 — Faint blueprint grid pattern, masked to fade
-          toward the edges. Reads as "schematic / engineering" — ties
-          the section to the orbital-stat-band aesthetic. */}
+      {/* AMBIENT BACKDROP — blueprint grid + two breathing radial
+          washes. These set the section atmosphere; chapter visuals
+          add their own layers on top. */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none opacity-[0.05] dark:opacity-[0.10]"
@@ -129,9 +122,6 @@ export function WhyThisExists() {
           WebkitMaskImage: 'radial-gradient(ellipse 80% 70% at center, black 30%, transparent 90%)',
         }}
       />
-
-      {/* LAYER 2 — Two breathing radial washes, opposite corners,
-          opposite cycles. Subtle ambient color motion. */}
       <div
         aria-hidden
         className="absolute -top-1/3 -right-1/4 w-[820px] h-[820px] pointer-events-none opacity-[0.10] dark:opacity-[0.18] motion-reduce:hidden"
@@ -178,7 +168,7 @@ export function WhyThisExists() {
           </p>
         </header>
 
-        {/* CHAPTERS — alternating editorial layout */}
+        {/* CHAPTERS */}
         <div className="space-y-28 md:space-y-44">
           {CHAPTERS.map((c, i) => (
             <Chapter key={c.num} chapter={c} flipped={i % 2 === 1} index={i} />
@@ -191,22 +181,22 @@ export function WhyThisExists() {
           0%, 100% { transform: scale(1); opacity: 1; }
           50%      { transform: scale(1.08); opacity: 0.65; }
         }
-        @keyframes wte-drift {
-          0%, 100% { transform: translateY(0) translateX(0); }
-          50%      { transform: translateY(-10px) translateX(4px); }
+        @keyframes wte-orb {
+          0%, 100% { transform: translate(0,0); opacity: var(--orb-opacity, 0.55); }
+          50%      { transform: translate(var(--orb-dx,0), var(--orb-dy,0)); opacity: 0.85; }
         }
         @keyframes wte-particle {
           0%   { opacity: 0; transform: translate(0,0) scale(0.6); }
           50%  { opacity: 0.9; }
           100% { opacity: 0; transform: var(--travel) scale(1.1); }
         }
-        @keyframes wte-arrow-draw {
-          from { stroke-dashoffset: 240; }
-          to   { stroke-dashoffset: 0; }
-        }
         @keyframes wte-pulse-ring {
           0%, 100% { transform: scale(1); opacity: 0.4; }
           50%      { transform: scale(1.08); opacity: 0.75; }
+        }
+        @keyframes wte-halo-pulse {
+          0%, 100% { transform: scale(1); opacity: var(--halo-opacity, 0.4); }
+          50%      { transform: scale(1.06); opacity: 0.7; }
         }
       `}</style>
     </section>
@@ -252,8 +242,8 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
 
   return (
     <article ref={ref} className="relative">
-      {/* CHAPTER BREAK BAND — giant ghosted numeral + horizontal rule
-          + chapter label. Decorative chapter-page divider. */}
+      {/* CHAPTER BREAK BAND — outlined giant numeral + chapter chip
+          + gradient horizontal rule */}
       <div className="mb-12 md:mb-16 flex items-end gap-6 md:gap-10" style={fadeUp(0)}>
         <span
           aria-hidden
@@ -285,7 +275,6 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
       <div className="grid md:grid-cols-12 gap-10 md:gap-16 items-center">
         {/* TEXT COLUMN */}
         <div className={`md:col-span-6 ${flipped ? 'md:order-2' : 'md:order-1'}`}>
-          {/* Display headline — sans + italic-serif emphasis */}
           <h3
             className="font-semibold tracking-[-0.025em] leading-[1.05] text-[#0F1733] dark:text-white mb-7"
             style={{ fontSize: 'clamp(2rem, 4vw, 3.25rem)', ...fadeUp(80) }}
@@ -301,7 +290,6 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
             )}
           </h3>
 
-          {/* Operator-voice note — pull-quote treatment */}
           <blockquote
             className="relative pl-5 mb-8 text-[16px] md:text-[17px] text-[#0F1733]/75 dark:text-white/75 leading-[1.7] border-l-2"
             style={{ borderColor: chapter.hue.ring, ...fadeUp(160) }}
@@ -309,7 +297,6 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
             {chapter.note}
           </blockquote>
 
-          {/* "What the tool does" answer block — bigger, more dramatic */}
           <div
             className="relative rounded-2xl border-2 p-5 md:p-6"
             style={{
@@ -319,27 +306,11 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
               ...fadeUp(240),
             }}
           >
-            {/* Corner accent marks (decorative brackets) */}
-            <span
-              aria-hidden
-              className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2"
-              style={{ borderColor: chapter.hue.primary }}
-            />
-            <span
-              aria-hidden
-              className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2"
-              style={{ borderColor: chapter.hue.primary }}
-            />
-            <span
-              aria-hidden
-              className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2"
-              style={{ borderColor: chapter.hue.primary }}
-            />
-            <span
-              aria-hidden
-              className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2"
-              style={{ borderColor: chapter.hue.primary }}
-            />
+            {/* Corner brackets */}
+            <span aria-hidden className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2" style={{ borderColor: chapter.hue.primary }} />
+            <span aria-hidden className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2" style={{ borderColor: chapter.hue.primary }} />
+            <span aria-hidden className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2" style={{ borderColor: chapter.hue.primary }} />
+            <span aria-hidden className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2" style={{ borderColor: chapter.hue.primary }} />
             <div className="flex items-start gap-3.5">
               <span
                 aria-hidden
@@ -354,10 +325,7 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
                 </svg>
               </span>
               <div>
-                <div
-                  className="text-[10px] uppercase tracking-[0.22em] font-bold mb-1.5"
-                  style={{ color: chapter.hue.primary }}
-                >
+                <div className="text-[10px] uppercase tracking-[0.22em] font-bold mb-1.5" style={{ color: chapter.hue.primary }}>
                   In the tool
                 </div>
                 <p className="text-[14.5px] md:text-[15.5px] text-[#0F1733]/90 dark:text-white/90 leading-[1.65]">
@@ -368,8 +336,7 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
           </div>
         </div>
 
-        {/* VISUAL COLUMN — the hero "after" element + layered chaos
-            background + flow particles + decorative annotations */}
+        {/* VISUAL COLUMN */}
         <div className={`md:col-span-6 ${flipped ? 'md:order-1' : 'md:order-2'}`}>
           <ChapterVisual chapter={chapter} revealed={revealed} flipped={flipped} index={index} />
         </div>
@@ -379,7 +346,7 @@ function Chapter({ chapter, flipped, index }: { chapter: Chapter; flipped: boole
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CHAPTER VISUAL — the layered composition
+   CHAPTER VISUAL — atmospheric layers around a real screenshot
    ═══════════════════════════════════════════════════════════════ */
 
 function ChapterVisual({
@@ -395,10 +362,26 @@ function ChapterVisual({
 }) {
   return (
     <div className="relative isolate">
-      {/* LAYER A — Chapter-tinted gradient mesh behind everything */}
+      {/* HALO — large diffuse glow in chapter accent. The single
+          most prominent atmospheric layer. Sits behind everything,
+          gently pulsing. */}
       <div
         aria-hidden
-        className="absolute -inset-8 md:-inset-10 -z-10 rounded-3xl pointer-events-none"
+        className="absolute -inset-12 md:-inset-16 -z-10 pointer-events-none motion-reduce:hidden"
+        style={{
+          background: `radial-gradient(ellipse 60% 55% at center, ${chapter.hue.glow}, transparent 70%)`,
+          opacity: revealed ? 1 : 0,
+          transition: 'opacity 1200ms 100ms ease-out',
+          animation: 'wte-halo-pulse 8s ease-in-out infinite',
+          ['--halo-opacity' as string]: '0.45',
+        }}
+      />
+
+      {/* GRADIENT MESH — subtle chapter-tinted wash, smaller than
+          the halo, adds depth */}
+      <div
+        aria-hidden
+        className="absolute -inset-6 md:-inset-8 -z-10 rounded-3xl pointer-events-none"
         style={{
           background: `radial-gradient(ellipse at 50% 40%, ${chapter.hue.soft}, transparent 70%)`,
           opacity: revealed ? 1 : 0,
@@ -406,33 +389,32 @@ function ChapterVisual({
         }}
       />
 
-      {/* LAYER B — "Before" chaos motif in the background. Different
-          tone per chapter (platforms / metrics / dates) but always
-          drifts subtly. */}
-      <BeforeMotif chapter={chapter} revealed={revealed} />
+      {/* FLOATING ORBS — three abstract circles drifting at different
+          speeds. Pure visual texture; no text. */}
+      <FloatingOrbs revealed={revealed} accent={chapter.hue.primary} flipped={flipped} />
 
-      {/* LAYER C — Particle dots flowing toward the hero */}
-      <ParticleField revealed={revealed} accent={chapter.hue.primary} flipped={flipped} />
+      {/* DIAGONAL ACCENT LINE — bold compositional anchor that
+          slashes the area diagonally. Reads as "scan / motion". */}
+      <DiagonalAccent revealed={revealed} accent={chapter.hue.primary} flipped={flipped} />
 
-      {/* LAYER D — Decorative connecting arrow from "before chaos"
-          to the product hero. Stroke draws on reveal. */}
+      {/* PARTICLE FIELD — flowing dots drifting across the area */}
+      <ParticleField revealed={revealed} accent={chapter.hue.primary} />
+
+      {/* CONNECTOR ARROW — S-curve in the corner, draws on reveal */}
       <ConnectorArrow revealed={revealed} flipped={flipped} accent={chapter.hue.primary} />
 
-      {/* LAYER E — The hero product visual itself */}
-      <div className="relative z-10">
-        {chapter.renderHero(revealed, flipped)}
-      </div>
-
-      {/* LAYER F — Decorative annotations: bracketed callout,
-          chapter-numbered watermark in the corner. */}
-      <AnnotationBracket
-        revealed={revealed}
+      {/* HERO — real screenshot, never distorted */}
+      <ScreenshotHero
+        src={chapter.screenshot.src}
+        alt={chapter.screenshot.alt}
+        aspect={chapter.screenshot.aspect}
         flipped={flipped}
-        accent={chapter.hue.primary}
-        label={chapter.tag.toUpperCase()}
+        revealed={revealed}
       />
 
-      {/* LAYER G — Caption strip below the visual */}
+      {/* BRACKET ANNOTATION + CAPTION — small text, functional */}
+      <AnnotationBracket revealed={revealed} flipped={flipped} accent={chapter.hue.primary} label={chapter.tag.toUpperCase()} />
+
       <div
         className="mt-5 flex items-center gap-3 text-[10.5px] uppercase tracking-[0.22em] font-bold text-[#0F1733]/45 dark:text-white/45 font-mono"
         style={{
@@ -443,9 +425,7 @@ function ChapterVisual({
         <span className="w-6 h-px" style={{ backgroundColor: chapter.hue.primary }} />
         <span>Live capture · {chapter.tag.toLowerCase()}</span>
         <span className="flex-1 h-px bg-[#0F1733]/12 dark:bg-white/12" />
-        <span style={{ color: chapter.hue.primary }}>
-          {String(index + 1).padStart(2, '0')} / 03
-        </span>
+        <span style={{ color: chapter.hue.primary }}>{String(index + 1).padStart(2, '0')} / 03</span>
       </div>
     </div>
   )
@@ -453,115 +433,92 @@ function ChapterVisual({
 
 /* ─── visual sub-layers ─── */
 
-function BeforeMotif({ chapter, revealed }: { chapter: Chapter; revealed: boolean }) {
+function FloatingOrbs({ revealed, accent, flipped }: { revealed: boolean; accent: string; flipped: boolean }) {
+  // Three abstract orbs at different positions / sizes / drift
+  // amplitudes. Pure decoration, no text content.
+  const orbs = [
+    { side: 'tl', size: 96, top: '-2%', left: '-4%', dx: 12, dy: -8, dur: 11, delay: 0, opacity: 0.55 },
+    { side: 'br', size: 72, top: '88%', left: '92%', dx: -10, dy: -14, dur: 9, delay: 1.6, opacity: 0.45 },
+    { side: 'mid', size: 48, top: '38%', left: '102%', dx: -8, dy: 10, dur: 13, delay: 0.8, opacity: 0.6 },
+  ]
   return (
     <div
       aria-hidden
-      className="absolute -inset-2 md:-inset-4 z-0 pointer-events-none flex flex-wrap gap-2 content-start"
+      className="absolute inset-0 z-0 pointer-events-none motion-reduce:hidden"
       style={{
-        opacity: revealed ? 0.55 : 0,
-        transition: 'opacity 1000ms 250ms ease-out',
+        opacity: revealed ? 1 : 0,
+        transition: 'opacity 1200ms 200ms ease-out',
+        transform: flipped ? 'scaleX(-1)' : undefined,
       }}
     >
-      {chapter.motif.tone === 'platforms' && (
-        <PlatformChips items={chapter.motif.items} accent={chapter.hue.primary} />
-      )}
-      {chapter.motif.tone === 'metrics' && (
-        <MetricChips items={chapter.motif.items} accent={chapter.hue.primary} />
-      )}
-      {chapter.motif.tone === 'dates' && (
-        <DateChips items={chapter.motif.items} accent={chapter.hue.primary} />
-      )}
+      {orbs.map((o, i) => (
+        <span
+          key={i}
+          className="absolute rounded-full blur-2xl"
+          style={{
+            top: o.top,
+            left: o.left,
+            width: o.size,
+            height: o.size,
+            background: `radial-gradient(circle, ${accent}, transparent 70%)`,
+            ['--orb-dx' as string]: `${o.dx}px`,
+            ['--orb-dy' as string]: `${o.dy}px`,
+            ['--orb-opacity' as string]: o.opacity,
+            animation: `wte-orb ${o.dur}s ease-in-out infinite`,
+            animationDelay: `${o.delay}s`,
+          }}
+        />
+      ))}
     </div>
   )
 }
 
-function PlatformChips({ items, accent }: { items: string[]; accent: string }) {
-  // Use the real brand glyphs from PLATFORM_MARKS where the name matches.
-  const byName = new Map<string, (typeof PLATFORM_MARKS)[number]>(
-    PLATFORM_MARKS.map(m => [m.name, m]),
-  )
+function DiagonalAccent({ revealed, accent, flipped }: { revealed: boolean; accent: string; flipped: boolean }) {
+  // A single bold-but-translucent diagonal line that anchors the
+  // composition. Sits behind the screenshot.
   return (
-    <>
-      {items.map((label, i) => {
-        const brand = byName.get(label)
-        const Glyph = brand?.Glyph
-        return (
-          <span
-            key={label}
-            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0F1733]/[0.04] dark:bg-white/[0.05] border border-[#0F1733]/10 dark:border-white/10 text-[10px] font-mono text-[#0F1733]/45 dark:text-white/45 line-through decoration-[1px]"
-            style={{
-              textDecorationColor: accent,
-              animation: `wte-drift ${3 + (i % 3)}s ease-in-out infinite`,
-              animationDelay: `${i * 0.4}s`,
-              transform: `rotate(${(i % 2 ? -1 : 1) * (i % 4)}deg) translate(${(i * 7) % 30 - 15}px, ${(i * 11) % 24 - 12}px)`,
-            }}
-          >
-            {Glyph && <Glyph size={10} className="opacity-40" />}
-            {label}
-          </span>
-        )
-      })}
-    </>
+    <svg
+      aria-hidden
+      className="absolute inset-0 z-0 w-full h-full pointer-events-none"
+      preserveAspectRatio="none"
+      viewBox="0 0 100 100"
+      style={{
+        opacity: revealed ? 0.35 : 0,
+        transition: 'opacity 1200ms 300ms ease-out',
+        transform: flipped ? 'scaleX(-1)' : undefined,
+      }}
+    >
+      <defs>
+        <linearGradient id={`diag-${accent.replace('#', '')}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={accent} stopOpacity="0" />
+          <stop offset="50%" stopColor={accent} stopOpacity="0.75" />
+          <stop offset="100%" stopColor={accent} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line
+        x1="-10"
+        y1="115"
+        x2="115"
+        y2="-15"
+        stroke={`url(#diag-${accent.replace('#', '')})`}
+        strokeWidth="0.6"
+        vectorEffect="non-scaling-stroke"
+      />
+      <line
+        x1="-10"
+        y1="105"
+        x2="115"
+        y2="-25"
+        stroke={accent}
+        strokeOpacity="0.18"
+        strokeWidth="0.3"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   )
 }
 
-function MetricChips({ items, accent }: { items: string[]; accent: string }) {
-  return (
-    <>
-      {items.map((label, i) => (
-        <span
-          key={label}
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0F1733]/[0.04] dark:bg-white/[0.05] border border-[#0F1733]/10 dark:border-white/10 text-[10px] font-mono text-[#0F1733]/45 dark:text-white/45 line-through decoration-[1px]"
-          style={{
-            textDecorationColor: accent,
-            animation: `wte-drift ${4 + (i % 3)}s ease-in-out infinite`,
-            animationDelay: `${i * 0.5}s`,
-            transform: `rotate(${(i % 2 ? -1 : 1) * (i % 3)}deg) translate(${(i * 9) % 28 - 14}px, ${(i * 13) % 22 - 11}px)`,
-          }}
-        >
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <line x1="3" y1="20" x2="21" y2="20" />
-            <line x1="6" y1="16" x2="6" y2="20" />
-            <line x1="11" y1="10" x2="11" y2="20" />
-            <line x1="16" y1="14" x2="16" y2="20" />
-          </svg>
-          {label}
-        </span>
-      ))}
-    </>
-  )
-}
-
-function DateChips({ items, accent }: { items: string[]; accent: string }) {
-  return (
-    <>
-      {items.map((label, i) => (
-        <span
-          key={label}
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0F1733]/[0.04] dark:bg-white/[0.05] border border-[#0F1733]/10 dark:border-white/10 text-[10px] font-mono text-[#0F1733]/45 dark:text-white/45 line-through decoration-[1px]"
-          style={{
-            textDecorationColor: accent,
-            animation: `wte-drift ${3.5 + (i % 3)}s ease-in-out infinite`,
-            animationDelay: `${i * 0.35}s`,
-            transform: `rotate(${(i % 2 ? -1 : 1) * (i % 3)}deg) translate(${(i * 8) % 26 - 13}px, ${(i * 14) % 24 - 12}px)`,
-          }}
-        >
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-            <rect x="3" y="5" width="18" height="16" rx="2" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-            <line x1="8" y1="3" x2="8" y2="7" />
-            <line x1="16" y1="3" x2="16" y2="7" />
-          </svg>
-          {label}
-        </span>
-      ))}
-    </>
-  )
-}
-
-function ParticleField({ revealed, accent, flipped }: { revealed: boolean; accent: string; flipped: boolean }) {
-  // 8 particles drift from the chaotic edges toward the hero center.
+function ParticleField({ revealed, accent }: { revealed: boolean; accent: string }) {
   const particles = [
     { x: 8, y: 12, delay: 0 },
     { x: 92, y: 18, delay: 0.6 },
@@ -582,7 +539,7 @@ function ParticleField({ revealed, accent, flipped }: { revealed: boolean; accen
       }}
     >
       {particles.map((p, i) => {
-        const dx = 50 - p.x // travel toward center
+        const dx = 50 - p.x
         const dy = 50 - p.y
         return (
           <span
@@ -605,8 +562,6 @@ function ParticleField({ revealed, accent, flipped }: { revealed: boolean; accen
 }
 
 function ConnectorArrow({ revealed, flipped, accent }: { revealed: boolean; flipped: boolean; accent: string }) {
-  // Decorative S-curve connecting the corner of the chaos to the
-  // hero. Strokes draw on reveal via stroke-dashoffset.
   return (
     <svg
       aria-hidden
@@ -655,8 +610,6 @@ function AnnotationBracket({
   accent: string
   label: string
 }) {
-  // Editorial bracket-and-label — "[ FOLLOW-UPS ]" hangs off the
-  // bottom-left (or bottom-right when flipped) of the hero.
   return (
     <div
       aria-hidden
@@ -666,20 +619,14 @@ function AnnotationBracket({
         transition: 'opacity 800ms 700ms ease-out',
       }}
     >
-      <span className="text-[10px] font-mono font-bold tracking-[0.2em]" style={{ color: accent }}>
-        [
-      </span>
-      <span className="text-[10px] uppercase tracking-[0.24em] font-bold" style={{ color: accent }}>
-        {label}
-      </span>
-      <span className="text-[10px] font-mono font-bold tracking-[0.2em]" style={{ color: accent }}>
-        ]
-      </span>
+      <span className="text-[10px] font-mono font-bold tracking-[0.2em]" style={{ color: accent }}>[</span>
+      <span className="text-[10px] uppercase tracking-[0.24em] font-bold" style={{ color: accent }}>{label}</span>
+      <span className="text-[10px] font-mono font-bold tracking-[0.2em]" style={{ color: accent }}>]</span>
     </div>
   )
 }
 
-/* ─── hero variants ─── */
+/* ─── hero ─── */
 
 function ScreenshotHero({
   src,
@@ -696,6 +643,7 @@ function ScreenshotHero({
 }) {
   return (
     <div
+      className="relative z-10"
       style={{
         opacity: revealed ? 1 : 0,
         transform: revealed
@@ -708,17 +656,14 @@ function ScreenshotHero({
         className="relative rounded-2xl overflow-hidden border border-[#0F1733]/15 dark:border-white/15 bg-[#0E121C]"
         style={{
           aspectRatio: aspect,
-          boxShadow:
-            '0 40px 80px -30px rgba(15,23,51,0.40), 0 18px 40px -12px rgba(232,93,47,0.22)',
+          boxShadow: '0 40px 80px -30px rgba(15,23,51,0.40), 0 18px 40px -12px rgba(232,93,47,0.22)',
         }}
       >
-        {/* Top scan-line accent */}
         <div
           aria-hidden
           className="absolute top-0 inset-x-0 h-[2px] z-10"
           style={{
-            background:
-              'linear-gradient(90deg, transparent, rgba(232,93,47,0.85) 30%, rgba(242,162,97,0.85) 70%, transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(232,93,47,0.85) 30%, rgba(242,162,97,0.85) 70%, transparent)',
           }}
         />
         <Image
@@ -729,22 +674,6 @@ function ScreenshotHero({
           className="object-contain"
         />
       </div>
-    </div>
-  )
-}
-
-function FollowupsHero({ flipped, revealed }: { flipped: boolean; revealed: boolean }) {
-  return (
-    <div
-      style={{
-        opacity: revealed ? 1 : 0,
-        transform: revealed
-          ? `perspective(1200px) rotateY(${flipped ? 4 : -4}deg) rotateX(1.5deg)`
-          : `perspective(1200px) rotateY(${flipped ? 8 : -8}deg) rotateX(3deg) translateY(40px) scale(0.94)`,
-        transition: 'opacity 900ms 100ms ease-out, transform 1000ms 100ms ease-out',
-      }}
-    >
-      <FollowupsMock />
     </div>
   )
 }
