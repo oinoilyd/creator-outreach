@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AuthShell } from '@/components/landing/AuthShell'
+import { PasswordChecklist } from '@/components/PasswordChecklist'
+import { validatePassword, friendlyPasswordError } from '@/lib/password'
 
 function SignUpForm() {
   const router = useRouter()
@@ -19,6 +21,20 @@ function SignUpForm() {
   async function signUpWithPassword(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    // Client-side check FIRST — surfaces a clean error instead of
+    // letting Supabase return its character-class-dump message.
+    const { valid, missing } = validatePassword(password)
+    if (!valid) {
+      const labels = missing.map(m => m.label.toLowerCase())
+      const tail = labels.pop()
+      const msg = labels.length
+        ? `Your password is missing ${labels.join(', ')} and ${tail}.`
+        : `Your password is missing ${tail}.`
+      setError(msg)
+      return
+    }
+
     setLoading(true)
     const supabase = createClient()
     const { error: err } = await supabase.auth.signUp({
@@ -29,7 +45,7 @@ function SignUpForm() {
       },
     })
     if (err) {
-      setError(err.message)
+      setError(friendlyPasswordError(err.message, password))
       setLoading(false)
       return
     }
@@ -49,6 +65,7 @@ function SignUpForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
+            autoFocus
             className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors dark:bg-white/[0.04] dark:border-white/10"
           />
         </div>
@@ -59,10 +76,9 @@ function SignUpForm() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
-            minLength={6}
             className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors dark:bg-white/[0.04] dark:border-white/10"
           />
-          <p className="text-[11px] text-muted-foreground/70 mt-1">At least 6 characters.</p>
+          <PasswordChecklist password={password} />
         </div>
 
         {error && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">{error}</div>}

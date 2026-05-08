@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AuthShell } from '@/components/landing/AuthShell'
+import { PasswordChecklist } from '@/components/PasswordChecklist'
+import { validatePassword, friendlyPasswordError } from '@/lib/password'
 
 /**
  * Choose-a-new-password page.
@@ -85,8 +87,16 @@ export default function ResetPasswordPage() {
       setError('Passwords do not match')
       return
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    // Client-side check first — surfaces a clean message instead
+    // of letting Supabase return its character-class-dump string.
+    const { valid, missing } = validatePassword(password)
+    if (!valid) {
+      const labels = missing.map(m => m.label.toLowerCase())
+      const tail = labels.pop()
+      const msg = labels.length
+        ? `Your password is missing ${labels.join(', ')} and ${tail}.`
+        : `Your password is missing ${tail}.`
+      setError(msg)
       return
     }
     setLoading(true)
@@ -94,7 +104,7 @@ export default function ResetPasswordPage() {
       const supabase = createClient()
       const { error: err } = await supabase.auth.updateUser({ password })
       if (err) {
-        setError(err.message)
+        setError(friendlyPasswordError(err.message, password))
         setLoading(false)
         return
       }
@@ -136,10 +146,10 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                minLength={6}
                 autoFocus
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors dark:bg-white/[0.04] dark:border-white/10"
               />
+              <PasswordChecklist password={password} />
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Confirm password</label>
@@ -148,9 +158,11 @@ export default function ResetPasswordPage() {
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
                 required
-                minLength={6}
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors dark:bg-white/[0.04] dark:border-white/10"
               />
+              {confirm && password !== confirm && (
+                <p className="text-[11px] text-red-500 mt-1">Passwords don&apos;t match</p>
+              )}
             </div>
 
             {error && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">{error}</div>}
