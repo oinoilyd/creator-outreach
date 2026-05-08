@@ -132,70 +132,73 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* SOLUTIONS — reframed: lead with the actual differentiators
-          (fit score + parallel search + serious filters), demote
-          niches to a sub-feature inside the parallel-search tile.
-          Niche buckets are a great feature but not the headline. */}
+      {/* SOLUTIONS — restructured 2026-05-08 to match the original
+          site's 4-step funnel framing per Dylan: Results → Fit Score
+          → Outreach → Follow-ups. Each tile is a real step in the
+          operator's workflow. The KPI/analytics callouts that lived
+          here previously moved into the Analytics product narrative
+          (#analytics) where they belong. */}
       <section id="solutions" className="px-6 py-20 md:py-28 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto">
           <div className="max-w-[680px] mb-12 md:mb-16">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">What&apos;s in the app</div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">The four-step loop</div>
             <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Search. Score. Reach out. Measure.
+              Results. Fit score. Outreach. Follow-ups.
             </h2>
             <p className="mt-5 text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
-              Four pieces of one workflow, built around the way an
-              operator actually works a list — not how a CRM thinks
-              they should.
+              Four steps of one workflow — the way an operator
+              actually works a list, in the order it actually happens.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             <SolutionTile
+              step="01"
               icon={
-                /* Sparkles / target — fit score (lead) */
+                /* Search — Step 1: get results */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="21" y1="21" x2="16.5" y2="16.5" />
+                </svg>
+              }
+              title="Results"
+              body="YouTube, Instagram, TikTok, X, LinkedIn — searched in parallel. 20 region filters, audience-size buckets, last-posted recency. Click one of 13 niche buckets to fan out across ~30 occupations in a single query."
+            />
+            <SolutionTile
+              step="02"
+              icon={
+                /* Target — Step 2: AI fit score */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <circle cx="12" cy="12" r="9" />
                   <circle cx="12" cy="12" r="5" />
                   <circle cx="12" cy="12" r="1.5" fill="currentColor" />
                 </svg>
               }
-              title="Plain-English fit, not generic AI"
-              body="Type your ideal creator in a sentence — &ldquo;US-based, posts weekly, 10K–100K subs, talks about value investing.&rdquo; Five-dimension fit score (recency · reach · reachability · relevance · quality) ranks every result against it. Re-tunable per platform — Instagram weight isn&apos;t YouTube weight."
+              title="AI fit score"
+              body="Type your ideal creator in a sentence. Five-dimension fit score (recency · reach · reachability · relevance · quality) ranks every result against it. Strong / Possible / Weak labels per row. Re-tunable per platform."
             />
             <SolutionTile
+              step="03"
               icon={
-                /* Search — parallel multi-platform search */
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="21" y1="21" x2="16.5" y2="16.5" />
-                </svg>
-              }
-              title="Five platforms, serious filters"
-              body="YouTube, Instagram, TikTok, X, LinkedIn — searched in parallel. 20 region filters, audience-size buckets, last-posted recency, Instagram follower data inline. Click one of 13 niche buckets to fan out across ~30 occupations in a single query."
-            />
-            <SolutionTile
-              icon={
-                /* Inbox / outreach board */
+                /* Inbox — Step 3: outreach */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M22 12h-6l-2 3h-4l-2-3H2" />
                   <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
                 </svg>
               }
-              title="One outreach board, no CRM bill"
-              body="Status pill, medium tracker (Email · LinkedIn · Other), follow-up cadence, product notes — one row per creator. Click an Instagram handle and an opener template lands in your clipboard while the profile opens."
+              title="Outreach"
+              body="One row per creator: status pill, medium tracker (Email · LinkedIn · Other), product notes. Click an Instagram handle and an opener template lands in your clipboard while the profile opens."
             />
             <SolutionTile
+              step="04"
               icon={
-                /* Bar chart — analytics */
+                /* Clock — Step 4: follow-ups */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <line x1="3" y1="20" x2="21" y2="20" />
-                  <rect x="5" y="11" width="3" height="9" />
-                  <rect x="10.5" y="6" width="3" height="14" />
-                  <rect x="16" y="13" width="3" height="7" />
+                  <circle cx="12" cy="12" r="9" />
+                  <polyline points="12 7 12 12 15.5 14" />
                 </svg>
               }
-              title="7 KPIs out of the box"
-              body="In Pipeline · Reached Out · Responses · Response Rate · Win Rate · Pipeline $ · Stale Follow-ups. Status-breakdown bar, outreach-by-medium split. Add custom metrics — no formula bar, no SQL."
+              title="Follow-ups"
+              body="Auto-cadence reminders so silence doesn&apos;t leak pipeline. Dedicated Follow-ups sub-tab to triage what needs a nudge today. Mark followed-up with a click and the cadence resets."
             />
           </div>
         </div>
@@ -241,10 +244,13 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* PRODUCT NARRATIVES (3 stages with screenshots) */}
+      {/* PRODUCT NARRATIVES (3 stages with screenshots).
+          Each div has its own #anchor (sourcing/outreach/analytics)
+          so the hamburger menu can deep-link directly to that
+          stage. scroll-mt-24 leaves room for the sticky header. */}
       <section id="product" className="scroll-mt-24">
         {/* 1 — Sourcing */}
-        <div className="px-6 pt-20 md:pt-28 pb-12 md:pb-16">
+        <div id="sourcing" className="px-6 pt-20 md:pt-28 pb-12 md:pb-16 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">01 / Sourcing</div>
@@ -293,7 +299,7 @@ export default async function LandingPage() {
         </div>
 
         {/* 2 — Outreach */}
-        <div className="px-6 py-12 md:py-16">
+        <div id="outreach" className="px-6 py-12 md:py-16 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div className="md:order-2">
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">02 / Outreach</div>
@@ -339,7 +345,7 @@ export default async function LandingPage() {
         </div>
 
         {/* 3 — Analytics */}
-        <div className="px-6 py-12 md:py-16 pb-20 md:pb-28">
+        <div id="analytics" className="px-6 py-12 md:py-16 pb-20 md:pb-28 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">03 / Analytics</div>
@@ -699,7 +705,7 @@ function DemoStep({
   )
 }
 
-function SolutionTile({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+function SolutionTile({ icon, title, body, step }: { icon: React.ReactNode; title: string; body: string; step?: string }) {
   return (
     <div className="group relative rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
       {/* Hover affordance — arrow appears top-right on hover. Different
@@ -715,9 +721,16 @@ function SolutionTile({ icon, title, body }: { icon: React.ReactNode; title: str
           <polyline points="7 7 17 7 17 17" />
         </svg>
       </span>
-      <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] mb-4 [&>svg]:w-5 [&>svg]:h-5">
-        {icon}
-      </span>
+      <div className="flex items-center gap-3 mb-4">
+        <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] [&>svg]:w-5 [&>svg]:h-5">
+          {icon}
+        </span>
+        {step && (
+          <span className="text-[11px] uppercase tracking-[0.2em] text-[#0F1733]/40 dark:text-white/40 font-bold font-mono">
+            Step {step}
+          </span>
+        )}
+      </div>
       <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2">{title}</h3>
       <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
     </div>

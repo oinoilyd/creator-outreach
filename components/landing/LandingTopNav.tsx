@@ -145,76 +145,106 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
             {open && (
               <div
                 role="menu"
-                className="absolute right-0 top-[calc(100%+8px)] w-56 bg-white dark:bg-[#1A2034] border border-[#0F1733]/10 dark:border-white/10 rounded-xl shadow-2xl shadow-black/15 dark:shadow-black/40 z-50 overflow-hidden py-1"
+                className="absolute right-0 top-[calc(100%+8px)] w-72 bg-white dark:bg-[#1A2034] border border-[#0F1733]/10 dark:border-white/10 rounded-xl shadow-2xl shadow-black/15 dark:shadow-black/40 z-50 overflow-hidden py-2 max-h-[calc(100vh-90px)] overflow-y-auto"
               >
-                {/* Mobile-only section anchors (hidden on desktop where
-                    they live inline in the main nav). */}
-                <div className="md:hidden py-1">
+                {/* Beefier menu (2026-05-08): grouped by Product /
+                    Site / Connect / Account. Always visible at every
+                    viewport (was previously mobile-only for top-level
+                    anchors) so power-users can deep-link directly to
+                    a specific product stage from any breakpoint. */}
+
+                {/* GROUP 1 — Product (deep-link to each narrative) */}
+                <MenuGroup label="Product">
                   {[
-                    { label: 'Product', href: '#product' },
+                    { label: 'Sourcing — search across 5 platforms', href: '#sourcing' },
+                    { label: 'Outreach — one CRM-style board', href: '#outreach' },
+                    { label: 'Analytics — 7 KPIs, status breakdown', href: '#analytics' },
+                  ].map(item => (
+                    <MenuItem key={item.href} href={item.href} onSelect={() => setOpen(false)}>
+                      {item.label}
+                    </MenuItem>
+                  ))}
+                </MenuGroup>
+
+                {/* GROUP 2 — Site (top-level anchors) */}
+                <MenuGroup label="Site">
+                  {[
                     { label: 'Solutions', href: '#solutions' },
                     { label: 'Customers', href: '#customers' },
                     { label: 'Pricing', href: '#pricing' },
                     { label: 'Resources', href: '#resources' },
                   ].map(item => (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setOpen(false)}
-                      className="block px-4 py-2.5 text-[14px] text-[#0F1733]/75 dark:text-white/75 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
-                    >
+                    <MenuItem key={item.href} href={item.href} onSelect={() => setOpen(false)}>
                       {item.label}
-                    </a>
+                    </MenuItem>
                   ))}
-                  <div className="mx-4 my-1 border-t border-[#0F1733]/10 dark:border-white/10" />
+                </MenuGroup>
+
+                {/* GROUP 3 — Connect */}
+                <MenuGroup label="Connect">
+                  <MenuItem
+                    href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
+                    onSelect={() => setOpen(false)}
+                  >
+                    Talk to founder
+                  </MenuItem>
+                  <MenuItem
+                    href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20feedback"
+                    onSelect={() => setOpen(false)}
+                  >
+                    Email feedback
+                  </MenuItem>
+                  <MenuItem
+                    href="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20playbooks%20publish"
+                    onSelect={() => setOpen(false)}
+                  >
+                    Notify me when playbooks publish
+                  </MenuItem>
+                </MenuGroup>
+
+                {/* GROUP 4 — Account */}
+                <div className="px-2 pt-2">
+                  {!isAuthed && (
+                    <>
+                      {/* Mobile-only primary CTA — sm+ uses the nav CTA. */}
+                      <Link
+                        href="/auth/signup"
+                        onClick={() => setOpen(false)}
+                        className="sm:hidden mb-2 inline-flex items-center justify-center gap-1.5 bg-[#0F1733] dark:bg-[#F2A261] text-white dark:text-[#0F1733] hover:bg-[#E85D2F] dark:hover:bg-white px-4 py-2.5 rounded-md text-[14px] font-semibold transition-colors w-full"
+                      >
+                        Start free
+                      </Link>
+                      <Link
+                        href="/auth/signin"
+                        onClick={() => setOpen(false)}
+                        className="block px-3 py-2 rounded-md text-[14px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+                      >
+                        Sign in
+                      </Link>
+                    </>
+                  )}
+                  {isAuthed && (
+                    <>
+                      <Link
+                        href="/"
+                        onClick={() => setOpen(false)}
+                        className="block px-3 py-2 rounded-md text-[14px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+                      >
+                        Open app
+                      </Link>
+                      <button
+                        onClick={async () => {
+                          setOpen(false)
+                          await fetch('/auth/signout', { method: 'POST' })
+                          window.location.href = '/'
+                        }}
+                        className="w-full text-left block px-3 py-2 rounded-md text-[14px] text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        Sign out
+                      </button>
+                    </>
+                  )}
                 </div>
-
-                {/* Mobile-only primary CTA — sm:hidden because on
-                    sm+ the CTA already lives in the nav. Surfaces it
-                    inside the menu on phones where the header CTA is
-                    hidden to avoid horizontal overflow. */}
-                {!isAuthed && (
-                  <Link
-                    href="/auth/signup"
-                    onClick={() => setOpen(false)}
-                    className="sm:hidden mx-3 mb-1 mt-1 inline-flex items-center justify-center gap-1.5 bg-[#0F1733] dark:bg-[#F2A261] text-white dark:text-[#0F1733] hover:bg-[#E85D2F] dark:hover:bg-white px-4 py-2.5 rounded-md text-[14px] font-semibold transition-colors w-[calc(100%-1.5rem)]"
-                  >
-                    Start free
-                  </Link>
-                )}
-
-                {/* Utility links (always shown in menu) */}
-                {!isAuthed && (
-                  <Link
-                    href="/auth/signin"
-                    onClick={() => setOpen(false)}
-                    className="block px-4 py-2.5 text-[14px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
-                  >
-                    Sign in
-                  </Link>
-                )}
-                <a
-                  href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
-                  onClick={() => setOpen(false)}
-                  className="block px-4 py-2.5 text-[14px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
-                >
-                  Talk to founder
-                </a>
-                {isAuthed && (
-                  <>
-                    <div className="mx-4 my-1 border-t border-[#0F1733]/10 dark:border-white/10" />
-                    <button
-                      onClick={async () => {
-                        setOpen(false)
-                        await fetch('/auth/signout', { method: 'POST' })
-                        window.location.href = '/'
-                      }}
-                      className="w-full text-left block px-4 py-2.5 text-[14px] text-red-500 hover:bg-red-500/10 transition-colors"
-                    >
-                      Sign out
-                    </button>
-                  </>
-                )}
               </div>
             )}
           </div>
@@ -234,5 +264,39 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
         </div>
       </div>
     </header>
+  )
+}
+
+/* ─── menu primitives ─── */
+
+function MenuGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="px-2 pb-1">
+      <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-[#0F1733]/40 dark:text-white/40">
+        {label}
+      </div>
+      {children}
+      <div className="mx-2 my-2 border-t border-[#0F1733]/10 dark:border-white/10" />
+    </div>
+  )
+}
+
+function MenuItem({
+  href,
+  onSelect,
+  children,
+}: {
+  href: string
+  onSelect: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <a
+      href={href}
+      onClick={onSelect}
+      className="block px-3 py-2 rounded-md text-[13.5px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+    >
+      {children}
+    </a>
   )
 }

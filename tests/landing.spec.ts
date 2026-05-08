@@ -34,11 +34,10 @@ test.describe('Landing page', () => {
   })
 
   test('Solutions section present with 4 product tiles', async ({ page }) => {
-    // Heading was rewritten again 2026-05-08 from "Four pieces, one
-    // loop" to "Search. Score. Reach out. Measure." per Dylan ("clean
-    // up Four pieces, one loop"). Direct verb sequence is what the
-    // app actually does.
-    await expect(page.getByRole('heading', { name: /search\.\s*score\.\s*reach out\.\s*measure/i })).toBeVisible()
+    // Heading restructured 2026-05-08 to the original-site 4-step
+    // funnel framing: Results. Fit score. Outreach. Follow-ups.
+    // KPI callouts moved into the #analytics narrative.
+    await expect(page.getByRole('heading', { name: /results\.\s*fit score\.\s*outreach\.\s*follow-ups/i })).toBeVisible()
     // Solution tile h3s
     const tiles = page.locator('section#solutions h3')
     expect(await tiles.count()).toBe(4)
