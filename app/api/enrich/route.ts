@@ -5,6 +5,7 @@ import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { shouldSkip, recordFailure, recordSuccess, delay } from '@/lib/scrape-circuit-breaker'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL } from '@/lib/cache'
+import { saveEnrichmentSnapshot } from '@/lib/creator-enrichment'
 import { newMethodology, isPlausibleEmail } from '@/lib/newMethodology'
 import { publishJob, isQStashConfigured } from '@/lib/qstash'
 import { extractInstagramHandle, isInstagramGraphConfigured } from '@/lib/instagram-graph'
@@ -691,6 +692,46 @@ export async function GET(req: NextRequest) {
   // populate the cache properly.
   if (!skipCache && !fastMode) {
     void cacheSet(enrichmentCacheKey(channelId), payload, CACHE_TTL.creatorEnrichment)
+
+    // PHASE 1 of the durable enrichment cache (2026-05-08): also
+    // append a snapshot to creator_enrichment in Postgres. Read path
+    // is unchanged — Redis is still primary. This just builds the
+    // corpus across users + Redis evictions. Phase 2 wires reads.
+    const recentDates = (videoDates || []).slice(0, 12)
+    const lastVideoIso = recentDates[0]
+      ? (() => {
+          // Best effort: videoDates entries are relative ("3 days
+          // ago", "2024-08-12", etc). Try Date.parse and fall back.
+          const t = Date.parse(recentDates[0])
+          return Number.isFinite(t) ? new Date(t).toISOString() : null
+        })()
+      : null
+    void saveEnrichmentSnapshot({
+      yt_channel_id: channelId,
+      channel_name: channelName || null,
+      niche: niche || null,
+      email: email || null,
+      // Phase 1: source tracking not yet wired into the route.
+      // Phase 3 will record which strategy resolved each email.
+      email_source: null,
+      linkedin_url: socials.linkedin || null,
+      instagram_handle: socials.instagram || null,
+      twitter_handle: socials.twitter || null,
+      website: socials.website || null,
+      // yt.subscribers is sometimes a formatted string ("245K") —
+      // coerce to a number when possible, null otherwise. Database
+      // column is BIGINT so we want clean integers.
+      subscribers: typeof yt.subscribers === 'number'
+        ? yt.subscribers
+        : (() => {
+            const n = Number(String(yt.subscribers ?? '').replace(/[^0-9.]/g, ''))
+            return Number.isFinite(n) && n > 0 ? Math.round(n) : null
+          })(),
+      avg_views: typeof avgViews === 'number' ? avgViews : null,
+      last_video_at: lastVideoIso,
+      recent_video_dates: recentDates.length ? recentDates : null,
+      raw_response_json: payload,
+    })
   }
 
   // Fire-and-forget: kick off Meta Graph API enrichment in the

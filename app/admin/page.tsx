@@ -64,6 +64,12 @@ export default async function AdminPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link
+              href="/admin/contacts"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
+            >
+              📇 Contacts
+            </Link>
+            <Link
               href="/admin/email-test"
               className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
             >
