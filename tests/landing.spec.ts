@@ -57,12 +57,18 @@ test.describe('Landing page', () => {
     await expect(pricing.getByText(/beta/i).first()).toBeVisible()
   })
 
-  test('Customers section present with testimonials', async ({ page }) => {
+  test('Why-this-exists section present with 3 visual cards', async ({ page }) => {
+    // Section was rebuilt 2026-05-08 from text-only figure quotes
+    // into 3 article cards each with an inline-SVG before/after
+    // visual (chaotic-tabs collapse, generic→custom score gauge,
+    // crossed-out CRMs → unified row).
     const customers = page.locator('#customers')
     await expect(customers).toBeVisible()
-    // 3 testimonial figures
-    const figures = customers.locator('figure')
-    expect(await figures.count()).toBeGreaterThanOrEqual(3)
+    const cards = customers.locator('article')
+    expect(await cards.count()).toBeGreaterThanOrEqual(3)
+    // Each card has its own SVG visual block.
+    const svgs = customers.locator('article svg')
+    expect(await svgs.count()).toBeGreaterThanOrEqual(3)
   })
 
   test('Footer with sitemap columns + copyright', async ({ page }) => {

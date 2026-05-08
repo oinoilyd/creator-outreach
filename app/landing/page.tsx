@@ -5,6 +5,7 @@ import { LandingTopNav } from '@/components/landing/LandingTopNav'
 import { ScreenshotZoom } from '@/components/landing/ScreenshotZoom'
 import { PLATFORM_MARKS } from '@/components/landing/PlatformBrandMarks'
 import { StatBandSpotlight } from '@/components/landing/StatBandSpotlight'
+import { WhyThisExists } from '@/components/landing/WhyThisExists'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -397,46 +398,14 @@ export default async function LandingPage() {
       {/* (Stat band moved up — was here, now appears between Solutions
           and Product Narratives via <StatBandSpotlight />.) */}
 
-      {/* "WHY THIS EXISTS" — rewritten 2026-05-08. Previous copy was
-          too marketing-y ("Three real pains. Three things in the app.
-          Here's the receipts."). New voice: terse operator notes
-          stating the workaround that wasn't working, then the
-          built-in answer. No "pain → solution" arc-speak, no
-          horizontal-rule receipts language. */}
-      <section id="customers" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
-        <div className="max-w-[1280px] mx-auto pt-20 md:pt-28">
-          <div className="text-center mb-12 md:mb-16">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Why this exists</div>
-            <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[26ch]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              I built this because I needed it.
-            </h2>
-            <p className="mt-5 max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
-              Three things I was working around for months. Each one is
-              now built in, because the workaround was the bottleneck.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-x-10 md:gap-x-14 gap-y-12 max-w-[1180px] mx-auto">
-            <BuiltBecauseNote
-              pain="Four tabs to source one creator."
-              note="YouTube to find them. LinkedIn for a work email. Twitter to check if they&apos;re still active. A Google Sheet to remember who I&apos;d already messaged."
-              becameFeature="One query, five platforms, scored. Email and social handles surface inline. Four tabs become one row."
-              tag="Sourcing"
-            />
-            <BuiltBecauseNote
-              pain="Off-the-shelf creator scoring is useless."
-              note="Subs + engagement + vertical doesn&apos;t describe fit. None of it knew that I wanted US-based, weekly posters who talk about value investing under 100K subs."
-              becameFeature="Write what you actually want. The AI scores against that — fully customizable, weighted per platform."
-              tag="Fit score"
-            />
-            <BuiltBecauseNote
-              pain="Every CRM ignored Instagram."
-              note="HubSpot is $400/mo. Two influencer-CRMs were $300+/mo behind a sales call. None of them recognized an IG handle, much less helped me open a DM."
-              becameFeature="Built-in CRM tuned for creators. Click an IG handle, get a DM template. Email, LinkedIn, and other channels tracked per row."
-              tag="Outreach"
-            />
-          </div>
-        </div>
-      </section>
+      {/* "WHY THIS EXISTS" — rebuilt as a graphic feature spotlight
+          per Dylan ('greater bigger better graphic exciting and
+          aligned/fitted'). Each card now has an inline-SVG before/
+          after visual: 4 chaotic browser-tabs collapsing into one
+          row, generic gauge → custom-criteria fit score, crossed-out
+          CRMs → unified outreach row. Lives in the WhyThisExists
+          client component (intersection-observed reveal animations). */}
+      <WhyThisExists />
 
       {/* (Platform tiles section removed 2026-05-08 — felt redundant
           after the niche/parallel deemphasis pass; the supported
@@ -715,56 +684,6 @@ function Stat({ n, label }: { n: string; label: string }) {
       <div className="font-semibold tracking-[-0.025em] text-white mb-1.5" style={{ fontSize: 'clamp(2.25rem, 4vw, 3.5rem)' }}>{n}</div>
       <div className="text-[13px] text-white/60 leading-[1.4]">{label}</div>
     </div>
-  )
-}
-
-function BuiltBecauseNote({
-  pain,
-  note,
-  becameFeature,
-  tag,
-}: {
-  /** Headline pain (the thing that broke). */
-  pain: string
-  /** Lived-in description of the pain in operator voice. */
-  note: string
-  /** What got built in the app to solve it. */
-  becameFeature: string
-  /** One-word section tag (Sourcing / Scoring / Outreach). */
-  tag: string
-}) {
-  return (
-    <figure className="flex flex-col">
-      {/* Tag — small uppercase chip naming which part of the app this
-          pain produced. */}
-      <span className="text-[11px] uppercase tracking-[0.18em] text-[#E85D2F] font-bold mb-4">
-        {tag}
-      </span>
-      <h3 className="text-[20px] md:text-[22px] font-semibold tracking-[-0.015em] leading-[1.25] mb-4 text-[#0F1733] dark:text-white">
-        {pain}
-      </h3>
-      <p
-        className="text-[15px] md:text-[16px] text-[#0F1733]/75 dark:text-white/75 leading-[1.6] mb-5 flex-1"
-        dangerouslySetInnerHTML={{ __html: note }}
-      />
-      {/* Hairline rule + "what got built" block — connects the pain
-          directly to the feature in the app. Reads as a real changelog
-          entry, not marketing fluff. */}
-      <div className="border-t border-[#0F1733]/12 dark:border-white/15 pt-4 flex gap-3">
-        <span
-          aria-hidden
-          className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#E85D2F]/15 text-[#E85D2F] shrink-0"
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="5 12 10 17 19 7" />
-          </svg>
-        </span>
-        <p
-          className="text-[13.5px] text-[#0F1733]/70 dark:text-white/70 leading-[1.55]"
-          dangerouslySetInnerHTML={{ __html: becameFeature }}
-        />
-      </div>
-    </figure>
   )
 }
 
