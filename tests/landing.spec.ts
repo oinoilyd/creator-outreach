@@ -96,6 +96,29 @@ test.describe('Landing page', () => {
     expect(nowDark).not.toBe(startedDark)
   })
 
+  test('mobile viewport — no horizontal scroll, key sections visible', async ({ page }) => {
+    // 375 = iPhone SE / mid-range Android. Most realistic narrow case.
+    await page.setViewportSize({ width: 375, height: 667 })
+    await page.goto('/landing')
+    await page.waitForLoadState('networkidle')
+
+    // No horizontal scroll — sections shouldn't blow past viewport.
+    const overflow = await page.evaluate(() => {
+      const docW = document.documentElement.scrollWidth
+      const winW = window.innerWidth
+      return docW - winW
+    })
+    expect(overflow).toBeLessThanOrEqual(1) // sub-pixel rounding tolerance
+
+    // h1 + primary CTA still visible
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.locator('a[href="/auth/signup"], a[href="/"]').first()).toBeVisible()
+
+    // Hamburger + theme toggle both reachable on mobile
+    await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /switch to (light|dark) mode/i })).toBeVisible()
+  })
+
   test('no console errors on initial load', async ({ page }) => {
     const errors: string[] = []
     page.on('console', msg => {

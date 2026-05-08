@@ -104,30 +104,31 @@ export default async function LandingPage() {
               <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/45 dark:text-white/45 mb-3 font-semibold">
                 Built for anyone reaching out to creators
               </div>
-              {/* Broadened persona list — was originally 4 GTM-flavored
-                  roles (Indie operators / Solo founders / Growth teams
-                  / Solo agencies). Real audience is wider: editors,
-                  videographers, podcasters, talent managers, marketing
-                  teams, consultants, etc. The list now reflects that. */}
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium">
-                <span>Indie operators</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Solo founders</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Growth + marketing teams</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Editors</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Videographers</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Podcasters</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Consultants</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Solo agencies</span>
-                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
-                <span>Talent managers</span>
-              </div>
+              {/* Persona list — separators implemented as ::before
+                  pseudo-elements on every item except the first, so a
+                  wrapped line never starts with a dangling "·". The
+                  prior version used inline span separators which
+                  produced orphaned dots at line-edges on mobile. */}
+              <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium list-none p-0">
+                {[
+                  'Indie operators',
+                  'Solo founders',
+                  'Growth + marketing teams',
+                  'Editors',
+                  'Videographers',
+                  'Podcasters',
+                  'Consultants',
+                  'Solo agencies',
+                  'Talent managers',
+                ].map(label => (
+                  <li
+                    key={label}
+                    className="relative pl-5 first:pl-0 before:content-['·'] before:absolute before:left-1.5 before:text-[#0F1733]/15 dark:before:text-white/20 first:before:content-none"
+                  >
+                    {label}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
