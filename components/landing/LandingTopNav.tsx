@@ -169,6 +169,20 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                   <div className="mx-4 my-1 border-t border-[#0F1733]/10 dark:border-white/10" />
                 </div>
 
+                {/* Mobile-only primary CTA — sm:hidden because on
+                    sm+ the CTA already lives in the nav. Surfaces it
+                    inside the menu on phones where the header CTA is
+                    hidden to avoid horizontal overflow. */}
+                {!isAuthed && (
+                  <Link
+                    href="/auth/signup"
+                    onClick={() => setOpen(false)}
+                    className="sm:hidden mx-3 mb-1 mt-1 inline-flex items-center justify-center gap-1.5 bg-[#0F1733] dark:bg-[#F2A261] text-white dark:text-[#0F1733] hover:bg-[#E85D2F] dark:hover:bg-white px-4 py-2.5 rounded-md text-[14px] font-semibold transition-colors w-[calc(100%-1.5rem)]"
+                  >
+                    Start free
+                  </Link>
+                )}
+
                 {/* Utility links (always shown in menu) */}
                 {!isAuthed && (
                   <Link
@@ -205,10 +219,15 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
             )}
           </div>
 
-          {/* Primary CTA */}
+          {/* Primary CTA — visible from 'sm' (640px) up. Below sm the
+              CTA was pushing total nav width to ~386px which on iPhone
+              widths (320–375) caused horizontal overflow → toggle and
+              hamburger ended up partially off-screen, taps landed on
+              dead space. CTA is surfaced inside the hamburger menu on
+              mobile so it's still reachable. */}
           <Link
             href={isAuthed ? '/' : '/auth/signup'}
-            className="ml-1 inline-flex items-center gap-1.5 bg-[#0F1733] dark:bg-[#F2A261] text-white dark:text-[#0F1733] hover:bg-[#E85D2F] dark:hover:bg-white px-4 py-2 rounded-md text-[14px] font-semibold transition-colors"
+            className="ml-1 hidden sm:inline-flex items-center gap-1.5 bg-[#0F1733] dark:bg-[#F2A261] text-white dark:text-[#0F1733] hover:bg-[#E85D2F] dark:hover:bg-white px-4 py-2 rounded-md text-[14px] font-semibold transition-colors"
           >
             {isAuthed ? 'Open app' : 'Start free'}
           </Link>

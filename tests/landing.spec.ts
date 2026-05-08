@@ -96,6 +96,49 @@ test.describe('Landing page', () => {
     expect(nowDark).not.toBe(startedDark)
   })
 
+  test('nav buttons are within viewport at iPhone SE (320px) width', async ({ page }) => {
+    // Regression: at narrow widths the brand wordmark + toggle +
+    // hamburger + Start-free CTA totalled ~386px. iPhone widths
+    // (320–375) clipped the right side off-screen, so users tapped
+    // dead space. Fixed 2026-05-08 by hiding the Start-free CTA
+    // below sm (640) and surfacing it inside the hamburger menu.
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.goto('/landing')
+    await page.waitForLoadState('networkidle')
+
+    const overflow = await page.evaluate(() => document.body.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
+
+    // Toggle + hamburger fully on-screen, ≥4px from right edge.
+    const toggleBox = await page.getByRole('button', { name: /switch to (light|dark) mode/i }).boundingBox()
+    const hamBox = await page.getByRole('button', { name: 'Open menu' }).boundingBox()
+    expect(toggleBox).not.toBeNull()
+    expect(hamBox).not.toBeNull()
+    expect(hamBox!.x + hamBox!.width).toBeLessThanOrEqual(320)
+    expect(hamBox!.x + hamBox!.width).toBeGreaterThan(toggleBox!.x + toggleBox!.width)
+  })
+
+  test('hamburger and theme toggle work at mobile width (375)', async ({ page }) => {
+    // End-to-end click test at iPhone-SE width — the prior bug
+    // wasn't that handlers didn't fire, it was that the buttons
+    // were partially off-screen so taps missed.
+    await page.setViewportSize({ width: 375, height: 667 })
+    await page.goto('/landing')
+    await page.waitForLoadState('networkidle')
+
+    // Theme toggle flips the html class
+    const startedDark = await page.locator('html').evaluate(el => el.classList.contains('dark'))
+    await page.getByRole('button', { name: /switch to (light|dark) mode/i }).click()
+    const nowDark = await page.locator('html').evaluate(el => el.classList.contains('dark'))
+    expect(nowDark).not.toBe(startedDark)
+
+    // Hamburger opens menu containing the mobile Start-free CTA
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    const menu = page.getByRole('menu')
+    await expect(menu).toBeVisible()
+    await expect(menu.getByRole('link', { name: /^start free$/i })).toBeVisible()
+  })
+
   test('mobile viewport — no horizontal scroll, key sections visible', async ({ page }) => {
     // 375 = iPhone SE / mid-range Android. Most realistic narrow case.
     await page.setViewportSize({ width: 375, height: 667 })
@@ -110,9 +153,11 @@ test.describe('Landing page', () => {
     })
     expect(overflow).toBeLessThanOrEqual(1) // sub-pixel rounding tolerance
 
-    // h1 + primary CTA still visible
+    // h1 + primary CTA still visible. Note: the *header* CTA is
+    // intentionally hidden below sm (640px) — the hero CTA is what
+    // a mobile user actually taps.
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    await expect(page.locator('a[href="/auth/signup"], a[href="/"]').first()).toBeVisible()
+    await expect(page.locator('section a[href="/auth/signup"], section a[href="/"]').first()).toBeVisible()
 
     // Hamburger + theme toggle both reachable on mobile
     await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
