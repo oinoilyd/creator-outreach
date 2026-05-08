@@ -34,11 +34,11 @@ test.describe('Landing page', () => {
   })
 
   test('Solutions section present with 4 product tiles', async ({ page }) => {
-    // Heading was rewritten 2026-05-08 from persona-framing
-    // ("one queue, every kind of creator outreach") to product-loop
-    // framing ("Four pieces, one loop") to align copy with what the
+    // Heading was rewritten again 2026-05-08 from "Four pieces, one
+    // loop" to "Search. Score. Reach out. Measure." per Dylan ("clean
+    // up Four pieces, one loop"). Direct verb sequence is what the
     // app actually does.
-    await expect(page.getByRole('heading', { name: /four pieces, one loop/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /search\.\s*score\.\s*reach out\.\s*measure/i })).toBeVisible()
     // Solution tile h3s
     const tiles = page.locator('section#solutions h3')
     expect(await tiles.count()).toBe(4)

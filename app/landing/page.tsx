@@ -96,17 +96,22 @@ export default async function LandingPage() {
                   wrapped line never starts with a dangling "·". The
                   prior version used inline span separators which
                   produced orphaned dots at line-edges on mobile. */}
+              {/* Persona order matters — first item carries the most
+                  signal. Leading with broader/recognizable roles
+                  (Podcasters, Editors, Marketing teams) instead of
+                  "Indie operators" which read as too narrow as the
+                  flagship persona. */}
               <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium list-none p-0">
                 {[
-                  'Indie operators',
-                  'Solo founders',
-                  'Growth + marketing teams',
+                  'Podcasters',
                   'Editors',
                   'Videographers',
-                  'Podcasters',
+                  'Growth + marketing teams',
                   'Consultants',
-                  'Solo agencies',
                   'Talent managers',
+                  'Solo agencies',
+                  'Solo founders',
+                  'Indie operators',
                 ].map(label => (
                   <li
                     key={label}
@@ -127,49 +132,46 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* SOLUTIONS — reframed from "personas" to actual product loop.
-          The four tiles now mirror what's literally in the app: niche
-          buckets → plain-English Lead Criteria → outreach board → IG
-          metrics scrape. No fake "use case" buckets that don't map to
-          screens. */}
+      {/* SOLUTIONS — reframed: lead with the actual differentiators
+          (fit score + parallel search + serious filters), demote
+          niches to a sub-feature inside the parallel-search tile.
+          Niche buckets are a great feature but not the headline. */}
       <section id="solutions" className="px-6 py-20 md:py-28 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto">
           <div className="max-w-[680px] mb-12 md:mb-16">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">What&apos;s actually in the app</div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">What&apos;s in the app</div>
             <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Four pieces, one loop.
+              Search. Score. Reach out. Measure.
             </h2>
             <p className="mt-5 text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
-              Search a niche across five platforms in parallel. Score
-              the results against criteria you wrote in plain English.
-              Reach out from one board. Watch what&apos;s landing in seven
-              KPIs. Built for the way one operator actually works through
-              a list — not the way a CRM thinks they should.
+              Four pieces of one workflow, built around the way an
+              operator actually works a list — not how a CRM thinks
+              they should.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             <SolutionTile
               icon={
-                /* Layers / niche buckets */
+                /* Sparkles / target — fit score (lead) */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polygon points="12 2 22 8.5 12 15 2 8.5 12 2" />
-                  <polyline points="2 14 12 20.5 22 14" />
-                  <polyline points="2 19 12 25.5 22 19" transform="translate(0 -4)" />
+                  <circle cx="12" cy="12" r="9" />
+                  <circle cx="12" cy="12" r="5" />
+                  <circle cx="12" cy="12" r="1.5" fill="currentColor" />
                 </svg>
               }
-              title="13 niche buckets, not just keywords"
-              body="Click Fitness &amp; Health, Finance &amp; Wealth, Real Estate, Tech &amp; Startups (13 buckets, ~30 occupations each) and the search fans out across all five platforms in parallel. One click instead of typing 30 queries."
+              title="Plain-English fit, not generic AI"
+              body="Type your ideal creator in a sentence — &ldquo;US-based, posts weekly, 10K–100K subs, talks about value investing.&rdquo; Five-dimension fit score (recency · reach · reachability · relevance · quality) ranks every result against it. Re-tunable per platform — Instagram weight isn&apos;t YouTube weight."
             />
             <SolutionTile
               icon={
-                /* Sparkles — plain-English AI scoring */
+                /* Search — parallel multi-platform search */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />
-                  <circle cx="12" cy="12" r="3.5" />
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="21" y1="21" x2="16.5" y2="16.5" />
                 </svg>
               }
-              title="Plain-English Lead Criteria"
-              body="Type your ideal creator in a sentence — &ldquo;US-based, posts weekly, 10K–100K subs, talks about value investing.&rdquo; Five-dimension fit score (recency, reach, reachability, relevance, quality) ranks every result against it. Re-tunable per platform."
+              title="Five platforms, serious filters"
+              body="YouTube, Instagram, TikTok, X, LinkedIn — searched in parallel. 20 region filters, audience-size buckets, last-posted recency, Instagram follower data inline. Click one of 13 niche buckets to fan out across ~30 occupations in a single query."
             />
             <SolutionTile
               icon={
@@ -216,8 +218,8 @@ export default async function LandingPage() {
           <div className="relative grid md:grid-cols-3 gap-6 md:gap-3 items-stretch">
             <DemoStep
               n="01"
-              title="Pick a niche"
-              body="Click one of 13 niche buckets. The search fans out across all five platforms in parallel."
+              title="Run a search"
+              body="Five platforms in parallel. Filter by region, audience size, and recency. Or click a niche bucket to fan out across ~30 occupations in one go."
               src="/screenshots/bento-search.png"
               alt="Search filters with niche bucket selected"
             />
@@ -262,10 +264,10 @@ export default async function LandingPage() {
                   - 20 regions in lib/regions.ts (NOT 22 like the old copy
                     claimed — verified count) */}
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
-                <Bullet>One query &rarr; results across all five platforms in parallel</Bullet>
-                <Bullet>13 niche buckets fan out into ~30 occupations each (Fitness, Finance, Real Estate, Tech, Coaching, Sports, Creative &amp; Media, Legal, Education, Food, Home, Travel, HR)</Bullet>
                 <Bullet>5-dimension fit score (recency · reach · reachability · relevance · quality) — re-weight per platform</Bullet>
                 <Bullet>20 region filters · audience-size buckets · last-posted recency · Instagram follower count inline</Bullet>
+                <Bullet>One query &rarr; results across all five platforms in parallel</Bullet>
+                <Bullet>13 niche buckets for one-click multi-occupation searches (Fitness, Finance, Real Estate, Tech, Coaching, +8 more)</Bullet>
               </ul>
             </div>
             <ScreenshotZoom caption="Results — click to zoom; ESC to close.">
@@ -380,15 +382,10 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* STAT BAND — editorial layout (was a 4-up evenly-spaced grid).
-          One hero stat with explainer copy on the right; three smaller
-          stats below. Reads as "here's the lead number, here's the
-          rest" instead of "here's a marketing dashboard."
-
-          TODO Dylan: when you want, swap the hero "13 / niche buckets"
-          for your actual pipeline number ("73 creators in my pipeline
-          last month" or whatever it is right now). The product-fact
-          version below is the honest placeholder until then. */}
+      {/* STAT BAND — hero stat is now the fit score (the actual
+          differentiator vs HubSpot / influencer CRMs). Niche buckets
+          moved out of the headline spot and become a smaller mention
+          in the supporting row. */}
       <section className="px-6 pb-20 md:pb-28">
         <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-8 py-14 md:py-20 text-white">
           <div className="text-center max-w-[700px] mx-auto mb-14">
@@ -398,35 +395,35 @@ export default async function LandingPage() {
             </h2>
           </div>
 
-          {/* Hero stat row: one big number left, explainer copy right.
-              Asymmetric weight; reads editorial, not template. */}
+          {/* Hero stat row: 5-dimension fit score with the dimensions
+              listed in the explainer paragraph. */}
           <div className="grid md:grid-cols-12 gap-8 md:gap-10 items-center mb-12 md:mb-14 pb-12 md:pb-14 border-b border-white/10">
             <div className="md:col-span-5">
               <div
                 className="font-semibold tracking-[-0.04em] leading-[0.95] text-[#F2A261]"
                 style={{ fontSize: 'clamp(5rem, 11vw, 9rem)' }}
               >
-                13
+                5
               </div>
               <div className="text-[16px] md:text-[17px] text-white font-semibold mt-2">
-                niche buckets, ~30 occupations each
+                dimensions in the fit score
               </div>
             </div>
             <div className="md:col-span-7 text-[15px] md:text-[16px] text-white/75 leading-[1.65]">
-              Fitness &amp; Health · Finance &amp; Wealth · Real Estate · Tech
-              &amp; Startups · Coaching · Sports · Creative &amp; Media · Legal
-              · Education · Food &amp; Hospitality · Home &amp; Building · Travel ·
-              HR &amp; Recruiting. Each bucket fans out across five platforms
-              in parallel — one click runs the search you&apos;d otherwise
-              type out 30 times.
+              Recency · Reach · Reachability · Relevance · Quality. Re-tunable
+              per platform — Instagram weight isn&apos;t YouTube weight isn&apos;t
+              LinkedIn weight. Score every creator against your plain-English
+              criteria, see Strong / Possible / Weak labels per row, sort by
+              any dimension. The thing HubSpot doesn&apos;t do.
             </div>
           </div>
 
-          {/* Supporting row: three smaller stats. */}
+          {/* Supporting row: 5 platforms, 20 regions, $0 free. Niche
+              buckets get a one-line mention in the platforms stat. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
-            <Stat n="5" label="platforms searched in parallel" />
-            <Stat n="5" label="dimensions in the fit score, per-platform tunable" />
-            <Stat n="$0" label="while in beta · no card · no seat cap" />
+            <Stat n="5" label="platforms searched in parallel · 13 niche buckets" />
+            <Stat n="20" label="region filters · audience size · last-posted recency" />
+            <Stat n="$0" label="free in beta · no card · no seat cap" />
           </div>
         </div>
       </section>
@@ -580,7 +577,7 @@ export default async function LandingPage() {
           than fake-published guides. Cards now say "DRAFT" with a
           "Notify me" CTA per piece, instead of pretending each one is
           a finished post linking somewhere. */}
-      <section className="px-6 py-20 md:py-28">
+      <section id="resources" className="px-6 py-20 md:py-28 scroll-mt-24">
         <div className="max-w-[1280px] mx-auto">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
             <div>

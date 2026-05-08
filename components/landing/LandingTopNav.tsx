@@ -74,19 +74,27 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
           <a href="#solutions" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Solutions</a>
           <a href="#customers" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Customers</a>
           <a href="#pricing" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Pricing</a>
-          <a href="mailto:dmeehanj@gmail.com" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Resources</a>
+          <a href="#resources" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Resources</a>
         </nav>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Right-side controls — z-50 so neither stacking context from
+            below (the hero's ScreenshotZoom wrapper has its own
+            transform-induced stacking context) nor any future overlay
+            can steal pointer events from these. pointer-events-auto is
+            redundant defensively but explicit. */}
+        <div className="relative z-50 flex items-center gap-2 shrink-0 pointer-events-auto">
           {/* THEME TOGGLE — inline button. No <ThemeToggle> indirection.
               Renders as a stable <button> on SSR + first paint so it's
               never invisible; only the SVG icon swaps after hydration. */}
           <button
             type="button"
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            onClick={(e) => {
+              e.stopPropagation()
+              setTheme(isDark ? 'light' : 'dark')
+            }}
             aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors border-[#0F1733]/15 dark:border-white/15 text-[#0F1733]/70 dark:text-white/70 hover:border-[#0F1733]/40 dark:hover:border-white/40 hover:text-[#0F1733] dark:hover:text-white"
+            className="relative z-10 w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors border-[#0F1733]/15 dark:border-white/15 text-[#0F1733]/70 dark:text-white/70 hover:border-[#0F1733]/40 dark:hover:border-white/40 hover:text-[#0F1733] dark:hover:text-white cursor-pointer"
           >
             {/* Sun icon — shown when in dark mode (click to go light) */}
             {isDark ? (
@@ -112,13 +120,16 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
 
           {/* HAMBURGER + DROPDOWN — wrapped in ref'd div so click-outside
               detection treats both the button and the menu as "inside." */}
-          <div ref={wrapRef} className="relative">
+          <div ref={wrapRef} className="relative z-10">
             <button
               type="button"
-              onClick={() => setOpen(v => !v)}
+              onClick={(e) => {
+                e.stopPropagation()
+                setOpen(v => !v)
+              }}
               aria-label="Open menu"
               aria-expanded={open}
-              className={`w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors ${
+              className={`w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
                 open
                   ? 'bg-[#0F1733]/5 dark:bg-white/10 border-[#0F1733]/20 dark:border-white/30 text-[#0F1733] dark:text-white'
                   : 'border-[#0F1733]/15 dark:border-white/15 text-[#0F1733]/70 dark:text-white/70 hover:border-[#0F1733]/40 dark:hover:border-white/40 hover:text-[#0F1733] dark:hover:text-white'
@@ -144,7 +155,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                     { label: 'Solutions', href: '#solutions' },
                     { label: 'Customers', href: '#customers' },
                     { label: 'Pricing', href: '#pricing' },
-                    { label: 'Resources', href: 'mailto:dmeehanj@gmail.com' },
+                    { label: 'Resources', href: '#resources' },
                   ].map(item => (
                     <a
                       key={item.href}
