@@ -352,20 +352,51 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* STAT BAND — every number here is a real, verifiable product
-          fact. Old copy had "~8h estimated hours/week per rep" which
-          was made up; gone. */}
+      {/* STAT BAND — editorial layout (was a 4-up evenly-spaced grid).
+          One hero stat with explainer copy on the right; three smaller
+          stats below. Reads as "here's the lead number, here's the
+          rest" instead of "here's a marketing dashboard."
+
+          TODO Dylan: when you want, swap the hero "13 / niche buckets"
+          for your actual pipeline number ("73 creators in my pipeline
+          last month" or whatever it is right now). The product-fact
+          version below is the honest placeholder until then. */}
       <section className="px-6 pb-20 md:pb-28">
         <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-8 py-14 md:py-20 text-white">
-          <div className="text-center max-w-[700px] mx-auto mb-12">
+          <div className="text-center max-w-[700px] mx-auto mb-14">
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">What&apos;s actually under the hood</div>
             <h2 className="font-semibold tracking-[-0.02em] leading-[1.1]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
               A search engine, a scoring engine, and a CRM — built into one.
             </h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6">
+
+          {/* Hero stat row: one big number left, explainer copy right.
+              Asymmetric weight; reads editorial, not template. */}
+          <div className="grid md:grid-cols-12 gap-8 md:gap-10 items-center mb-12 md:mb-14 pb-12 md:pb-14 border-b border-white/10">
+            <div className="md:col-span-5">
+              <div
+                className="font-semibold tracking-[-0.04em] leading-[0.95] text-[#F2A261]"
+                style={{ fontSize: 'clamp(5rem, 11vw, 9rem)' }}
+              >
+                13
+              </div>
+              <div className="text-[16px] md:text-[17px] text-white font-semibold mt-2">
+                niche buckets, ~30 occupations each
+              </div>
+            </div>
+            <div className="md:col-span-7 text-[15px] md:text-[16px] text-white/75 leading-[1.65]">
+              Fitness &amp; Health · Finance &amp; Wealth · Real Estate · Tech
+              &amp; Startups · Coaching · Sports · Creative &amp; Media · Legal
+              · Education · Food &amp; Hospitality · Home &amp; Building · Travel ·
+              HR &amp; Recruiting. Each bucket fans out across five platforms
+              in parallel — one click runs the search you&apos;d otherwise
+              type out 30 times.
+            </div>
+          </div>
+
+          {/* Supporting row: three smaller stats. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
             <Stat n="5" label="platforms searched in parallel" />
-            <Stat n="13" label="niche buckets, ~30 occupations each" />
             <Stat n="5" label="dimensions in the fit score, per-platform tunable" />
             <Stat n="$0" label="while in beta · no card · no seat cap" />
           </div>
@@ -605,7 +636,20 @@ export default async function LandingPage() {
 
 function SolutionTile({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+    <div className="group relative rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+      {/* Hover affordance — arrow appears top-right on hover. Different
+          from the platform-tile left-stripe and the resource-card
+          chevron-trail; each card type has its own hover reveal so the
+          page doesn't read as one repeated -translate-y-1 lift. */}
+      <span
+        aria-hidden
+        className="absolute top-4 right-4 text-[#E85D2F] opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-200"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="7" y1="17" x2="17" y2="7" />
+          <polyline points="7 7 17 7 17 17" />
+        </svg>
+      </span>
       <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] mb-4 [&>svg]:w-5 [&>svg]:h-5">
         {icon}
       </span>
@@ -706,9 +750,28 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
 
 function ResourceCard({ tag, title, body }: { tag: string; title: string; body: string }) {
   return (
-    <article className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+    <article className="group rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] p-6 transition-colors hover:border-[#E85D2F]/40" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
       <div className="text-[10px] uppercase tracking-[0.22em] text-[#E85D2F] font-semibold mb-3">{tag}</div>
-      <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2.5">{title}</h3>
+      {/* Title + chevron — the chevron trails the title on hover
+          (translate-x). Different hover affordance from the lift on
+          solution tiles or the brand-stripe on platform tiles. */}
+      <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2.5 inline-flex items-center gap-1.5">
+        <span>{title}</span>
+        <svg
+          aria-hidden
+          className="text-[#E85D2F] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 shrink-0"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </h3>
       <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
     </article>
   )
