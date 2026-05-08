@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { animate } from 'animejs'
 
 /**
  * ScreenshotZoom — wraps any visual to make it click-to-expand.
@@ -13,10 +12,16 @@ import { animate } from 'animejs'
  *   full-screen lightbox showing the visual at max screen-fit size.
  *
  * Mechanics:
- *   - Wraps `children` in a button (cursor-zoom-in, on-hover lift)
+ *   - Wraps `children` in a div[role="button"] (cursor-zoom-in,
+ *     hover lift). Why div not button: the children include block
+ *     elements (OperatorConsole's <div> root) which is invalid
+ *     inside <button> and breaks click handling in some browsers.
  *   - On click → opens a fixed-position modal with the same children
  *     scaled to fit
- *   - Anime.js drives a quick fade+scale entrance (~250ms)
+ *   - CSS transition drives the fade+scale entrance (~250ms). Earlier
+ *     anime.js version had a race where the modal could render and
+ *     stay at opacity 0 if the selector match missed — CSS transitions
+ *     bind to the element directly so no race.
  *   - ESC, click-outside, and X-button all close
  *   - Body scroll locked while open
  *   - Full keyboard a11y (focus trap on modal close button)
@@ -39,14 +44,27 @@ export function ScreenshotZoom({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  // `entered` flips one frame after mount → triggers CSS transition
+  // without depending on a JS animation library.
+  const [entered, setEntered] = useState(false)
   const closeBtnRef = useRef<HTMLButtonElement>(null)
 
   // Lock body scroll while modal is open
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setEntered(false)
+      return
+    }
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+
+    // Flip `entered` on the next frame so the CSS transition fires
+    // (initial render → opacity 0 → next frame → opacity 1).
+    const raf = requestAnimationFrame(() => setEntered(true))
+    closeBtnRef.current?.focus()
+
     return () => {
+      cancelAnimationFrame(raf)
       document.body.style.overflow = prev
     }
   }, [open])
@@ -61,31 +79,22 @@ export function ScreenshotZoom({
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
-  // Animate-in once mounted
-  useEffect(() => {
-    if (!open) return
-    animate('.oc-zoom-backdrop', {
-      opacity: [0, 1],
-      duration: 200,
-      ease: 'out(2)',
-    })
-    animate('.oc-zoom-content', {
-      opacity: [0, 1],
-      scale: [0.92, 1],
-      duration: 280,
-      ease: 'outElastic(1, 0.7)',
-    })
-    closeBtnRef.current?.focus()
-  }, [open])
-
   return (
     <>
-      {/* Trigger — wraps `children` in a button. Cursor-zoom + hover
-          lift signals "click to expand." Doesn't change layout. */}
-      <button
-        type="button"
+      {/* Trigger — div[role=button] (NOT <button>) because children
+          include block elements which are invalid inside <button>
+          and break click handling in some browsers. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen(true)}
-        className={`group relative w-full text-left cursor-zoom-in transition-transform hover:-translate-y-0.5 ${className}`}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setOpen(true)
+          }
+        }}
+        className={`group relative w-full cursor-zoom-in transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85D2F] focus-visible:ring-offset-2 rounded-2xl ${className}`}
         aria-label="Click to view full size"
       >
         {children}
@@ -102,13 +111,16 @@ export function ScreenshotZoom({
           </svg>
           Click to zoom
         </span>
-      </button>
+      </div>
 
-      {/* Modal — fullscreen lightbox */}
+      {/* Modal — fullscreen lightbox.
+          Visibility is driven by `entered` flag + CSS transitions so
+          there's no anime.js race condition. Initial render is
+          opacity-0 / scale-95; one frame later `entered` flips and
+          the transition fires. */}
       {open && (
         <div
-          className="oc-zoom-backdrop fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-md"
-          style={{ opacity: 0 }}
+          className={`fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-md transition-opacity duration-200 ease-out ${entered ? 'opacity-100' : 'opacity-0'}`}
           onClick={() => setOpen(false)}
           role="dialog"
           aria-modal="true"
@@ -130,8 +142,7 @@ export function ScreenshotZoom({
 
           {/* Content — clicking inside doesn't close (stops propagation) */}
           <div
-            className="oc-zoom-content relative w-full max-w-[1600px] max-h-[90vh]"
-            style={{ opacity: 0, transform: 'scale(0.92)' }}
+            className={`relative w-full max-w-[1600px] max-h-[90vh] transition-all duration-300 ease-out ${entered ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
             onClick={e => e.stopPropagation()}
           >
             {children}
