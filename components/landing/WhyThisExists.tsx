@@ -1,63 +1,109 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 
 /**
- * WhyThisExists — replaces the previous flat 3-column text grid with
- * per-card "before → after" visuals.
+ * WhyThisExists — editorial-spread layout for the "I built this
+ * because I needed it" section.
  *
- * Each of the three cards has:
- *   - Giant 01/02/03 numeral hanging in the corner
- *   - Tag chip (Sourcing / Fit Score / Outreach)
- *   - Custom inline-SVG visual showing the workaround vs the built-in
- *     answer (4 chaotic tabs collapsing into a row, etc.)
- *   - Pain headline (large)
- *   - Operator note paragraph
- *   - "Built in" callout block — terracotta-bordered with a checkmark
- *
- * Cards reveal on scroll via IntersectionObserver — once the card
- * enters viewport, it fades up + the visual's interior elements stagger
- * in. Respects prefers-reduced-motion (everything pre-revealed).
+ * Design rationale (rebuilt 2026-05-08 after the prior synthesized-
+ * SVG version landed flat):
+ *   - Three vertical chapters that alternate left/right orientation.
+ *     Each chapter is wide (no 3-column grid cramming), so the
+ *     section reads like a magazine feature, not a product card grid.
+ *   - Display-serif (Newsreader) for the pain headlines. Pairs with
+ *     the existing Geist sans for editorial typographic contrast.
+ *   - Giant ghosted numerals as decorative chapter marks.
+ *   - Real product UI fragments — actual screenshots from
+ *     /screenshots/ — used as the "after" visual instead of cartoon
+ *     SVG illustrations. Each screenshot sits in a tinted dark frame
+ *     with subtle terracotta accent border.
+ *   - "Before" texture — a soft chaotic pattern (faded platform
+ *     marks, scattered date stamps, struck-through metrics) sits
+ *     behind/around the screenshot, hinting at the chaos without
+ *     stealing focus.
+ *   - "Built in" answer block — terracotta-bordered, with checkmark
+ *     icon, anchored at the bottom of each text column.
+ *   - Topics now match the actual product themes (Sourcing → Fit
+ *     score → Follow-ups). The previous "CRM ignored Instagram"
+ *     angle was bashing other tools instead of telling our story;
+ *     the Follow-ups chapter is more on-brand for this app.
+ *   - IntersectionObserver reveal: headline + visual fade up
+ *     independently, screenshot has a slight scale-in. Respects
+ *     prefers-reduced-motion.
  */
 
-type CardData = {
+type Chapter = {
   num: string
   tag: string
-  headline: string
+  /** Display-serif pain headline. */
+  pain: string
+  /** Optional italic emphasis word inside the headline. */
+  italic?: string
+  /** Operator-voice note. */
   note: string
-  answerLabel: string
   answer: string
-  /** SVG illustration component */
-  Visual: React.ComponentType<{ revealed: boolean }>
+  /** Real product screenshot from /screenshots/. */
+  screenshot: { src: string; alt: string; aspect: string }
+  /** Background motif under the screenshot — names the "before" chaos. */
+  before: { items: string[]; tone: 'platforms' | 'metrics' | 'dates' }
 }
 
-const CARDS: CardData[] = [
+const CHAPTERS: Chapter[] = [
   {
     num: '01',
     tag: 'Sourcing',
-    headline: 'Four tabs to source one creator.',
-    note: 'YouTube to find them. LinkedIn for a work email. Twitter to check if they’re still active. A Google Sheet to remember who I’d already messaged. Five sources of truth, none of them talking.',
-    answerLabel: 'Built in',
-    answer: 'One query, five platforms, scored. Email and social handles surface inline. Four tabs become one row.',
-    Visual: SourcingVisual,
+    pain: 'I was hunting one creator across',
+    italic: 'five tabs.',
+    note: '“YouTube to find them. LinkedIn for an email. Twitter to confirm they’re still active. A Google Sheet to remember who I’d already messaged. Five sources of truth, none of them talking to each other.”',
+    answer:
+      'One query searches every platform at once. Email and social handles surface inline on every row. Five tabs collapse into one queue.',
+    screenshot: {
+      src: '/screenshots/results.png',
+      alt: 'Results table — one row per creator with email + social handles inline',
+      aspect: '2472 / 1182',
+    },
+    before: {
+      tone: 'platforms',
+      items: ['YouTube', 'Instagram', 'TikTok', 'X', 'LinkedIn', 'Sheet'],
+    },
   },
   {
     num: '02',
-    tag: 'Fit Score',
-    headline: 'Off-the-shelf creator scoring is useless.',
-    note: 'Subs + engagement + vertical doesn’t describe fit. None of it knew I wanted US-based weekly posters who talk about value investing, under 100K subs.',
-    answerLabel: 'Built in',
-    answer: 'Write what you actually want, in plain English. The AI scores against that — fully customizable, weighted per platform.',
-    Visual: FitScoreVisual,
+    tag: 'Fit score',
+    pain: '“Engagement rate” was answering',
+    italic: 'the wrong question.',
+    note: '“Off-the-shelf creator scores rank by audience size or engagement. I wanted it to ask: does this person actually fit what I’m looking for? US-based, weekly poster, talks about value investing, under 100K subs.”',
+    answer:
+      'Plain-English Lead Criteria. Five-dimension AI fit score (recency · reach · reachability · relevance · quality) — fully customizable, weighted per platform.',
+    screenshot: {
+      src: '/screenshots/bento-fit.png',
+      alt: 'Fit score column — Strong / Possible / Weak labels per row',
+      aspect: '1352 / 1256',
+    },
+    before: {
+      tone: 'metrics',
+      items: ['Subs · 245K', 'Engagement · 5.2%', 'Vertical · Finance', 'Reach · ↑'],
+    },
   },
   {
     num: '03',
-    tag: 'Outreach',
-    headline: 'Every CRM ignored Instagram.',
-    note: 'HubSpot is $400 / month. Two influencer-CRMs were $300+ / month behind a sales call. None of them recognized an IG handle, let alone helped me open a DM.',
-    answerLabel: 'Built in',
-    answer: 'Built-in CRM tuned for creators. Click an IG handle, get a DM template. Email, LinkedIn, and other channels tracked per row.',
-    Visual: OutreachVisual,
+    tag: 'Follow-ups',
+    pain: 'Half my pipeline was leaking through',
+    italic: '“I’ll DM them tomorrow.”',
+    note: '“I’d reach out, forget for a week, reach out again, then realize last month I’d already messaged the same person. The follow-up was the bottleneck — not the outreach.”',
+    answer:
+      'Auto-cadence per creator. The Follow-ups tab surfaces what’s due today, sorted by who’s gone cold longest. One click resets the cadence.',
+    screenshot: {
+      src: '/screenshots/followups.png',
+      alt: 'Follow-ups view — due today list with cadence chips',
+      aspect: '2810 / 1234',
+    },
+    before: {
+      tone: 'dates',
+      items: ['Mon · 3d ago', 'Tue · 7d ago', 'Wed · 14d ago', 'Thu · ?', 'Fri · ?'],
+    },
   },
 ]
 
@@ -65,77 +111,80 @@ export function WhyThisExists() {
   return (
     <section
       id="customers"
-      className="px-6 py-20 md:py-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10 relative overflow-hidden"
+      className="px-6 py-24 md:py-32 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10 relative overflow-hidden"
     >
-      {/* Ambient backdrop — single soft terracotta wash that breathes
-          quietly so the section reads as a feature spotlight, not a
-          flat text block. */}
+      {/* Ambient backdrop wash — soft, almost imperceptible */}
       <div
         aria-hidden
-        className="absolute -top-1/2 left-1/2 -translate-x-1/2 w-[1200px] h-[800px] pointer-events-none opacity-[0.10] dark:opacity-[0.18] motion-reduce:hidden"
+        className="absolute -top-1/3 right-0 w-[900px] h-[900px] pointer-events-none opacity-[0.05] dark:opacity-[0.10] motion-reduce:hidden"
         style={{
-          background: 'radial-gradient(closest-side, rgba(232,93,47,0.6), transparent 70%)',
-          animation: 'wte-breath 14s ease-in-out infinite',
+          background: 'radial-gradient(closest-side, rgba(232,93,47,0.7), transparent 70%)',
+          animation: 'wte-breath 18s ease-in-out infinite',
         }}
       />
 
-      <div className="max-w-[1280px] mx-auto relative">
-        <div className="text-center mb-14 md:mb-20">
-          <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[11px] uppercase tracking-[0.18em] text-[#9C3D1F] dark:text-[#F2A261] font-bold">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <div className="max-w-[1200px] mx-auto relative">
+        {/* SECTION HEADER — editorial title block */}
+        <header className="max-w-[820px] mb-20 md:mb-32">
+          <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[11px] uppercase tracking-[0.2em] text-[#9C3D1F] dark:text-[#F2A261] font-bold">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <circle cx="12" cy="12" r="9" fillOpacity="0.3" />
               <circle cx="12" cy="12" r="4" />
             </svg>
             Why this exists
           </div>
           <h2
-            className="font-semibold tracking-[-0.025em] mx-auto max-w-[20ch] mb-5"
-            style={{ fontSize: 'clamp(2.25rem, 5vw, 4rem)' }}
+            className="font-semibold tracking-[-0.035em] leading-[0.98] text-[#0F1733] dark:text-white"
+            style={{ fontSize: 'clamp(2.5rem, 6vw, 5rem)' }}
           >
-            Three walls I kept hitting.{' '}
-            <span className="text-[#E85D2F] dark:text-[#F2A261]">Three things I built.</span>
+            I built this because{' '}
+            <span
+              className="italic font-normal text-[#E85D2F] dark:text-[#F2A261]"
+              style={{ fontFamily: 'var(--font-newsreader), Georgia, serif' }}
+            >
+              I needed it.
+            </span>
           </h2>
-          <p className="max-w-[58ch] mx-auto text-[16px] md:text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
-            Every piece of this app exists because the spreadsheet
-            version of it stopped scaling. Below is the actual receipt.
+          <p className="mt-7 max-w-[58ch] text-[17px] md:text-[18px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
+            Three walls I kept hitting trying to run my own creator
+            pipeline by hand. Each one is now a feature, because the
+            workaround was where the pipeline kept dying.
           </p>
-        </div>
+        </header>
 
-        <div className="grid md:grid-cols-3 gap-5 md:gap-6 items-stretch">
-          {CARDS.map(card => (
-            <WhyCard key={card.num} {...card} />
+        {/* THREE EDITORIAL CHAPTERS */}
+        <div className="space-y-24 md:space-y-32">
+          {CHAPTERS.map((c, i) => (
+            <Chapter key={c.num} chapter={c} flipped={i % 2 === 1} />
           ))}
         </div>
       </div>
 
       <style>{`
         @keyframes wte-breath {
-          0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
-          50%      { transform: translateX(-50%) scale(1.06); opacity: 0.7; }
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%      { transform: scale(1.08); opacity: 0.65; }
         }
-        @keyframes wte-card-in {
-          from { opacity: 0; transform: translateY(20px); }
+        @keyframes wte-fade-up {
+          from { opacity: 0; transform: translateY(24px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes wte-stroke {
-          from { stroke-dashoffset: 100; }
-          to   { stroke-dashoffset: 0; }
+        @keyframes wte-screenshot-in {
+          from { opacity: 0; transform: translateY(40px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes wte-fade-in {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes wte-pop-in {
-          0%   { opacity: 0; transform: scale(0.85); }
-          70%  { opacity: 1; transform: scale(1.05); }
-          100% { opacity: 1; transform: scale(1); }
+        @keyframes wte-before-drift {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-8px); }
         }
       `}</style>
     </section>
   )
 }
 
-function WhyCard({ num, tag, headline, note, answerLabel, answer, Visual }: CardData) {
+/* ─── chapter ─── */
+
+function Chapter({ chapter, flipped }: { chapter: Chapter; flipped: boolean }) {
   const ref = useRef<HTMLElement>(null)
   const [revealed, setRevealed] = useState(false)
 
@@ -156,373 +205,215 @@ function WhyCard({ num, tag, headline, note, answerLabel, answer, Visual }: Card
           }
         }
       },
-      { threshold: 0.3 },
+      { threshold: 0.2, rootMargin: '0px 0px -10% 0px' },
     )
     obs.observe(ref.current)
     return () => obs.disconnect()
   }, [])
 
+  const fadeUp = (delay: number) => ({
+    opacity: revealed ? 1 : 0,
+    transform: revealed ? 'translateY(0)' : 'translateY(24px)',
+    transition: `opacity 700ms ${delay}ms ease-out, transform 700ms ${delay}ms ease-out`,
+  })
+
   return (
     <article
       ref={ref}
-      className="group relative flex flex-col rounded-2xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#0F1733] overflow-hidden transition-all duration-300 hover:border-[#E85D2F]/40"
-      style={{
-        opacity: revealed ? 1 : 0,
-        transform: revealed ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'opacity 600ms ease-out, transform 600ms ease-out, border-color 200ms ease-out',
-        boxShadow: '0 1px 3px rgba(15,23,51,0.05)',
-      }}
+      className={`grid md:grid-cols-12 gap-10 md:gap-14 items-center ${flipped ? '' : ''}`}
     >
-      {/* Big numeral hanging in the top-right */}
-      <span
-        aria-hidden
-        className="absolute top-4 right-5 font-bold tracking-[-0.04em] text-[#0F1733]/[0.04] dark:text-white/[0.05] pointer-events-none select-none leading-none font-mono"
-        style={{ fontSize: 'clamp(5rem, 8vw, 8rem)' }}
-      >
-        {num}
-      </span>
-
-      {/* Visual block — bg slightly darker so it reads as a "stage" */}
-      <div className="relative h-48 md:h-52 bg-gradient-to-br from-[#FCFAF6] to-[#F7F2EA] dark:from-[#0A0E15] dark:to-[#13192B] border-b border-[#0F1733]/8 dark:border-white/8">
-        <Visual revealed={revealed} />
-      </div>
-
-      <div className="p-6 md:p-7 flex flex-col flex-1">
-        <div className="inline-flex self-start items-center gap-1.5 mb-4 px-2 py-0.5 rounded-full bg-[#E85D2F]/10 dark:bg-[#F2A261]/15 text-[10px] uppercase tracking-[0.18em] text-[#9C3D1F] dark:text-[#F2A261] font-bold border border-[#E85D2F]/30 dark:border-[#F2A261]/30">
-          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {tag}
+      {/* TEXT COLUMN — order flips on every other chapter */}
+      <div className={`md:col-span-6 ${flipped ? 'md:order-2' : 'md:order-1'}`}>
+        {/* Decorative numeral + tag */}
+        <div className="flex items-baseline gap-5 mb-6" style={fadeUp(0)}>
+          <span
+            aria-hidden
+            className="font-bold tracking-[-0.06em] text-[#E85D2F]/15 dark:text-[#F2A261]/20 leading-none font-mono select-none"
+            style={{ fontSize: 'clamp(4rem, 7vw, 6.5rem)' }}
+          >
+            {chapter.num}
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#E85D2F]/10 dark:bg-[#F2A261]/15 border border-[#E85D2F]/30 dark:border-[#F2A261]/30 text-[10px] uppercase tracking-[0.18em] font-bold text-[#9C3D1F] dark:text-[#F2A261]">
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            {chapter.tag}
+          </span>
         </div>
-        <h3
-          className="font-semibold tracking-[-0.015em] leading-[1.2] mb-3 text-[#0F1733] dark:text-white"
-          style={{ fontSize: 'clamp(1.25rem, 1.75vw, 1.5rem)' }}
-        >
-          {headline}
-        </h3>
-        <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.65] mb-5 flex-1">
-          {note}
-        </p>
 
-        {/* "Built in" answer block — terracotta accent box */}
-        <div className="rounded-xl bg-[#E85D2F]/[0.06] dark:bg-[#F2A261]/[0.08] border border-[#E85D2F]/20 dark:border-[#F2A261]/25 p-3.5">
-          <div className="flex items-start gap-2.5">
+        {/* Display headline — sans + italic-serif emphasis */}
+        <h3
+          className="font-semibold tracking-[-0.025em] leading-[1.05] text-[#0F1733] dark:text-white mb-7"
+          style={{ fontSize: 'clamp(1.875rem, 3.6vw, 3rem)', ...fadeUp(80) }}
+        >
+          {chapter.pain}{' '}
+          {chapter.italic && (
+            <span
+              className="italic font-normal text-[#E85D2F] dark:text-[#F2A261]"
+              style={{ fontFamily: 'var(--font-newsreader), Georgia, serif' }}
+            >
+              {chapter.italic}
+            </span>
+          )}
+        </h3>
+
+        {/* Operator-voice note — pull quote treatment */}
+        <blockquote
+          className="relative pl-5 mb-8 text-[16px] md:text-[17px] text-[#0F1733]/75 dark:text-white/75 leading-[1.7] border-l-2 border-[#0F1733]/15 dark:border-white/15"
+          style={fadeUp(160)}
+        >
+          {chapter.note}
+        </blockquote>
+
+        {/* "Built in" answer block */}
+        <div
+          className="relative rounded-xl bg-[#E85D2F]/[0.06] dark:bg-[#F2A261]/[0.08] border border-[#E85D2F]/25 dark:border-[#F2A261]/25 p-4 md:p-5"
+          style={fadeUp(240)}
+        >
+          <div className="flex items-start gap-3">
             <span
               aria-hidden
-              className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#E85D2F] text-white shrink-0"
+              className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#E85D2F] text-white shrink-0 shadow-[0_0_16px_rgba(232,93,47,0.45)]"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <polyline points="5 12 10 17 19 7" />
               </svg>
             </span>
             <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-[#9C3D1F] dark:text-[#F2A261] mb-1">
-                {answerLabel}
+              <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#9C3D1F] dark:text-[#F2A261] mb-1.5">
+                What I built
               </div>
-              <p className="text-[13.5px] text-[#0F1733]/85 dark:text-white/85 leading-[1.55]">
-                {answer}
+              <p className="text-[14px] md:text-[15px] text-[#0F1733]/90 dark:text-white/90 leading-[1.6]">
+                {chapter.answer}
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* VISUAL COLUMN */}
+      <div className={`md:col-span-6 ${flipped ? 'md:order-1' : 'md:order-2'}`}>
+        <ChapterVisual chapter={chapter} revealed={revealed} flipped={flipped} />
+      </div>
     </article>
   )
 }
 
-/* ─── per-card visuals ─── */
+/* ─── chapter visual ─── */
 
 /**
- * SourcingVisual — four chaotic browser-tab shapes (YT/LinkedIn/X/
- * Sheet) with strike-through, arrow down, single unified row.
+ * ChapterVisual — composed visual that pairs the "before" chaos
+ * (faded platform marks / metrics / date stamps) with the "after"
+ * real product screenshot in a stylized dark frame.
  */
-function SourcingVisual({ revealed }: { revealed: boolean }) {
-  const fadeIn = (delay: number) => ({
-    opacity: revealed ? 1 : 0,
-    animation: revealed ? `wte-fade-in 500ms ${delay}ms ease-out both` : undefined,
-  })
+function ChapterVisual({
+  chapter,
+  revealed,
+  flipped,
+}: {
+  chapter: Chapter
+  revealed: boolean
+  flipped: boolean
+}) {
   return (
-    <svg viewBox="0 0 320 200" className="w-full h-full" aria-hidden>
-      <defs>
-        <linearGradient id="src-tab-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(15,23,51,0.06)" />
-          <stop offset="100%" stopColor="rgba(15,23,51,0.02)" />
-        </linearGradient>
-        <linearGradient id="src-row-grad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#E85D2F" />
-          <stop offset="100%" stopColor="#F2A261" />
-        </linearGradient>
-      </defs>
-
-      {/* Four chaotic tabs (slightly rotated) */}
-      <g className="dark:[&_rect]:fill-[#1A2034]" style={fadeIn(0)}>
-        {[
-          { x: 22, y: 24, rot: -6, label: 'YouTube' },
-          { x: 110, y: 18, rot: 4, label: 'LinkedIn' },
-          { x: 198, y: 28, rot: -3, label: 'Twitter' },
-          { x: 240, y: 56, rot: 8, label: 'Sheet' },
-        ].map((t, i) => (
-          <g key={i} transform={`translate(${t.x},${t.y}) rotate(${t.rot})`}>
-            <rect
-              width="64"
-              height="38"
-              rx="6"
-              fill="url(#src-tab-grad)"
-              stroke="rgba(15,23,51,0.14)"
-              strokeWidth="1"
-              className="dark:fill-[#1A2034] dark:stroke-white/15"
-            />
-            <circle cx="10" cy="10" r="1.5" fill="rgba(15,23,51,0.28)" className="dark:fill-white/30" />
-            <circle cx="16" cy="10" r="1.5" fill="rgba(15,23,51,0.28)" className="dark:fill-white/30" />
-            <circle cx="22" cy="10" r="1.5" fill="rgba(15,23,51,0.28)" className="dark:fill-white/30" />
-            <text x="32" y="26" textAnchor="middle" fill="rgba(15,23,51,0.55)" fontSize="8" fontWeight="600" className="dark:fill-white/55">
-              {t.label}
-            </text>
-            {/* Strike-through */}
-            <line
-              x1="6"
-              y1="19"
-              x2="58"
-              y2="19"
-              stroke="#E85D2F"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              opacity="0.85"
-              style={{
-                strokeDasharray: 100,
-                strokeDashoffset: revealed ? 0 : 100,
-                transition: `stroke-dashoffset 500ms ${300 + i * 80}ms ease-out`,
-              }}
-            />
-          </g>
+    <div className="relative">
+      {/* "Before" chaos chips — drift in the background, faded */}
+      <div
+        aria-hidden
+        className="absolute -inset-4 md:-inset-6 pointer-events-none flex flex-wrap gap-2 content-start opacity-50 dark:opacity-60"
+        style={{
+          opacity: revealed ? 0.5 : 0,
+          transition: 'opacity 900ms 200ms ease-out',
+        }}
+      >
+        {chapter.before.items.map((item, idx) => (
+          <span
+            key={item}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#0F1733]/[0.04] dark:bg-white/[0.05] border border-[#0F1733]/10 dark:border-white/10 text-[10px] font-mono text-[#0F1733]/40 dark:text-white/40 line-through decoration-[#E85D2F]/60 decoration-[1px]"
+            style={{
+              animation: `wte-before-drift ${4 + (idx % 3)}s ease-in-out infinite`,
+              animationDelay: `${idx * 0.4}s`,
+              transform: `translate(${(idx % 3 - 1) * 6}px, ${Math.sin(idx) * 4}px) rotate(${(idx % 2 ? -1 : 1) * (idx % 3)}deg)`,
+            }}
+          >
+            {item}
+          </span>
         ))}
-      </g>
+      </div>
 
-      {/* Down arrow */}
-      <g style={fadeIn(700)}>
-        <line x1="160" y1="98" x2="160" y2="118" stroke="#E85D2F" strokeWidth="2" strokeLinecap="round" />
-        <polyline points="153,112 160,120 167,112" fill="none" stroke="#E85D2F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-
-      {/* Unified row */}
-      <g style={fadeIn(900)}>
-        <rect
-          x="32"
-          y="130"
-          width="256"
-          height="48"
-          rx="10"
-          fill="white"
-          stroke="#E85D2F"
-          strokeWidth="1.5"
-          className="dark:fill-[#0F1733] dark:stroke-[#F2A261]"
-        />
-        {/* Avatar disc */}
-        <circle cx="56" cy="154" r="11" fill="url(#src-row-grad)" />
-        <text x="56" y="158" textAnchor="middle" fill="white" fontSize="9" fontWeight="700">CR</text>
-        {/* Name + handle */}
-        <text x="76" y="150" fill="#0F1733" fontSize="9.5" fontWeight="600" className="dark:fill-white">
-          Creator name
-        </text>
-        <text x="76" y="163" fill="rgba(15,23,51,0.55)" fontSize="8" className="dark:fill-white/55">
-          email · IG · LinkedIn · YouTube
-        </text>
-        {/* Score pill */}
-        <rect x="232" y="144" width="44" height="20" rx="10" fill="#E85D2F" />
-        <text x="254" y="158" textAnchor="middle" fill="white" fontSize="9" fontWeight="700">92 · STRONG</text>
-      </g>
-    </svg>
-  )
-}
-
-/**
- * FitScoreVisual — generic flat gauge (greyed out) above, customized
- * gauge with chips below, terracotta arrow between them.
- */
-function FitScoreVisual({ revealed }: { revealed: boolean }) {
-  const fadeIn = (delay: number) => ({
-    opacity: revealed ? 1 : 0,
-    animation: revealed ? `wte-fade-in 500ms ${delay}ms ease-out both` : undefined,
-  })
-  return (
-    <svg viewBox="0 0 320 200" className="w-full h-full" aria-hidden>
-      <defs>
-        <linearGradient id="fit-arc-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#E85D2F" />
-          <stop offset="100%" stopColor="#F2A261" />
-        </linearGradient>
-      </defs>
-
-      {/* Generic / greyed gauge top-left */}
-      <g style={fadeIn(0)} transform="translate(40, 36)">
-        <rect width="100" height="50" rx="8" fill="rgba(15,23,51,0.04)" stroke="rgba(15,23,51,0.12)" strokeWidth="1" className="dark:fill-white/[0.04] dark:stroke-white/15" />
-        <text x="50" y="16" textAnchor="middle" fill="rgba(15,23,51,0.5)" fontSize="7" fontWeight="600" letterSpacing="0.5" className="dark:fill-white/45">
-          GENERIC SCORE
-        </text>
-        {/* Bland bar */}
-        <rect x="10" y="24" width="80" height="6" rx="3" fill="rgba(15,23,51,0.08)" className="dark:fill-white/12" />
-        <rect x="10" y="24" width="40" height="6" rx="3" fill="rgba(15,23,51,0.30)" className="dark:fill-white/30" />
-        <text x="10" y="42" fill="rgba(15,23,51,0.5)" fontSize="7" className="dark:fill-white/50">
-          Engagement: 5.4%
-        </text>
-        <line x1="10" y1="33" x2="90" y2="13" stroke="#E85D2F" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" style={{
-          strokeDasharray: 100,
-          strokeDashoffset: revealed ? 0 : 100,
-          transition: 'stroke-dashoffset 500ms 300ms ease-out',
-        }} />
-      </g>
-
-      {/* Arrow */}
-      <g style={fadeIn(550)}>
-        <path d="M 168 60 Q 200 60 200 100" fill="none" stroke="#E85D2F" strokeWidth="2" strokeLinecap="round" />
-        <polyline points="194,94 200,102 206,94" fill="none" stroke="#E85D2F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-
-      {/* Customized score with arc + chips bottom-right */}
-      <g style={fadeIn(800)} transform="translate(180, 100)">
-        {/* Mini arc */}
-        <path
-          d="M 8 56 A 48 48 0 0 1 104 56"
-          fill="none"
-          stroke="rgba(15,23,51,0.08)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          className="dark:stroke-white/12"
-        />
-        <path
-          d="M 8 56 A 48 48 0 0 1 92 32"
-          fill="none"
-          stroke="url(#fit-arc-grad)"
-          strokeWidth="6"
-          strokeLinecap="round"
-        />
-        <text x="56" y="48" textAnchor="middle" fill="#0F1733" fontSize="20" fontWeight="700" className="dark:fill-white">
-          92
-        </text>
-        <text x="56" y="62" textAnchor="middle" fill="#E85D2F" fontSize="6" fontWeight="700" letterSpacing="1">
-          STRONG FIT
-        </text>
-        {/* Custom criteria chips below */}
-        {[
-          { x: 0, label: 'US-based' },
-          { x: 38, label: 'Weekly' },
-          { x: 70, label: '< 100K' },
-        ].map((c, i) => (
-          <g key={c.label} style={{
-            opacity: revealed ? 1 : 0,
-            animation: revealed ? `wte-pop-in 400ms ${1000 + i * 120}ms ease-out both` : undefined,
-          }}>
-            <rect x={c.x} y="76" width={c.label.length * 5 + 8} height="14" rx="7" fill="white" stroke="#E85D2F" strokeWidth="1" className="dark:fill-[#0F1733] dark:stroke-[#F2A261]" />
-            <text x={c.x + (c.label.length * 5 + 8) / 2} y="86" textAnchor="middle" fill="#9C3D1F" fontSize="7" fontWeight="600" className="dark:fill-[#F2A261]">
-              {c.label}
-            </text>
-          </g>
-        ))}
-      </g>
-    </svg>
-  )
-}
-
-/**
- * OutreachVisual — two greyed-out CRM logos with $ price labels and
- * X marks, then a unified Outreach row with IG/Email/LinkedIn pills.
- */
-function OutreachVisual({ revealed }: { revealed: boolean }) {
-  const fadeIn = (delay: number) => ({
-    opacity: revealed ? 1 : 0,
-    animation: revealed ? `wte-fade-in 500ms ${delay}ms ease-out both` : undefined,
-  })
-  return (
-    <svg viewBox="0 0 320 200" className="w-full h-full" aria-hidden>
-      <defs>
-        <linearGradient id="out-row-grad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#E85D2F" />
-          <stop offset="100%" stopColor="#F2A261" />
-        </linearGradient>
-      </defs>
-
-      {/* Two crossed-out CRM blocks at top */}
-      {[
-        { x: 32, label: 'HubSpot', price: '$400/mo', delay: 0 },
-        { x: 168, label: 'Pipedrive', price: '$300/mo', delay: 120 },
-      ].map(c => (
-        <g key={c.label} style={fadeIn(c.delay)} transform={`translate(${c.x}, 24)`}>
-          <rect
-            width="120"
-            height="48"
-            rx="8"
-            fill="rgba(15,23,51,0.04)"
-            stroke="rgba(15,23,51,0.14)"
-            strokeWidth="1"
-            className="dark:fill-white/[0.04] dark:stroke-white/15"
+      {/* "After" — real product screenshot in a dark frame.
+          Tilted slightly toward content; flipped chapters tilt the
+          other way so the spread reads symmetric. */}
+      <div
+        className="relative z-10"
+        style={{
+          opacity: revealed ? 1 : 0,
+          transform: revealed
+            ? `perspective(1200px) rotateY(${flipped ? 4 : -4}deg) rotateX(1deg)`
+            : `perspective(1200px) rotateY(${flipped ? 8 : -8}deg) rotateX(2deg) translateY(40px) scale(0.96)`,
+          transition: 'opacity 900ms 100ms ease-out, transform 900ms 100ms ease-out',
+        }}
+      >
+        <div
+          className="relative rounded-xl overflow-hidden border border-[#0F1733]/15 dark:border-white/15 bg-[#0E121C]"
+          style={{
+            aspectRatio: chapter.screenshot.aspect,
+            boxShadow:
+              '0 30px 60px -25px rgba(15,23,51,0.35), 0 14px 30px -10px rgba(232,93,47,0.18)',
+          }}
+        >
+          {/* Top-bar accent — terracotta scan line at the very top of
+              the frame, signals "live capture" without being literal. */}
+          <div
+            aria-hidden
+            className="absolute top-0 inset-x-0 h-[2px] z-10"
+            style={{
+              background:
+                'linear-gradient(90deg, transparent, rgba(232,93,47,0.85) 30%, rgba(242,162,97,0.85) 70%, transparent)',
+            }}
           />
-          <text x="60" y="22" textAnchor="middle" fill="rgba(15,23,51,0.55)" fontSize="11" fontWeight="700" className="dark:fill-white/55">
-            {c.label}
-          </text>
-          <text x="60" y="36" textAnchor="middle" fill="rgba(15,23,51,0.4)" fontSize="8" className="dark:fill-white/40">
-            {c.price} · no IG
-          </text>
-          {/* Big X */}
-          <line x1="14" y1="10" x2="106" y2="38" stroke="#E85D2F" strokeWidth="2.5" strokeLinecap="round" style={{
-            strokeDasharray: 120,
-            strokeDashoffset: revealed ? 0 : 120,
-            transition: `stroke-dashoffset 500ms ${c.delay + 300}ms ease-out`,
-          }} />
-          <line x1="106" y1="10" x2="14" y2="38" stroke="#E85D2F" strokeWidth="2.5" strokeLinecap="round" style={{
-            strokeDasharray: 120,
-            strokeDashoffset: revealed ? 0 : 120,
-            transition: `stroke-dashoffset 500ms ${c.delay + 380}ms ease-out`,
-          }} />
-        </g>
-      ))}
+          <Image
+            src={chapter.screenshot.src}
+            alt={chapter.screenshot.alt}
+            fill
+            sizes="(min-width: 1280px) 580px, 100vw"
+            className="object-contain"
+          />
+        </div>
 
-      {/* Down arrow */}
-      <g style={fadeIn(700)}>
-        <line x1="160" y1="86" x2="160" y2="110" stroke="#E85D2F" strokeWidth="2" strokeLinecap="round" />
-        <polyline points="153,104 160,112 167,104" fill="none" stroke="#E85D2F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
+        {/* Caption directly under the screenshot */}
+        <div className="mt-4 text-[11px] uppercase tracking-[0.2em] font-bold text-[#0F1733]/45 dark:text-white/45 font-mono">
+          → Live capture · {chapter.tag.toLowerCase()} view
+        </div>
+      </div>
 
-      {/* Built-in row */}
-      <g style={fadeIn(900)}>
-        <rect
-          x="22"
-          y="124"
-          width="276"
-          height="56"
-          rx="10"
-          fill="white"
-          stroke="#E85D2F"
-          strokeWidth="1.5"
-          className="dark:fill-[#0F1733] dark:stroke-[#F2A261]"
-        />
-        {/* Status pill */}
-        <rect x="34" y="138" width="60" height="16" rx="8" fill="#16A34A" />
-        <text x="64" y="150" textAnchor="middle" fill="white" fontSize="8" fontWeight="700" letterSpacing="0.4">
-          OPEN
-        </text>
-        <text x="34" y="170" fill="rgba(15,23,51,0.55)" fontSize="7" className="dark:fill-white/55">
-          Reached out
-        </text>
-        {/* Channel pills */}
-        {[
-          { x: 110, label: 'Email', fill: '#1B6FB5' },
-          { x: 158, label: 'IG DM', fill: '#E85D2F' },
-          { x: 200, label: 'LinkedIn', fill: '#0A66C2' },
-        ].map(p => (
-          <g key={p.label}>
-            <rect x={p.x} y="138" width={p.label.length * 5 + 12} height="16" rx="8" fill={p.fill} fillOpacity="0.18" stroke={p.fill} strokeWidth="1" />
-            <text x={p.x + (p.label.length * 5 + 12) / 2} y="150" textAnchor="middle" fill={p.fill} fontSize="8" fontWeight="700">
-              {p.label}
-            </text>
-          </g>
-        ))}
-        {/* Cadence chip */}
-        <rect x="252" y="138" width="36" height="16" rx="8" fill="url(#out-row-grad)" />
-        <text x="270" y="150" textAnchor="middle" fill="white" fontSize="8" fontWeight="700">
-          7d
-        </text>
-        <text x="110" y="170" fill="rgba(15,23,51,0.55)" fontSize="7" className="dark:fill-white/55">
-          DM template ready · cadence set
-        </text>
-      </g>
-    </svg>
+      {/* Decorative arrow connector — points from chaos to product.
+          Subtle line motif in the corner. */}
+      <svg
+        aria-hidden
+        className="absolute -top-4 -right-4 w-12 h-12 text-[#E85D2F]/40 dark:text-[#F2A261]/50 motion-reduce:hidden"
+        viewBox="0 0 48 48"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{
+          opacity: revealed ? 1 : 0,
+          transition: 'opacity 900ms 500ms ease-out',
+        }}
+      >
+        <path d="M 6 8 Q 24 8 24 24 Q 24 40 42 40" />
+        <polyline points="36 36 42 40 38 44" />
+      </svg>
+    </div>
   )
 }

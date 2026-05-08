@@ -424,7 +424,7 @@ export default async function LandingPage() {
               No card on file. No seat cap. The full feature set, on the house, while we&apos;re still polishing.
             </p>
           </div>
-          <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto">
+          <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto items-stretch">
             <PricingCard
               tier="Beta"
               price="$0"
@@ -551,39 +551,10 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* FINAL CTA */}
-      <section className="px-6 pb-20 md:pb-28">
-        <div className="max-w-[1100px] mx-auto rounded-3xl bg-[#0F1733] text-white px-8 py-14 md:py-20 text-center relative overflow-hidden">
-          <div
-            aria-hidden
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'radial-gradient(ellipse 60% 50% at 80% 30%, rgba(232,93,47,0.30) 0%, transparent 60%)' }}
-          />
-          <div className="relative">
-            <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[26ch] mb-6" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              One query. Five platforms. <span className="text-[#F2A261]">One queue.</span>
-            </h2>
-            <p className="max-w-[52ch] mx-auto text-[16px] text-white/70 leading-[1.55] mb-9">
-              Free while in beta. No card on file, no seat cap. The outreach work is the hard part — the tool shouldn&apos;t be.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href={isAuthed ? '/' : '/auth/signup'}
-                className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#F2A261] px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
-              >
-                {isAuthed ? 'Open the app' : 'Start for free'}
-                <span aria-hidden>→</span>
-              </Link>
-              <a
-                href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
-                className="inline-flex items-center gap-2 border border-white/30 hover:border-white px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
-              >
-                Talk to founder
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* (Final CTA section removed 2026-05-08 — the dark
+          'One query. Five platforms. One queue.' banner felt like a
+          tacked-on second pricing section. The Beta pricing card
+          above already carries the primary CTA.) */}
 
       {/* FOOTER — wordmark only (the rounded "C" tile in the nav was
           already a generic Stripe-Notion-Linear placeholder; doubling
@@ -688,12 +659,23 @@ function Stat({ n, label }: { n: string; label: string }) {
 }
 
 function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured = false }: { tier: string; price: string; priceSub: string; features: string[]; cta: string; ctaHref: string; featured?: boolean }) {
+  // flex column with the features ul flex-1 ensures the CTA button
+  // sits at the bottom of every card regardless of bullet count —
+  // the Beta and Coming-soon cards have different feature counts,
+  // and the CTAs need to align horizontally across both.
   return (
-    <div className={`rounded-2xl p-7 md:p-8 ${featured ? 'bg-[#0F1733] text-white' : 'bg-white dark:bg-[#131826] border border-[#0F1733]/10 dark:border-white/10'}`} style={featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined}>
+    <div
+      className={`rounded-2xl p-7 md:p-8 flex flex-col ${
+        featured
+          ? 'bg-[#0F1733] text-white'
+          : 'bg-white dark:bg-[#131826] border border-[#0F1733]/10 dark:border-white/10'
+      }`}
+      style={featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined}
+    >
       <div className={`text-[13px] uppercase tracking-[0.18em] mb-3 font-semibold ${featured ? 'text-[#F2A261]' : 'text-[#E85D2F]'}`}>{tier}</div>
       <div className="font-semibold tracking-[-0.025em] mb-1" style={{ fontSize: 'clamp(2.25rem, 4vw, 3rem)' }}>{price}</div>
       <div className={`text-[13px] mb-6 ${featured ? 'text-white/55' : 'text-[#0F1733]/55 dark:text-white/55'}`}>{priceSub}</div>
-      <ul className="space-y-2.5 mb-7 text-[14px]">
+      <ul className="space-y-2.5 mb-7 text-[14px] flex-1">
         {features.map(f => (
           <li key={f} className="flex items-start gap-2.5">
             <span className={featured ? 'text-[#F2A261] font-bold mt-0.5 shrink-0' : 'text-[#E85D2F] font-bold mt-0.5 shrink-0'}>✓</span>
@@ -701,7 +683,7 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
           </li>
         ))}
       </ul>
-      <Link href={ctaHref} className={`block text-center px-5 py-3 rounded-md font-semibold text-[15px] transition-colors ${featured ? 'bg-white text-[#0F1733] hover:bg-[#F2A261]' : 'bg-[#0F1733] text-white hover:bg-[#E85D2F]'}`}>
+      <Link href={ctaHref} className={`mt-auto block text-center px-5 py-3 rounded-md font-semibold text-[15px] transition-colors ${featured ? 'bg-white text-[#0F1733] hover:bg-[#F2A261]' : 'bg-[#0F1733] text-white hover:bg-[#E85D2F]'}`}>
         {cta} <span aria-hidden>→</span>
       </Link>
     </div>
