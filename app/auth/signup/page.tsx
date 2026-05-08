@@ -7,11 +7,13 @@ import { createClient } from '@/lib/supabase/client'
 import { AuthShell } from '@/components/landing/AuthShell'
 import { PasswordChecklist } from '@/components/PasswordChecklist'
 import { validatePassword, friendlyPasswordError } from '@/lib/password'
+import { safeNext } from '@/lib/safe-redirect'
 
 function SignUpForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') || '/'
+  // safeNext() blocks open-redirect attempts.
+  const next = safeNext(searchParams.get('next'), '/')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

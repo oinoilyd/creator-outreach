@@ -94,8 +94,11 @@ export async function GET(req: NextRequest) {
       channelUrl: `https://www.youtube.com/channel/${meta.channelId}`,
       description: meta.description,
     })
-  } catch (e: any) {
-    return NextResponse.json({ error: `Lookup failed: ${e?.message || e}` }, { status: 500 })
+  } catch (e: unknown) {
+    // Generic message — log full error server-side only.
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[lookup-channel] error:', msg)
+    return NextResponse.json({ error: 'Channel lookup failed.' }, { status: 500 })
   }
 }
 

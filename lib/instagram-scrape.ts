@@ -37,6 +37,7 @@
  */
 
 import axios from 'axios'
+import { shouldSkip, recordFailure, recordSuccess, delay } from './scrape-circuit-breaker'
 
 export interface ScrapedInstagramProfile {
   username: string
@@ -270,27 +271,43 @@ export async function scrapeInstagramProfile(handle: string): Promise<ScrapedIns
   const cleaned = handle.toLowerCase().replace(/^@/, '').trim()
   if (!cleaned || !/^[a-z0-9._]{1,30}$/.test(cleaned)) return null
 
+  // Circuit breaker: if IG has been rate-limiting or login-walling us
+  // recently, skip all strategies for the cooldown window. Saves the
+  // 24s of timeout cascades per call when we already know it'll fail.
+  if (shouldSkip('ig-scrape')) {
+    return null
+  }
+
   // Try strategies in order. JSON is fastest + has the richest
   // payload, so it goes first. HTML is the visual-feedback fallback.
   // Embed only ever runs if both above failed.
   const json  = await tryJsonStrategy(cleaned)
   if (json && json.followers > 0) {
     console.log(`[ig-scrape] @${cleaned} resolved via JSON: ${json.followers} followers`)
+    recordSuccess('ig-scrape')
     return json
   }
+  // 200ms inter-strategy delay — gives IG a beat between consecutive
+  // hits from the same datacenter IP.
+  await delay(200)
   const html  = await tryHtmlStrategy(cleaned)
   if (html && html.followers > 0) {
     console.log(`[ig-scrape] @${cleaned} resolved via HTML: ${html.followers} followers`)
+    recordSuccess('ig-scrape')
     return html
   }
+  await delay(200)
   // Last-ditch: embed only gives username + photo, but it's better
   // than tombstoning the row entirely.
   const embed = await tryEmbedStrategy(cleaned)
   if (embed) {
     console.log(`[ig-scrape] @${cleaned} resolved via EMBED (partial — no count)`)
+    recordSuccess('ig-scrape')
     return embed
   }
 
   console.warn(`[ig-scrape] all strategies failed for @${cleaned}`)
+  // Mark as a circuit-breaker failure. After 5 in 60s, skips for 10min.
+  recordFailure('ig-scrape')
   return null
 }

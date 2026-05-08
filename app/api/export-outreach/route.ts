@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
-import { requireUser } from '@/lib/api-auth'
+import { requireUser, rateLimit } from '@/lib/api-auth'
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
+
+  // Cap exports/hr to prevent DOS via XLSX generation loop
+  const limited = rateLimit(auth.id, 'export-outreach', 20)
+  if (limited) return limited
 
   const body = await req.json()
   const entries: any[] = Array.isArray(body.entries) ? body.entries.slice(0, 1000) : []

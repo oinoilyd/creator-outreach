@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser, rateLimit } from '@/lib/api-auth'
+import { forbidIfNotAdmin } from '@/lib/admin'
 import { createClient } from '@/lib/supabase/server'
 import { isPlausibleEmail } from '@/lib/newMethodology'
-
-const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
 // Hard-coded final scrub. This is belt-and-suspenders defense — every
 // email-emitting code path SHOULD already filter via isPlausibleEmail,
@@ -130,11 +130,15 @@ interface EnrichResult {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-  }
+  const auth = await requireUser()
+  if (auth instanceof NextResponse) return auth
+  const forbidden = forbidIfNotAdmin(auth)
+  if (forbidden) return forbidden
+  // email-test orchestrates 15+ downstream fetches per creator; cap
+  // tightly to prevent runaway/infinite loops from DOS-ing our own
+  // search/enrich endpoints.
+  const limited = rateLimit(auth.id, 'admin-email-test', 5)
+  if (limited) return limited
 
   let body: {
     query?: string
@@ -396,6 +400,7 @@ export async function POST(req: NextRequest) {
   // (including domain_guess) so the runs table is honest about what
   // was tested, even though we routed it to educated-assumption.
   const fullStrategy = strategy.join(',')
+  const supabase = await createClient()
   const { data: insertData, error: insertErr } = await supabase
     .from('email_test_runs')
     .insert({

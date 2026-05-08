@@ -48,9 +48,20 @@ export async function POST(req: Request) {
   const resendKey = process.env.RESEND_API_KEY
   if (resendKey) {
     try {
-      const safeName = name.replace(/[<>]/g, '')
-      const safeEmail = email.replace(/[<>]/g, '')
-      const safeMsg = message.replace(/[<>]/g, c => (c === '<' ? '&lt;' : '&gt;'))
+      // Full HTML entity escape — covers `<>"'&` plus backticks. The
+      // earlier `<>`-only filter let through quote/ampersand-based
+      // injection that some email clients render as live HTML
+      // attributes.
+      const escapeHtml = (s: string) => s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/`/g, '&#96;')
+      const safeName = escapeHtml(name)
+      const safeEmail = escapeHtml(email)
+      const safeMsg = escapeHtml(message)
       const resp = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {

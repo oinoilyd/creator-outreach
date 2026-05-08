@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireUser, rateLimit } from '@/lib/api-auth'
+import { forbidIfNotAdmin } from '@/lib/admin'
 import { verifyMany } from '@/lib/verifyEmail'
 
-const ADMIN_EMAIL = 'dmeehanj@gmail.com'
-
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-  }
+  const auth = await requireUser()
+  if (auth instanceof NextResponse) return auth
+  const forbidden = forbidIfNotAdmin(auth)
+  if (forbidden) return forbidden
+  const limited = rateLimit(auth.id, 'admin-verify-email', 30)
+  if (limited) return limited
 
   let body: { emails?: string[] }
   try {

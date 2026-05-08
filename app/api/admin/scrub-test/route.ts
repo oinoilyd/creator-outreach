@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireUser, rateLimit } from '@/lib/api-auth'
+import { forbidIfNotAdmin } from '@/lib/admin'
 import { isPlausibleEmail } from '@/lib/newMethodology'
-
-const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
 // Diagnostic endpoint: visit /api/admin/scrub-test?email=friends@stanwith.me
 // to verify the deploy is running the latest filter code. If the
@@ -26,11 +25,12 @@ const HARD_BLOCK_PATTERNS: RegExp[] = [
 ]
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-  }
+  const auth = await requireUser()
+  if (auth instanceof NextResponse) return auth
+  const forbidden = forbidIfNotAdmin(auth)
+  if (forbidden) return forbidden
+  const limited = rateLimit(auth.id, 'admin-scrub-test', 200)
+  if (limited) return limited
 
   const { searchParams } = new URL(req.url)
   const email = (searchParams.get('email') || 'friends@stanwith.me').toLowerCase().trim()

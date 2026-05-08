@@ -5,11 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { AuthShell } from '@/components/landing/AuthShell'
+import { safeNext } from '@/lib/safe-redirect'
 
 function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') || '/'
+  // safeNext() blocks open-redirect attempts (?next=https://attacker.com).
+  // Only same-origin paths starting with "/" pass through.
+  const next = safeNext(searchParams.get('next'), '/')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
-import { requireUser } from '@/lib/api-auth'
+import { requireUser, rateLimit } from '@/lib/api-auth'
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
 
-  const { channels } = await req.json()
+  // XLSX generation is CPU-bound. Cap to 20 exports/hr per user to
+  // prevent DOS via repeated large export calls.
+  const limited = rateLimit(auth.id, 'export', 20)
+  if (limited) return limited
 
-  const rows = channels.map((c: any) => ({
+  const { channels } = await req.json()
+  // Defensive cap on payload size — prevents pathological inputs
+  // (e.g. user paste of 100k channels) from blowing memory.
+  const safeChannels = Array.isArray(channels) ? channels.slice(0, 5000) : []
+
+  const rows = safeChannels.map((c: any) => ({
     'Channel Name': c.channelName,
     'YouTube URL': c.channelUrl,
     'Avg Views': c.avgViews,

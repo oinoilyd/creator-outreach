@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
+import { shouldSkip, recordFailure, recordSuccess, delay } from '@/lib/scrape-circuit-breaker'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL } from '@/lib/cache'
 import { newMethodology, isPlausibleEmail } from '@/lib/newMethodology'
@@ -296,14 +297,33 @@ async function fromDDGEmail(name: string, website: string, niche?: string, aggre
         queries.push(`site:${site} partnership`)
       }
     }
-    await Promise.allSettled(queries.map(async (query) => {
+    // DDG circuit breaker — if we've been rate-limited recently, skip
+    // entirely. Otherwise space queries 250ms apart to avoid bursting
+    // DDG and triggering Vercel-IP bans.
+    if (shouldSkip('ddg')) {
+      // Circuit open — don't burn timeouts on calls that will fail.
+      return allEmails
+    }
+    let ddgFailures = 0
+    for (let i = 0; i < queries.length; i++) {
+      if (i > 0) await delay(250)
       try {
-        const q = encodeURIComponent(query)
+        const q = encodeURIComponent(queries[i])
         const timeout = aggressive ? 9000 : 6000
         const html = await fetchHtml(`https://html.duckduckgo.com/html/?q=${q}`, timeout)
         allEmails.push(...extractEmails(html))
-      } catch { /* failed */ }
-    }))
+        recordSuccess('ddg')
+      } catch {
+        ddgFailures++
+        // Only mark as a circuit-breaker failure for repeated misses
+        // within this single enrichment — don't open the breaker on
+        // single timeouts.
+        if (ddgFailures >= 3) {
+          recordFailure('ddg')
+          break
+        }
+      }
+    }
   } catch { /* failed */ }
   return allEmails
 }
@@ -632,13 +652,34 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Forensic logging — this fires on every enrich call. If Dylan ever
-  // sees friends@stanwith.me again, search Vercel logs for the channel
-  // and we'll see whether the filter was reached + what email was
-  // ultimately returned.
-  console.log(`[enrich done] channelId=${channelId} email="${email}" allCandidates=${allEmails.length}`)
-  if (allEmails.some(e => /stanwith/i.test(e))) {
-    console.warn(`[enrich CANDIDATE LEAK] channelId=${channelId} candidates contained stanwith. Full list: ${JSON.stringify(allEmails)}`)
+  // Forensic logging — this fires on every enrich call. Designed so
+  // we can confirm the scrub-filter chain ran without dumping cleartext
+  // PII into Vercel logs (logs are persisted; PII in logs = potential
+  // GDPR / SOC2 issue at scale).
+  //
+  // What we log:
+  //   - the email we resolved (only the local part redacted to *** + domain)
+  //   - the count of candidate emails seen
+  //   - if any flagged-substring candidate was filtered, log the substring
+  //     that matched + the count, NOT the full email list
+  function redactEmail(e: string): string {
+    if (!e) return ''
+    const at = e.indexOf('@')
+    if (at <= 0) return '***'
+    const local = e.slice(0, at)
+    const domain = e.slice(at)
+    const visible = local.length > 2 ? local.slice(0, 2) : local.slice(0, 1)
+    return `${visible}***${domain}`
+  }
+  console.log(`[enrich done] channelId=${channelId} email="${redactEmail(email)}" candidates=${allEmails.length}`)
+
+  // Flag suspicious-substring leaks WITHOUT logging the full email list.
+  const suspicious = ['stanwith', 'stan.store', 'patreon.com', 'sentry.io']
+  for (const sub of suspicious) {
+    const hits = allEmails.filter(e => e.toLowerCase().includes(sub)).length
+    if (hits > 0) {
+      console.warn(`[enrich CANDIDATE LEAK CHECK] channelId=${channelId} substring="${sub}" hits=${hits} (filtered before output: ${email && email.includes(sub) ? 'NO — filter missed!' : 'yes'})`)
+    }
   }
 
   const payload = { email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials }
