@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { OperatorConsole } from '@/components/landing/OperatorConsole'
+import { LandingTopNav } from '@/components/landing/LandingTopNav'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -44,42 +45,10 @@ export default async function LandingPage() {
   const isAuthed = !!user
 
   return (
-    <main className="min-h-screen text-[#0F1733] font-[family-name:var(--font-geist-sans)]" style={{ backgroundColor: '#FCFAF6' }}>
-      {/* TOP NAV */}
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[#0F1733]/8">
-        <div className="max-w-[1280px] mx-auto px-6 h-[64px] flex items-center justify-between">
-          <Link href="/landing" className="flex items-center gap-2.5 shrink-0">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] text-[#F2A261] text-[14px] font-bold">C</span>
-            <span className="font-semibold tracking-[-0.01em] text-[16px]">Creator Outreach</span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-6 text-[14px] text-[#0F1733]/70 font-medium">
-            <a href="#product"   className="hover:text-[#0F1733] transition-colors">Product</a>
-            <a href="#solutions" className="hover:text-[#0F1733] transition-colors">Solutions</a>
-            <a href="#customers" className="hover:text-[#0F1733] transition-colors">Customers</a>
-            <a href="#pricing"   className="hover:text-[#0F1733] transition-colors">Pricing</a>
-            <a href="mailto:dmeehanj@gmail.com" className="hover:text-[#0F1733] transition-colors">Resources</a>
-          </nav>
-          <div className="flex items-center gap-2 shrink-0">
-            {!isAuthed && (
-              <Link href="/auth/signin" className="hidden sm:inline-flex text-[14px] text-[#0F1733]/70 hover:text-[#0F1733] px-3 py-2 font-medium transition-colors">
-                Sign in
-              </Link>
-            )}
-            <a
-              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
-              className="hidden lg:inline-flex items-center text-[14px] text-[#0F1733] hover:text-[#E85D2F] px-3 py-2 font-medium transition-colors"
-            >
-              Talk to founder
-            </a>
-            <Link
-              href={isAuthed ? '/' : '/auth/signup'}
-              className="inline-flex items-center gap-1.5 bg-[#0F1733] text-white hover:bg-[#E85D2F] px-4 py-2 rounded-md text-[14px] font-semibold transition-colors"
-            >
-              {isAuthed ? 'Open app' : 'Start free'}
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main
+      className="min-h-screen text-[#0F1733] dark:text-white font-[family-name:var(--font-geist-sans)] bg-[#FCFAF6] dark:bg-[#0A0E15]"
+    >
+      <LandingTopNav isAuthed={isAuthed} />
 
       {/* HERO — split layout: copy + dual CTA on left, OperatorConsole on right */}
       <section className="px-6 pt-14 md:pt-20 pb-12 md:pb-16">
@@ -95,7 +64,7 @@ export default async function LandingPage() {
             >
               The modern way to source and pitch creators.
             </h1>
-            <p className="mt-7 max-w-[52ch] text-[17px] md:text-[18px] text-[#0F1733]/70 leading-[1.55]">
+            <p className="mt-7 max-w-[52ch] text-[17px] md:text-[18px] text-[#0F1733]/70 dark:text-white/70 leading-[1.55]">
               Search five platforms in one query. Score every creator in
               plain English. Pitch with the right templated message per
               channel. Track every reply in one queue.
@@ -110,22 +79,22 @@ export default async function LandingPage() {
               </Link>
               <a
                 href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
-                className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#0F1733] hover:text-white px-7 py-3.5 rounded-md font-semibold text-[15px] border border-[#0F1733]/15 hover:border-[#0F1733] transition-colors"
+                className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#0F1733] hover:text-white px-7 py-3.5 rounded-md font-semibold text-[15px] border border-[#0F1733]/15 dark:border-white/15 hover:border-[#0F1733] transition-colors"
               >
                 Talk to the founder
               </a>
             </div>
-            <div className="mt-10 pt-7 border-t border-[#0F1733]/10">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/45 mb-3 font-semibold">
+            <div className="mt-10 pt-7 border-t border-[#0F1733]/10 dark:border-white/10">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/45 dark:text-white/45 mb-3 font-semibold">
                 Built for the people running their own outreach
               </div>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] text-[#0F1733]/60 font-medium">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium">
                 <span>Indie operators</span>
-                <span aria-hidden className="text-[#0F1733]/15">·</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
                 <span>Solo founders</span>
-                <span aria-hidden className="text-[#0F1733]/15">·</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
                 <span>Growth teams</span>
-                <span aria-hidden className="text-[#0F1733]/15">·</span>
+                <span aria-hidden className="text-[#0F1733]/15 dark:text-white/20">·</span>
                 <span>Solo agencies</span>
               </div>
             </div>
@@ -138,14 +107,14 @@ export default async function LandingPage() {
       </section>
 
       {/* SOLUTIONS — built for personas (4-up) */}
-      <section id="solutions" className="px-6 py-20 md:py-28 bg-white border-y border-[#0F1733]/8">
+      <section id="solutions" className="px-6 py-20 md:py-28 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto">
           <div className="max-w-[680px] mb-12 md:mb-16">
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Solutions</div>
             <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
               One tool, every outreach motion.
             </h2>
-            <p className="mt-5 text-[17px] text-[#0F1733]/65 leading-[1.55]">
+            <p className="mt-5 text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
               Whether you&apos;re sourcing creators from scratch, working a list of warm leads, or running a multi-channel cadence, Creator Outreach handles it without the spreadsheet detour.
             </p>
           </div>
@@ -168,7 +137,7 @@ export default async function LandingPage() {
               <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Five platforms, one query, scored fit.
               </h3>
-              <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
+              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
                 YouTube, Instagram, TikTok, X, LinkedIn — searched in
                 parallel. Filter by subscribers, region, last-posted, niche.
                 The AI ranks every creator on fit, reach, and recency
@@ -180,17 +149,29 @@ export default async function LandingPage() {
                   LinkedIn / Instagram). Earlier "Real IG follower
                   counts inline" bullet was removed because that data
                   doesn't appear in this screenshot. */}
-              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85">
+              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
                 <Bullet>One query → results across all five platforms</Bullet>
                 <Bullet>Fit score with plain-English label per row (Strong / Possible / Weak)</Bullet>
                 <Bullet>Email + LinkedIn + Instagram links inline per creator</Bullet>
                 <Bullet>22 region filters + audience-size + last-posted recency</Bullet>
               </ul>
             </div>
-            <div className="rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)' }}>
-              <div className="relative aspect-[16/10] bg-[#0A0E13]">
-                <Image src="/screenshots/results.png" alt="Sourcing view" fill sizes="(min-width: 1280px) 600px, 100vw" className="object-cover object-top" />
-              </div>
+            <div
+              className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+              style={{
+                // Aspect ratio of the actual screenshot file so it
+                // fits without cropping. results.png is 2472×1182.
+                aspectRatio: '2472 / 1182',
+                boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
+              }}
+            >
+              <Image
+                src="/screenshots/results.png"
+                alt="Sourcing view"
+                fill
+                sizes="(min-width: 1280px) 600px, 100vw"
+                className="object-contain"
+              />
             </div>
           </div>
         </div>
@@ -203,7 +184,7 @@ export default async function LandingPage() {
               <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Every conversation in one queue.
               </h3>
-              <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
+              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
                 The Outreach board collects every creator you&apos;ve pitched —
                 channel, email, product, status, medium. Status pills track
                 Successful / Open / Rejected. Sub-tabs split out Favorites,
@@ -213,17 +194,28 @@ export default async function LandingPage() {
               {/* Bullets aligned with what outreach.png literally shows:
                   the CRM-style outreach board (status pills, medium
                   selector, reached-out indicators, sub-tabs). */}
-              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85">
+              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
                 <Bullet>Status pills: Successful · Open · Rejected · No Response</Bullet>
                 <Bullet>Medium tracker per row (Email / LinkedIn / Other)</Bullet>
                 <Bullet>Favorites + Follow-ups sub-tabs for fast triage</Bullet>
                 <Bullet>Reached-out indicator + product + notes per creator</Bullet>
               </ul>
             </div>
-            <div className="md:order-1 rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)' }}>
-              <div className="relative aspect-[16/10] bg-[#0A0E13]">
-                <Image src="/screenshots/outreach.png" alt="Outreach view" fill sizes="(min-width: 1280px) 600px, 100vw" className="object-cover object-top" />
-              </div>
+            <div
+              className="relative md:order-1 rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+              style={{
+                // outreach.png is 2784×1122 — aspect 2.48
+                aspectRatio: '2784 / 1122',
+                boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
+              }}
+            >
+              <Image
+                src="/screenshots/outreach.png"
+                alt="Outreach view"
+                fill
+                sizes="(min-width: 1280px) 600px, 100vw"
+                className="object-contain"
+              />
             </div>
           </div>
         </div>
@@ -236,24 +228,35 @@ export default async function LandingPage() {
               <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Win rate, response rate, pipeline value.
               </h3>
-              <p className="text-[16px] text-[#0F1733]/70 leading-[1.6] mb-6">
+              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
                 Out-of-the-box: 7 KPIs across the top — In Pipeline, Reached
                 Out, Response Received, Response Rate, Win Rate, Pipeline $,
                 Stale Follow-ups. Status breakdown bar shows where the queue
                 is sitting. Velocity card tracks the last 7 days.
               </p>
               {/* Bullets aligned with what analytics.png literally shows. */}
-              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85">
+              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
                 <Bullet>7 KPI cards: In Pipeline · Reached · Responses · Rate · Win % · Pipeline $ · Stale</Bullet>
                 <Bullet>Status breakdown bar (Successful / Open / No Response / Rejected)</Bullet>
                 <Bullet>Outreach-by-medium split (Email / LinkedIn / Other)</Bullet>
                 <Bullet>Customize the metric stack — no formulas</Bullet>
               </ul>
             </div>
-            <div className="rounded-xl overflow-hidden border border-[#0F1733]/10 bg-white" style={{ boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)' }}>
-              <div className="relative aspect-[16/10] bg-[#0A0E13]">
-                <Image src="/screenshots/analytics.png" alt="Analytics view" fill sizes="(min-width: 1280px) 600px, 100vw" className="object-cover object-top" />
-              </div>
+            <div
+              className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+              style={{
+                // analytics.png is 2822×1088 — aspect 2.59
+                aspectRatio: '2822 / 1088',
+                boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
+              }}
+            >
+              <Image
+                src="/screenshots/analytics.png"
+                alt="Analytics view"
+                fill
+                sizes="(min-width: 1280px) 600px, 100vw"
+                className="object-contain"
+              />
             </div>
           </div>
         </div>
@@ -278,7 +281,7 @@ export default async function LandingPage() {
       </section>
 
       {/* CUSTOMERS */}
-      <section id="customers" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white border-y border-[#0F1733]/8">
+      <section id="customers" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12 md:mb-16">
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Customers</div>
@@ -316,7 +319,7 @@ export default async function LandingPage() {
           <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
             Five platforms, in one queue.
           </h2>
-          <p className="max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 leading-[1.6] mb-12">
+          <p className="max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6] mb-12">
             All five major creator platforms are searched in parallel and ranked against the same criteria. No tab-juggling.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-[900px] mx-auto">
@@ -327,7 +330,7 @@ export default async function LandingPage() {
               { name: 'X',        bg: '#EFEFEF', dot: '#0F1733' },
               { name: 'LinkedIn', bg: '#E5F0FA', dot: '#1B6FB5' },
             ].map(p => (
-              <div key={p.name} className="rounded-xl border border-[#0F1733]/10 bg-white px-4 py-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+              <div key={p.name} className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] px-4 py-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
                 <div className="w-10 h-10 mx-auto rounded-lg mb-3 flex items-center justify-center" style={{ backgroundColor: p.bg }}>
                   <span className="w-3 h-3 rounded-full" style={{ backgroundColor: p.dot }} />
                 </div>
@@ -339,14 +342,14 @@ export default async function LandingPage() {
       </section>
 
       {/* PRICING */}
-      <section id="pricing" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white border-y border-[#0F1733]/8">
+      <section id="pricing" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1100px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12">
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Pricing</div>
             <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
               Free during beta. Grandfathered when it isn&apos;t.
             </h2>
-            <p className="max-w-[58ch] mx-auto text-[17px] text-[#0F1733]/65 leading-[1.55]">
+            <p className="max-w-[58ch] mx-auto text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
               No card on file, no seat cap, no annual upsell. Beta users will be looked after when paid plans launch.
             </p>
           </div>
@@ -441,17 +444,17 @@ export default async function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-white border-t border-[#0F1733]/10 px-6 py-14">
+      <footer className="bg-white dark:bg-[#131826] border-t border-[#0F1733]/10 dark:border-white/10 px-6 py-14">
         <div className="max-w-[1280px] mx-auto grid md:grid-cols-6 gap-8">
           <div className="md:col-span-2">
             <Link href="/landing" className="flex items-center gap-2 mb-4">
               <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] text-[#F2A261] text-[14px] font-bold">C</span>
               <span className="font-semibold tracking-tight text-[16px]">Creator Outreach</span>
             </Link>
-            <p className="text-[13px] text-[#0F1733]/60 leading-[1.55] max-w-[36ch]">
+            <p className="text-[13px] text-[#0F1733]/60 dark:text-white/60 leading-[1.55] max-w-[36ch]">
               The modern way to source, score, and pitch creators. Built for the operators who actually send the messages.
             </p>
-            <div className="mt-6 text-[12px] text-[#0F1733]/50">© 2026 Creator Outreach</div>
+            <div className="mt-6 text-[12px] text-[#0F1733]/50 dark:text-white/50">© 2026 Creator Outreach</div>
           </div>
           <FooterCol heading="Product"   links={[['Overview','#product'],['Solutions','#solutions'],['Pricing','#pricing'],['Customers','#customers']]} />
           <FooterCol heading="Resources" links={[['Guides','mailto:dmeehanj@gmail.com'],['Playbooks','mailto:dmeehanj@gmail.com'],['Changelog','mailto:dmeehanj@gmail.com']]} />
@@ -467,10 +470,10 @@ export default async function LandingPage() {
 
 function SolutionTile({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-[#0F1733]/10 bg-white p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+    <div className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
       <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] text-[18px] mb-4">{icon}</span>
       <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2">{title}</h3>
-      <p className="text-[14px] text-[#0F1733]/65 leading-[1.55]">{body}</p>
+      <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
     </div>
   )
 }
@@ -495,12 +498,12 @@ function Stat({ n, label }: { n: string; label: string }) {
 
 function Testimonial({ quote, attribution, context, outcome }: { quote: string; attribution: string; context: string; outcome: string }) {
   return (
-    <figure className="rounded-xl border border-[#0F1733]/10 bg-white p-6 md:p-7 flex flex-col">
+    <figure className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 md:p-7 flex flex-col">
       <span className="text-[#E85D2F] text-[28px] mb-3 leading-none">“</span>
-      <blockquote className="text-[15px] md:text-[16px] text-[#0F1733]/85 leading-[1.55] mb-6 flex-1" dangerouslySetInnerHTML={{ __html: quote }} />
-      <div className="border-t border-[#0F1733]/10 pt-4">
+      <blockquote className="text-[15px] md:text-[16px] text-[#0F1733]/85 dark:text-white/85 leading-[1.55] mb-6 flex-1" dangerouslySetInnerHTML={{ __html: quote }} />
+      <div className="border-t border-[#0F1733]/10 dark:border-white/10 pt-4">
         <div className="text-[14px] font-semibold mb-1">{attribution}</div>
-        <div className="text-[12px] text-[#0F1733]/55 mb-2">{context}</div>
+        <div className="text-[12px] text-[#0F1733]/55 dark:text-white/55 mb-2">{context}</div>
         <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-[#E85D2F] font-semibold">→ {outcome}</div>
       </div>
     </figure>
@@ -509,15 +512,15 @@ function Testimonial({ quote, attribution, context, outcome }: { quote: string; 
 
 function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured = false }: { tier: string; price: string; priceSub: string; features: string[]; cta: string; ctaHref: string; featured?: boolean }) {
   return (
-    <div className={`rounded-2xl p-7 md:p-8 ${featured ? 'bg-[#0F1733] text-white' : 'bg-white border border-[#0F1733]/10'}`} style={featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined}>
+    <div className={`rounded-2xl p-7 md:p-8 ${featured ? 'bg-[#0F1733] text-white' : 'bg-white dark:bg-[#131826] border border-[#0F1733]/10 dark:border-white/10'}`} style={featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined}>
       <div className={`text-[13px] uppercase tracking-[0.18em] mb-3 font-semibold ${featured ? 'text-[#F2A261]' : 'text-[#E85D2F]'}`}>{tier}</div>
       <div className="font-semibold tracking-[-0.025em] mb-1" style={{ fontSize: 'clamp(2.25rem, 4vw, 3rem)' }}>{price}</div>
-      <div className={`text-[13px] mb-6 ${featured ? 'text-white/55' : 'text-[#0F1733]/55'}`}>{priceSub}</div>
+      <div className={`text-[13px] mb-6 ${featured ? 'text-white/55' : 'text-[#0F1733]/55 dark:text-white/55'}`}>{priceSub}</div>
       <ul className="space-y-2.5 mb-7 text-[14px]">
         {features.map(f => (
           <li key={f} className="flex items-start gap-2.5">
             <span className={featured ? 'text-[#F2A261] font-bold mt-0.5 shrink-0' : 'text-[#E85D2F] font-bold mt-0.5 shrink-0'}>✓</span>
-            <span className={featured ? 'text-white/90' : 'text-[#0F1733]/85'}>{f}</span>
+            <span className={featured ? 'text-white/90' : 'text-[#0F1733]/85 dark:text-white/85'}>{f}</span>
           </li>
         ))}
       </ul>
@@ -530,10 +533,10 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
 
 function ResourceCard({ tag, title, body }: { tag: string; title: string; body: string }) {
   return (
-    <article className="rounded-xl border border-[#0F1733]/10 bg-white p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+    <article className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
       <div className="text-[10px] uppercase tracking-[0.22em] text-[#E85D2F] font-semibold mb-3">{tag}</div>
       <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2.5">{title}</h3>
-      <p className="text-[14px] text-[#0F1733]/65 leading-[1.55]">{body}</p>
+      <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
     </article>
   )
 }
@@ -541,11 +544,11 @@ function ResourceCard({ tag, title, body }: { tag: string; title: string; body: 
 function FooterCol({ heading, links }: { heading: string; links: [string, string][] }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/50 mb-4 font-semibold">{heading}</div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/50 dark:text-white/50 mb-4 font-semibold">{heading}</div>
       <ul className="space-y-2">
         {links.map(([label, href]) => (
           <li key={label}>
-            <Link href={href} className="text-[13px] text-[#0F1733]/70 hover:text-[#0F1733] transition-colors">{label}</Link>
+            <Link href={href} className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] transition-colors">{label}</Link>
           </li>
         ))}
       </ul>
