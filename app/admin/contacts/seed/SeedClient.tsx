@@ -2,48 +2,19 @@
 
 import { useState } from 'react'
 
-/** Quick-pick presets — common batches the operator might want to seed. */
-const PRESETS: { label: string; queries: string[] }[] = [
-  {
-    label: 'Fitness & Health',
-    queries: [
-      'fitness coach', 'personal trainer', 'online fitness coach', 'yoga instructor',
-      'pilates instructor', 'CrossFit coach', 'powerlifting coach', 'strength coach',
-      'nutritionist', 'wellness coach',
-    ],
-  },
-  {
-    label: 'Finance & Wealth',
-    queries: [
-      'financial advisor', 'financial planner', 'wealth manager', 'money coach',
-      'stock trader', 'day trader', 'options trader', 'value investor',
-      'crypto trader', 'crypto educator',
-    ],
-  },
-  {
-    label: 'Real Estate',
-    queries: [
-      'real estate agent', 'real estate broker', 'real estate investor',
-      'real estate coach', 'mortgage broker', 'house flipper', 'Airbnb host',
-      'real estate developer', 'commercial real estate agent',
-    ],
-  },
-  {
-    label: 'Tech & Startups',
-    queries: [
-      'software engineer', 'frontend developer', 'data scientist',
-      'AI engineer', 'startup founder', 'SaaS founder', 'indie hacker',
-      'tech YouTuber', 'product manager',
-    ],
-  },
-  {
-    label: 'Coaching',
-    queries: [
-      'life coach', 'business coach', 'executive coach', 'career coach',
-      'sales coach', 'mindset coach', 'public speaking coach', 'productivity coach',
-    ],
-  },
-]
+import { NICHE_BUCKETS } from '@/lib/format'
+
+/**
+ * Presets are now sourced from the actual NICHE_BUCKETS in
+ * lib/format.ts — same 13 buckets the in-app niche shortcut uses.
+ * Each bucket fans out to ~28-30 occupations; the bulk-seed
+ * endpoint caps at 100 queries per run, so picking a single
+ * bucket runs all its occupations in one go.
+ */
+const PRESETS = NICHE_BUCKETS.map(b => ({
+  label: b.label,
+  queries: b.occupations.slice(0, 30),
+}))
 
 type RunResult = {
   ok?: boolean

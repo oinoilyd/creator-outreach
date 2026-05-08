@@ -4,8 +4,8 @@ import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { shouldSkip, recordFailure, recordSuccess, delay } from '@/lib/scrape-circuit-breaker'
 import { requireUser, rateLimit } from '@/lib/api-auth'
-import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL } from '@/lib/cache'
-import { saveEnrichmentSnapshot } from '@/lib/creator-enrichment'
+import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL, cacheBumpCounter } from '@/lib/cache'
+import { saveEnrichmentSnapshot, getLatestEnrichment } from '@/lib/creator-enrichment'
 import { newMethodology, isPlausibleEmail } from '@/lib/newMethodology'
 import { publishJob, isQStashConfigured } from '@/lib/qstash'
 import { extractInstagramHandle, isInstagramGraphConfigured } from '@/lib/instagram-graph'
@@ -521,9 +521,55 @@ export async function GET(req: NextRequest) {
   //      use it.
   const skipCache = strategyParam != null || aggressive
   if (!skipCache) {
+    // L1 — Redis hot cache (sub-10ms).
     const cached = await cacheGet<unknown>(enrichmentCacheKey(channelId))
     if (cached) {
+      void cacheBumpCounter('enrich:hit:l1')
       return NextResponse.json(cached)
+    }
+    void cacheBumpCounter('enrich:miss:l1')
+
+    // L2 — Postgres durable cache (PHASE 2, 2026-05-08). Hit when
+    // Redis has evicted the row but we resolved this channel for any
+    // user within the freshness window. Saves a 5–12s live pipeline
+    // run. Staleness window:
+    //   - 90 days if we found an email previously
+    //   - 7 days if we tried + found none (small chance the email
+    //     surfaces on a later DDG/wayback re-fetch)
+    // Bounce-aware: a row marked email_bounced=true forces a re-fetch
+    // regardless of age. That's the recovery path when a user hits
+    // Mark Bounced on a stale email.
+    const pgRow = await getLatestEnrichment(channelId)
+    if (pgRow) {
+      const ageMs = Date.now() - new Date(pgRow.fetched_at).getTime()
+      const day = 24 * 60 * 60 * 1000
+      const freshnessMs = pgRow.email ? 90 * day : 7 * day
+      const isFresh = ageMs < freshnessMs
+      const usable = isFresh && !pgRow.email_bounced
+      if (usable) {
+        // Reconstruct the response payload shape the route normally
+        // returns, then warm Redis so the next read is L1-fast.
+        const reconstructed = {
+          email: pgRow.email || '',
+          subscribers: pgRow.subscribers != null ? String(pgRow.subscribers) : '',
+          videoDates: Array.isArray(pgRow.recent_video_dates) ? pgRow.recent_video_dates : [],
+          shortDates: [] as string[],
+          avgViews: pgRow.avg_views ?? undefined,
+          instagram: pgRow.instagram_handle || '',
+          twitter: pgRow.twitter_handle || '',
+          tiktok: '', // not tracked yet; null = empty for the response
+          linkedin: pgRow.linkedin_url || '',
+          website: pgRow.website || '',
+        }
+        console.log(`[cache PG-HIT] channel=${channelId} ageDays=${(ageMs / day).toFixed(1)}`)
+        void cacheBumpCounter('enrich:hit:l2')
+        void cacheSet(enrichmentCacheKey(channelId), reconstructed, CACHE_TTL.creatorEnrichment)
+        return NextResponse.json(reconstructed)
+      }
+      console.log(`[cache PG-MISS-STALE] channel=${channelId} ageDays=${(ageMs / day).toFixed(1)} bounced=${pgRow.email_bounced}`)
+      void cacheBumpCounter('enrich:miss:l2-stale')
+    } else {
+      void cacheBumpCounter('enrich:miss:l2-cold')
     }
   }
   // ───────────────────────────────────────────────────────────────
@@ -592,6 +638,31 @@ export async function GET(req: NextRequest) {
   const allEmails = [...realEmails, ...guessEmails]
   let email = bestEmail(allEmails)
 
+  // Source attribution — which strategy produced the winning email.
+  // Used by the durable cache for debugging + retry priority. We
+  // check sources in order of trust (most-direct first). Set to null
+  // when no email was found.
+  const lc = (s: string) => (s || '').toLowerCase()
+  const emailSource: string | null = !email
+    ? null
+    : descEmails.some(e => lc(e) === lc(email))
+    ? 'youtube_about'
+    : yt.emails.some(e => lc(e) === lc(email))
+    ? 'youtube_about'
+    : web.emails.some(e => lc(e) === lc(email))
+    ? 'web_scrape'
+    : biolink.emails.some(e => lc(e) === lc(email))
+    ? 'biolink'
+    : ddgEmails.some(e => lc(e) === lc(email))
+    ? 'ddg'
+    : bioEmails.some(e => lc(e) === lc(email))
+    ? 'bio_pages'
+    : waybackEmails.some(e => lc(e) === lc(email))
+    ? 'wayback'
+    : guessEmails.some(e => lc(e) === lc(email))
+    ? 'domain_guess'
+    : 'unknown'
+
   // Filter out platform-infra junk that the production primary pipeline
   // doesn't have native awareness of (stanwith.me, sentry.io, etc.).
   if (email && !isPlausibleEmail(email.toLowerCase())) {
@@ -613,6 +684,10 @@ export async function GET(req: NextRequest) {
   const wantsFallback = !fastMode && (strategyParam == null
     || strategyParam.split(',').map(s => s.trim()).includes('new_methodology'))
 
+  // emailSource is `let`-able after this point so the new-methodology
+  // fallback can override it.
+  let finalEmailSource = emailSource
+
   if (!email && wantsFallback) {
     try {
       const nm = await newMethodology({
@@ -627,6 +702,7 @@ export async function GET(req: NextRequest) {
       })
       if (nm.email && isPlausibleEmail(nm.email)) {
         email = nm.email
+        finalEmailSource = 'new_methodology'
       }
     } catch (e) {
       console.error('[enrich] new-methodology fallback failed:', (e as Error).message)
@@ -716,9 +792,11 @@ export async function GET(req: NextRequest) {
       channel_name: channelName || null,
       niche: niche || null,
       email: email || null,
-      // Phase 1: source tracking not yet wired into the route.
-      // Phase 3 will record which strategy resolved each email.
-      email_source: null,
+      // Source tracking wired 2026-05-08 — now records which of the
+      // 7+ strategies resolved each email (youtube_about / web_scrape /
+      // biolink / ddg / bio_pages / wayback / domain_guess /
+      // new_methodology / unknown). Null when we found no email.
+      email_source: email ? finalEmailSource : null,
       linkedin_url: socials.linkedin || null,
       instagram_handle: socials.instagram || null,
       twitter_handle: socials.twitter || null,

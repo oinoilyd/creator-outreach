@@ -105,6 +105,47 @@ export async function cacheDel(key: string): Promise<void> {
 }
 
 /**
+ * Increment a Redis counter, bucketed by current UTC date so the
+ * admin can see hit rates over the last 24h / 7d. Counter keys
+ * look like `metric:enrich:hit:l1:2026-05-08`. Each key auto-
+ * expires after 14 days so we don't accumulate forever.
+ */
+export async function cacheBumpCounter(metric: string): Promise<void> {
+  const client = getClient()
+  if (!client) return
+  try {
+    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+    const key = `metric:${metric}:${today}`
+    await client.incr(key)
+    // 14-day expiry — only set on first incr to avoid resetting TTL
+    // on every increment. EXPIRE w/ NX flag (only if no TTL set).
+    await client.expire(key, 60 * 60 * 24 * 14, 'NX')
+  } catch {
+    // Silently ignore — metrics aren't load-bearing.
+  }
+}
+
+/**
+ * Sum a metric across the last N days. Returns 0 if Redis is
+ * unconfigured or all keys missing.
+ */
+export async function cacheReadCounterRange(metric: string, days: number): Promise<number> {
+  const client = getClient()
+  if (!client) return 0
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < days; i++) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+      keys.push(`metric:${metric}:${d.toISOString().slice(0, 10)}`)
+    }
+    const values = await client.mget<(string | number | null)[]>(...keys)
+    return (values || []).reduce<number>((sum, v) => sum + Number(v ?? 0), 0)
+  } catch {
+    return 0
+  }
+}
+
+/**
  * Build a stable cache key from a search query + filters. Sorts
  * filter object keys before stringifying so {a:1,b:2} and {b:2,a:1}
  * produce the same key.

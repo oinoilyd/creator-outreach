@@ -6,6 +6,7 @@ import {
   listEnrichmentLatest,
   type EnrichmentLatest,
 } from '@/lib/creator-enrichment'
+import { cacheReadCounterRange } from '@/lib/cache'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -39,10 +40,20 @@ export default async function AdminContactsPage({
   const limit = 50
   const offset = (page - 1) * limit
 
-  const [stats, listing] = await Promise.all([
+  const [stats, listing, l1Hits24h, l2Hits24h, missCold24h, missStale24h] = await Promise.all([
     getEnrichmentStats(),
     listEnrichmentLatest({ search: q || undefined, source: src || undefined, limit, offset }),
+    cacheReadCounterRange('enrich:hit:l1', 1),
+    cacheReadCounterRange('enrich:hit:l2', 1),
+    cacheReadCounterRange('enrich:miss:l2-cold', 1),
+    cacheReadCounterRange('enrich:miss:l2-stale', 1),
   ])
+
+  // Hit rate %: (l1 + l2) / (l1 + l2 + cold + stale)
+  const cacheHits24h = l1Hits24h + l2Hits24h
+  const cacheTotal24h = cacheHits24h + missCold24h + missStale24h
+  const hitRatePct = cacheTotal24h > 0 ? Math.round((cacheHits24h / cacheTotal24h) * 100) : null
+  const liveFetchesSaved = l2Hits24h // L2 hits = saved live pipeline runs
 
   const totalPages = Math.max(1, Math.ceil(listing.total / limit))
 
@@ -80,13 +91,35 @@ export default async function AdminContactsPage({
           </div>
         </div>
 
-        {/* STATS */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+        {/* CORPUS STATS */}
+        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">Corpus</div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <StatBox label="Total channels" value={stats.total.toLocaleString()} />
           <StatBox label="With email" value={stats.withEmail.toLocaleString()} accent />
           <StatBox label="Bounced" value={stats.bouncedCount.toLocaleString()} tone="warn" />
           <StatBox label="Snapshots · 7d" value={stats.fetchedLast7d.toLocaleString()} />
           <StatBox label="Snapshots · 24h" value={stats.fetchedLast24h.toLocaleString()} />
+        </div>
+
+        {/* CACHE-HIT METRICS — Phase 2 read path performance.
+            L1 = Redis hit (sub-10ms), L2 = Postgres hit (sub-50ms;
+            saves a 5-12s live pipeline run). */}
+        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+          Cache hit rate · last 24h
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+          <StatBox
+            label="Hit rate"
+            value={hitRatePct == null ? '—' : `${hitRatePct}%`}
+            accent={hitRatePct != null && hitRatePct >= 50}
+          />
+          <StatBox label="L1 (Redis)" value={l1Hits24h.toLocaleString()} />
+          <StatBox label="L2 (Postgres)" value={l2Hits24h.toLocaleString()} accent={l2Hits24h > 0} />
+          <StatBox label="Live fetches saved" value={liveFetchesSaved.toLocaleString()} />
+          <StatBox
+            label="Misses (cold + stale)"
+            value={(missCold24h + missStale24h).toLocaleString()}
+          />
         </div>
 
         {/* SEARCH + FILTER */}

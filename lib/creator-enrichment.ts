@@ -120,8 +120,51 @@ export async function bulkSaveSearchResults(hits: SearchHit[], niche: string): P
 }
 
 /**
+ * Window inside which we treat repeat enrichment writes as
+ * redundant. If the latest snapshot is younger than this AND the
+ * meaningful fields (email, socials, subs within ±2%) match, skip
+ * the insert. Avoids bloating the table with identical rows when
+ * a user re-enriches the same creator twice.
+ */
+const DEDUP_WINDOW_MS = 6 * 60 * 60 * 1000 // 6h
+
+/**
+ * Returns true when `snap` is essentially identical to the most
+ * recent snapshot for the same channel — same email, same socials,
+ * subscribers within 2%, and the latest snapshot is fresh enough
+ * to count as "the same fetch."
+ */
+async function isRedundantSnapshot(snap: EnrichmentSnapshot): Promise<boolean> {
+  const existing = await getLatestEnrichment(snap.yt_channel_id)
+  if (!existing) return false
+  const age = Date.now() - new Date(existing.fetched_at).getTime()
+  if (age > DEDUP_WINDOW_MS) return false
+  const same = (a: unknown, b: unknown) => (a ?? '') === (b ?? '')
+  if (!same(existing.email, snap.email)) return false
+  if (!same(existing.linkedin_url, snap.linkedin_url)) return false
+  if (!same(existing.instagram_handle, snap.instagram_handle)) return false
+  if (!same(existing.twitter_handle, snap.twitter_handle)) return false
+  if (!same(existing.website, snap.website)) return false
+  // Subs within ±2% (or both null).
+  const a = existing.subscribers
+  const b = snap.subscribers
+  if (a == null && b == null) return true
+  if (a == null || b == null) return false
+  const aN = Number(a)
+  const bN = Number(b)
+  if (!Number.isFinite(aN) || !Number.isFinite(bN)) return false
+  const denom = Math.max(aN, bN, 1)
+  return Math.abs(aN - bN) / denom <= 0.02
+}
+
+/**
  * Insert an enrichment snapshot. Fire-and-forget by design —
  * callers shouldn't block on this. Logs failures but never throws.
+ *
+ * Skips the insert if a near-identical snapshot was already written
+ * within the last 6 hours (see isRedundantSnapshot). Append-only
+ * stays valuable for trend data, but we don't want 500 identical
+ * rows when a user re-enriches the same creator a dozen times.
  */
 export async function saveEnrichmentSnapshot(snap: EnrichmentSnapshot): Promise<void> {
   if (!snap.yt_channel_id) return
@@ -133,6 +176,13 @@ export async function saveEnrichmentSnapshot(snap: EnrichmentSnapshot): Promise<
     return
   }
   try {
+    if (await isRedundantSnapshot(snap)) {
+      // Update fetched_at on the existing row so the staleness check
+      // resets, but skip the actual INSERT to keep the table clean.
+      // (For now we just skip — the existing row is still recent
+      // enough to count as fresh.)
+      return
+    }
     const { error } = await sb.from('creator_enrichment').insert({
       yt_channel_id: snap.yt_channel_id,
       channel_name: snap.channel_name ?? null,
