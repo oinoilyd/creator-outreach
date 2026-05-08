@@ -48,7 +48,7 @@ export default async function LandingPage() {
 
   return (
     <main
-      className="min-h-screen text-[#0F1733] dark:text-white font-[family-name:var(--font-geist-sans)] bg-[#FCFAF6] dark:bg-[#0A0E15]"
+      className="min-h-screen overflow-x-clip text-[#0F1733] dark:text-white font-[family-name:var(--font-geist-sans)] bg-[#FCFAF6] dark:bg-[#0A0E15]"
     >
       <LandingTopNav isAuthed={isAuthed} />
 
@@ -91,36 +91,33 @@ export default async function LandingPage() {
               <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/45 dark:text-white/45 mb-3 font-semibold">
                 Built for anyone reaching out to creators
               </div>
-              {/* Persona list — separators implemented as ::before
-                  pseudo-elements on every item except the first, so a
-                  wrapped line never starts with a dangling "·". The
-                  prior version used inline span separators which
-                  produced orphaned dots at line-edges on mobile. */}
-              {/* Persona order matters — first item carries the most
-                  signal. Leading with broader/recognizable roles
-                  (Podcasters, Editors, Marketing teams) instead of
-                  "Indie operators" which read as too narrow as the
-                  flagship persona. */}
-              <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium list-none p-0">
+              {/* Persona list — single paragraph with inline middle-
+                  dot separators. Items can wrap naturally; only the
+                  separator span has whitespace-nowrap so a "·" never
+                  ends up alone at line-start. The whole list flows as
+                  natural prose at any viewport width. */}
+              <p className="text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium leading-[1.7]">
                 {[
                   'Podcasters',
                   'Editors',
                   'Videographers',
-                  'Growth + marketing teams',
+                  'Marketing teams',
                   'Consultants',
                   'Talent managers',
                   'Solo agencies',
                   'Solo founders',
                   'Indie operators',
-                ].map(label => (
-                  <li
-                    key={label}
-                    className="relative pl-5 first:pl-0 before:content-['·'] before:absolute before:left-1.5 before:text-[#0F1733]/15 dark:before:text-white/20 first:before:content-none"
-                  >
+                ].map((label, i, arr) => (
+                  <span key={label}>
                     {label}
-                  </li>
+                    {i < arr.length - 1 && (
+                      <span aria-hidden className="mx-2 text-[#0F1733]/20 dark:text-white/20">
+                        ·
+                      </span>
+                    )}
+                  </span>
                 ))}
-              </ul>
+              </p>
             </div>
           </div>
 
@@ -161,7 +158,7 @@ export default async function LandingPage() {
                 </svg>
               }
               title="Results"
-              body="YouTube, Instagram, TikTok, X, LinkedIn — searched in parallel. 20 region filters, audience-size buckets, last-posted recency. Click one of 13 niche buckets to fan out across ~30 occupations in a single query."
+              body="Search any occupation, industry, or field across YouTube, Instagram, TikTok, X, and LinkedIn — all in parallel. Filter by region, audience size, and last-posted recency. Niche shortcuts let you fan out 30+ related occupations in one click."
             />
             <SolutionTile
               step="02"
@@ -174,7 +171,7 @@ export default async function LandingPage() {
                 </svg>
               }
               title="AI fit score"
-              body="Type your ideal creator in a sentence. Five-dimension fit score (recency · reach · reachability · relevance · quality) ranks every result against it. Strong / Possible / Weak labels per row. Re-tunable per platform."
+              body="Describe your ideal creator in plain English and the AI scores every result against it. Fully customizable — any criteria you can name and measure becomes a weighted dimension. Strong / Possible / Weak labels per row, re-tunable per platform."
             />
             <SolutionTile
               step="03"
@@ -186,7 +183,7 @@ export default async function LandingPage() {
                 </svg>
               }
               title="Outreach"
-              body="One row per creator: status pill, medium tracker (Email · LinkedIn · Other), product notes. Click an Instagram handle and an opener template lands in your clipboard while the profile opens."
+              body="A built-in CRM tuned for creators. One row per contact: status, channel, notes. Click an Instagram handle and an opener template lands in your clipboard."
             />
             <SolutionTile
               step="04"
@@ -204,45 +201,12 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* HOW IT ACTUALLY WORKS — 3-step horizontal demo strip with
-          tight bento screenshot crops. Sells the whole loop in 2
-          seconds without marketing copy: pick a niche → see scored
-          results → reach out + track. The screenshots are the real
-          UI (bento-search.png / bento-fit.png / bento-status.png),
-          not synthesized mockups. */}
-      <section className="px-6 pt-20 md:pt-28 pb-4">
-        <div className="max-w-[1280px] mx-auto">
-          <div className="text-center max-w-[640px] mx-auto mb-12 md:mb-14">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">How it actually works</div>
-            <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
-              The whole loop, in three clicks.
-            </h2>
-          </div>
-          <div className="relative grid md:grid-cols-3 gap-6 md:gap-3 items-stretch">
-            <DemoStep
-              n="01"
-              title="Run a search"
-              body="Five platforms in parallel. Filter by region, audience size, and recency. Or click a niche bucket to fan out across ~30 occupations in one go."
-              src="/screenshots/bento-search.png"
-              alt="Search filters with niche bucket selected"
-            />
-            <DemoStep
-              n="02"
-              title="See ranked results"
-              body="Every creator scored against your plain-English criteria. Strong / Possible / Weak labels, sortable per dimension."
-              src="/screenshots/bento-fit.png"
-              alt="Results table with fit score column"
-            />
-            <DemoStep
-              n="03"
-              title="Reach out, track status"
-              body="Status pill, medium tracker, follow-up cadence. Click an Instagram handle and a DM template lands in your clipboard."
-              src="/screenshots/bento-status.png"
-              alt="Outreach board with status pills"
-            />
-          </div>
-        </div>
-      </section>
+      {/* (The "How it actually works" demo strip was removed
+          2026-05-08 — the bento screenshots had wildly different
+          aspect ratios that never fit the grid cleanly, and the
+          Solutions tiles above + Product Narratives below already
+          carry the 4-step loop. Three sections doing the same job
+          was redundant; the page reads tighter without it.) */}
 
       {/* PRODUCT NARRATIVES (3 stages with screenshots).
           Each div has its own #anchor (sourcing/outreach/analytics)
@@ -353,17 +317,17 @@ export default async function LandingPage() {
                 Win rate, response rate, pipeline value.
               </h3>
               <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
-                Out-of-the-box: 7 KPIs across the top — In Pipeline, Reached
+                Seven default KPIs across the top — In Pipeline, Reached
                 Out, Response Received, Response Rate, Win Rate, Pipeline $,
-                Stale Follow-ups. Status breakdown bar shows where the queue
-                is sitting. Velocity card tracks the last 7 days.
+                Stale Follow-ups. Plus 30+ customizable metrics you can plug
+                into the dashboard. Status breakdown bar, outreach-by-medium
+                split, velocity card.
               </p>
-              {/* Bullets aligned with what analytics.png literally shows. */}
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
-                <Bullet>7 KPI cards: In Pipeline · Reached · Responses · Rate · Win % · Pipeline $ · Stale</Bullet>
+                <Bullet>7 default KPI cards · 30+ customizable metrics, no formulas</Bullet>
                 <Bullet>Status breakdown bar (Successful / Open / No Response / Rejected)</Bullet>
                 <Bullet>Outreach-by-medium split (Email / LinkedIn / Other)</Bullet>
-                <Bullet>Customize the metric stack — no formulas</Bullet>
+                <Bullet>Velocity card tracks the last 7 days</Bullet>
               </ul>
             </div>
             <ScreenshotZoom caption="Analytics — click to zoom; ESC to close.">
@@ -388,89 +352,127 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* STAT BAND — hero stat is now the fit score (the actual
-          differentiator vs HubSpot / influencer CRMs). Niche buckets
-          moved out of the headline spot and become a smaller mention
-          in the supporting row. */}
+      {/* STAT BAND — "AI fit score" hero with a high-graphic visual:
+          orbital sparkline ring + animated gradient glow + chip cloud
+          showing fit dimensions as customizable tokens. Reads as a
+          designed feature spotlight, not a marketing stat block. */}
       <section className="px-6 pb-20 md:pb-28">
-        <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-8 py-14 md:py-20 text-white">
-          <div className="text-center max-w-[700px] mx-auto mb-14">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">What&apos;s actually under the hood</div>
-            <h2 className="font-semibold tracking-[-0.02em] leading-[1.1]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
-              A search engine, a scoring engine, and a CRM — built into one.
-            </h2>
-          </div>
+        <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-8 py-14 md:py-20 text-white relative overflow-hidden">
+          {/* Background ambient glow — large terracotta radial,
+              positioned off-canvas so it bleeds inward. */}
+          <div
+            aria-hidden
+            className="absolute -top-1/2 -right-1/4 w-[800px] h-[800px] pointer-events-none"
+            style={{ background: 'radial-gradient(closest-side, rgba(232,93,47,0.20), transparent 70%)' }}
+          />
+          <div
+            aria-hidden
+            className="absolute -bottom-1/3 -left-1/4 w-[700px] h-[700px] pointer-events-none"
+            style={{ background: 'radial-gradient(closest-side, rgba(242,162,97,0.12), transparent 70%)' }}
+          />
 
-          {/* Hero stat row: 5-dimension fit score with the dimensions
-              listed in the explainer paragraph. */}
-          <div className="grid md:grid-cols-12 gap-8 md:gap-10 items-center mb-12 md:mb-14 pb-12 md:pb-14 border-b border-white/10">
-            <div className="md:col-span-5">
-              <div
-                className="font-semibold tracking-[-0.04em] leading-[0.95] text-[#F2A261]"
-                style={{ fontSize: 'clamp(5rem, 11vw, 9rem)' }}
-              >
-                5
+          <div className="relative">
+            <div className="text-center max-w-[700px] mx-auto mb-14">
+              <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">What&apos;s actually under the hood</div>
+              <h2 className="font-semibold tracking-[-0.02em] leading-[1.1]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
+                A search engine, a scoring engine, and a CRM — built into one.
+              </h2>
+            </div>
+
+            {/* AI FIT SCORE feature spotlight — left: orbital graphic,
+                right: copy + customizable dimension chips. */}
+            <div className="grid md:grid-cols-12 gap-8 md:gap-12 items-center mb-12 md:mb-14 pb-12 md:pb-14 border-b border-white/10">
+              <div className="md:col-span-5 flex items-center justify-center">
+                <FitScoreOrbital />
               </div>
-              <div className="text-[16px] md:text-[17px] text-white font-semibold mt-2">
-                dimensions in the fit score
+
+              <div className="md:col-span-7">
+                <div className="inline-flex items-center gap-2 mb-4 px-2.5 py-1 rounded-full bg-[#F2A261]/10 border border-[#F2A261]/30 text-[11px] uppercase tracking-[0.18em] text-[#F2A261] font-bold">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" />
+                  </svg>
+                  AI fit score
+                </div>
+                <h3 className="text-white font-semibold tracking-[-0.02em] leading-[1.15] mb-4" style={{ fontSize: 'clamp(1.5rem, 2.6vw, 2rem)' }}>
+                  Fully customizable. Anything you can name and measure.
+                </h3>
+                <p className="text-[15px] md:text-[16px] text-white/75 leading-[1.65] mb-5">
+                  Describe your ideal creator in plain English. The AI ranks
+                  every result on weighted dimensions you control — recency,
+                  reach, reachability, relevance, quality, plus anything else
+                  you can define. Re-tune per platform; Instagram weight
+                  isn&apos;t YouTube weight isn&apos;t LinkedIn weight.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Recency',
+                    'Reach',
+                    'Reachability',
+                    'Relevance',
+                    'Quality',
+                    '+ your own',
+                  ].map(d => (
+                    <span
+                      key={d}
+                      className={
+                        'inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-medium ' +
+                        (d === '+ your own'
+                          ? 'bg-[#F2A261]/20 text-[#F2A261] border border-[#F2A261]/40'
+                          : 'bg-white/8 text-white/85 border border-white/15')
+                      }
+                    >
+                      {d}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="md:col-span-7 text-[15px] md:text-[16px] text-white/75 leading-[1.65]">
-              Recency · Reach · Reachability · Relevance · Quality. Re-tunable
-              per platform — Instagram weight isn&apos;t YouTube weight isn&apos;t
-              LinkedIn weight. Score every creator against your plain-English
-              criteria, see Strong / Possible / Weak labels per row, sort by
-              any dimension. The thing HubSpot doesn&apos;t do.
-            </div>
-          </div>
 
-          {/* Supporting row: 5 platforms, 20 regions, $0 free. Niche
-              buckets get a one-line mention in the platforms stat. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
-            <Stat n="5" label="platforms searched in parallel · 13 niche buckets" />
-            <Stat n="20" label="region filters · audience size · last-posted recency" />
-            <Stat n="$0" label="free in beta · no card · no seat cap" />
+            {/* Supporting row: 5 platforms, 20 regions, $0 free. */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
+              <Stat n="5" label="platforms searched in parallel" />
+              <Stat n="20" label="region filters · audience size · last-posted recency" />
+              <Stat n="$0" label="free in beta · no card · no seat cap" />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* "BUILT BECAUSE" — replaces the fake-testimonial section that
-          had me inventing customer names. Creator Outreach is in beta
-          with one operator (Dylan) eating his own dog food, so honest
-          framing is "here are the three pains I hit running my own
-          pipeline, and the three features I built for each one." This
-          is far more credible than fabricated testimonials. */}
+      {/* "WHY THIS EXISTS" — rewritten 2026-05-08. Previous copy was
+          too marketing-y ("Three real pains. Three things in the app.
+          Here's the receipts."). New voice: terse operator notes
+          stating the workaround that wasn't working, then the
+          built-in answer. No "pain → solution" arc-speak, no
+          horizontal-rule receipts language. */}
       <section id="customers" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12 md:mb-16">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Built because</div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Why this exists</div>
             <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[26ch]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Three real pains. Three things in the app.
+              I built this because I needed it.
             </h2>
             <p className="mt-5 max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
-              Creator Outreach is in beta and built by one operator
-              running his own creator pipeline. Every piece of the app
-              exists because the spreadsheet version of it stopped
-              scaling. Here&apos;s the receipts.
+              Three things I was working around for months. Each one is
+              now built in, because the workaround was the bottleneck.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-x-10 md:gap-x-14 gap-y-12 max-w-[1180px] mx-auto">
             <BuiltBecauseNote
-              pain="The four-tab problem."
-              note="Sourcing one guest meant a YouTube tab, a LinkedIn tab to find an email, a Twitter tab to confirm they were still active, and a Google Sheet to remember who I&apos;d already messaged. Five sources of truth, none of them talking."
-              becameFeature="One query → scored results across all five platforms, with email + LinkedIn + Instagram links inline per row. The four tabs collapse into one."
+              pain="Four tabs to source one creator."
+              note="YouTube to find them. LinkedIn for a work email. Twitter to check if they&apos;re still active. A Google Sheet to remember who I&apos;d already messaged."
+              becameFeature="One query, five platforms, scored. Email and social handles surface inline. Four tabs become one row."
               tag="Sourcing"
             />
             <BuiltBecauseNote
-              pain="Generic AI scoring lies."
-              note="Every off-the-shelf creator score is the same: subscriber count, engagement rate, maybe vertical. None of them know what I&apos;m actually looking for — &ldquo;US-based, posts weekly, talks about value investing, under 100K subs.&rdquo;"
-              becameFeature="Plain-English Lead Criteria you write in a sentence. Five-dimension fit score (recency · reach · reachability · relevance · quality) with re-tunable weights per platform."
-              tag="Scoring"
+              pain="Off-the-shelf creator scoring is useless."
+              note="Subs + engagement + vertical doesn&apos;t describe fit. None of it knew that I wanted US-based, weekly posters who talk about value investing under 100K subs."
+              becameFeature="Write what you actually want. The AI scores against that — fully customizable, weighted per platform."
+              tag="Fit score"
             />
             <BuiltBecauseNote
-              pain="HubSpot didn&apos;t know what an Instagram handle was."
-              note="Tried HubSpot ($400/mo). Tried two influencer-CRMs ($300+/mo, gated behind a sales call). All of them treated email as the only channel. None of them clicked an IG handle and gave me a DM template."
-              becameFeature="One outreach board with status pill, medium tracker (Email · LinkedIn · Other), follow-up cadence, IG DM auto-composer. $0 while in beta. CSV export anytime — your data leaves with you."
+              pain="Every CRM ignored Instagram."
+              note="HubSpot is $400/mo. Two influencer-CRMs were $300+/mo behind a sales call. None of them recognized an IG handle, much less helped me open a DM."
+              becameFeature="Built-in CRM tuned for creators. Click an IG handle, get a DM template. Email, LinkedIn, and other channels tracked per row."
               tag="Outreach"
             />
           </div>
@@ -491,13 +493,27 @@ export default async function LandingPage() {
           {/* Platform tiles — actual brand glyphs (YouTube/IG/TikTok/X/
               LinkedIn). Hovering raises the tile and reveals an
               accent stripe on the left edge so the hover state is a
-              real affordance, not a generic 4px lift. */}
+              real affordance, not a generic 4px lift.
+              YouTube + Instagram tiles get a subtle "primary" treatment
+              (slightly stronger background tint matching their accent)
+              since they're the highest-traffic platforms for most
+              creator outreach. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-[900px] mx-auto">
-            {PLATFORM_MARKS.map(({ name, Glyph, accent }) => (
+            {PLATFORM_MARKS.map(({ name, Glyph, accent }) => {
+              const isPrimary = name === 'YouTube' || name === 'Instagram'
+              return (
               <div
                 key={name}
-                className="group relative rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] px-4 py-7 hover:-translate-y-1 transition-transform overflow-hidden"
-                style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}
+                className={`group relative rounded-xl border bg-white dark:bg-[#131826] px-4 py-7 hover:-translate-y-1 transition-transform overflow-hidden ${
+                  isPrimary
+                    ? 'border-[#0F1733]/15 dark:border-white/15'
+                    : 'border-[#0F1733]/10 dark:border-white/10'
+                }`}
+                style={{
+                  boxShadow: isPrimary
+                    ? `0 1px 3px rgba(15,23,51,0.05), inset 0 0 0 1px ${accent}10`
+                    : '0 1px 3px rgba(15,23,51,0.05)',
+                }}
               >
                 {/* Left accent stripe — fades in on hover, colored to the
                     platform's brand accent. Subtle but reads as a designed
@@ -518,10 +534,11 @@ export default async function LandingPage() {
                         : ''
                     }
                   />
-                  <div className="text-[14px] font-semibold">{name}</div>
+                  <div className={`text-[14px] font-semibold ${isPrimary ? 'text-[#0F1733] dark:text-white' : ''}`}>{name}</div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
@@ -579,31 +596,59 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* RESOURCES — reframed as honest "writing in progress" rather
-          than fake-published guides. Cards now say "DRAFT" with a
-          "Notify me" CTA per piece, instead of pretending each one is
-          a finished post linking somewhere. */}
+      {/* ROADMAP — replaces the previous "Resources / Writing in
+          progress" section per Dylan. Real items in the build queue
+          with a status chip per card (Shipping / Building /
+          Researching). Honest framing — Creator Outreach is in beta,
+          this is the actual queue. */}
       <section id="resources" className="px-6 py-20 md:py-28 scroll-mt-24">
         <div className="max-w-[1280px] mx-auto">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
             <div>
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-3 font-semibold">Writing in progress</div>
+              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-3 font-semibold">Roadmap</div>
               <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
-                Playbooks I&apos;m writing as I run my own pipeline.
+                What&apos;s next, from the operator running it.
               </h2>
               <p className="mt-3 max-w-[60ch] text-[15px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
-                These are drafts — published as I finish them. Email me
-                and I&apos;ll send the next one when it lands.
+                The actual queue, in order. Each item ships when it stops
+                being a workaround. Email me to vote on what comes next.
               </p>
             </div>
-            <a href="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20playbooks%20publish" className="text-[14px] font-semibold text-[#E85D2F] hover:underline">
-              Notify me &rarr;
+            <a href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20roadmap%20feedback" className="text-[14px] font-semibold text-[#E85D2F] hover:underline">
+              Vote on the queue &rarr;
             </a>
           </div>
-          <div className="grid md:grid-cols-3 gap-5">
-            <ResourceCard tag="DRAFT · GUIDE"    title="The 4-step outreach loop, without a CRM"  body="Search → Score → Pitch → Track. How to run the whole loop on this app, the manual fallback when something breaks, and the spreadsheet template I started with before building this." />
-            <ResourceCard tag="DRAFT · POST"     title="Why generic creator scoring lies"          body="Subscriber count + engagement rate + vertical doesn&apos;t describe fit. Walk-through of the 5-dimension fit score, which weights I tune per platform, and why &lsquo;US-based, posts weekly&rsquo; was the only criteria that actually moved my reply rate." />
-            <ResourceCard tag="DRAFT · PLAYBOOK" title="Per-channel template anatomy"              body="What an Instagram DM, a LinkedIn message, and a creator email each need to feel different and still convert. Side-by-side teardown of the templates that work for me right now." />
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <RoadmapCard
+              status="Shipping"
+              title="Real Instagram metrics in the queue"
+              body="Inline follower counts and recent-post recency on every IG row. Three-strategy scraper handles profiles even when the public APIs deny."
+            />
+            <RoadmapCard
+              status="Building"
+              title="Meta Graph API + bulk email enrichment"
+              body="Verified IG audience-quality signals via the Graph API. Bulk lookup that turns a list of handles into a reachability-scored sheet in one pass."
+            />
+            <RoadmapCard
+              status="Building"
+              title="Custom guidance presets"
+              body="Save your fit-criteria recipe, share it across platforms, snapshot a per-niche scoring profile (e.g. 'Fitness IG sponsorship') and reuse in one click."
+            />
+            <RoadmapCard
+              status="Next up"
+              title="Multi-seat workspaces"
+              body="Shared queues, per-user notes, per-seat outreach status without per-seat pricing punishments."
+            />
+            <RoadmapCard
+              status="Researching"
+              title="Browser extension"
+              body="See a creator on YouTube or Instagram, hit a hotkey, drop them into the Outreach board with one keystroke. Skip the copy/paste."
+            />
+            <RoadmapCard
+              status="Researching"
+              title="Reply-rate analytics per template"
+              body="Compare opener templates head-to-head. See which DM hooks produce replies on which platform. Auto-rotate the winner."
+            />
           </div>
         </div>
       </section>
@@ -661,7 +706,11 @@ export default async function LandingPage() {
             <div className="mt-6 text-[12px] text-[#0F1733]/50 dark:text-white/50">© 2026 Creator Outreach</div>
           </div>
           <FooterCol heading="Product"   links={[['Overview','#product'],['Solutions','#solutions'],['Pricing','#pricing'],['Customers','#customers']]} />
-          <FooterCol heading="Resources" links={[['Guides','mailto:dmeehanj@gmail.com'],['Playbooks','mailto:dmeehanj@gmail.com'],['Changelog','mailto:dmeehanj@gmail.com']]} />
+          {/* Resources column — every entry currently says "Coming
+              soon" because none of the long-form content (guides,
+              playbooks, changelog) is published yet. Honest framing
+              beats four mailto: links pretending to be real pages. */}
+          <FooterColPlaceholder heading="Resources" labels={['Guides', 'Playbooks', 'Changelog']} />
           <FooterCol heading="Company"   links={[['About','#'],['Contact','mailto:dmeehanj@gmail.com'],['Talk to us','mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo']]} />
           <FooterCol heading="Legal"     links={[['Privacy','/privacy'],['Terms','/terms']]} />
         </div>
@@ -672,35 +721,164 @@ export default async function LandingPage() {
 
 /* ─── primitives ─── */
 
-function DemoStep({
-  n,
-  title,
-  body,
-  src,
-  alt,
-}: {
-  /** Step number "01" / "02" / "03" — typeset in muted mono */
-  n: string
-  title: string
-  body: string
-  src: string
-  alt: string
-}) {
+/**
+ * FitScoreOrbital — decorative SVG visual for the AI fit-score
+ * spotlight in the stat band. Three concentric rings with a glowing
+ * core, plus 6 orbital dots labeled with fit dimensions. The middle
+ * ring rotates slowly via CSS animation; the outer ring counter-
+ * rotates. Reads as "scoring engine running" without being literal
+ * about how it works.
+ */
+function FitScoreOrbital() {
   return (
-    <div className="relative flex flex-col rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
-      {/* Screenshot strip — locked 16:9 with object-contain on a dark
-          frame so different bento crops (search 2.47:1, fit 1.08:1,
-          status 3.98:1) all sit visibly in the same height slot
-          without forced cropping. Always dark frame regardless of
-          theme so the screenshots match. */}
-      <div className="relative w-full bg-[#0E121C] border-b border-[#0F1733]/10 dark:border-white/10" style={{ aspectRatio: '16 / 9' }}>
-        <Image src={src} alt={alt} fill sizes="(min-width: 1280px) 400px, 100vw" className="object-contain" />
-      </div>
-      <div className="flex-1 p-5 md:p-6">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-[#E85D2F] font-bold font-mono mb-2">{n}</div>
-        <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2">{title}</h3>
-        <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
-      </div>
+    <div className="relative w-full max-w-[320px] aspect-square">
+      {/* Outer rotating ring with dashed stroke */}
+      <svg
+        viewBox="0 0 320 320"
+        className="absolute inset-0 w-full h-full motion-reduce:hidden"
+        style={{ animation: 'fit-orbital-spin 24s linear infinite' }}
+        aria-hidden
+      >
+        <circle
+          cx="160"
+          cy="160"
+          r="148"
+          fill="none"
+          stroke="rgba(242,162,97,0.35)"
+          strokeWidth="1"
+          strokeDasharray="2 6"
+        />
+      </svg>
+      {/* Middle counter-rotating ring with thicker dashes */}
+      <svg
+        viewBox="0 0 320 320"
+        className="absolute inset-0 w-full h-full motion-reduce:hidden"
+        style={{ animation: 'fit-orbital-spin-rev 36s linear infinite' }}
+        aria-hidden
+      >
+        <circle
+          cx="160"
+          cy="160"
+          r="110"
+          fill="none"
+          stroke="rgba(232,93,47,0.55)"
+          strokeWidth="1.5"
+          strokeDasharray="6 14"
+        />
+      </svg>
+      {/* Static inner ring with terracotta gradient stroke */}
+      <svg
+        viewBox="0 0 320 320"
+        className="absolute inset-0 w-full h-full"
+        aria-hidden
+      >
+        <defs>
+          <linearGradient id="fit-orbital-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#F2A261" />
+            <stop offset="100%" stopColor="#E85D2F" />
+          </linearGradient>
+          <radialGradient id="fit-orbital-core" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%" stopColor="#F2A261" stopOpacity="0.9" />
+            <stop offset="60%" stopColor="#E85D2F" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#E85D2F" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        {/* Glowing core */}
+        <circle cx="160" cy="160" r="60" fill="url(#fit-orbital-core)" />
+        {/* Inner ring */}
+        <circle
+          cx="160"
+          cy="160"
+          r="72"
+          fill="none"
+          stroke="url(#fit-orbital-grad)"
+          strokeWidth="1.5"
+        />
+        {/* Score number in center */}
+        <text
+          x="160"
+          y="160"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#FFFFFF"
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+          fontWeight="600"
+          fontSize="36"
+          letterSpacing="-1.5"
+        >
+          92
+        </text>
+        <text
+          x="160"
+          y="190"
+          textAnchor="middle"
+          fill="#F2A261"
+          fontFamily="ui-monospace, monospace"
+          fontSize="9"
+          letterSpacing="2"
+        >
+          STRONG FIT
+        </text>
+        {/* Six orbital dots positioned around the middle ring (r=110).
+            Each represents a fit dimension. Positioned via cos/sin at
+            equal angles. */}
+        {[
+          { angle: -90, label: 'Recency' },
+          { angle: -30, label: 'Reach' },
+          { angle: 30, label: 'Reachability' },
+          { angle: 90, label: 'Relevance' },
+          { angle: 150, label: 'Quality' },
+          { angle: 210, label: 'Custom' },
+        ].map(({ angle, label }) => {
+          const rad = (angle * Math.PI) / 180
+          const r = 110
+          const cx = 160 + Math.cos(rad) * r
+          const cy = 160 + Math.sin(rad) * r
+          // Label offset just outside the dot
+          const lr = 138
+          const lx = 160 + Math.cos(rad) * lr
+          const ly = 160 + Math.sin(rad) * lr
+          const isCustom = label === 'Custom'
+          return (
+            <g key={label}>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={isCustom ? 5 : 4}
+                fill={isCustom ? '#F2A261' : '#FFFFFF'}
+                stroke={isCustom ? '#F2A261' : 'rgba(255,255,255,0.4)'}
+                strokeWidth="1"
+              />
+              <text
+                x={lx}
+                y={ly}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill={isCustom ? '#F2A261' : 'rgba(255,255,255,0.7)'}
+                fontFamily="ui-sans-serif, system-ui, sans-serif"
+                fontSize="9"
+                fontWeight={isCustom ? 700 : 500}
+                letterSpacing="0.5"
+              >
+                {label}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      {/* CSS animation keyframes — colocated so the visual is
+          self-contained. Respects prefers-reduced-motion via the
+          motion-reduce:hidden class on the rotating rings. */}
+      <style>{`
+        @keyframes fit-orbital-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes fit-orbital-spin-rev {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+      `}</style>
     </div>
   )
 }
@@ -826,30 +1004,31 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
   )
 }
 
-function ResourceCard({ tag, title, body }: { tag: string; title: string; body: string }) {
+function RoadmapCard({
+  status,
+  title,
+  body,
+}: {
+  status: 'Shipping' | 'Building' | 'Next up' | 'Researching'
+  title: string
+  body: string
+}) {
+  // Status-specific chip colour — green for shipping (almost there),
+  // terracotta for building (active), amber for next up (queued),
+  // blue for researching (exploration phase).
+  const statusStyles: Record<string, string> = {
+    Shipping: 'bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30 dark:bg-[#16A34A]/15 dark:text-[#4ADE80]',
+    Building: 'bg-[#E85D2F]/10 text-[#9C3D1F] border-[#E85D2F]/30 dark:bg-[#E85D2F]/20 dark:text-[#F2A261]',
+    'Next up': 'bg-[#F2A261]/15 text-[#9C5B22] border-[#F2A261]/30 dark:text-[#F2A261]',
+    Researching: 'bg-[#1B6FB5]/10 text-[#1B6FB5] border-[#1B6FB5]/30 dark:bg-[#1B6FB5]/20 dark:text-[#60A5FA]',
+  }
   return (
-    <article className="group rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] p-6 transition-colors hover:border-[#E85D2F]/40" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
-      <div className="text-[10px] uppercase tracking-[0.22em] text-[#E85D2F] font-semibold mb-3">{tag}</div>
-      {/* Title + chevron — the chevron trails the title on hover
-          (translate-x). Different hover affordance from the lift on
-          solution tiles or the brand-stripe on platform tiles. */}
-      <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2.5 inline-flex items-center gap-1.5">
-        <span>{title}</span>
-        <svg
-          aria-hidden
-          className="text-[#E85D2F] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 shrink-0"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </h3>
+    <article className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] p-6 transition-colors hover:border-[#E85D2F]/40" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-[0.16em] font-bold border mb-4 ${statusStyles[status]}`}>
+        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+        {status}
+      </div>
+      <h3 className="text-[17px] font-semibold tracking-[-0.01em] mb-2.5 leading-[1.3]">{title}</h3>
       <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
     </article>
   )
@@ -863,6 +1042,27 @@ function FooterCol({ heading, links }: { heading: string; links: [string, string
         {links.map(([label, href]) => (
           <li key={label}>
             <Link href={href} className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] transition-colors">{label}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * FooterColPlaceholder — same visual shape as FooterCol but each
+ * entry is rendered as plain text with a "Coming soon" affix instead
+ * of a hyperlink. Used for Resources where nothing is published yet.
+ */
+function FooterColPlaceholder({ heading, labels }: { heading: string; labels: string[] }) {
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/50 dark:text-white/50 mb-4 font-semibold">{heading}</div>
+      <ul className="space-y-2">
+        {labels.map(label => (
+          <li key={label} className="text-[13px] text-[#0F1733]/55 dark:text-white/55">
+            {label}
+            <span className="ml-1.5 text-[11px] uppercase tracking-[0.14em] text-[#0F1733]/40 dark:text-white/40">— soon</span>
           </li>
         ))}
       </ul>

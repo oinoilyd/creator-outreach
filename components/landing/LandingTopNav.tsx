@@ -119,8 +119,10 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
           </button>
 
           {/* HAMBURGER + DROPDOWN — wrapped in ref'd div so click-outside
-              detection treats both the button and the menu as "inside." */}
-          <div ref={wrapRef} className="relative z-10">
+              detection treats both the button and the menu as "inside."
+              `inline-flex` on the wrapper centers the button vertically
+              so it lines up with the theme toggle (was 1.5px low). */}
+          <div ref={wrapRef} className="relative z-10 inline-flex items-center">
             <button
               type="button"
               onClick={(e) => {
@@ -147,40 +149,23 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                 role="menu"
                 className="absolute right-0 top-[calc(100%+8px)] w-72 bg-white dark:bg-[#1A2034] border border-[#0F1733]/10 dark:border-white/10 rounded-xl shadow-2xl shadow-black/15 dark:shadow-black/40 z-50 overflow-hidden py-2 max-h-[calc(100vh-90px)] overflow-y-auto"
               >
-                {/* Beefier menu (2026-05-08): grouped by Product /
-                    Site / Connect / Account. Always visible at every
-                    viewport (was previously mobile-only for top-level
-                    anchors) so power-users can deep-link directly to
-                    a specific product stage from any breakpoint. */}
+                {/* Cleaner menu (2026-05-08, second pass): tighter
+                    one-word labels, no descriptors, no obsolete
+                    "playbooks" link. Three groups + Account. */}
 
-                {/* GROUP 1 — Product (deep-link to each narrative) */}
                 <MenuGroup label="Product">
-                  {[
-                    { label: 'Sourcing — search across 5 platforms', href: '#sourcing' },
-                    { label: 'Outreach — one CRM-style board', href: '#outreach' },
-                    { label: 'Analytics — 7 KPIs, status breakdown', href: '#analytics' },
-                  ].map(item => (
-                    <MenuItem key={item.href} href={item.href} onSelect={() => setOpen(false)}>
-                      {item.label}
-                    </MenuItem>
-                  ))}
+                  <MenuItem href="#sourcing" onSelect={() => setOpen(false)}>Sourcing</MenuItem>
+                  <MenuItem href="#outreach" onSelect={() => setOpen(false)}>Outreach</MenuItem>
+                  <MenuItem href="#analytics" onSelect={() => setOpen(false)}>Analytics</MenuItem>
                 </MenuGroup>
 
-                {/* GROUP 2 — Site (top-level anchors) */}
                 <MenuGroup label="Site">
-                  {[
-                    { label: 'Solutions', href: '#solutions' },
-                    { label: 'Customers', href: '#customers' },
-                    { label: 'Pricing', href: '#pricing' },
-                    { label: 'Resources', href: '#resources' },
-                  ].map(item => (
-                    <MenuItem key={item.href} href={item.href} onSelect={() => setOpen(false)}>
-                      {item.label}
-                    </MenuItem>
-                  ))}
+                  <MenuItem href="#solutions" onSelect={() => setOpen(false)}>Solutions</MenuItem>
+                  <MenuItem href="#customers" onSelect={() => setOpen(false)}>Why this exists</MenuItem>
+                  <MenuItem href="#pricing" onSelect={() => setOpen(false)}>Pricing</MenuItem>
+                  <MenuItem href="#resources" onSelect={() => setOpen(false)}>Roadmap</MenuItem>
                 </MenuGroup>
 
-                {/* GROUP 3 — Connect */}
                 <MenuGroup label="Connect">
                   <MenuItem
                     href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
@@ -192,13 +177,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                     href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20feedback"
                     onSelect={() => setOpen(false)}
                   >
-                    Email feedback
-                  </MenuItem>
-                  <MenuItem
-                    href="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20playbooks%20publish"
-                    onSelect={() => setOpen(false)}
-                  >
-                    Notify me when playbooks publish
+                    Send feedback
                   </MenuItem>
                 </MenuGroup>
 
