@@ -37,7 +37,7 @@ test.describe('Landing page', () => {
     // Heading restructured 2026-05-08 to the original-site 4-step
     // funnel framing: Results. Fit score. Outreach. Follow-ups.
     // KPI callouts moved into the #analytics narrative.
-    await expect(page.getByRole('heading', { name: /results\.\s*fit score\.\s*outreach\.\s*follow-ups/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /sourcing\.\s*fit score\.\s*outreach\.\s*follow-ups/i })).toBeVisible()
     // Solution tile h3s
     const tiles = page.locator('section#solutions h3')
     expect(await tiles.count()).toBe(4)
@@ -161,6 +161,23 @@ test.describe('Landing page', () => {
     // Hamburger + theme toggle both reachable on mobile
     await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
     await expect(page.getByRole('button', { name: /switch to (light|dark) mode/i })).toBeVisible()
+  })
+
+  test('AI fit score chips are clickable and reveal explanations', async ({ page }) => {
+    // Stat band has 6 dimension chips (Recency/Reach/Reachability/
+    // Relevance/Quality/+ your own). Each is a button; clicking
+    // changes which one is aria-pressed and updates the explanation
+    // panel. Regression for the interactive spotlight.
+    const chips = page.getByRole('button', { pressed: false }).filter({ hasText: /^(Recency|Reach|Reachability|Quality|\+ your own)$/ })
+    expect(await chips.count()).toBeGreaterThanOrEqual(4)
+
+    // Default-pressed chip is Relevance.
+    await expect(page.getByRole('button', { name: 'Relevance', pressed: true })).toBeVisible()
+
+    // Click Recency, verify it becomes pressed and panel shows recency criteria.
+    await page.getByRole('button', { name: 'Recency' }).click()
+    await expect(page.getByRole('button', { name: 'Recency', pressed: true })).toBeVisible()
+    await expect(page.getByText(/Posts within the last 7 days earn full credit/i)).toBeVisible()
   })
 
   test('no console errors on initial load', async ({ page }) => {

@@ -4,6 +4,7 @@ import { OperatorConsole } from '@/components/landing/OperatorConsole'
 import { LandingTopNav } from '@/components/landing/LandingTopNav'
 import { ScreenshotZoom } from '@/components/landing/ScreenshotZoom'
 import { PLATFORM_MARKS } from '@/components/landing/PlatformBrandMarks'
+import { StatBandSpotlight } from '@/components/landing/StatBandSpotlight'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -65,12 +66,11 @@ export default async function LandingPage() {
               The modern way to source and pitch creators.
             </h1>
             <p className="mt-7 max-w-[54ch] text-[17px] md:text-[18px] text-[#0F1733]/70 dark:text-white/70 leading-[1.55]">
-              One click on a niche bucket runs YouTube, Instagram,
-              TikTok, X, and LinkedIn in parallel. Each result gets a
-              fit score against criteria you wrote in plain English.
-              Reach out from a board with status pills, follow-up
-              cadence, and an Instagram DM auto-composer. All free
-              while in beta.
+              Lead sourcing by occupation with an AI fit score that
+              ranks every result against your criteria. Email + social
+              handles inline. Templated outreach for the platform you
+              actually target. Follow-up reminders so nothing slips.
+              All free while in beta.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
@@ -140,25 +140,27 @@ export default async function LandingPage() {
           <div className="max-w-[680px] mb-12 md:mb-16">
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">The four-step loop</div>
             <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Results. Fit score. Outreach. Follow-ups.
+              Sourcing. Fit score. Outreach. Follow-ups.
             </h2>
             <p className="mt-5 text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
-              Four steps of one workflow — the way an operator
-              actually works a list, in the order it actually happens.
+              Find leads by occupation. Score them with a customizable
+              AI fit score. Reach out from a built-in CRM with
+              templated messages for the platform you target. Stay on
+              cadence with follow-up reminders.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             <SolutionTile
               step="01"
               icon={
-                /* Search — Step 1: get results */
+                /* Search — Step 1: lead sourcing */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <circle cx="11" cy="11" r="7" />
                   <line x1="21" y1="21" x2="16.5" y2="16.5" />
                 </svg>
               }
-              title="Results"
-              body="Search any occupation, industry, or field across YouTube, Instagram, TikTok, X, and LinkedIn — all in parallel. Filter by region, audience size, and last-posted recency. Niche shortcuts let you fan out 30+ related occupations in one click."
+              title="Lead sourcing"
+              body="Search by occupation, industry, or field — fitness coaches, financial advisors, podcast hosts, anything. Each result lands with email and social handles already attached. Filter by region, audience size, and last-posted recency."
             />
             <SolutionTile
               step="02"
@@ -201,12 +203,13 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* (The "How it actually works" demo strip was removed
-          2026-05-08 — the bento screenshots had wildly different
-          aspect ratios that never fit the grid cleanly, and the
-          Solutions tiles above + Product Narratives below already
-          carry the 4-step loop. Three sections doing the same job
-          was redundant; the page reads tighter without it.) */}
+      {/* WHAT'S UNDER THE HOOD — AI fit score feature spotlight.
+          Moved here (was after Product Narratives) so the dial reads
+          as the proof point right after Solutions has named the four
+          steps. Everything in this section is in the StatBandSpotlight
+          client component (interactive chip-cloud → explanation
+          panels). */}
+      <StatBandSpotlight />
 
       {/* PRODUCT NARRATIVES (3 stages with screenshots).
           Each div has its own #anchor (sourcing/outreach/analytics)
@@ -219,25 +222,20 @@ export default async function LandingPage() {
             <div>
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">01 / Sourcing</div>
               <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
-                Five platforms, one query, scored fit.
+                Lead sourcing by occupation, scored on fit.
               </h3>
               <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
-                One query — or one click on a niche bucket — runs against
-                YouTube, Instagram, TikTok, X, and LinkedIn in parallel.
-                Each result gets a fit score that explains itself in
-                plain English (Strong / Possible / Weak), based on
-                criteria you describe in a sentence.
+                Search any occupation, industry, or field. Each result
+                comes back with email + social handles attached and a
+                fit score that explains itself in plain English (Strong
+                / Possible / Weak), based on criteria you describe in
+                a sentence.
               </p>
-              {/* Bullets verified against the actual app:
-                  - 13 niche buckets in lib/format.ts
-                  - 5-dimension fit score in lib/scoring.ts
-                  - 20 regions in lib/regions.ts (NOT 22 like the old copy
-                    claimed — verified count) */}
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
-                <Bullet>5-dimension fit score (recency · reach · reachability · relevance · quality) — re-weight per platform</Bullet>
-                <Bullet>20 region filters · audience-size buckets · last-posted recency · Instagram follower count inline</Bullet>
-                <Bullet>One query &rarr; results across all five platforms in parallel</Bullet>
-                <Bullet>13 niche buckets for one-click multi-occupation searches (Fitness, Finance, Real Estate, Tech, Coaching, +8 more)</Bullet>
+                <Bullet>Customizable AI fit score — any criteria you can name and measure</Bullet>
+                <Bullet>Email + LinkedIn + Instagram handles inline per result</Bullet>
+                <Bullet>Filter by region, audience size, last-posted recency, follower count</Bullet>
+                <Bullet>Source from YouTube, Instagram, TikTok, X, and LinkedIn — focus on the platform you actually target</Bullet>
               </ul>
             </div>
             <ScreenshotZoom caption="Results — click to zoom; ESC to close.">
@@ -352,91 +350,8 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* STAT BAND — "AI fit score" hero with a high-graphic visual:
-          orbital sparkline ring + animated gradient glow + chip cloud
-          showing fit dimensions as customizable tokens. Reads as a
-          designed feature spotlight, not a marketing stat block. */}
-      <section className="px-6 pb-20 md:pb-28">
-        <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-8 py-14 md:py-20 text-white relative overflow-hidden">
-          {/* Background ambient glow — large terracotta radial,
-              positioned off-canvas so it bleeds inward. */}
-          <div
-            aria-hidden
-            className="absolute -top-1/2 -right-1/4 w-[800px] h-[800px] pointer-events-none"
-            style={{ background: 'radial-gradient(closest-side, rgba(232,93,47,0.20), transparent 70%)' }}
-          />
-          <div
-            aria-hidden
-            className="absolute -bottom-1/3 -left-1/4 w-[700px] h-[700px] pointer-events-none"
-            style={{ background: 'radial-gradient(closest-side, rgba(242,162,97,0.12), transparent 70%)' }}
-          />
-
-          <div className="relative">
-            <div className="text-center max-w-[700px] mx-auto mb-14">
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">What&apos;s actually under the hood</div>
-              <h2 className="font-semibold tracking-[-0.02em] leading-[1.1]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
-                A search engine, a scoring engine, and a CRM — built into one.
-              </h2>
-            </div>
-
-            {/* AI FIT SCORE feature spotlight — left: orbital graphic,
-                right: copy + customizable dimension chips. */}
-            <div className="grid md:grid-cols-12 gap-8 md:gap-12 items-center mb-12 md:mb-14 pb-12 md:pb-14 border-b border-white/10">
-              <div className="md:col-span-5 flex items-center justify-center">
-                <FitScoreOrbital />
-              </div>
-
-              <div className="md:col-span-7">
-                <div className="inline-flex items-center gap-2 mb-4 px-2.5 py-1 rounded-full bg-[#F2A261]/10 border border-[#F2A261]/30 text-[11px] uppercase tracking-[0.18em] text-[#F2A261] font-bold">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                    <path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" />
-                  </svg>
-                  AI fit score
-                </div>
-                <h3 className="text-white font-semibold tracking-[-0.02em] leading-[1.15] mb-4" style={{ fontSize: 'clamp(1.5rem, 2.6vw, 2rem)' }}>
-                  Fully customizable. Anything you can name and measure.
-                </h3>
-                <p className="text-[15px] md:text-[16px] text-white/75 leading-[1.65] mb-5">
-                  Describe your ideal creator in plain English. The AI ranks
-                  every result on weighted dimensions you control — recency,
-                  reach, reachability, relevance, quality, plus anything else
-                  you can define. Re-tune per platform; Instagram weight
-                  isn&apos;t YouTube weight isn&apos;t LinkedIn weight.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    'Recency',
-                    'Reach',
-                    'Reachability',
-                    'Relevance',
-                    'Quality',
-                    '+ your own',
-                  ].map(d => (
-                    <span
-                      key={d}
-                      className={
-                        'inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-medium ' +
-                        (d === '+ your own'
-                          ? 'bg-[#F2A261]/20 text-[#F2A261] border border-[#F2A261]/40'
-                          : 'bg-white/8 text-white/85 border border-white/15')
-                      }
-                    >
-                      {d}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Supporting row: 5 platforms, 20 regions, $0 free. */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
-              <Stat n="5" label="platforms searched in parallel" />
-              <Stat n="20" label="region filters · audience size · last-posted recency" />
-              <Stat n="$0" label="free in beta · no card · no seat cap" />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* (Stat band moved up — was here, now appears between Solutions
+          and Product Narratives via <StatBandSpotlight />.) */}
 
       {/* "WHY THIS EXISTS" — rewritten 2026-05-08. Previous copy was
           too marketing-y ("Three real pains. Three things in the app.
@@ -721,167 +636,6 @@ export default async function LandingPage() {
 
 /* ─── primitives ─── */
 
-/**
- * FitScoreOrbital — decorative SVG visual for the AI fit-score
- * spotlight in the stat band. Three concentric rings with a glowing
- * core, plus 6 orbital dots labeled with fit dimensions. The middle
- * ring rotates slowly via CSS animation; the outer ring counter-
- * rotates. Reads as "scoring engine running" without being literal
- * about how it works.
- */
-function FitScoreOrbital() {
-  return (
-    <div className="relative w-full max-w-[320px] aspect-square">
-      {/* Outer rotating ring with dashed stroke */}
-      <svg
-        viewBox="0 0 320 320"
-        className="absolute inset-0 w-full h-full motion-reduce:hidden"
-        style={{ animation: 'fit-orbital-spin 24s linear infinite' }}
-        aria-hidden
-      >
-        <circle
-          cx="160"
-          cy="160"
-          r="148"
-          fill="none"
-          stroke="rgba(242,162,97,0.35)"
-          strokeWidth="1"
-          strokeDasharray="2 6"
-        />
-      </svg>
-      {/* Middle counter-rotating ring with thicker dashes */}
-      <svg
-        viewBox="0 0 320 320"
-        className="absolute inset-0 w-full h-full motion-reduce:hidden"
-        style={{ animation: 'fit-orbital-spin-rev 36s linear infinite' }}
-        aria-hidden
-      >
-        <circle
-          cx="160"
-          cy="160"
-          r="110"
-          fill="none"
-          stroke="rgba(232,93,47,0.55)"
-          strokeWidth="1.5"
-          strokeDasharray="6 14"
-        />
-      </svg>
-      {/* Static inner ring with terracotta gradient stroke */}
-      <svg
-        viewBox="0 0 320 320"
-        className="absolute inset-0 w-full h-full"
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id="fit-orbital-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#F2A261" />
-            <stop offset="100%" stopColor="#E85D2F" />
-          </linearGradient>
-          <radialGradient id="fit-orbital-core" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stopColor="#F2A261" stopOpacity="0.9" />
-            <stop offset="60%" stopColor="#E85D2F" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#E85D2F" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        {/* Glowing core */}
-        <circle cx="160" cy="160" r="60" fill="url(#fit-orbital-core)" />
-        {/* Inner ring */}
-        <circle
-          cx="160"
-          cy="160"
-          r="72"
-          fill="none"
-          stroke="url(#fit-orbital-grad)"
-          strokeWidth="1.5"
-        />
-        {/* Score number in center */}
-        <text
-          x="160"
-          y="160"
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="#FFFFFF"
-          fontFamily="ui-sans-serif, system-ui, sans-serif"
-          fontWeight="600"
-          fontSize="36"
-          letterSpacing="-1.5"
-        >
-          92
-        </text>
-        <text
-          x="160"
-          y="190"
-          textAnchor="middle"
-          fill="#F2A261"
-          fontFamily="ui-monospace, monospace"
-          fontSize="9"
-          letterSpacing="2"
-        >
-          STRONG FIT
-        </text>
-        {/* Six orbital dots positioned around the middle ring (r=110).
-            Each represents a fit dimension. Positioned via cos/sin at
-            equal angles. */}
-        {[
-          { angle: -90, label: 'Recency' },
-          { angle: -30, label: 'Reach' },
-          { angle: 30, label: 'Reachability' },
-          { angle: 90, label: 'Relevance' },
-          { angle: 150, label: 'Quality' },
-          { angle: 210, label: 'Custom' },
-        ].map(({ angle, label }) => {
-          const rad = (angle * Math.PI) / 180
-          const r = 110
-          const cx = 160 + Math.cos(rad) * r
-          const cy = 160 + Math.sin(rad) * r
-          // Label offset just outside the dot
-          const lr = 138
-          const lx = 160 + Math.cos(rad) * lr
-          const ly = 160 + Math.sin(rad) * lr
-          const isCustom = label === 'Custom'
-          return (
-            <g key={label}>
-              <circle
-                cx={cx}
-                cy={cy}
-                r={isCustom ? 5 : 4}
-                fill={isCustom ? '#F2A261' : '#FFFFFF'}
-                stroke={isCustom ? '#F2A261' : 'rgba(255,255,255,0.4)'}
-                strokeWidth="1"
-              />
-              <text
-                x={lx}
-                y={ly}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill={isCustom ? '#F2A261' : 'rgba(255,255,255,0.7)'}
-                fontFamily="ui-sans-serif, system-ui, sans-serif"
-                fontSize="9"
-                fontWeight={isCustom ? 700 : 500}
-                letterSpacing="0.5"
-              >
-                {label}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-      {/* CSS animation keyframes — colocated so the visual is
-          self-contained. Respects prefers-reduced-motion via the
-          motion-reduce:hidden class on the rotating rings. */}
-      <style>{`
-        @keyframes fit-orbital-spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes fit-orbital-spin-rev {
-          from { transform: rotate(360deg); }
-          to { transform: rotate(0deg); }
-        }
-      `}</style>
-    </div>
-  )
-}
 
 function SolutionTile({ icon, title, body, step }: { icon: React.ReactNode; title: string; body: string; step?: string }) {
   return (
