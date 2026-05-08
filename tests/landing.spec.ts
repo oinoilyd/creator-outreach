@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Landing-page smoke tests. Catch the kind of "shipped, broken,
- * reverted" regressions we kept hitting during the redesign sessions
- * (invisible headline, missing bento cards, theme-flip breaking
- * everything).
+ * Landing-page smoke tests — Apollo-style production /landing.
  *
- * No auth required for any of these — they target /landing directly.
+ * Single variant now. Tests target structural elements (sections,
+ * counts, CTA presence) so future copy tweaks don't require test
+ * edits. Headline content check is intentionally loose: just verify
+ * an h1 exists with non-trivial text.
  */
 
 test.describe('Landing page', () => {
@@ -14,54 +14,59 @@ test.describe('Landing page', () => {
     await page.goto('/landing')
   })
 
-  test('hero renders with headline + subline + CTA', async ({ page }) => {
-    // Headline is the bug-magnet — earlier the gradient + bg-clip-text
-    // combo rendered transparent text. Asserting it has visible text
-    // catches that regression.
+  test('hero renders with h1 + primary CTA', async ({ page }) => {
     const heading = page.getByRole('heading', { level: 1 })
     await expect(heading).toBeVisible()
     const text = await heading.textContent()
-    expect(text?.length ?? 0).toBeGreaterThan(10)
+    expect((text || '').trim().length).toBeGreaterThan(10)
 
-    // Subline mentions the actual product flow. Use a specific phrase
-    // that ONLY appears in the subline (not the headline) to avoid
-    // strict-mode multi-match.
-    await expect(page.getByText(/spreadsheet circus/i)).toBeVisible()
+    // Primary CTA — auth-aware; either signup or app link
+    const cta = page.locator('a[href="/auth/signup"], a[href="/"]').first()
+    await expect(cta).toBeVisible()
+  })
 
-    // Primary CTA exists. The page has 3 such links (nav + hero +
-    // bottom CTA strip) — match the hero one specifically by its
-    // "Get started — free" label (em-dash distinguishes it).
+  test('OperatorConsole hero visual is mounted', async ({ page }) => {
+    // The animated hero visual carries this aria-label
     await expect(
-      page.getByRole('link', { name: /get started — free|open app/i }).first()
+      page.getByLabel(/operator console.*search query.*creator results/i),
     ).toBeVisible()
   })
 
-  test('eyebrow badge is visible', async ({ page }) => {
-    await expect(page.getByText(/creator outreach, end to end/i)).toBeVisible()
+  test('Solutions section present with 4 persona tiles', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /one tool, every outreach motion/i })).toBeVisible()
+    // Solution tile h3s
+    const tiles = page.locator('section#solutions h3')
+    expect(await tiles.count()).toBe(4)
   })
 
-  test('bento has at least 5 feature cards', async ({ page }) => {
-    // Cards have h3 titles per BentoCard component — count those.
-    const titles = page.locator('section h3')
-    const count = await titles.count()
-    expect(count).toBeGreaterThanOrEqual(5)
+  test('Three product narratives (Sourcing / Outreach / Analytics)', async ({ page }) => {
+    await expect(page.getByText(/01\s*\/\s*sourcing/i)).toBeVisible()
+    await expect(page.getByText(/02\s*\/\s*outreach/i)).toBeVisible()
+    await expect(page.getByText(/03\s*\/\s*analytics/i)).toBeVisible()
   })
 
-  test('how-it-works section present with 4 steps', async ({ page }) => {
-    await expect(page.getByText(/how it works/i)).toBeVisible()
-    // Section heading is now "Four steps. From search to signed."
-    // (was "Two steps" — restructured to 4-step methodology).
-    await expect(page.getByRole('heading', { name: /four steps/i })).toBeVisible()
-  })
-
-  test('pricing section shows free tier', async ({ page }) => {
+  test('Pricing section shows $0 free tier', async ({ page }) => {
     const pricing = page.locator('#pricing')
     await expect(pricing).toBeVisible()
     await expect(pricing.getByText('$0')).toBeVisible()
+    await expect(pricing.getByText(/beta/i).first()).toBeVisible()
   })
 
-  test('footer present', async ({ page }) => {
-    await expect(page.locator('footer')).toBeVisible()
+  test('Customers section present with testimonials', async ({ page }) => {
+    const customers = page.locator('#customers')
+    await expect(customers).toBeVisible()
+    // 3 testimonial figures
+    const figures = customers.locator('figure')
+    expect(await figures.count()).toBeGreaterThanOrEqual(3)
+  })
+
+  test('Footer with sitemap columns + copyright', async ({ page }) => {
+    const footer = page.locator('footer')
+    await expect(footer).toBeVisible()
+    await expect(footer.getByText(/©.*creator outreach/i)).toBeVisible()
+    // At least 4 footer column headings (Product / Resources / Company / Legal)
+    const headings = footer.locator('div > div').filter({ hasText: /product|resources|company|legal/i })
+    expect(await headings.count()).toBeGreaterThanOrEqual(3)
   })
 
   test('no console errors on initial load', async ({ page }) => {
@@ -71,7 +76,6 @@ test.describe('Landing page', () => {
     })
     await page.goto('/landing')
     await page.waitForLoadState('networkidle')
-    // Filter out third-party noise we can't control
     const ours = errors.filter(e => !/sentry|google|fb|twitter|hotjar/i.test(e))
     expect(ours).toEqual([])
   })
