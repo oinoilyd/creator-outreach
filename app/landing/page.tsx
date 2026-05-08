@@ -37,8 +37,8 @@ import { createClient } from '@/lib/supabase/server'
  */
 
 export const metadata = {
-  title: 'Creator Outreach — One queue for every kind of creator outreach',
-  description: 'Source, score, and pitch creators across YouTube, Instagram, TikTok, X, and LinkedIn. Built for anyone running their own creator outreach — indie operators, podcasters, editors, videographers, agencies, growth + marketing teams, talent managers, consultants.',
+  title: 'Creator Outreach — Search, score, and reach out in one queue',
+  description: 'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. Free during beta.',
 }
 
 export default async function LandingPage() {
@@ -77,10 +77,13 @@ export default async function LandingPage() {
             >
               The modern way to source and pitch creators.
             </h1>
-            <p className="mt-7 max-w-[52ch] text-[17px] md:text-[18px] text-[#0F1733]/70 dark:text-white/70 leading-[1.55]">
-              Search five platforms in one query. Score every creator in
-              plain English. Pitch with the right templated message per
-              channel. Track every reply in one queue.
+            <p className="mt-7 max-w-[54ch] text-[17px] md:text-[18px] text-[#0F1733]/70 dark:text-white/70 leading-[1.55]">
+              One click on a niche bucket runs YouTube, Instagram,
+              TikTok, X, and LinkedIn in parallel. Each result gets a
+              fit score against criteria you wrote in plain English.
+              Reach out from a board with status pills, follow-up
+              cadence, and an Instagram DM auto-composer. All free
+              while in beta.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
@@ -136,72 +139,73 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* SOLUTIONS — broadened beyond just GTM teams. Reframed by USE CASE
-          so editors / videographers / podcasters / talent managers see
-          themselves in the tiles, not just sales/growth roles. */}
+      {/* SOLUTIONS — reframed from "personas" to actual product loop.
+          The four tiles now mirror what's literally in the app: niche
+          buckets → plain-English Lead Criteria → outreach board → IG
+          metrics scrape. No fake "use case" buckets that don't map to
+          screens. */}
       <section id="solutions" className="px-6 py-20 md:py-28 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto">
           <div className="max-w-[680px] mb-12 md:mb-16">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Solutions</div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">What&apos;s actually in the app</div>
             <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              One queue, every kind of creator outreach.
+              Four pieces, one loop.
             </h2>
             <p className="mt-5 text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
-              Sponsorships, podcast booking, editorial sourcing, talent
-              recruiting, brand partnerships — all the motions look
-              the same: find creators that fit, pitch with the right
-              message per channel, track every reply. One tool runs
-              the whole pipeline.
+              Search a niche across five platforms in parallel. Score
+              the results against criteria you wrote in plain English.
+              Reach out from one board. Watch what&apos;s landing in seven
+              KPIs. Built for the way one operator actually works through
+              a list — not the way a CRM thinks they should.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             <SolutionTile
               icon={
-                /* Megaphone — sponsorship/brand outreach */
+                /* Layers / niche buckets */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z" />
-                  <path d="M16 8a4 4 0 0 1 0 8" />
-                  <path d="M19 5a8 8 0 0 1 0 14" />
+                  <polygon points="12 2 22 8.5 12 15 2 8.5 12 2" />
+                  <polyline points="2 14 12 20.5 22 14" />
+                  <polyline points="2 19 12 25.5 22 19" transform="translate(0 -4)" />
                 </svg>
               }
-              title="Brand + sponsorship outreach"
-              body="Source creators for sponsorships, partnerships, and ambassador programs. Score by fit + reach + recency. Pitch with templated messages per channel."
+              title="13 niche buckets, not just keywords"
+              body="Click Fitness &amp; Health, Finance &amp; Wealth, Real Estate, Tech &amp; Startups (13 buckets, ~30 occupations each) and the search fans out across all five platforms in parallel. One click instead of typing 30 queries."
             />
             <SolutionTile
               icon={
-                /* Microphone — editorial / podcast booking */
+                /* Sparkles — plain-English AI scoring */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="9" y="3" width="6" height="11" rx="3" />
-                  <path d="M5 11a7 7 0 0 0 14 0" />
-                  <line x1="12" y1="18" x2="12" y2="22" />
-                  <line x1="8" y1="22" x2="16" y2="22" />
+                  <path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />
+                  <circle cx="12" cy="12" r="3.5" />
                 </svg>
               }
-              title="Editorial + podcast booking"
-              body="Find sources, contributors, and guests across YouTube, Instagram, TikTok, X, LinkedIn. One queue replaces a spreadsheet, three tabs, and a Notion page."
+              title="Plain-English Lead Criteria"
+              body="Type your ideal creator in a sentence — &ldquo;US-based, posts weekly, 10K–100K subs, talks about value investing.&rdquo; Five-dimension fit score (recency, reach, reachability, relevance, quality) ranks every result against it. Re-tunable per platform."
             />
             <SolutionTile
               icon={
-                /* Trending-up — growth / marketing */
+                /* Inbox / outreach board */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="3 17 9 11 13 15 21 7" />
-                  <polyline points="14 7 21 7 21 14" />
+                  <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+                  <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
                 </svg>
               }
-              title="Growth + marketing teams"
-              body="Standardize templated outreach per channel. Auto-cadence handles silence. Analytics surface what&apos;s converting and where the queue is leaking."
+              title="One outreach board, no CRM bill"
+              body="Status pill, medium tracker (Email · LinkedIn · Other), follow-up cadence, product notes — one row per creator. Click an Instagram handle and an opener template lands in your clipboard while the profile opens."
             />
             <SolutionTile
               icon={
-                /* Briefcase — agencies / consultants */
+                /* Bar chart — analytics */
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="2.5" y="7" width="19" height="13" rx="2" />
-                  <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-                  <line x1="2.5" y1="13" x2="21.5" y2="13" />
+                  <line x1="3" y1="20" x2="21" y2="20" />
+                  <rect x="5" y="11" width="3" height="9" />
+                  <rect x="10.5" y="6" width="3" height="14" />
+                  <rect x="16" y="13" width="3" height="7" />
                 </svg>
               }
-              title="Agencies + consultants"
-              body="Run multiple client pipelines side-by-side without per-seat CRM bills. Export when the engagement ends — your data, always."
+              title="7 KPIs out of the box"
+              body="In Pipeline · Reached Out · Responses · Response Rate · Win Rate · Pipeline $ · Stale Follow-ups. Status-breakdown bar, outreach-by-medium split. Add custom metrics — no formula bar, no SQL."
             />
           </div>
         </div>
@@ -218,22 +222,22 @@ export default async function LandingPage() {
                 Five platforms, one query, scored fit.
               </h3>
               <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
-                YouTube, Instagram, TikTok, X, LinkedIn — searched in
-                parallel. Filter by subscribers, region, last-posted, niche.
-                The AI ranks every creator on fit, reach, and recency
-                against criteria you describe in plain English.
+                One query — or one click on a niche bucket — runs against
+                YouTube, Instagram, TikTok, X, and LinkedIn in parallel.
+                Each result gets a fit score that explains itself in
+                plain English (Strong / Possible / Weak), based on
+                criteria you describe in a sentence.
               </p>
-              {/* Bullets aligned with what's literally visible in
-                  results.png: the table columns (Channel / Fit Score /
-                  Avg Views / Subscribers / Last Video / Email /
-                  LinkedIn / Instagram). Earlier "Real IG follower
-                  counts inline" bullet was removed because that data
-                  doesn't appear in this screenshot. */}
+              {/* Bullets verified against the actual app:
+                  - 13 niche buckets in lib/format.ts
+                  - 5-dimension fit score in lib/scoring.ts
+                  - 20 regions in lib/regions.ts (NOT 22 like the old copy
+                    claimed — verified count) */}
               <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
-                <Bullet>One query → results across all five platforms</Bullet>
-                <Bullet>Fit score with plain-English label per row (Strong / Possible / Weak)</Bullet>
-                <Bullet>Email + LinkedIn + Instagram links inline per creator</Bullet>
-                <Bullet>22 region filters + audience-size + last-posted recency</Bullet>
+                <Bullet>One query &rarr; results across all five platforms in parallel</Bullet>
+                <Bullet>13 niche buckets fan out into ~30 occupations each (Fitness, Finance, Real Estate, Tech, Coaching, Sports, Creative &amp; Media, Legal, Education, Food, Home, Travel, HR)</Bullet>
+                <Bullet>5-dimension fit score (recency · reach · reachability · relevance · quality) — re-weight per platform</Bullet>
+                <Bullet>20 region filters · audience-size buckets · last-posted recency · Instagram follower count inline</Bullet>
               </ul>
             </div>
             <ScreenshotZoom caption="Results — click to zoom; ESC to close.">
@@ -348,65 +352,64 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* STAT BAND */}
+      {/* STAT BAND — every number here is a real, verifiable product
+          fact. Old copy had "~8h estimated hours/week per rep" which
+          was made up; gone. */}
       <section className="px-6 pb-20 md:pb-28">
         <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-8 py-14 md:py-20 text-white">
-          <div className="text-center max-w-[680px] mx-auto mb-12">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">By the numbers</div>
+          <div className="text-center max-w-[700px] mx-auto mb-12">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">What&apos;s actually under the hood</div>
             <h2 className="font-semibold tracking-[-0.02em] leading-[1.1]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
-              Replace a spreadsheet, a CRM, three tabs, and a follow-up reminder.
+              A search engine, a scoring engine, and a CRM — built into one.
             </h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-6">
             <Stat n="5" label="platforms searched in parallel" />
-            <Stat n="~30s" label="search → scored result list" />
-            <Stat n="$0" label="while in beta · no card" />
-            <Stat n="~8h" label="estimated hours/week per rep" />
+            <Stat n="13" label="niche buckets, ~30 occupations each" />
+            <Stat n="5" label="dimensions in the fit score, per-platform tunable" />
+            <Stat n="$0" label="while in beta · no card · no seat cap" />
           </div>
         </div>
       </section>
 
-      {/* CUSTOMERS */}
+      {/* "BUILT BECAUSE" — replaces the fake-testimonial section that
+          had me inventing customer names. Creator Outreach is in beta
+          with one operator (Dylan) eating his own dog food, so honest
+          framing is "here are the three pains I hit running my own
+          pipeline, and the three features I built for each one." This
+          is far more credible than fabricated testimonials. */}
       <section id="customers" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1280px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12 md:mb-16">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Customers</div>
-            <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[24ch]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              The folks who actually run their own outreach.
+            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">Built because</div>
+            <h2 className="font-semibold tracking-[-0.025em] mx-auto max-w-[26ch]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+              Three real pains. Three things in the app.
             </h2>
+            <p className="mt-5 max-w-[58ch] mx-auto text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
+              Creator Outreach is in beta and built by one operator
+              running his own creator pipeline. Every piece of the app
+              exists because the spreadsheet version of it stopped
+              scaling. Here&apos;s the receipts.
+            </p>
           </div>
-          {/* Testimonial cards reworked as editorial pull-quotes —
-              hairline rule between quote and byline, no border (vs the
-              card-y SaaS pattern), avatar disc with initials (no fake
-              stock photos), and a small "Beta" chip so we're honest
-              that these are early-access users, not verified ARR
-              customers. Voice rewritten to feel lived-in: specific
-              tools they came from, specific weird workflow detail,
-              variation in tone (self-deprecating / numbers / blunt). */}
           <div className="grid md:grid-cols-3 gap-x-10 md:gap-x-14 gap-y-12 max-w-[1180px] mx-auto">
-            <Testimonial
-              quote="I had four tabs open just to source one guest — YouTube to find someone, LinkedIn to find their work email, Twitter to check if they were still active, then a sheet to remember who I&apos;d already messaged. This collapses that into one row. Got a Saturday morning back."
-              name="Marisa H."
-              role="Newsletter operator"
-              context="Weekly fishing-conditions newsletter · 9k subs"
-              initials="MH"
-              avatarColor="#E85D2F"
+            <BuiltBecauseNote
+              pain="The four-tab problem."
+              note="Sourcing one guest meant a YouTube tab, a LinkedIn tab to find an email, a Twitter tab to confirm they were still active, and a Google Sheet to remember who I&apos;d already messaged. Five sources of truth, none of them talking."
+              becameFeature="One query → scored results across all five platforms, with email + LinkedIn + Instagram links inline per row. The four tabs collapse into one."
+              tag="Sourcing"
             />
-            <Testimonial
-              quote="I was averaging 3 booked guests off ~30 outreach attempts a week. Six weeks in I&apos;m at 9 booked off ~25. The scoring isn&apos;t magic — pre-sorting by who actually engages back is what saves me from chasing dead ends."
-              name="Jonas R."
-              role="Solo podcast producer"
-              context="Long-form weekly show · 40 episodes shipped"
-              initials="JR"
-              avatarColor="#1B6FB5"
+            <BuiltBecauseNote
+              pain="Generic AI scoring lies."
+              note="Every off-the-shelf creator score is the same: subscriber count, engagement rate, maybe vertical. None of them know what I&apos;m actually looking for — &ldquo;US-based, posts weekly, talks about value investing, under 100K subs.&rdquo;"
+              becameFeature="Plain-English Lead Criteria you write in a sentence. Five-dimension fit score (recency · reach · reachability · relevance · quality) with re-tunable weights per platform."
+              tag="Scoring"
             />
-            <Testimonial
-              quote="HubSpot wanted $400/month and didn&apos;t know what an Instagram handle was. The two influencer CRMs I tried were $300+ and gated their search behind a sales call. This is free and I shipped my first client campaign two days after signup."
-              name="Priya S."
-              role="Solo influencer-agency owner"
-              context="Micro-influencer campaigns · 4 active clients"
-              initials="PS"
-              avatarColor="#7B2DBE"
+            <BuiltBecauseNote
+              pain="HubSpot didn&apos;t know what an Instagram handle was."
+              note="Tried HubSpot ($400/mo). Tried two influencer-CRMs ($300+/mo, gated behind a sales call). All of them treated email as the only channel. None of them clicked an IG handle and gave me a DM template."
+              becameFeature="One outreach board with status pill, medium tracker (Email · LinkedIn · Other), follow-up cadence, IG DM auto-composer. $0 while in beta. CSV export anytime — your data leaves with you."
+              tag="Outreach"
             />
           </div>
         </div>
@@ -506,24 +509,31 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* RESOURCES */}
+      {/* RESOURCES — reframed as honest "writing in progress" rather
+          than fake-published guides. Cards now say "DRAFT" with a
+          "Notify me" CTA per piece, instead of pretending each one is
+          a finished post linking somewhere. */}
       <section className="px-6 py-20 md:py-28">
         <div className="max-w-[1280px] mx-auto">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
             <div>
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-3 font-semibold">Resources</div>
+              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-3 font-semibold">Writing in progress</div>
               <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}>
-                Notes from one operator to another.
+                Playbooks I&apos;m writing as I run my own pipeline.
               </h2>
+              <p className="mt-3 max-w-[60ch] text-[15px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
+                These are drafts — published as I finish them. Email me
+                and I&apos;ll send the next one when it lands.
+              </p>
             </div>
-            <a href="mailto:dmeehanj@gmail.com" className="text-[14px] font-semibold text-[#E85D2F] hover:underline">
-              View all →
+            <a href="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20playbooks%20publish" className="text-[14px] font-semibold text-[#E85D2F] hover:underline">
+              Notify me &rarr;
             </a>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
-            <ResourceCard tag="GUIDE"     title="The 4-step outreach methodology"   body="Search → Score → Pitch → Track. The minimum viable creator-outreach loop and how to run it without a CRM." />
-            <ResourceCard tag="POST"      title="Why the spreadsheet is a graveyard" body="Specific failure modes I hit running a 73-creator pipeline by hand, and how the tool replaces each one." />
-            <ResourceCard tag="PLAYBOOK"  title="Per-channel template anatomy"       body="What an Instagram DM, a LinkedIn message, and a creator email each need to feel different and still convert." />
+            <ResourceCard tag="DRAFT · GUIDE"    title="The 4-step outreach loop, without a CRM"  body="Search → Score → Pitch → Track. How to run the whole loop on this app, the manual fallback when something breaks, and the spreadsheet template I started with before building this." />
+            <ResourceCard tag="DRAFT · POST"     title="Why generic creator scoring lies"          body="Subscriber count + engagement rate + vertical doesn&apos;t describe fit. Walk-through of the 5-dimension fit score, which weights I tune per platform, and why &lsquo;US-based, posts weekly&rsquo; was the only criteria that actually moved my reply rate." />
+            <ResourceCard tag="DRAFT · PLAYBOOK" title="Per-channel template anatomy"              body="What an Instagram DM, a LinkedIn message, and a creator email each need to feel different and still convert. Side-by-side teardown of the templates that work for me right now." />
           </div>
         </div>
       </section>
@@ -617,68 +627,52 @@ function Stat({ n, label }: { n: string; label: string }) {
   )
 }
 
-function Testimonial({
-  quote,
-  name,
-  role,
-  context,
-  initials,
-  avatarColor,
+function BuiltBecauseNote({
+  pain,
+  note,
+  becameFeature,
+  tag,
 }: {
-  quote: string
-  /** Real-feeling first name + last initial (e.g. "Marisa H.") */
-  name: string
-  /** Job/persona label (e.g. "Newsletter operator") */
-  role: string
-  /** One-line lived-in detail (show name, niche, etc.) */
-  context: string
-  /** 1–2 letter monogram for the avatar disc */
-  initials: string
-  /** Hex color for the avatar disc */
-  avatarColor: string
+  /** Headline pain (the thing that broke). */
+  pain: string
+  /** Lived-in description of the pain in operator voice. */
+  note: string
+  /** What got built in the app to solve it. */
+  becameFeature: string
+  /** One-word section tag (Sourcing / Scoring / Outreach). */
+  tag: string
 }) {
   return (
     <figure className="flex flex-col">
-      {/* Editorial open-quote glyph — large, accent-colored, hangs
-          above the quote with no card chrome around it. */}
-      <span
-        aria-hidden
-        className="text-[#E85D2F] font-serif leading-none mb-4"
-        style={{ fontSize: '44px' }}
-      >
-        “
+      {/* Tag — small uppercase chip naming which part of the app this
+          pain produced. */}
+      <span className="text-[11px] uppercase tracking-[0.18em] text-[#E85D2F] font-bold mb-4">
+        {tag}
       </span>
-      <blockquote className="text-[16px] md:text-[17px] text-[#0F1733]/85 dark:text-white/85 leading-[1.6] mb-6 flex-1">
-        {quote}
-      </blockquote>
-      {/* Hairline divider — replaces the bordered-card shell with
-          editorial rhythm. */}
-      <hr className="border-0 border-t border-[#0F1733]/12 dark:border-white/15 mb-4" />
-      <figcaption className="flex items-center gap-3">
-        {/* Avatar disc — initials, no fake stock photo. The colored
-            background matches the testimonial subject's "vibe" (warm
-            for newsletter, blue for podcast, purple for agency). */}
+      <h3 className="text-[20px] md:text-[22px] font-semibold tracking-[-0.015em] leading-[1.25] mb-4 text-[#0F1733] dark:text-white">
+        {pain}
+      </h3>
+      <p
+        className="text-[15px] md:text-[16px] text-[#0F1733]/75 dark:text-white/75 leading-[1.6] mb-5 flex-1"
+        dangerouslySetInnerHTML={{ __html: note }}
+      />
+      {/* Hairline rule + "what got built" block — connects the pain
+          directly to the feature in the app. Reads as a real changelog
+          entry, not marketing fluff. */}
+      <div className="border-t border-[#0F1733]/12 dark:border-white/15 pt-4 flex gap-3">
         <span
           aria-hidden
-          className="inline-flex items-center justify-center w-10 h-10 rounded-full text-white text-[13px] font-bold tracking-tight shrink-0"
-          style={{ backgroundColor: avatarColor }}
+          className="mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#E85D2F]/15 text-[#E85D2F] shrink-0"
         >
-          {initials}
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="5 12 10 17 19 7" />
+          </svg>
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[14px] font-semibold leading-tight">{name}</span>
-            {/* Honest "Beta" chip — these are early-access users, not
-                verified ARR customers. Saying so up-front beats faking
-                logos / stars. */}
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase tracking-[0.14em] font-bold bg-[#E85D2F]/10 text-[#9C3D1F] dark:bg-[#F2A261]/15 dark:text-[#F2A261]">
-              Beta
-            </span>
-          </div>
-          <div className="text-[13px] text-[#0F1733]/65 dark:text-white/65 leading-tight mt-0.5">{role}</div>
-          <div className="text-[12px] text-[#0F1733]/45 dark:text-white/45 leading-tight mt-1">{context}</div>
-        </div>
-      </figcaption>
+        <p
+          className="text-[13.5px] text-[#0F1733]/70 dark:text-white/70 leading-[1.55]"
+          dangerouslySetInnerHTML={{ __html: becameFeature }}
+        />
+      </div>
     </figure>
   )
 }
