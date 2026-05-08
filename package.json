@@ -18,6 +18,7 @@
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.3",
     "@upstash/redis": "^1.38.0",
+    "animejs": "^4.4.1",
     "axios": "^1.15.2",
     "canvas-confetti": "^1.9.4",
     "cheerio": "^1.2.0",

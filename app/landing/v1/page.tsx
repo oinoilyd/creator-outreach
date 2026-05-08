@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { VersionSwitcher } from '@/components/landing/VersionSwitcher'
+import { PipelineHero } from '@/components/landing/PipelineHero'
 import { getLandingAuthState } from '@/components/landing/getLandingData'
 
 /**
@@ -83,55 +84,67 @@ export default async function LandingV1() {
       </header>
 
       {/* ── HERO ──────────────────────────────────────────────── */}
-      <section className="px-6 pt-20 md:pt-28 pb-12 md:pb-16">
-        <div className="max-w-[1180px] mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/20 text-[12px] text-[#9C3D1F] mb-9 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]" />
-            <span>Now live: real Instagram metrics in your queue</span>
-          </div>
-          <h1
-            className="font-semibold tracking-[-0.035em] leading-[0.97] mx-auto max-w-[19ch]"
-            style={{ fontSize: 'clamp(2.75rem, 7vw, 6rem)' }}
-          >
-            The modern way to source and pitch creators.
-          </h1>
-          <p className="mt-9 mx-auto max-w-[58ch] text-[18px] md:text-[19px] text-[#0F1733]/70 leading-[1.55]">
-            Search five platforms in one query. Score every creator in
-            plain English against your own criteria. Pitch with the right
-            templated message per channel. Track every reply in a single
-            queue. Built for the operators who actually send the messages.
-          </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href={isAuthed ? '/' : '/auth/signup'}
-              className="inline-flex items-center gap-2 bg-[#0F1733] text-white hover:bg-[#1F2A52] px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
+      <section className="px-6 pt-16 md:pt-24 pb-12 md:pb-16">
+        <div className="max-w-[1280px] mx-auto grid md:grid-cols-12 gap-10 md:gap-12 items-center">
+          {/* Left — text + dual CTA */}
+          <div className="md:col-span-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/20 text-[12px] text-[#9C3D1F] mb-7 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]" />
+              <span>Now live: real Instagram metrics in your queue</span>
+            </div>
+            <h1
+              className="font-semibold tracking-[-0.035em] leading-[0.97]"
+              style={{ fontSize: 'clamp(2.5rem, 6vw, 5.25rem)' }}
             >
-              {isAuthed ? 'Open the app' : 'Start free — no card'}
-              <span aria-hidden>→</span>
-            </Link>
-            <a
-              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
-              className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#0F1733] hover:text-white px-7 py-3.5 rounded-md font-semibold text-[15px] border border-[#0F1733]/15 hover:border-[#0F1733] transition-colors"
-            >
-              Talk to the founder
-            </a>
+              The modern way to source and pitch creators.
+            </h1>
+            <p className="mt-7 max-w-[56ch] text-[17px] md:text-[18px] text-[#0F1733]/70 leading-[1.55]">
+              Search five platforms in one query. Score every creator in
+              plain English against your own criteria. Pitch with the right
+              templated message per channel. Track every reply in one queue.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <Link
+                href={isAuthed ? '/' : '/auth/signup'}
+                className="inline-flex items-center gap-2 bg-[#0F1733] text-white hover:bg-[#1F2A52] px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
+              >
+                {isAuthed ? 'Open the app' : 'Start free — no card'}
+                <span aria-hidden>→</span>
+              </Link>
+              <a
+                href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
+                className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#0F1733] hover:text-white px-7 py-3.5 rounded-md font-semibold text-[15px] border border-[#0F1733]/15 hover:border-[#0F1733] transition-colors"
+              >
+                Talk to the founder
+              </a>
+            </div>
+
+            {/* Customer-proof line — under the CTAs, not centered below */}
+            <div className="mt-10 pt-7 border-t border-[#0F1733]/10">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/45 mb-3 font-medium">
+                Built for the people running their own outreach
+              </div>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] text-[#0F1733]/60 font-medium">
+                <span>Indie operators</span>
+                <span aria-hidden className="text-[#0F1733]/15">·</span>
+                <span>Solo founders</span>
+                <span aria-hidden className="text-[#0F1733]/15">·</span>
+                <span>Growth teams</span>
+                <span aria-hidden className="text-[#0F1733]/15">·</span>
+                <span>Solo agencies</span>
+              </div>
+            </div>
           </div>
 
-          {/* Customer-proof line — honest placeholder; no fake logos */}
-          <div className="mt-16 max-w-[900px] mx-auto">
-            <div className="text-[12px] uppercase tracking-[0.18em] text-[#0F1733]/45 mb-5 font-medium">
-              Built for the people running their own outreach
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-[15px] text-[#0F1733]/60 font-medium">
-              <span>Indie operators</span>
-              <span aria-hidden className="text-[#0F1733]/15">·</span>
-              <span>Solo founders</span>
-              <span aria-hidden className="text-[#0F1733]/15">·</span>
-              <span>Growth teams</span>
-              <span aria-hidden className="text-[#0F1733]/15">·</span>
-              <span>Solo agencies</span>
-              <span aria-hidden className="text-[#0F1733]/15">·</span>
-              <span>RevOps consultants</span>
+          {/* Right — anime.js pipeline visual */}
+          <div className="md:col-span-6">
+            <div
+              className="relative rounded-2xl border border-[#0F1733]/10 bg-white p-5 md:p-6"
+              style={{
+                boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20), 0 12px 24px -10px rgba(232,93,47,0.10)',
+              }}
+            >
+              <PipelineHero />
             </div>
           </div>
         </div>
