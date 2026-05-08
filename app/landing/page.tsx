@@ -434,7 +434,7 @@ export default async function LandingPage() {
             {PLATFORM_MARKS.map(({ name, Glyph, accent }) => (
               <div
                 key={name}
-                className="group relative rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] px-4 py-7 hover:-translate-y-1 transition-transform overflow-hidden"
+                className="group relative rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] px-4 py-7 hover:-translate-y-1 transition-transform overflow-hidden"
                 style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}
               >
                 {/* Left accent stripe — fades in on hover, colored to the
@@ -706,7 +706,7 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
 
 function ResourceCard({ tag, title, body }: { tag: string; title: string; body: string }) {
   return (
-    <article className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+    <article className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] p-6 hover:-translate-y-1 transition-transform" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
       <div className="text-[10px] uppercase tracking-[0.22em] text-[#E85D2F] font-semibold mb-3">{tag}</div>
       <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2.5">{title}</h3>
       <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
