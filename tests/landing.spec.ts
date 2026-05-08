@@ -74,6 +74,28 @@ test.describe('Landing page', () => {
     expect(await headings.count()).toBeGreaterThanOrEqual(3)
   })
 
+  test('hamburger menu opens and closes', async ({ page }) => {
+    // Regression: prior version had click-outside that could close
+    // the menu before it opened, plus a mounted-placeholder pattern
+    // that left the theme toggle invisible. Both fixed 2026-05-08.
+    const hamburger = page.getByRole('button', { name: 'Open menu' })
+    await expect(hamburger).toBeVisible()
+    await hamburger.click()
+    // Menu should now contain at least one utility link.
+    await expect(page.getByRole('menu')).toBeVisible()
+    await expect(page.getByRole('menu').getByRole('link', { name: /talk to founder/i })).toBeVisible()
+  })
+
+  test('theme toggle is visible and switches modes', async ({ page }) => {
+    const toggle = page.getByRole('button', { name: /switch to (light|dark) mode/i })
+    await expect(toggle).toBeVisible()
+    // Whichever mode we start in, clicking flips the <html> class.
+    const startedDark = await page.locator('html').evaluate(el => el.classList.contains('dark'))
+    await toggle.click()
+    const nowDark = await page.locator('html').evaluate(el => el.classList.contains('dark'))
+    expect(nowDark).not.toBe(startedDark)
+  })
+
   test('no console errors on initial load', async ({ page }) => {
     const errors: string[] = []
     page.on('console', msg => {

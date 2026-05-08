@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { useTheme } from 'next-themes'
 
 /**
  * Top nav for the production /landing page.
@@ -10,26 +10,51 @@ import { ThemeToggle } from '@/components/ThemeToggle'
  * Layout (left → right):
  *   - Logo + brand name
  *   - Inline section anchors (Product / Solutions / Customers /
- *     Pricing / Resources)  — desktop only
- *   - ThemeToggle (light/dark switch)  — always visible
- *   - Hamburger button (always visible, opens dropdown with utility
- *     links: Sign in, Talk to founder, mobile-only section anchors)
+ *     Pricing / Resources) — desktop only
+ *   - Light/dark mode toggle (sun/moon swap) — always visible, sits
+ *     OUTSIDE the hamburger as a sibling button
+ *   - Hamburger button → opens dropdown with utility links
+ *     (Sign in, Talk to founder, mobile-only section anchors)
  *   - Primary CTA (Open app / Start free)
  *
- * Per Dylan: theme toggle sits next to the hamburger. Both visible
- * on every viewport, not just mobile.
+ * Design notes that bit us before:
+ *   - Earlier version used a separate <ThemeToggle> component that
+ *     rendered an empty <div> placeholder until `mounted` flipped
+ *     true. In production that swap apparently never happened — Dylan
+ *     reported the toggle was invisible. Inlining the button here
+ *     means the SSR markup IS the final markup; only the icon swaps
+ *     after hydration, which can't fail-closed to invisible.
+ *   - Hamburger click-outside listener is gated on `open` so it can't
+ *     close the menu before it ever opens. Hamburger button lives
+ *     inside the same ref'd wrapper as the dropdown so clicking it
+ *     never registers as "outside."
+ *   - Both controls use self-contained light/dark Tailwind classes
+ *     (no className prop overrides) so neither can render invisible
+ *     against either substrate.
  */
 export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const { theme, resolvedTheme, setTheme } = useTheme()
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  // next-themes needs a client-side hydration tick before `theme` is
+  // accurate. We render an inert moon icon during SSR + first paint
+  // (the button is still visible and clickable — flip to whichever
+  // mode you want).
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
     }
     if (open) document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
   }, [open])
+
+  const isDark = mounted ? (resolvedTheme ?? theme) === 'dark' : false
 
   return (
     <header className="sticky top-0 z-40 bg-white/85 dark:bg-[#0A0E15]/85 backdrop-blur-md border-b border-[#0F1733]/8 dark:border-white/10">
@@ -38,26 +63,58 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] dark:bg-[#F2A261] text-[#F2A261] dark:text-[#0F1733] text-[14px] font-bold">
             C
           </span>
-          <span className="font-semibold tracking-[-0.01em] text-[16px] text-[#0F1733] dark:text-white">Creator Outreach</span>
+          <span className="font-semibold tracking-[-0.01em] text-[16px] text-[#0F1733] dark:text-white">
+            Creator Outreach
+          </span>
         </Link>
 
         {/* Desktop section anchors */}
         <nav className="hidden md:flex items-center gap-6 text-[14px] text-[#0F1733]/70 dark:text-white/65 font-medium">
-          <a href="#product"   className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Product</a>
+          <a href="#product" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Product</a>
           <a href="#solutions" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Solutions</a>
           <a href="#customers" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Customers</a>
-          <a href="#pricing"   className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Pricing</a>
+          <a href="#pricing" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Pricing</a>
           <a href="mailto:dmeehanj@gmail.com" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Resources</a>
         </nav>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Theme toggle (left of hamburger) */}
-          <ThemeToggle className="!border-[#0F1733]/15 hover:!border-[#0F1733]/40 !text-[#0F1733]/70 hover:!text-[#0F1733] dark:!border-white/15 dark:hover:!border-white/40 dark:!text-white/70 dark:hover:!text-white" />
+        <div className="flex items-center gap-2 shrink-0">
+          {/* THEME TOGGLE — inline button. No <ThemeToggle> indirection.
+              Renders as a stable <button> on SSR + first paint so it's
+              never invisible; only the SVG icon swaps after hydration. */}
+          <button
+            type="button"
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors border-[#0F1733]/15 dark:border-white/15 text-[#0F1733]/70 dark:text-white/70 hover:border-[#0F1733]/40 dark:hover:border-white/40 hover:text-[#0F1733] dark:hover:text-white"
+          >
+            {/* Sun icon — shown when in dark mode (click to go light) */}
+            {isDark ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="4" />
+                <line x1="12" y1="2" x2="12" y2="4" />
+                <line x1="12" y1="20" x2="12" y2="22" />
+                <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" />
+                <line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
+                <line x1="2" y1="12" x2="4" y2="12" />
+                <line x1="20" y1="12" x2="22" y2="12" />
+                <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" />
+                <line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
+              </svg>
+            ) : (
+              /* Moon icon — shown when in light mode (click to go dark).
+                 Also the SSR / pre-hydration default. */
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+          </button>
 
-          {/* Hamburger — always visible. Opens utility menu (Sign in,
-              Talk to founder, mobile anchors). */}
-          <div ref={ref} className="relative">
+          {/* HAMBURGER + DROPDOWN — wrapped in ref'd div so click-outside
+              detection treats both the button and the menu as "inside." */}
+          <div ref={wrapRef} className="relative">
             <button
+              type="button"
               onClick={() => setOpen(v => !v)}
               aria-label="Open menu"
               aria-expanded={open}
@@ -75,15 +132,19 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
             </button>
 
             {open && (
-              <div className="absolute right-0 top-12 w-56 bg-white dark:bg-[#1A1F2E] border border-[#0F1733]/10 dark:border-white/10 rounded-xl shadow-2xl shadow-black/15 dark:shadow-black/40 z-50 overflow-hidden py-1">
-                {/* Mobile-only anchors (hidden on desktop where they're inline) */}
+              <div
+                role="menu"
+                className="absolute right-0 top-[calc(100%+8px)] w-56 bg-white dark:bg-[#1A2034] border border-[#0F1733]/10 dark:border-white/10 rounded-xl shadow-2xl shadow-black/15 dark:shadow-black/40 z-50 overflow-hidden py-1"
+              >
+                {/* Mobile-only section anchors (hidden on desktop where
+                    they live inline in the main nav). */}
                 <div className="md:hidden py-1">
                   {[
-                    { label: 'Product',    href: '#product' },
-                    { label: 'Solutions',  href: '#solutions' },
-                    { label: 'Customers',  href: '#customers' },
-                    { label: 'Pricing',    href: '#pricing' },
-                    { label: 'Resources',  href: 'mailto:dmeehanj@gmail.com' },
+                    { label: 'Product', href: '#product' },
+                    { label: 'Solutions', href: '#solutions' },
+                    { label: 'Customers', href: '#customers' },
+                    { label: 'Pricing', href: '#pricing' },
+                    { label: 'Resources', href: 'mailto:dmeehanj@gmail.com' },
                   ].map(item => (
                     <a
                       key={item.href}
