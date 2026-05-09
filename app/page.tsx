@@ -2070,6 +2070,28 @@ function isoDaysFromNow(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
+/**
+ * Live filter for the Outreach tab. When the user types in the main
+ * search bar while on the Outreach tab, we filter their existing list
+ * instead of running a YouTube search. Case-insensitive substring
+ * match across the most useful fields — name, email, notes, product,
+ * niche, channel ID. Whitespace-only / empty query returns the input
+ * unchanged so this is cheap to call universally.
+ */
+function filterOutreachByKeyword(list: OutreachEntry[], rawKeyword: string): OutreachEntry[] {
+  const q = rawKeyword.trim().toLowerCase()
+  if (!q) return list
+  return list.filter(e =>
+    (e.channelName || '').toLowerCase().includes(q) ||
+    (e.email || '').toLowerCase().includes(q) ||
+    (e.notes || '').toLowerCase().includes(q) ||
+    (e.product || '').toLowerCase().includes(q) ||
+    (e.contentNiche || '').toLowerCase().includes(q) ||
+    (e.headerUsed || '').toLowerCase().includes(q) ||
+    (e.channelId || '').toLowerCase().includes(q),
+  )
+}
+
 // Progressive follow-up cadence — most replies come from touch 2 / 3,
 // not touch 5+. Tighter intervals early, looser later.
 function nextFollowUpDays(touchpoints: number): number {
@@ -4164,10 +4186,20 @@ export default function Home() {
             </div>
             <input
               className="w-full bg-card/60 border border-border rounded-lg pl-9 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/15 transition-all"
-              placeholder="Search a topic, paste a YouTube URL, or describe what you're looking for…"
+              placeholder={
+                activeTab === 'outreach'
+                  ? 'Filter your outreach by name, email, notes, niche…'
+                  : "Search a topic, paste a YouTube URL, or describe what you're looking for…"
+              }
               value={keyword}
               onChange={e => setKeyword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              onKeyDown={e => {
+                // On Outreach tab, Enter is a no-op — the filter is
+                // already live as the user types. Suppressing prevents
+                // accidental YouTube search triggers from people who
+                // hit Enter out of habit.
+                if (e.key === 'Enter' && activeTab !== 'outreach') handleSearch()
+              }}
             />
           </div>
           {/* Score settings icon */}
@@ -4199,7 +4231,12 @@ export default function Home() {
               </span>
             )}
           </button>
-          <button onClick={handleSearch} disabled={loading} className="relative bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30 overflow-hidden">
+          <button
+            onClick={handleSearch}
+            disabled={loading || activeTab === 'outreach'}
+            title={activeTab === 'outreach' ? 'On Outreach tab the search bar filters your list — switch to Results to search YouTube.' : undefined}
+            className="relative bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30 overflow-hidden"
+          >
             <span className="relative z-10">{loading ? 'Searching...' : 'Search'}</span>
             <span className="absolute inset-0 shimmer-bg rounded-lg pointer-events-none" aria-hidden />
           </button>
@@ -4802,14 +4839,17 @@ export default function Home() {
               />
             ) : outreachSubTab === 'followups' ? (
               <OutreachFollowUps
-                entries={outreach}
+                entries={filterOutreachByKeyword(outreach, keyword)}
                 onUpdate={updateOutreachEntry}
                 onOpenEntry={(id: string) => setViewingLeadId(id)}
                 profile={profile}
               />
             ) : (
               <OutreachTab
-                entries={outreachSubTab === 'favorites' ? outreach.filter(e => e.favorite) : outreach}
+                entries={filterOutreachByKeyword(
+                  outreachSubTab === 'favorites' ? outreach.filter(e => e.favorite) : outreach,
+                  keyword,
+                )}
                 colConfig={outreachColConfig}
                 onUpdate={updateOutreachEntry}
                 onRemove={removeOutreachEntry}
