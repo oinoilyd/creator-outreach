@@ -81,7 +81,7 @@ export function BulkJobBar() {
         onClick={() => setCollapsed(false)}
         title="Expand bulk job progress"
         aria-label="Expand bulk job progress"
-        className="fixed bottom-4 left-4 z-[60] flex items-center gap-2 rounded-full border border-gray-800 bg-gray-950/95 backdrop-blur-md shadow-2xl shadow-black/40 text-gray-100 select-none px-3 py-1.5 hover:border-gray-600 transition-colors"
+        className="fixed bottom-4 left-4 z-[60] flex items-center gap-2 rounded-full border border-border bg-card/95 backdrop-blur-md shadow-2xl shadow-black/40 text-foreground select-none px-3 py-1.5 hover:border-border transition-colors"
       >
         <span
           className={`w-2 h-2 rounded-full shrink-0 ${accent} ${
@@ -89,7 +89,7 @@ export function BulkJobBar() {
           }`}
           aria-hidden
         />
-        <span className="text-[11px] font-mono tabular-nums text-gray-300">
+        <span className="text-[11px] font-mono tabular-nums text-foreground/90">
           {activeJob.done.toLocaleString()} / {activeJob.total.toLocaleString()}
         </span>
         <ChevronUp />
@@ -102,7 +102,7 @@ export function BulkJobBar() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-4 z-[60] w-[320px] rounded-xl border border-gray-800 bg-gray-950/95 backdrop-blur-md shadow-2xl shadow-black/40 text-gray-100 select-none"
+      className="fixed bottom-4 left-4 z-[60] w-[320px] rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-2xl shadow-black/40 text-foreground select-none"
     >
       {/* HEADER */}
       <div className="flex items-center justify-between gap-2 px-3.5 pt-3 pb-2">
@@ -113,7 +113,7 @@ export function BulkJobBar() {
             }`}
             aria-hidden
           />
-          <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-gray-400">
+          <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
             {activeJob.type === 'seed' ? 'Bulk seed' : 'Bulk enrich'} · {statusLabel}
           </span>
         </div>
@@ -126,7 +126,7 @@ export function BulkJobBar() {
             onClick={() => setCollapsed(true)}
             aria-label="Minimize"
             title="Minimize"
-            className="text-gray-500 hover:text-gray-200 transition-colors px-1.5 leading-none"
+            className="text-muted-foreground/80 hover:text-foreground transition-colors px-1.5 leading-none"
           >
             <ChevronDown />
           </button>
@@ -138,7 +138,7 @@ export function BulkJobBar() {
               onClick={dismissJob}
               aria-label="Dismiss"
               title="Dismiss"
-              className="text-gray-500 hover:text-gray-200 transition-colors px-1 leading-none text-lg"
+              className="text-muted-foreground/80 hover:text-foreground transition-colors px-1 leading-none text-lg"
             >
               ×
             </button>
@@ -147,13 +147,13 @@ export function BulkJobBar() {
       </div>
 
       {/* LABEL */}
-      <div className="px-3.5 pb-2 text-[12px] text-gray-200 leading-snug truncate" title={activeJob.label}>
+      <div className="px-3.5 pb-2 text-[12px] text-foreground leading-snug truncate" title={activeJob.label}>
         {activeJob.label}
       </div>
 
       {/* PROGRESS BAR */}
       <div className="px-3.5 pb-2">
-        <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div
             className={`h-full ${accent} transition-all duration-500`}
             style={{ width: `${pct}%` }}
@@ -162,13 +162,13 @@ export function BulkJobBar() {
       </div>
 
       {/* COUNTS + ELAPSED */}
-      <div className="px-3.5 pb-3 flex items-center justify-between gap-2 text-[11px] font-mono tabular-nums text-gray-400">
+      <div className="px-3.5 pb-3 flex items-center justify-between gap-2 text-[11px] font-mono tabular-nums text-muted-foreground">
         <span>
           {activeJob.done.toLocaleString()} / {activeJob.total.toLocaleString()}
         </span>
-        <span className="text-gray-500">
+        <span className="text-muted-foreground/80">
           {fmtElapsed(activeJob.elapsedMs)}
-          {eta && <span className="text-gray-600"> · ~{eta} left</span>}
+          {eta && <span className="text-muted-foreground/60"> · ~{eta} left</span>}
         </span>
       </div>
 
@@ -192,7 +192,7 @@ export function BulkJobBar() {
 
       {/* ACTIONS */}
       {activeJob.status === 'running' ? (
-        <div className="border-t border-gray-800 px-3.5 py-2 flex items-center justify-between">
+        <div className="border-t border-border px-3.5 py-2 flex items-center justify-between">
           <Link
             href={activeJob.type === 'seed' ? '/admin/contacts/seed' : '/admin/contacts/enrich'}
             className="text-[11px] text-orange-400 hover:text-orange-300 hover:underline"
@@ -202,20 +202,20 @@ export function BulkJobBar() {
           <button
             type="button"
             onClick={cancelActiveJob}
-            className="text-[11px] font-semibold text-gray-400 hover:text-red-300 transition-colors"
+            className="text-[11px] font-semibold text-muted-foreground hover:text-red-300 transition-colors"
           >
             Cancel
           </button>
         </div>
       ) : (
-        <div className="border-t border-gray-800 px-3.5 py-2 flex items-center justify-between">
+        <div className="border-t border-border px-3.5 py-2 flex items-center justify-between">
           <Link
             href="/admin/contacts"
             className="text-[11px] text-orange-400 hover:text-orange-300 hover:underline"
           >
             View contacts →
           </Link>
-          <span className="text-[11px] text-gray-500">
+          <span className="text-[11px] text-muted-foreground/80">
             {activeJob.done.toLocaleString()} processed
           </span>
         </div>
@@ -236,7 +236,7 @@ function ChevronDown() {
 
 function ChevronUp() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-gray-500">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-muted-foreground/80">
       <polyline points="18 15 12 9 6 15" />
     </svg>
   )

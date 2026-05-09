@@ -54,25 +54,25 @@ export default async function AdminPage() {
   const firstOutreachCount = rows.filter(r => !!r.first_outreach_at).length
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
+    <main className="min-h-screen bg-background text-foreground px-6 py-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Admin · Users</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-muted-foreground/80 text-sm mt-1">
               {total} user{total === 1 ? '' : 's'} signed up.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link
               href="/admin/contacts"
-              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
             >
               📇 Contacts
             </Link>
             <Link
               href="/admin/email-test"
-              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
             >
               📧 Email-test
             </Link>
@@ -81,7 +81,7 @@ export default async function AdminPage() {
               className={`text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border ${
                 (unresolvedContact ?? 0) > 0
                   ? 'border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/10'
-                  : 'border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white'
+                  : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               <span>📨 Contact</span>
@@ -90,7 +90,7 @@ export default async function AdminPage() {
               )}
             </Link>
             <AuditMenu />
-            <Link href="/" className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors">
+            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors">
               Back to app
             </Link>
           </div>
@@ -100,8 +100,8 @@ export default async function AdminPage() {
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg p-4 mb-6">
             <div className="text-sm text-red-800 dark:text-red-300 font-medium mb-1">Could not load user summary</div>
             <div className="text-xs text-red-700/80 dark:text-red-400/80 mb-2">{error.message}</div>
-            <div className="text-xs text-gray-400">
-              Run <code className="text-gray-300">supabase/migrations/0003_admin_summary_v2.sql</code> in the Supabase SQL editor to enable this view.
+            <div className="text-xs text-muted-foreground">
+              Run <code className="text-foreground/90">supabase/migrations/0003_admin_summary_v2.sql</code> in the Supabase SQL editor to enable this view.
             </div>
           </div>
         )}
@@ -118,8 +118,8 @@ export default async function AdminPage() {
             </div>
 
             {/* Funnel */}
-            <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-5 mb-8">
-              <div className="text-sm font-semibold text-white mb-4">Activation funnel</div>
+            <div className="bg-card/40 border border-border rounded-xl p-5 mb-8">
+              <div className="text-sm font-semibold text-foreground mb-4">Activation funnel</div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <FunnelStep label="Signed up" value={total} ofTotal={total} />
                 <FunnelStep label="Confirmed email" value={verified} ofTotal={total} />
@@ -131,9 +131,9 @@ export default async function AdminPage() {
         )}
 
         {!error && rows.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-gray-800">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
+              <thead className="bg-card text-muted-foreground text-xs uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Email</th>
                   <th className="px-4 py-3 text-left font-medium">Name</th>
@@ -156,31 +156,31 @@ export default async function AdminPage() {
                     ? formatDuration(new Date(r.first_outreach_at).getTime() - new Date(r.created_at).getTime())
                     : null
                   return (
-                    <tr key={r.user_id} className="hover:bg-gray-900/40 transition-colors">
-                      <td className="px-4 py-2.5 text-white">{r.email}</td>
-                      <td className="px-4 py-2.5 text-gray-300">{r.full_name || <span className="text-gray-600">—</span>}</td>
+                    <tr key={r.user_id} className="hover:bg-card/40 transition-colors">
+                      <td className="px-4 py-2.5 text-foreground">{r.email}</td>
+                      <td className="px-4 py-2.5 text-foreground/90">{r.full_name || <span className="text-muted-foreground/60">—</span>}</td>
                       <td className="px-4 py-2.5 text-center" title={`Name ${profileFields[0] ? '✓' : '✗'} · LinkedIn ${profileFields[1] ? '✓' : '✗'} · Pitch ${profileFields[2] ? '✓' : '✗'}`}>
                         <span className={`inline-flex items-center justify-center w-9 h-6 rounded text-[11px] font-mono ${
                           profileFilled === 3 ? 'bg-green-500/15 text-green-400'
                           : profileFilled >= 1 ? 'bg-yellow-500/15 text-yellow-400'
-                          : 'bg-gray-700/40 text-gray-500'
+                          : 'bg-gray-700/40 text-muted-foreground/80'
                         }`}>{profileFilled}/3</span>
                       </td>
-                      <td className="px-4 py-2.5 text-gray-400">{fmtDate(r.created_at)}</td>
-                      <td className="px-4 py-2.5 text-gray-400">{r.last_sign_in_at ? fmtDate(r.last_sign_in_at) : <span className="text-gray-600">never</span>}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(r.created_at)}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{r.last_sign_in_at ? fmtDate(r.last_sign_in_at) : <span className="text-muted-foreground/60">never</span>}</td>
                       <td className="px-4 py-2.5">
-                        {idle === null ? <span className="text-gray-600">—</span>
+                        {idle === null ? <span className="text-muted-foreground/60">—</span>
                          : idle === 0 ? <span className="text-green-400">today</span>
-                         : <span className={idle > 30 ? 'text-red-400' : idle > 7 ? 'text-yellow-400' : 'text-gray-300'}>{idle}d</span>}
+                         : <span className={idle > 30 ? 'text-red-400' : idle > 7 ? 'text-yellow-400' : 'text-foreground/90'}>{idle}d</span>}
                       </td>
-                      <td className="px-4 py-2.5 text-gray-400">{ttv ?? <span className="text-gray-600">—</span>}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{ttv ?? <span className="text-muted-foreground/60">—</span>}</td>
                       <td className="px-4 py-2.5 text-center">
                         {r.email_confirmed_at
                           ? <span className="text-green-400">✓</span>
                           : <span className="text-yellow-500">·</span>}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-gray-200 font-mono">{r.outreach_count}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-200 font-mono">{r.dismissed_count}</td>
+                      <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.outreach_count}</td>
+                      <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.dismissed_count}</td>
                     </tr>
                   )
                 })}
@@ -190,7 +190,7 @@ export default async function AdminPage() {
         )}
 
         {!error && rows.length === 0 && (
-          <div className="border border-dashed border-gray-800 rounded-xl py-16 text-center text-gray-500 text-sm">
+          <div className="border border-dashed border-border rounded-xl py-16 text-center text-muted-foreground/80 text-sm">
             No users yet.
           </div>
         )}
@@ -201,10 +201,10 @@ export default async function AdminPage() {
 
 function Stat({ label, value, sub }: { label: string; value: number; sub?: string | null }) {
   return (
-    <div className="bg-gray-900/40 border border-gray-800 rounded-xl p-4">
-      <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-1.5">{label}</div>
-      <div className="text-2xl font-bold text-white tabular-nums">{value.toLocaleString()}</div>
-      {sub && <div className="text-[11px] text-gray-500 mt-1">{sub}</div>}
+    <div className="bg-card/40 border border-border rounded-xl p-4">
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground/80 mb-1.5">{label}</div>
+      <div className="text-2xl font-bold text-foreground tabular-nums">{value.toLocaleString()}</div>
+      {sub && <div className="text-[11px] text-muted-foreground/80 mt-1">{sub}</div>}
     </div>
   )
 }
@@ -214,10 +214,10 @@ function FunnelStep({ label, value, ofTotal }: { label: string; value: number; o
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-xs text-gray-400">{label}</span>
-        <span className="text-xs text-gray-500 tabular-nums">{value} ({Math.round(pctVal)}%)</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground/80 tabular-nums">{value} ({Math.round(pctVal)}%)</span>
       </div>
-      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500" style={{ width: `${pctVal}%` }} />
       </div>
     </div>

@@ -2944,19 +2944,29 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
     x: number
     y: number
   } | null>(null)
-  // Fit Score column-header info popover (hover OR click). Same
-  // pattern as OutreachTab's status tooltip.
-  const [showFitScoreTooltip, setShowFitScoreTooltip] = useState(false)
-  const fitScoreTooltipRef = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    function onClick(ev: MouseEvent) {
-      if (fitScoreTooltipRef.current && !fitScoreTooltipRef.current.contains(ev.target as Node)) {
-        setShowFitScoreTooltip(false)
-      }
-    }
-    if (showFitScoreTooltip) document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [showFitScoreTooltip])
+  // Fit Score column-header info popover. Position is calculated
+  // from the icon's bounding rect on hover/click and rendered with
+  // position:fixed so it ESCAPES the table's overflow-x-auto
+  // clipping (the previous absolute-positioned version was getting
+  // cut off and bouncing the table's scrollbars). Auto-clamps to the
+  // viewport so it never falls off-screen.
+  const [fitScoreTip, setFitScoreTip] = useState<{ x: number; y: number } | null>(null)
+  function openFitScoreTip(target: HTMLElement) {
+    const rect = target.getBoundingClientRect()
+    const TIP_W = 320
+    const TIP_H = 220
+    const margin = 8
+    const viewportW = window.innerWidth
+    const viewportH = window.innerHeight
+    let x = rect.left
+    let y = rect.bottom + 6
+    if (x + TIP_W > viewportW - margin) x = viewportW - TIP_W - margin
+    if (y + TIP_H > viewportH - margin) y = rect.top - TIP_H - 6 // flip above
+    setFitScoreTip({ x: Math.max(margin, x), y: Math.max(margin, y) })
+  }
+  function closeFitScoreTip() {
+    setFitScoreTip(null)
+  }
 
   function handleColDrop(targetIdx: number) {
     const from = dragIdx.current
@@ -3015,45 +3025,23 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                   {col.label}
                   {sc && <SortIndicator col={sc} sorts={sorts} />}
                   {col.id === 'fitScore' && (
-                    <span
-                      ref={fitScoreTooltipRef}
-                      className="relative inline-flex ml-1.5 align-middle"
-                      onMouseEnter={() => setShowFitScoreTooltip(true)}
-                      onMouseLeave={() => setShowFitScoreTooltip(false)}
-                    >
+                    <span className="relative inline-flex ml-1.5 align-middle">
                       <button
                         type="button"
                         draggable={false}
                         onDragStart={(ev) => ev.preventDefault()}
                         onMouseDown={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => openFitScoreTip(e.currentTarget)}
+                        onMouseLeave={() => closeFitScoreTip()}
                         onClick={(e) => {
                           e.stopPropagation()
                           e.preventDefault()
-                          setShowFitScoreTooltip(v => !v)
+                          if (fitScoreTip) closeFitScoreTip()
+                          else openFitScoreTip(e.currentTarget)
                         }}
                         className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-purple-500/40 text-purple-700 dark:text-purple-400 text-[10px] font-bold hover:bg-purple-500/15 transition-colors leading-none"
                         aria-label="What is Fit Score?"
-                        title="Fit score info — hover or click"
                       >i</button>
-                      {showFitScoreTooltip && (
-                        <div className="absolute left-0 top-6 z-30 w-80 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal space-y-2">
-                          <div>
-                            <strong className="text-foreground">Fit Score (0–100)</strong> is a single number representing how well a creator matches your ideal-lead criteria. Higher = better fit.
-                          </div>
-                          <div className="text-muted-foreground">
-                            Computed from a weighted blend of:
-                          </div>
-                          <ul className="space-y-1 ml-1 text-muted-foreground">
-                            <li>• <span className="text-foreground/90">Audience signals</span> — subscribers, average views, recency of last upload.</li>
-                            <li>• <span className="text-foreground/90">Reachability</span> — has email, has socials (IG / LinkedIn / etc).</li>
-                            <li>• <span className="text-foreground/90">Niche match</span> — keyword overlap between channel name / titles and your search terms.</li>
-                            <li>• <span className="text-foreground/90">Custom guidance</span> — anything you&apos;ve added in the <span className="text-purple-700 dark:text-purple-400">⚡ Lead Criteria</span> panel (e.g. &quot;prefer creators in the US&quot;).</li>
-                          </ul>
-                          <div className="text-[11px] text-muted-foreground italic pt-1 border-t border-border">
-                            Tweak the weights anytime via the <span className="text-purple-700 dark:text-purple-400">⚡ Lead Criteria</span> button next to the search bar — every visible row re-scores live.
-                          </div>
-                        </div>
-                      )}
                     </span>
                   )}
                   {col.id === 'email' && (() => {
@@ -3165,6 +3153,34 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
           onCustomize={onOpenCustomize ?? (() => {})}
           onClose={() => setHeaderMenu(null)}
         />
+      )}
+      {/* Fit Score info popover — fixed-position so it escapes the
+          table's overflow-x-auto clipping. Hover-on / hover-off via
+          the icon's onMouseEnter / onMouseLeave; click toggles
+          sticky. Width capped at 320px so the body doesn't wrap into
+          a tall scrollable column. */}
+      {fitScoreTip && (
+        <div
+          role="tooltip"
+          onMouseEnter={() => { /* keep open while hovering the popover */ }}
+          onMouseLeave={() => closeFitScoreTip()}
+          style={{ position: 'fixed', left: fitScoreTip.x, top: fitScoreTip.y, width: 320 }}
+          className="z-[60] rounded-lg border border-border bg-card shadow-2xl shadow-black/30 p-3.5 text-xs text-foreground/80 normal-case font-normal space-y-2"
+        >
+          <div>
+            <strong className="text-foreground">Fit Score (0–100)</strong> — how well a creator matches your ideal-lead criteria. Higher = better fit.
+          </div>
+          <div className="text-muted-foreground">Computed from:</div>
+          <ul className="space-y-1 ml-1 text-muted-foreground">
+            <li>• <span className="text-foreground/90">Audience</span> — subs, avg views, last-uploaded recency.</li>
+            <li>• <span className="text-foreground/90">Reachability</span> — has email + has socials.</li>
+            <li>• <span className="text-foreground/90">Niche match</span> — keyword overlap between channel name / titles and your search terms.</li>
+            <li>• <span className="text-foreground/90">Your guidance</span> — custom rules from the ⚡ panel.</li>
+          </ul>
+          <div className="text-[11px] text-muted-foreground italic pt-1 border-t border-border">
+            Tweak weights via <span className="text-purple-700 dark:text-purple-400">⚡ Lead Criteria</span> — scores recompute live.
+          </div>
+        </div>
       )}
     </div>
   )

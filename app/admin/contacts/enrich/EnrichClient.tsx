@@ -130,16 +130,16 @@ export function EnrichClient() {
       )}
 
       {/* MODE PICKER */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+      <section className="rounded-xl border border-border bg-card/40 p-5">
         <label className="block">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-2">
             What to enrich
           </div>
           <select
             value={mode}
             onChange={e => setMode(e.target.value as Mode)}
             disabled={isRunning}
-            className="w-full px-3 py-2.5 rounded-md bg-gray-950 border border-gray-800 text-sm font-medium text-white focus:outline-none focus:border-orange-500/50"
+            className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm font-medium text-foreground focus:outline-none focus:border-orange-500/50"
           >
             {(Object.keys(MODE_LABEL) as Mode[]).map(m => (
               <option key={m} value={m}>
@@ -147,20 +147,20 @@ export function EnrichClient() {
               </option>
             ))}
           </select>
-          <div className="text-xs text-gray-500 mt-2 leading-relaxed">
+          <div className="text-xs text-muted-foreground/80 mt-2 leading-relaxed">
             {MODE_DESCRIPTION[mode]}
           </div>
         </label>
       </section>
 
       {/* OPTIONS */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-3">
+      <section className="rounded-xl border border-border bg-card/40 p-5">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-3">
           Run options
         </div>
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
-            <div className="text-sm font-semibold text-white mb-1.5">Batch size</div>
+            <div className="text-sm font-semibold text-foreground mb-1.5">Batch size</div>
             <input
               type="number"
               min={1}
@@ -168,12 +168,12 @@ export function EnrichClient() {
               value={batchSize}
               onChange={e => setBatchSize(parseInt(e.target.value, 10) || 8)}
               disabled={isRunning}
-              className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
+              className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
             />
-            <div className="text-xs text-gray-500 mt-1">Channels per server call (1–50). Smaller = safer for Vercel timeout.</div>
+            <div className="text-xs text-muted-foreground/80 mt-1">Channels per server call (1–50). Smaller = safer for Vercel timeout.</div>
           </label>
           <label className="block">
-            <div className="text-sm font-semibold text-white mb-1.5">Concurrency</div>
+            <div className="text-sm font-semibold text-foreground mb-1.5">Concurrency</div>
             <input
               type="number"
               min={1}
@@ -181,32 +181,32 @@ export function EnrichClient() {
               value={concurrency}
               onChange={e => setConcurrency(parseInt(e.target.value, 10) || 2)}
               disabled={isRunning}
-              className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
+              className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
             />
-            <div className="text-xs text-gray-500 mt-1">Parallel /api/enrich workers per call (1–4)</div>
+            <div className="text-xs text-muted-foreground/80 mt-1">Parallel /api/enrich workers per call (1–4)</div>
           </label>
         </div>
       </section>
 
       {/* PREVIEW + RUN */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+      <section className="rounded-xl border border-border bg-card/40 p-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-1">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-1">
               Preview
             </div>
             {previewLoading ? (
-              <div className="text-sm text-gray-400">Counting…</div>
+              <div className="text-sm text-muted-foreground">Counting…</div>
             ) : matchingCount === null ? (
               <div className="text-sm text-red-400">Couldn&apos;t fetch count</div>
             ) : matchingCount === 0 ? (
-              <div className="text-sm text-gray-400">
+              <div className="text-sm text-muted-foreground">
                 Nothing matches that filter — pick another mode or run a bulk-seed first to populate the cache.
               </div>
             ) : (
-              <div className="text-lg font-semibold text-white">
+              <div className="text-lg font-semibold text-foreground">
                 <span className="text-orange-400 tabular-nums">{matchingCount.toLocaleString()}</span>{' '}
-                <span className="text-gray-400 text-sm font-normal">channels match · ETA{' '}
+                <span className="text-muted-foreground text-sm font-normal">channels match · ETA{' '}
                   <span className="tabular-nums">~{Math.ceil((matchingCount * 10) / 60)} min</span>
                   {' '}(rough, ~10s per channel)
                 </span>
@@ -234,9 +234,9 @@ export function EnrichClient() {
       </section>
 
       {/* INFO PANEL */}
-      <section className="rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed">
+      <section className="rounded-xl border border-border/60 bg-card/20 p-4 text-[12px] text-muted-foreground leading-relaxed">
         <p>
-          <span className="text-gray-200 font-semibold">Background mode:</span>{' '}
+          <span className="text-foreground font-semibold">Background mode:</span>{' '}
           The enrich loop is processed server-side via QStash. The browser just
           polls for progress — close the tab, switch to a different app, walk
           away. The job keeps running.
@@ -276,17 +276,17 @@ function BackgroundJobBanner({
   const seconds = Math.round(elapsedMs / 100) / 10
 
   return (
-    <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+    <section className="rounded-xl border border-border bg-card/40 p-5">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-2">
         <span>Background job · {status}</span>
-        <span className="font-mono normal-case tracking-normal text-gray-400">
+        <span className="font-mono normal-case tracking-normal text-muted-foreground">
           {done} / {total} · {seconds}s{errors > 0 && ` · ${errors} errors`}
         </span>
       </div>
-      <div className="text-sm text-gray-200 mb-3 truncate" title={label}>
+      <div className="text-sm text-foreground mb-3 truncate" title={label}>
         {label}
       </div>
-      <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
         <div
           className={`h-full ${accent} transition-all duration-500`}
           style={{ width: `${pct}%` }}

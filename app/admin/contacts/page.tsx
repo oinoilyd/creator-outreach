@@ -82,13 +82,13 @@ export default async function AdminContactsPage({
   const totalPages = Math.max(1, Math.ceil(listing.total / limit))
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
+    <main className="min-h-screen bg-background text-foreground px-6 py-8">
       <div className="max-w-7xl mx-auto">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">Admin · Contacts cache</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-muted-foreground/80 text-sm mt-1">
               Durable email + social enrichment, append-only per channel.
               Phase 1 (build the corpus) shipped 2026-05-08.
             </p>
@@ -96,26 +96,26 @@ export default async function AdminContactsPage({
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               href="/admin/contacts/seed"
-              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-foreground font-semibold"
             >
               ⚡ Bulk seed
             </Link>
             <Link
               href="/admin/contacts/enrich"
-              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-foreground font-semibold"
             >
               ⚙️ Enrich
             </Link>
             <Link
               href="/admin"
-              className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
             >
               ← Admin home
             </Link>
             <AuditMenu />
             <Link
               href="/"
-              className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
             >
               Back to app
             </Link>
@@ -172,7 +172,7 @@ export default async function AdminContactsPage({
         )}
 
         {/* CORPUS STATS */}
-        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">Corpus</div>
+        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-2">Corpus</div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <StatBox label="Total channels" value={stats.total.toLocaleString()} />
           <StatBox label="With email" value={stats.withEmail.toLocaleString()} accent />
@@ -195,7 +195,7 @@ export default async function AdminContactsPage({
         {/* CACHE-HIT METRICS — Phase 2 read path performance.
             L1 = Redis hit (sub-10ms), L2 = Postgres hit (sub-50ms;
             saves a 5-12s live pipeline run). */}
-        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-2">
           Cache hit rate · last 24h
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
@@ -220,12 +220,12 @@ export default async function AdminContactsPage({
             name="q"
             defaultValue={q}
             placeholder="Search email, name, handle…"
-            className="flex-1 min-w-[260px] px-3 py-2 rounded-md bg-gray-900 border border-gray-800 text-sm placeholder:text-gray-600 focus:outline-none focus:border-gray-600"
+            className="flex-1 min-w-[260px] px-3 py-2 rounded-md bg-card border border-border text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:border-border"
           />
           <select
             name="src"
             defaultValue={src}
-            className="px-3 py-2 rounded-md bg-gray-900 border border-gray-800 text-sm focus:outline-none focus:border-gray-600"
+            className="px-3 py-2 rounded-md bg-card border border-border text-sm focus:outline-none focus:border-border"
           >
             <option value="">Any source</option>
             <option value="youtube_about">youtube_about</option>
@@ -246,14 +246,14 @@ export default async function AdminContactsPage({
           {(q || src) && (
             <Link
               href="/admin/contacts"
-              className="px-3 py-2 rounded-md text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-colors"
+              className="px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border transition-colors"
             >
               Reset
             </Link>
           )}
         </form>
 
-        <div className="text-xs text-gray-500 mb-3">
+        <div className="text-xs text-muted-foreground/80 mb-3">
           Showing {listing.rows.length} of {listing.total.toLocaleString()} channels
           {q && (
             <>
@@ -268,11 +268,11 @@ export default async function AdminContactsPage({
         </div>
 
         {/* TABLE */}
-        <div className="rounded-xl border border-gray-800 bg-gray-900/40 overflow-hidden">
+        <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-900/80 text-gray-400">
-                <tr className="border-b border-gray-800">
+              <thead className="bg-card/80 text-muted-foreground">
+                <tr className="border-b border-border">
                   {/* YT + Socials aren't sortable (they're action
                       columns). Everything else has a clickable
                       header that toggles asc/desc and routes via
@@ -302,7 +302,7 @@ export default async function AdminContactsPage({
               <tbody>
                 {listing.rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground/80">
                       {q || src
                         ? 'No matches. Try clearing filters.'
                         : 'No contacts cached yet — run a few searches in the app and snapshots will appear here.'}
@@ -319,14 +319,14 @@ export default async function AdminContactsPage({
         {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="mt-5 flex items-center justify-between">
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted-foreground/80">
               Page {page} of {totalPages}
             </span>
             <div className="flex items-center gap-2">
               {page > 1 && (
                 <Link
                   href={buildHref({ q, src, page: page - 1, sort, dir })}
-                  className="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-colors"
+                  className="px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border transition-colors"
                 >
                   ← Prev
                 </Link>
@@ -334,7 +334,7 @@ export default async function AdminContactsPage({
               {page < totalPages && (
                 <Link
                   href={buildHref({ q, src, page: page + 1, sort, dir })}
-                  className="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-colors"
+                  className="px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border transition-colors"
                 >
                   Next →
                 </Link>
@@ -412,14 +412,14 @@ function SortableTh({
       <Link
         href={href}
         className={`inline-flex items-center gap-1 transition-colors ${
-          isActive ? 'text-orange-400 hover:text-orange-300' : 'text-gray-400 hover:text-white'
+          isActive ? 'text-orange-400 hover:text-orange-300' : 'text-muted-foreground hover:text-foreground'
         }`}
         title={`Sort by ${col} ${nextDir === 'asc' ? 'ascending' : 'descending'}`}
       >
         {children}
         <span aria-hidden className="inline-flex flex-col leading-none -my-1">
-          <span className={`text-[8px] ${isActive && dir === 'asc' ? 'text-orange-400' : 'text-gray-700'}`}>▲</span>
-          <span className={`text-[8px] -mt-1 ${isActive && dir === 'desc' ? 'text-orange-400' : 'text-gray-700'}`}>▼</span>
+          <span className={`text-[8px] ${isActive && dir === 'asc' ? 'text-orange-400' : 'text-muted-foreground/40'}`}>▲</span>
+          <span className={`text-[8px] -mt-1 ${isActive && dir === 'desc' ? 'text-orange-400' : 'text-muted-foreground/40'}`}>▼</span>
         </span>
       </Link>
     </th>
@@ -438,7 +438,7 @@ function Row({ r }: { r: EnrichmentLatest }) {
     { label: '🌐', href: r.website || null },
   ]
   return (
-    <tr className="border-b border-gray-800/60 hover:bg-gray-900/40 transition-colors">
+    <tr className="border-b border-border/60 hover:bg-card/40 transition-colors">
       {/* YT logo column — same affordance as the outreach board's
           channelUrl column. Single click to open the YouTube channel
           in a new tab. */}
@@ -466,12 +466,12 @@ function Row({ r }: { r: EnrichmentLatest }) {
           rel="noreferrer"
           className="font-semibold text-blue-400 hover:text-blue-300 hover:underline"
         >
-          {r.channel_name || <span className="text-gray-600 italic font-normal no-underline">unnamed</span>}
+          {r.channel_name || <span className="text-muted-foreground/60 italic font-normal no-underline">unnamed</span>}
         </a>
-        <div className="text-[10px] text-gray-600 font-mono mt-0.5 truncate max-w-[220px]" title={r.yt_channel_id}>
+        <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5 truncate max-w-[220px]" title={r.yt_channel_id}>
           {r.yt_channel_id}
         </div>
-        {r.niche && <div className="text-[11px] text-gray-500 mt-0.5">{r.niche}</div>}
+        {r.niche && <div className="text-[11px] text-muted-foreground/80 mt-0.5">{r.niche}</div>}
       </td>
 
       {/* Email — same green/strikethrough treatment as the outreach
@@ -491,17 +491,17 @@ function Row({ r }: { r: EnrichmentLatest }) {
             {r.email}
           </a>
         ) : (
-          <span className="text-gray-600 italic">none</span>
+          <span className="text-muted-foreground/60 italic">none</span>
         )}
       </td>
 
       {/* Subscribers — formatted with K/M same as the outreach view. */}
-      <td className="px-4 py-3 tabular-nums text-gray-300 whitespace-nowrap">
+      <td className="px-4 py-3 tabular-nums text-foreground/90 whitespace-nowrap">
         {formatSubscribers(r.subscribers != null ? String(r.subscribers) : '')}
       </td>
 
       {/* Avg views — formatted same way. */}
-      <td className="px-4 py-3 tabular-nums text-gray-300 whitespace-nowrap">
+      <td className="px-4 py-3 tabular-nums text-foreground/90 whitespace-nowrap">
         {formatSubscribers(r.avg_views != null ? String(r.avg_views) : '')}
       </td>
 
@@ -515,7 +515,7 @@ function Row({ r }: { r: EnrichmentLatest }) {
                 href={h.href}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-bold border border-gray-800 hover:border-gray-600 text-gray-400 hover:text-white"
+                className="inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-bold border border-border hover:border-border text-muted-foreground hover:text-foreground"
               >
                 {h.label}
               </a>
@@ -525,10 +525,10 @@ function Row({ r }: { r: EnrichmentLatest }) {
       </td>
 
       {/* Source — admin-specific column, mono-styled */}
-      <td className="px-4 py-3 text-gray-400 font-mono text-[11px]">{r.email_source ?? '—'}</td>
+      <td className="px-4 py-3 text-muted-foreground font-mono text-[11px]">{r.email_source ?? '—'}</td>
 
       {/* Fetched — admin-specific column */}
-      <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">
+      <td className="px-4 py-3 text-[11px] text-muted-foreground whitespace-nowrap">
         {formatRelative(r.fetched_at)}
       </td>
     </tr>
@@ -568,13 +568,13 @@ function StatBox({
     ? 'text-yellow-300'
     : accent
     ? 'text-orange-400'
-    : 'text-white'
+    : 'text-foreground'
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900/40 px-4 py-3">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-1">{label}</div>
+    <div className="rounded-lg border border-border bg-card/40 px-4 py-3">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-1">{label}</div>
       <div className={`text-xl font-semibold tabular-nums ${valueClass}`}>{value}</div>
       {sublabel && (
-        <div className="text-[10px] text-gray-500 mt-0.5 truncate" title={sublabel}>
+        <div className="text-[10px] text-muted-foreground/80 mt-0.5 truncate" title={sublabel}>
           {sublabel}
         </div>
       )}

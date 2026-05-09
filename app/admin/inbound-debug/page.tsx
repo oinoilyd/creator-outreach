@@ -44,13 +44,13 @@ export default async function InboundDebugPage() {
   const recent = (await cacheGet<RecentInboundEntry[]>(RECENT_INBOUND_KEY)) || []
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
+    <main className="min-h-screen bg-background text-foreground px-6 py-8">
       <div className="max-w-7xl mx-auto">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">Admin · Inbound email debug</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-muted-foreground/80 text-sm mt-1">
               Last {recent.length} of up to 50 emails received at{' '}
               <span className="font-mono">inbound.creatoroutreach.net</span>{' '}
               via SendGrid Inbound Parse → <span className="font-mono">/api/inbound-email</span>.
@@ -61,20 +61,20 @@ export default async function InboundDebugPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               href="/admin/contacts"
-              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
             >
               📇 Contacts
             </Link>
             <Link
               href="/admin"
-              className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
             >
               ← Admin home
             </Link>
             <AuditMenu />
             <Link
               href="/"
-              className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
             >
               Back to app
             </Link>
@@ -83,10 +83,10 @@ export default async function InboundDebugPage() {
 
         {/* EMPTY STATE */}
         {recent.length === 0 ? (
-          <div className="rounded-xl border border-gray-800 bg-gray-900/40 px-6 py-12 text-center">
+          <div className="rounded-xl border border-border bg-card/40 px-6 py-12 text-center">
             <div className="text-3xl mb-3" aria-hidden>📬</div>
-            <div className="text-sm font-semibold text-gray-300 mb-1">No inbound emails yet</div>
-            <div className="text-xs text-gray-500 leading-relaxed max-w-md mx-auto">
+            <div className="text-sm font-semibold text-foreground/90 mb-1">No inbound emails yet</div>
+            <div className="text-xs text-muted-foreground/80 leading-relaxed max-w-md mx-auto">
               SendGrid Inbound Parse hasn&apos;t POSTed anything to this webhook yet.
               That&apos;s normal until you set up Gmail forwarding (which sends a
               verification email here) or someone replies to an outreach you sent
@@ -103,7 +103,7 @@ export default async function InboundDebugPage() {
                     ? 'border-emerald-500/30 bg-emerald-500/5'
                     : e.trackingId
                     ? 'border-yellow-500/30 bg-yellow-500/5'
-                    : 'border-gray-800 bg-gray-900/40'
+                    : 'border-border bg-card/40'
                 }`}
               >
                 {/* Status pill */}
@@ -118,33 +118,33 @@ export default async function InboundDebugPage() {
                         ⚠ Tag found but no matching entry (trackingId={e.trackingId})
                       </span>
                     ) : (
-                      <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-gray-400">
+                      <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
                         No tracking tag — probably Gmail verification or unrelated
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] font-mono text-gray-500 tabular-nums">
+                  <span className="text-[11px] font-mono text-muted-foreground/80 tabular-nums">
                     {formatRelative(e.receivedAt)}
                   </span>
                 </div>
 
                 {/* Headers */}
                 <div className="grid grid-cols-1 md:grid-cols-[80px_1fr] gap-x-3 gap-y-1 text-xs mb-3">
-                  <span className="text-gray-500 font-mono">From:</span>
-                  <span className="text-gray-200 break-all">{e.from || <em className="text-gray-600">(none)</em>}</span>
-                  <span className="text-gray-500 font-mono">To:</span>
-                  <span className="text-gray-300 break-all">{e.to || <em className="text-gray-600">(none)</em>}</span>
-                  <span className="text-gray-500 font-mono">Subject:</span>
-                  <span className="text-gray-200 break-all font-medium">{e.subject || <em className="text-gray-600">(none)</em>}</span>
+                  <span className="text-muted-foreground/80 font-mono">From:</span>
+                  <span className="text-foreground break-all">{e.from || <em className="text-muted-foreground/60">(none)</em>}</span>
+                  <span className="text-muted-foreground/80 font-mono">To:</span>
+                  <span className="text-foreground/90 break-all">{e.to || <em className="text-muted-foreground/60">(none)</em>}</span>
+                  <span className="text-muted-foreground/80 font-mono">Subject:</span>
+                  <span className="text-foreground break-all font-medium">{e.subject || <em className="text-muted-foreground/60">(none)</em>}</span>
                 </div>
 
                 {/* Body snippet */}
                 {e.textSnippet && (
                   <details className="text-[12px]">
-                    <summary className="cursor-pointer text-gray-400 hover:text-white text-[10px] uppercase tracking-[0.16em] font-bold">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground text-[10px] uppercase tracking-[0.16em] font-bold">
                       Body snippet ({e.textSnippet.length} chars)
                     </summary>
-                    <pre className="mt-2 p-3 rounded bg-gray-950/60 border border-gray-800 text-gray-300 whitespace-pre-wrap break-words font-mono leading-relaxed max-h-72 overflow-y-auto">
+                    <pre className="mt-2 p-3 rounded bg-background/60 border border-border text-foreground/90 whitespace-pre-wrap break-words font-mono leading-relaxed max-h-72 overflow-y-auto">
                       {e.textSnippet}
                     </pre>
                   </details>
@@ -155,9 +155,9 @@ export default async function InboundDebugPage() {
         )}
 
         {/* FOOTNOTE */}
-        <div className="mt-8 rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed">
+        <div className="mt-8 rounded-xl border border-border/60 bg-card/20 p-4 text-[12px] text-muted-foreground leading-relaxed">
           <p>
-            <span className="text-gray-200 font-semibold">Color legend:</span>{' '}
+            <span className="text-foreground font-semibold">Color legend:</span>{' '}
             Green border = email had a tracking tag and matched an outreach
             entry (status auto-updated).{' '}
             Yellow border = had a tag but no entry matched (legacy entry

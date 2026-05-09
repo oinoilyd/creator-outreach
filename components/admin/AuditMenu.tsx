@@ -76,8 +76,8 @@ export function AuditMenu() {
         aria-haspopup="menu"
         className={`text-sm rounded-lg p-2 transition-colors border ${
           open
-            ? 'border-gray-600 text-white bg-gray-900/40'
-            : 'border-gray-800 text-gray-500 hover:border-gray-600 hover:text-white'
+            ? 'border-border text-foreground bg-card/40'
+            : 'border-border text-muted-foreground/80 hover:border-border hover:text-foreground'
         }`}
       >
         {/* Magnifying-glass-with-dot icon — universally reads as
@@ -103,9 +103,9 @@ export function AuditMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-gray-800 bg-gray-950 shadow-2xl shadow-black/40 overflow-hidden"
+          className="absolute right-0 top-full mt-2 z-50 w-72 rounded-xl border border-border bg-background shadow-2xl shadow-black/40 overflow-hidden"
         >
-          <div className="px-3 py-2 border-b border-gray-800/60 text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold">
+          <div className="px-3 py-2 border-b border-border/60 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold">
             Audit &amp; diagnostics
           </div>
           {AUDIT_ITEMS.map(item => (
@@ -114,13 +114,13 @@ export function AuditMenu() {
               href={item.href}
               onClick={() => setOpen(false)}
               role="menuitem"
-              className="block px-3 py-2.5 hover:bg-gray-900/60 transition-colors border-b border-gray-800/40 last:border-b-0"
+              className="block px-3 py-2.5 hover:bg-card/60 transition-colors border-b border-border/40 last:border-b-0"
             >
-              <div className="flex items-center gap-2 text-gray-200">
+              <div className="flex items-center gap-2 text-foreground">
                 <span aria-hidden>{item.icon}</span>
                 <span className="text-sm font-medium">{item.label}</span>
               </div>
-              <div className="text-[11px] text-gray-500 mt-0.5 ml-6 leading-snug">
+              <div className="text-[11px] text-muted-foreground/80 mt-0.5 ml-6 leading-snug">
                 {item.description}
               </div>
             </Link>

@@ -20,12 +20,12 @@ export default async function EnrichPage() {
   if (!user || user.email !== ADMIN_EMAIL) notFound()
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
+    <main className="min-h-screen bg-background text-foreground px-6 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">Admin · Bulk enrich</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-muted-foreground/80 text-sm mt-1">
               Re-run the email-finding pipeline against channels already in the
               cache. Use this to fill in missing emails on rows that came in
               search-only, or to force-refresh stale / bounced ones.
@@ -34,7 +34,7 @@ export default async function EnrichPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/admin/contacts"
-              className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
             >
               ← Contacts
             </Link>

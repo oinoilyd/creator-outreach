@@ -329,7 +329,7 @@ export function BenchmarkPanel() {
         <button
           onClick={runBenchmark}
           disabled={running || queries.length === 0}
-          className="px-4 py-2 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-semibold transition-colors shadow-sm disabled:opacity-60 disabled:cursor-wait shrink-0"
+          className="px-4 py-2 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-foreground text-sm font-semibold transition-colors shadow-sm disabled:opacity-60 disabled:cursor-wait shrink-0"
         >
           {running ? 'Running…' : 'Run benchmark'}
         </button>

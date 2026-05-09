@@ -261,7 +261,7 @@ export function EmailTestPanel() {
           <button
             onClick={run}
             disabled={running || !query.trim()}
-            className="px-5 py-2.5 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-semibold transition-colors shadow-sm disabled:opacity-60 disabled:cursor-wait"
+            className="px-5 py-2.5 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-foreground text-sm font-semibold transition-colors shadow-sm disabled:opacity-60 disabled:cursor-wait"
           >
             {running ? `Running ${max} creators…` : 'Run test'}
           </button>

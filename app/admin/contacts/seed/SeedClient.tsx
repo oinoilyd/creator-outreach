@@ -111,8 +111,8 @@ export function SeedClient() {
       )}
 
       {/* PRESETS */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-3">
+      <section className="rounded-xl border border-border bg-card/40 p-5">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-3">
           Quick-pick presets
         </div>
         <div className="flex flex-wrap gap-2">
@@ -122,36 +122,36 @@ export function SeedClient() {
               type="button"
               onClick={() => loadPreset(p.queries)}
               disabled={isRunning}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold border border-gray-800 text-gray-300 hover:border-orange-500/40 hover:text-orange-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 rounded-md text-xs font-semibold border border-border text-foreground/90 hover:border-orange-500/40 hover:text-orange-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {p.label}
-              <span className="ml-1.5 text-gray-500">· {p.queries.length}</span>
+              <span className="ml-1.5 text-muted-foreground/80">· {p.queries.length}</span>
             </button>
           ))}
         </div>
       </section>
 
       {/* QUERY EDITOR */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-        <label className="block text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+      <section className="rounded-xl border border-border bg-card/40 p-5">
+        <label className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-2">
           Queries · one per line
         </label>
         <textarea
           value={queries}
           onChange={e => setQueries(e.target.value)}
           rows={10}
-          className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-gray-600"
+          className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-border"
           placeholder={'travel agent\nyoga instructor\nfinancial advisor'}
           disabled={isRunning}
         />
-        <div className="text-xs text-gray-500 mt-2">
+        <div className="text-xs text-muted-foreground/80 mt-2">
           {queryList.length} {queryList.length === 1 ? 'query' : 'queries'} ready · capped at 100
         </div>
       </section>
 
       {/* OPTIONS */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-3">
+      <section className="rounded-xl border border-border bg-card/40 p-5">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-3">
           Run options
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -164,13 +164,13 @@ export function SeedClient() {
               disabled={isRunning}
             />
             <div>
-              <div className="text-sm font-semibold text-white">
+              <div className="text-sm font-semibold text-foreground">
                 Inline email pipeline {enrich
                   ? <span className="text-yellow-400">(on — slow)</span>
                   : <span className="text-emerald-400">(off — fast, recommended)</span>}
               </div>
-              <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                <span className="text-gray-300">Recommended: leave OFF.</span> Bulk seed runs the same
+              <div className="text-xs text-muted-foreground/80 mt-0.5 leading-relaxed">
+                <span className="text-foreground/90">Recommended: leave OFF.</span> Bulk seed runs the same
                 logic as a regular results search (channelId + name + subs + avg views) and writes
                 the rows. Fast — ~10s per query. <br />
                 Run <a href="/admin/contacts/enrich" className="text-orange-400 hover:underline">Bulk Enrich</a> after to fill in emails — that&apos;s the job built for it. <br />
@@ -179,12 +179,12 @@ export function SeedClient() {
             </div>
           </label>
           <label className="block">
-            <div className="text-sm font-semibold text-white mb-1.5">Region · YouTube gl</div>
+            <div className="text-sm font-semibold text-foreground mb-1.5">Region · YouTube gl</div>
             <select
               value={region}
               onChange={e => setRegion(e.target.value)}
               disabled={isRunning}
-              className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
+              className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
             >
               <option value="">Global · no region targeting</option>
               {REGIONS.map(r => (
@@ -193,14 +193,14 @@ export function SeedClient() {
                 </option>
               ))}
             </select>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-muted-foreground/80 mt-1">
               Targets YouTube&apos;s region-aware search. Localizes to the country&apos;s creator pool — useful for non-US niches.
             </div>
           </label>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
-            <div className="text-sm font-semibold text-white mb-1.5">Concurrency</div>
+            <div className="text-sm font-semibold text-foreground mb-1.5">Concurrency</div>
             <input
               type="number"
               min={1}
@@ -208,12 +208,12 @@ export function SeedClient() {
               value={concurrency}
               onChange={e => setConcurrency(parseInt(e.target.value, 10) || 3)}
               disabled={isRunning}
-              className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
+              className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
             />
-            <div className="text-xs text-gray-500 mt-1">Parallel queries (1–8)</div>
+            <div className="text-xs text-muted-foreground/80 mt-1">Parallel queries (1–8)</div>
           </label>
           <label className="block">
-            <div className="text-sm font-semibold text-white mb-1.5">Max per query</div>
+            <div className="text-sm font-semibold text-foreground mb-1.5">Max per query</div>
             <input
               type="number"
               min={5}
@@ -221,9 +221,9 @@ export function SeedClient() {
               value={maxResults}
               onChange={e => setMaxResults(parseInt(e.target.value, 10) || 30)}
               disabled={isRunning}
-              className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
+              className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
             />
-            <div className="text-xs text-gray-500 mt-1">Channels per search (5–50)</div>
+            <div className="text-xs text-muted-foreground/80 mt-1">Channels per search (5–50)</div>
           </label>
         </div>
       </section>
@@ -254,16 +254,16 @@ export function SeedClient() {
       </div>
 
       {/* INFO PANEL */}
-      <section className="rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed space-y-2">
+      <section className="rounded-xl border border-border/60 bg-card/20 p-4 text-[12px] text-muted-foreground leading-relaxed space-y-2">
         <p>
-          <span className="text-gray-200 font-semibold">Two-step workflow:</span>{' '}
+          <span className="text-foreground font-semibold">Two-step workflow:</span>{' '}
           (1) Bulk seed (this page) discovers channels in your niche — same logic as
           a regular results search, just automated across many queries. Fast.
           (2) <a href="/admin/contacts/enrich" className="text-orange-400 hover:underline">Bulk Enrich</a> chases emails for whatever lands in the cache. Slower,
           but you only run it once per channel.
         </p>
         <p>
-          <span className="text-gray-200 font-semibold">Background:</span>{' '}
+          <span className="text-foreground font-semibold">Background:</span>{' '}
           When you click Run, the job hands off to a server queue. Close this tab,
           switch to a different app, walk away — the loop keeps running. The bar
           polls every 2 seconds for progress.
@@ -303,17 +303,17 @@ function BackgroundJobBanner({
   const seconds = Math.round(elapsedMs / 100) / 10
 
   return (
-    <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+    <section className="rounded-xl border border-border bg-card/40 p-5">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-2">
         <span>Background job · {status}</span>
-        <span className="font-mono normal-case tracking-normal text-gray-400">
+        <span className="font-mono normal-case tracking-normal text-muted-foreground">
           {done} / {total} · {seconds}s{errors > 0 && ` · ${errors} errors`}
         </span>
       </div>
-      <div className="text-sm text-gray-200 mb-3 truncate" title={label}>
+      <div className="text-sm text-foreground mb-3 truncate" title={label}>
         {label}
       </div>
-      <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
         <div
           className={`h-full ${accent} transition-all duration-500`}
           style={{ width: `${pct}%` }}
