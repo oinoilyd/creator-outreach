@@ -169,35 +169,26 @@ export function EnrichClient() {
     <div className="space-y-6">
       {/* MODE PICKER */}
       <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-3">
-          What to enrich
-        </div>
-        <div className="space-y-2.5">
-          {(Object.keys(MODE_LABEL) as Mode[]).map(m => (
-            <label
-              key={m}
-              className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                mode === m
-                  ? 'border-orange-500/50 bg-orange-500/5'
-                  : 'border-gray-800 hover:border-gray-700'
-              }`}
-            >
-              <input
-                type="radio"
-                name="enrich-mode"
-                value={m}
-                checked={mode === m}
-                onChange={() => setMode(m)}
-                disabled={running}
-                className="mt-1 w-4 h-4 accent-orange-500 shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-white">{MODE_LABEL[m]}</div>
-                <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">{MODE_DESCRIPTION[m]}</div>
-              </div>
-            </label>
-          ))}
-        </div>
+        <label className="block">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+            What to enrich
+          </div>
+          <select
+            value={mode}
+            onChange={e => setMode(e.target.value as Mode)}
+            disabled={running}
+            className="w-full px-3 py-2.5 rounded-md bg-gray-950 border border-gray-800 text-sm font-medium text-white focus:outline-none focus:border-orange-500/50"
+          >
+            {(Object.keys(MODE_LABEL) as Mode[]).map(m => (
+              <option key={m} value={m}>
+                {MODE_LABEL[m]}
+              </option>
+            ))}
+          </select>
+          <div className="text-xs text-gray-500 mt-2 leading-relaxed">
+            {MODE_DESCRIPTION[mode]}
+          </div>
+        </label>
       </section>
 
       {/* OPTIONS */}
