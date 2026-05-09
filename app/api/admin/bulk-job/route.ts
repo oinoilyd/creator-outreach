@@ -70,31 +70,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
   }
 
-  // QStash gate — without it we can't chain ticks.
-  if (!isQStashConfigured()) {
-    return NextResponse.json(
-      {
-        error: 'qstash-not-configured',
-        hint:
-          'Set QSTASH_TOKEN + QSTASH_CURRENT_SIGNING_KEY in Vercel envs. Background bulk jobs use QStash to chain function calls so processing continues when the browser tab is backgrounded.',
-      },
-      { status: 503 },
-    )
-  }
-  // Internal-bulk-secret gate — required so the tick worker can
-  // self-call /api/admin/bulk-seed and /api/admin/bulk-enrich without
-  // an admin cookie. Generate a strong random string (e.g.
-  // `openssl rand -hex 32`) and set INTERNAL_BULK_SECRET in Vercel.
-  if (!process.env.INTERNAL_BULK_SECRET) {
-    return NextResponse.json(
-      {
-        error: 'internal-secret-not-configured',
-        hint:
-          'Set INTERNAL_BULK_SECRET to a strong random string in Vercel envs. The QStash worker uses it to authenticate self-calls to bulk-seed/bulk-enrich. Suggested: openssl rand -hex 32.',
-      },
-      { status: 503 },
-    )
-  }
+  // QStash + INTERNAL_BULK_SECRET are now OPTIONAL (rewritten 2026-05-09).
+  // Without them: browser polling drives ticks. Works as long as the
+  // user has any tab of the app open. With them: also continues with
+  // the browser closed (true background). Either way the system works
+  // — no env-var configuration required for basic functionality.
 
   let body: StartBody
   try {
@@ -144,35 +124,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'create-failed' }, { status: 500 })
   }
 
-  // Build the absolute tick URL. Vercel sets host header; fall back
-  // to NEXT_PUBLIC_SITE_URL for local dev.
-  const host = req.headers.get('host')
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') ||
-    (host ? `https://${host}` : '')
-  if (!baseUrl) {
-    return NextResponse.json({ error: 'no-base-url' }, { status: 500 })
-  }
-  const tickUrl = `${baseUrl}/api/admin/bulk-job/tick`
-
-  // Mark the job as running, then publish the first QStash message.
-  // Delay 0 means "as soon as you can" — usually <2s in practice.
+  // Mark the job as running so the first tick (browser-driven on
+  // next poll, or QStash-driven if we publish below) can pick it up.
   await import('@/lib/bulk-job-store').then(m =>
     m.updateBulkJob(job.id, { status: 'running' }),
   )
-  const messageId = await publishJob(tickUrl, { jobId: job.id })
-  if (!messageId) {
-    // QStash publish failed — mark the job failed so the client
-    // doesn't poll forever.
-    await import('@/lib/bulk-job-store').then(m =>
-      m.finalizeBulkJob(job.id, 'failed', {
-        errors: ['failed to schedule first tick — qstash publish error'],
-      }),
-    )
-    return NextResponse.json(
-      { error: 'qstash-publish-failed' },
-      { status: 502 },
-    )
+
+  // BONUS: if QStash + INTERNAL_BULK_SECRET are both configured, also
+  // kick off the QStash chain so work continues even if the browser
+  // closes. If they're not, the browser polling alone will drive the
+  // work — it's the primary path now.
+  if (isQStashConfigured() && process.env.INTERNAL_BULK_SECRET) {
+    const host = req.headers.get('host')
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') ||
+      (host ? `https://${host}` : '')
+    if (baseUrl) {
+      const tickUrl = `${baseUrl}/api/admin/bulk-job/tick`
+      await publishJob(tickUrl, { jobId: job.id })
+      // Publish failure isn't fatal — browser polling will pick up.
+    }
   }
 
   return NextResponse.json({ ok: true, jobId: job.id, job }, { status: 201 })

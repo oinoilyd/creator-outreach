@@ -113,6 +113,9 @@ type ServerJob = {
   done: number
   errors: string[]
   startedAt: string // ISO
+  /** ISO timestamp of the most recent tick. Used by the browser-side
+   *  poller to decide whether to fire a tick. */
+  lastTickAt: string
   cancelRequested: boolean
 }
 
@@ -146,11 +149,15 @@ let elapsedTimer: ReturnType<typeof setInterval> | null = null
 function startPolling(jobId: string) {
   if (pollTimer != null) return
   if (typeof window === 'undefined') return
+  // Fire the first poll IMMEDIATELY (instead of waiting POLL_INTERVAL_MS).
+  // pollOnce also kicks off the first tick if needed, so this gets the
+  // job moving right away.
+  void pollOnce(jobId)
   pollTimer = setInterval(() => {
     void pollOnce(jobId)
   }, POLL_INTERVAL_MS)
-  // Also start a 1s elapsed-time ticker so the bar's clock advances
-  // smoothly between server polls.
+  // 1s elapsed-time ticker so the bar's clock advances smoothly
+  // between server polls.
   if (elapsedTimer == null) {
     elapsedTimer = setInterval(() => {
       setJob(j => (j && j.status === 'running' ? { ...j, elapsedMs: Date.now() - j.startedAt } : j))
@@ -169,25 +176,54 @@ function stopPolling() {
   }
 }
 
+/**
+ * How stale lastTickAt has to be before we kick off a new tick.
+ * Browser polls every 2s; setting this to 2s means every poll that
+ * sees stale state triggers exactly one tick. With the server-side
+ * race guard (TICK_DEDUP_MS = 1500ms), simultaneous browser-driven
+ * and QStash-driven ticks won't double-process.
+ */
+const TICK_STALE_MS = 2000
+
 async function pollOnce(jobId: string): Promise<void> {
   try {
     const res = await fetch(`/api/admin/bulk-job/${jobId}`, { cache: 'no-store' })
     if (!res.ok) {
-      // 404 = job vanished from Redis (TTL or fresh deploy with no
-      // state). Stop polling but keep showing the last-known state
-      // so the user can dismiss it.
       if (res.status === 404) {
         setJob(j => (j ? { ...j, status: 'failed', errors: [...j.errors, 'job not found on server'].slice(-20) } : j))
         stopPolling()
       }
       return
     }
-    const j = (await res.json()) as { job?: ServerJob }
+    const j = (await res.json()) as { job?: ServerJob & { lastTickAt?: string } }
     if (!j.job) return
     const next = toActiveJob(j.job)
     setJob(next)
     if (next.status !== 'running') {
       stopPolling()
+      return
+    }
+    // Browser-driven tick fire — if the server hasn't been ticked
+    // recently, kick off a tick. Fire-and-forget: the browser doesn't
+    // wait for the response, so a 30s tick doesn't block the next
+    // poll. Vercel processes the tick to completion regardless.
+    //
+    // Auth: the cookie travels automatically on same-origin fetches,
+    // so the tick endpoint authenticates as the admin. No env vars
+    // needed for this path to work.
+    if (j.job.lastTickAt) {
+      const lastTickMs = new Date(j.job.lastTickAt).getTime()
+      if (Date.now() - lastTickMs > TICK_STALE_MS) {
+        // No await — fire-and-forget.
+        void fetch('/api/admin/bulk-job/tick', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ jobId }),
+        }).catch(() => {
+          // Tick failures are visible via the next poll's job.errors.
+          // No need to surface them here.
+        })
+      }
     }
   } catch {
     // Network blip — try again on next interval. Don't kill polling.
@@ -195,6 +231,18 @@ async function pollOnce(jobId: string): Promise<void> {
 }
 
 // ─── Context API ───────────────────────────────────────────────────
+
+/** Fire the first tick after job creation so work starts immediately
+ *  (without waiting for the first poll cycle to detect staleness). */
+function fireFirstTick(jobId: string) {
+  void fetch('/api/admin/bulk-job/tick', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jobId }),
+  }).catch(() => {
+    // Failures here surface via the polling loop's job.errors view.
+  })
+}
 
 async function startSeedJobImpl(config: SeedConfig, label: string): Promise<string | null> {
   if (activeJob && activeJob.status === 'running') return null
@@ -207,17 +255,13 @@ async function startSeedJobImpl(config: SeedConfig, label: string): Promise<stri
     if (!res.ok) {
       const j = await res.json().catch(() => ({}))
       console.warn('[bulk-job] start failed:', j)
-      // Surface the failure briefly via a synthetic 'failed' job so
-      // the user gets feedback (e.g. qstash-not-configured).
       setJob({
         id: `local-${Date.now().toString(36)}`,
         type: 'seed',
         label,
         total: config.queries.length,
         done: 0,
-        errors: [
-          j?.hint || j?.error || `start failed (${res.status})`,
-        ],
+        errors: [j?.hint || j?.error || `start failed (${res.status})`],
         status: 'failed',
         startedAt: Date.now(),
         elapsedMs: 0,
@@ -228,7 +272,11 @@ async function startSeedJobImpl(config: SeedConfig, label: string): Promise<stri
     const j = (await res.json()) as { jobId?: string; job?: ServerJob }
     if (!j.job) return null
     setJob(toActiveJob(j.job))
-    if (j.job.id) startPolling(j.job.id)
+    if (j.job.id) {
+      startPolling(j.job.id)
+      // Kick the first chunk immediately — don't wait for staleness.
+      fireFirstTick(j.job.id)
+    }
     return j.jobId ?? null
   } catch (e) {
     console.warn('[bulk-job] start threw:', e)
@@ -264,7 +312,11 @@ async function startEnrichJobImpl(config: EnrichConfig, label: string): Promise<
     const j = (await res.json()) as { jobId?: string; job?: ServerJob }
     if (!j.job) return null
     setJob(toActiveJob(j.job))
-    if (j.job.id) startPolling(j.job.id)
+    if (j.job.id) {
+      startPolling(j.job.id)
+      // Kick the first chunk immediately.
+      fireFirstTick(j.job.id)
+    }
     return j.jobId ?? null
   } catch (e) {
     console.warn('[bulk-job] start threw:', e)

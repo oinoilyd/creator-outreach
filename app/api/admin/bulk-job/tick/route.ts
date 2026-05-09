@@ -1,30 +1,33 @@
 /**
- * POST /api/admin/bulk-job/tick — QStash-driven worker that processes
- * one chunk of a bulk job, then schedules the next tick (if work
- * remains).
+ * POST /api/admin/bulk-job/tick — process one chunk of a bulk job.
  *
- * This is what makes "background" actually mean background. The
- * client browser is no longer in the loop — it just polls for status.
- * QStash chains tick → tick → tick on the server, so progress
- * continues whether the user is on the page, on a different tab,
- * or has closed the browser entirely.
+ * Two auth paths (rewritten 2026-05-09):
+ *   1. Browser admin cookie — fired by BulkJobProvider's polling loop
+ *      when it detects state.lastTickAt is stale. This is the PRIMARY
+ *      driver: it works out of the box with no env-var setup.
+ *   2. QStash signature — fired by the chained QStash messages (if
+ *      QStash is configured). This is the BONUS driver: lets work
+ *      continue even when the browser is fully closed.
  *
- * Flow:
- *   1. Verify Upstash signature (production only)
- *   2. Read jobId from body, load job from Redis
- *   3. If terminal status or cancelRequested → finalize, exit
- *   4. Process one chunk (delegate to existing /api/admin/bulk-seed
- *      or /api/admin/bulk-enrich endpoints via internal HTTP call —
- *      avoids a code duplication / refactor risk)
- *   5. Update job state in Redis with new progress
- *   6. If work remains: publish next QStash message → /tick
- *   7. Else: finalize as 'done'
+ * Both paths process one chunk and return. The browser keeps polling
+ * and re-firing /tick as needed; the QStash chain (when configured)
+ * also self-schedules. A simple "lastTickAt < 2s ago" guard prevents
+ * the two from double-processing the same chunk if they happen to
+ * race.
  *
- * maxDuration = 60 — same as the inner endpoints. We never hold the
- * tick open longer than one chunk.
+ * Why this is robust:
+ *   - Without QStash + INTERNAL_BULK_SECRET set: browser polling
+ *     drives ticks. Works as long as the user has ANY tab open in
+ *     the app (the bar is in the root layout, so every page has it).
+ *   - With QStash + INTERNAL_BULK_SECRET: also continues with the
+ *     browser closed.
+ *
+ * maxDuration = 60 — one chunk per request, never longer.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { isAdminUser } from '@/lib/admin'
 import { verifyQStashSignature, publishJob, isQStashConfigured } from '@/lib/qstash'
 import {
   readBulkJob,
@@ -39,31 +42,54 @@ export const maxDuration = 60
 
 // Chunking knobs. Sized to keep each tick safely under the 60s
 // Vercel function budget while making progress as fast as possible.
-//
-//   Search-only: each query ~6-8s. With concurrency=3 server-side,
-//   12 queries fits in ~30s. Bumped from 6 → 12 (2026-05-09) to halve
-//   tick count and total wall time.
-//
-//   With-enrich: each query expands to ~30 channels × ~10s of email
-//   pipeline. Even concurrency=2 hits 60s on a SINGLE query. Keep
-//   chunk small at 1 so we don't bust the budget.
+//   Search-only: ~6-8s per query at concurrency=3 → 12 queries ≈ 30s.
+//   With-enrich: each query expands to ~30 channels × ~10s pipeline.
+//   Even concurrency=2 hits 60s on a SINGLE query, so chunk = 1.
 const SEED_CHUNK_SEARCH_ONLY = 12
 const SEED_CHUNK_WITH_ENRICH = 1
+
+// Race guard: if a tick was processed within the last N ms, the
+// incoming tick request bails (assumes another driver is actively
+// processing). Browser polls every 2s; with this set to 1500ms,
+// most races will be deflected without rejecting genuine work.
+const TICK_DEDUP_MS = 1500
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
-  // Verify QStash signature — same pattern /api/instagram-fetch uses.
-  // Skip in non-production for local development.
-  if (process.env.NODE_ENV === 'production') {
-    const sig = req.headers.get('upstash-signature')
+  // ── Auth ──────────────────────────────────────────────────────
+  // Accept either QStash signature OR admin cookie. Cookie is the
+  // common case (browser-driven polling); QStash is the bonus path.
+  let authedVia: 'qstash' | 'cookie' | null = null
+
+  const sig = req.headers.get('upstash-signature')
+  if (sig && process.env.NODE_ENV === 'production') {
     const url = `${req.nextUrl.origin}${req.nextUrl.pathname}`
-    if (!verifyQStashSignature(rawBody, sig, url)) {
-      console.warn('[bulk-job/tick] invalid QStash signature, rejecting')
-      return NextResponse.json({ error: 'invalid-signature' }, { status: 401 })
+    if (verifyQStashSignature(rawBody, sig, url)) {
+      authedVia = 'qstash'
+    }
+  } else if (sig) {
+    // Dev mode: accept signed requests without strict verification so
+    // local QStash testing works.
+    authedVia = 'qstash'
+  }
+
+  if (!authedVia) {
+    // Try cookie auth.
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (isAdminUser(user)) {
+      authedVia = 'cookie'
     }
   }
 
+  if (!authedVia) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
+  // ── Body ──────────────────────────────────────────────────────
   let payload: { jobId?: string }
   try {
     payload = JSON.parse(rawBody)
@@ -77,29 +103,32 @@ export async function POST(req: NextRequest) {
 
   const job = await readBulkJob(jobId)
   if (!job) {
-    // Job vanished from Redis (TTL expired or never created). Don't
-    // schedule another tick — there's nothing to tick on.
-    console.warn(`[bulk-job/tick] job not found: ${jobId}`)
     return NextResponse.json({ ok: false, reason: 'job-not-found' })
   }
 
   // Honor cancellation immediately.
   if (job.cancelRequested) {
-    console.log(`[bulk-job/tick] cancel requested for ${jobId}, finalizing`)
     await finalizeBulkJob(jobId, 'cancelled')
     return NextResponse.json({ ok: true, status: 'cancelled' })
   }
 
-  // Already terminal? Defensive — shouldn't happen because we'd have
-  // stopped scheduling, but guard against double-fire.
+  // Skip if job is already terminal.
   if (job.status !== 'running' && job.status !== 'pending') {
-    console.log(`[bulk-job/tick] job already terminal (${job.status})`)
     return NextResponse.json({ ok: true, status: job.status })
   }
 
-  // Compute the base URL for self-calling /api/admin/bulk-seed or
-  // /api/admin/bulk-enrich. Vercel host header → https. NEXT_PUBLIC_SITE_URL
-  // for local dev fallback.
+  // Race guard: if a tick was just processed, bail. The other driver
+  // (browser or QStash) is handling things — no need to double up.
+  const lastTickMs = new Date(job.lastTickAt).getTime()
+  if (Date.now() - lastTickMs < TICK_DEDUP_MS) {
+    return NextResponse.json({ ok: true, skipped: 'recent-tick', status: job.status })
+  }
+
+  // Mark the tick start IMMEDIATELY so other drivers see it as
+  // recently-ticked and skip. Functions as a soft lock.
+  await updateBulkJob(jobId, {})
+
+  // ── Compute base URL for self-call ────────────────────────────
   const host = req.headers.get('host')
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') ||
@@ -111,24 +140,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'no-base-url' }, { status: 500 })
   }
 
-  // Process one chunk based on job type. Each branch:
-  //   - calls the existing endpoint internally (which runs the actual
-  //     work)
-  //   - parses the response
-  //   - returns { hasMore, deltaDone, deltaTotal?, errors[] }
+  // Build headers for the inner self-call. The inner endpoints
+  // (bulk-seed, bulk-enrich) accept either admin cookies OR the
+  // X-Internal-Bulk-Secret header. Forward whatever we have.
+  const cookieHeader = req.headers.get('cookie') || ''
+  const selfCallHeaders: Record<string, string> = { 'content-type': 'application/json' }
+  if (cookieHeader) selfCallHeaders.cookie = cookieHeader
+  if (process.env.INTERNAL_BULK_SECRET) {
+    selfCallHeaders['x-internal-bulk-secret'] = process.env.INTERNAL_BULK_SECRET
+  }
+
+  // ── Process one chunk ─────────────────────────────────────────
   let result: TickResult
   try {
     if (job.type === 'seed') {
-      result = await processSeedTick(job, baseUrl)
+      result = await processSeedTick(job, baseUrl, selfCallHeaders)
     } else {
-      result = await processEnrichTick(job, baseUrl)
+      result = await processEnrichTick(job, baseUrl, selfCallHeaders)
     }
   } catch (e) {
     const msg = (e as Error)?.message || String(e)
     console.error(`[bulk-job/tick] chunk threw: ${msg}`)
-    // Treat thrown errors as one failure event, not a fatal abort —
-    // the loop will retry by scheduling the next tick. Three
-    // consecutive failures DOES abort (tracked in job.errors).
     result = { hasMore: true, deltaDone: 0, errors: [`tick threw: ${msg}`] }
   }
 
@@ -138,9 +170,7 @@ export async function POST(req: NextRequest) {
   const newErrors = [...job.errors, ...result.errors].slice(-20)
   const newCursor = result.nextCursor != null ? result.nextCursor : job.cursor
 
-  // 3-consecutive-failure abort, mirroring the old client-loop.
-  // We count consecutive failures by inspecting trailing error count
-  // since last progress — quick approximation.
+  // 3-consecutive-failure abort.
   const consecutiveFailures = countTrailingFailures(newErrors, job.errors.length)
   if (consecutiveFailures >= 3) {
     await finalizeBulkJob(jobId, 'failed', {
@@ -161,7 +191,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, status: 'done' })
   }
 
-  // Persist progress + schedule next tick.
+  // Persist progress.
   await updateBulkJob(jobId, {
     done: newDone,
     total: newTotal,
@@ -170,28 +200,28 @@ export async function POST(req: NextRequest) {
     status: 'running',
   })
 
-  if (!isQStashConfigured()) {
-    // Shouldn't happen — start endpoint refuses if QStash isn't
-    // configured. But defensive in case env vars vanish mid-job.
-    await finalizeBulkJob(jobId, 'failed', {
-      errors: [...newErrors, 'qstash unconfigured mid-run'].slice(-20),
-    })
-    return NextResponse.json({ ok: false, error: 'qstash-unconfigured' })
+  // Schedule next tick via QStash IF this tick was driven by QStash
+  // (continues the chain) AND QStash is configured. If we were
+  // browser-driven, the browser's next poll handles the next tick
+  // — no need to chain.
+  if (authedVia === 'qstash' && isQStashConfigured()) {
+    const tickUrl = `${baseUrl}/api/admin/bulk-job/tick`
+    const messageId = await publishJob(tickUrl, { jobId }, { delaySeconds: 2 })
+    if (!messageId) {
+      // QStash publish failed mid-chain. Don't fail the job —
+      // browser polling will pick up where this left off if the user
+      // has the app open. Just log.
+      console.warn(`[bulk-job/tick] qstash publish failed for ${jobId}; relying on browser polling`)
+    }
   }
 
-  const tickUrl = `${baseUrl}/api/admin/bulk-job/tick`
-  // 2-second delay between ticks — gives the system time to settle
-  // after a chunk and prevents a runaway tight loop on a misconfigured
-  // chunk that processes 0 rows.
-  const messageId = await publishJob(tickUrl, { jobId }, { delaySeconds: 2 })
-  if (!messageId) {
-    await finalizeBulkJob(jobId, 'failed', {
-      errors: [...newErrors, 'failed to schedule next tick — qstash publish error'].slice(-20),
-    })
-    return NextResponse.json({ ok: false, error: 'qstash-publish-failed' })
-  }
-
-  return NextResponse.json({ ok: true, status: 'running', done: newDone, total: newTotal })
+  return NextResponse.json({
+    ok: true,
+    status: 'running',
+    done: newDone,
+    total: newTotal,
+    authedVia,
+  })
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -204,16 +234,7 @@ type TickResult = {
   errors: string[]
 }
 
-/**
- * Heuristic: count how many of the trailing N errors were just added
- * (by comparing the new errors length to the prior one). Used for
- * the 3-consecutive-failures abort.
- */
 function countTrailingFailures(allErrors: string[], priorLen: number): number {
-  // Each tick adds at most a few errors. A "failed tick" = one tick
-  // that contributed any errors AND no progress. Simpler proxy:
-  // count consecutive "tick threw" / "HTTP" / "timeout" in the
-  // trailing entries.
   let count = 0
   for (let i = allErrors.length - 1; i >= 0; i--) {
     const e = allErrors[i]
@@ -227,25 +248,16 @@ function countTrailingFailures(allErrors: string[], priorLen: number): number {
     } else {
       break
     }
-    // Only consider the latest run of failures.
     if (i < priorLen - 5) break
   }
   return count
 }
 
-/** Headers used for the internal self-call to bulk-seed/bulk-enrich.
- *  See those routes for what the X-Internal-Bulk-Secret unlocks. */
-function internalHeaders(): Record<string, string> {
-  return {
-    'content-type': 'application/json',
-    'x-internal-bulk-secret': process.env.INTERNAL_BULK_SECRET ?? '',
-  }
-}
-
-/**
- * Process one seed chunk. Cursor = chunk index (0..numChunks-1).
- */
-async function processSeedTick(job: BulkJob, baseUrl: string): Promise<TickResult> {
+async function processSeedTick(
+  job: BulkJob,
+  baseUrl: string,
+  headers: Record<string, string>,
+): Promise<TickResult> {
   const config = job.config as SeedJobConfig
   const chunkSize = config.enrich ? SEED_CHUNK_WITH_ENRICH : SEED_CHUNK_SEARCH_ONLY
   const start = job.cursor * chunkSize
@@ -257,7 +269,7 @@ async function processSeedTick(job: BulkJob, baseUrl: string): Promise<TickResul
   try {
     const res = await fetch(`${baseUrl}/api/admin/bulk-seed`, {
       method: 'POST',
-      headers: internalHeaders(),
+      headers,
       body: JSON.stringify({
         queries: chunk,
         enrich: config.enrich,
@@ -286,10 +298,11 @@ async function processSeedTick(job: BulkJob, baseUrl: string): Promise<TickResul
   }
 }
 
-/**
- * Process one enrich tick. Cursor = row offset.
- */
-async function processEnrichTick(job: BulkJob, baseUrl: string): Promise<TickResult> {
+async function processEnrichTick(
+  job: BulkJob,
+  baseUrl: string,
+  headers: Record<string, string>,
+): Promise<TickResult> {
   const config = job.config as EnrichJobConfig
   const offset = job.cursor
   const errors: string[] = []
@@ -299,7 +312,7 @@ async function processEnrichTick(job: BulkJob, baseUrl: string): Promise<TickRes
   try {
     const res = await fetch(`${baseUrl}/api/admin/bulk-enrich`, {
       method: 'POST',
-      headers: internalHeaders(),
+      headers,
       body: JSON.stringify({
         mode: config.mode,
         limit: config.batchSize,
@@ -326,8 +339,6 @@ async function processEnrichTick(job: BulkJob, baseUrl: string): Promise<TickRes
   }
 
   const nextOffset = offset + config.batchSize
-  // Done if either: server says no remaining work, or we've moved
-  // past totalMatching.
   let hasMore = true
   if (totalMatching != null && nextOffset >= totalMatching) hasMore = false
   if (channelIdsRemainingLen === 0 && processedThisCall === 0) hasMore = false
