@@ -1893,7 +1893,7 @@ function StackedBar({ segments, total }: { segments: { label: string; value: num
   )
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant, onOpenEntry }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant, onOpenEntry, recentlyAddedIds, onClearRecentlyAdded }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -1908,6 +1908,12 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   profile: UserProfile | null
   emptyVariant?: 'all' | 'favorites'
   onOpenEntry?: (id: string) => void
+  /** IDs of entries to pin to the top regardless of sort. Lives in the
+   *  parent so it survives this component remounting on tab switch. */
+  recentlyAddedIds: Set<string>
+  /** Called when the user clicks a column header — parent clears the
+   *  pin so user-driven sort takes precedence. */
+  onClearRecentlyAdded: () => void
 }) {
   const visibleCols = colConfig.filter(c => c.visible)
   const [widths, setWidths] = useState<Record<string, number>>(() =>
@@ -1926,27 +1932,10 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [sort, setSort] = useState<{ col: keyof OutreachEntry | null; dir: 'asc' | 'desc' }>({ col: null, dir: 'desc' })
 
-  // Recently-added pin (added 2026-05-09):
-  // When a new entry shows up in `entries` that wasn't there before,
-  // its id is pinned to the top of the rendered list — overriding
-  // whatever sort is active — until the user explicitly clicks a
-  // column header to re-sort. The pin is purely visual; the entry's
-  // underlying addedAt timestamp is what drives ordering once the
-  // pin is cleared.
-  const prevEntryIdsRef = useRef<Set<string>>(new Set(entries.map(e => e.id)))
-  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
-  useEffect(() => {
-    const currentIds = new Set(entries.map(e => e.id))
-    const prevIds = prevEntryIdsRef.current
-    const additions: string[] = []
-    for (const id of currentIds) {
-      if (!prevIds.has(id)) additions.push(id)
-    }
-    if (additions.length > 0) {
-      setRecentlyAddedIds(s => new Set([...s, ...additions]))
-    }
-    prevEntryIdsRef.current = currentIds
-  }, [entries])
+  // recentlyAddedIds + onClearRecentlyAdded come in as props from
+  // HomePage now (see comment on the parent state). Lifting fixed the
+  // bug where switching Results → Outreach unmounted this component
+  // and reset the pin set, hiding newly-added rows.
   const [showFavTooltip, setShowFavTooltip] = useState(false)
   const favTooltipRef = useRef<HTMLDivElement>(null)
   const [showStatusTooltip, setShowStatusTooltip] = useState(false)
@@ -2040,7 +2029,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
     // Clearing the pin here is the "until refiltering happens" half of
     // the recently-added behavior. Once the user expresses a sort
     // intent, recently-added rows fall back into normal sort order.
-    if (recentlyAddedIds.size > 0) setRecentlyAddedIds(new Set())
+    if (recentlyAddedIds.size > 0) onClearRecentlyAdded()
     setSort(prev => {
       if (prev.col !== colId) return { col: colId, dir: 'desc' } // first click
       if (prev.dir === 'desc') return { col: colId, dir: 'asc' } // second click → asc
@@ -2470,6 +2459,11 @@ export default function Home() {
   const [draftMetrics, setDraftMetrics] = useState<import('@/lib/types').CustomMetric[]>([])
   const [outreach, setOutreach] = useState<OutreachEntry[]>([])
   const [outreachIds, setOutreachIds] = useState<Set<string>>(new Set())
+  // Recently-added pin lives at the parent level so it survives the
+  // OutreachTab unmount/remount that happens when the user toggles
+  // between Results and Outreach tabs. Cleared on column-header sort
+  // by OutreachTab via the onClearRecentlyAdded callback.
+  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [emailOnly, setEmailOnly] = useState(false)
@@ -2804,6 +2798,10 @@ export default function Home() {
       meetingScheduled: '',
     }
     saveOutreach([...outreach, entry])
+    // Pin the newly-added id so it shows at the top of the Outreach
+    // tab, even if the user is currently on Results and the
+    // OutreachTab component will mount fresh when they switch over.
+    setRecentlyAddedIds(prev => new Set([...prev, entry.id]))
   }
 
   function reorderResultCols(newConfig: ColConfig[]) {
@@ -4356,6 +4354,8 @@ export default function Home() {
                 profile={profile}
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
                 onOpenEntry={(id: string) => setViewingLeadId(id)}
+                recentlyAddedIds={recentlyAddedIds}
+                onClearRecentlyAdded={() => setRecentlyAddedIds(new Set())}
               />
             )}
           </>
