@@ -63,16 +63,31 @@ function getServiceClient() {
 }
 
 /**
- * Bulk-insert partial snapshots from a search response. The search
- * route doesn't know emails or socials yet — this just records that
- * we've seen these channels in this niche, with their subs/views
- * snapshot. Useful for two things:
- *   1. Phase 2 read path can detect "already seen this channel."
- *   2. Builds the corpus quickly when users search a lot, even if
- *      they never click into per-creator enrichment.
+ * Bulk-insert snapshots from a search response.
  *
- * Fire-and-forget. Subscriber strings get coerced to BIGINT-clean
- * integers the same way saveEnrichmentSnapshot does.
+ * The search route doesn't run /api/enrich inline (would be 5+ min
+ * for 30 results). What it DOES know: channel id, name, subs,
+ * avg_views, recent video dates. So a search-time write is
+ * inherently partial in those fields.
+ *
+ * BUT — every snapshot is append-only AND creator_enrichment_latest
+ * is `DISTINCT ON (yt_channel_id) ORDER BY fetched_at DESC`. If we
+ * just wrote `email = null` for a channel we've already enriched,
+ * the new partial row would MASK the older fully-enriched row in
+ * the latest-view. Admin DB would then show "no email" for a
+ * channel that actually has one.
+ *
+ * Fix: before insert, batch-look-up the latest snapshot for each
+ * channel. Carry forward email + socials + email_bounced from the
+ * existing row, refresh subs/avg_views/recent_video_dates from the
+ * search hit. The new row is ALWAYS a complete snapshot — partial
+ * only for first-time channels.
+ *
+ * Side benefits:
+ *   - subs/avg_views drift naturally without needing a re-enrich
+ *   - bulk-enrich's "stale" filter reflects last-seen, not last-enriched
+ *
+ * Fire-and-forget. Failures log but never throw.
  */
 type SearchHit = {
   channelId: string
@@ -92,23 +107,70 @@ export async function bulkSaveSearchResults(hits: SearchHit[], niche: string): P
     const n = Number(String(s).replace(/[^0-9.]/g, ''))
     return Number.isFinite(n) && n > 0 ? Math.round(n) : null
   }
-  const rows = hits.slice(0, 50).map(h => ({
-    yt_channel_id: h.channelId,
-    channel_name: h.channelName || null,
-    niche: niche || null,
-    email: null,
-    email_source: null,
-    email_bounced: false,
-    linkedin_url: null,
-    instagram_handle: null,
-    twitter_handle: null,
-    website: null,
-    subscribers: parseSubs(h.subscribers ?? null),
-    avg_views: typeof h.avgViews === 'number' ? h.avgViews : null,
-    last_video_at: null,
-    recent_video_dates: h.videoDates && h.videoDates.length ? h.videoDates : null,
-    raw_response_json: { source: 'search_route', titles: h.videoTitles ?? [] },
-  }))
+  // Cap at 50 hits — search routes return up to ~30 today, but the
+  // limit guards against accidental floods.
+  const cappedHits = hits.slice(0, 50)
+  const channelIds = cappedHits.map(h => h.channelId).filter(Boolean)
+
+  // Batch-fetch existing snapshots so we can carry forward email +
+  // socials. One query for the whole batch — no N-round-trip cost.
+  // Failures here just mean we fall back to "no carry-forward" —
+  // partial rows like the old behavior — which is no-worse-than-today.
+  const existingByChannel = new Map<string, EnrichmentLatest>()
+  if (channelIds.length > 0) {
+    try {
+      const { data, error } = await sb
+        .from('creator_enrichment_latest')
+        .select('*')
+        .in('yt_channel_id', channelIds)
+      if (error) {
+        console.warn('[creator_enrichment] carry-forward lookup failed:', error.message)
+      } else if (data) {
+        for (const row of data as EnrichmentLatest[]) {
+          if (row?.yt_channel_id) existingByChannel.set(row.yt_channel_id, row)
+        }
+      }
+    } catch (e) {
+      console.warn('[creator_enrichment] carry-forward lookup threw:', e)
+    }
+  }
+
+  const rows = cappedHits.map(h => {
+    const prior = existingByChannel.get(h.channelId)
+    return {
+      yt_channel_id: h.channelId,
+      // Prefer the freshest channel name we've seen (search responses
+      // can have stale display names if a channel rebranded recently;
+      // the search hit is more recent than the cached snapshot).
+      channel_name: h.channelName || prior?.channel_name || null,
+      niche: niche || prior?.niche || null,
+      // CARRY FORWARD: email + socials live in /api/enrich's domain.
+      // The search route never has them, so reusing the prior row's
+      // values is the only way to keep the latest-view richest.
+      email: prior?.email ?? null,
+      email_source: prior?.email_source ?? null,
+      email_bounced: prior?.email_bounced ?? false,
+      linkedin_url: prior?.linkedin_url ?? null,
+      instagram_handle: prior?.instagram_handle ?? null,
+      twitter_handle: prior?.twitter_handle ?? null,
+      website: prior?.website ?? null,
+      // REFRESH from search hit: these are the fields that change
+      // over time and the search response IS the freshest source.
+      subscribers: parseSubs(h.subscribers ?? null) ?? prior?.subscribers ?? null,
+      avg_views:
+        typeof h.avgViews === 'number' ? h.avgViews : prior?.avg_views ?? null,
+      last_video_at: prior?.last_video_at ?? null,
+      recent_video_dates:
+        h.videoDates && h.videoDates.length
+          ? h.videoDates
+          : prior?.recent_video_dates ?? null,
+      raw_response_json: {
+        source: 'search_route',
+        titles: h.videoTitles ?? [],
+        carriedForwardFromPrior: !!prior,
+      },
+    }
+  })
   try {
     const { error } = await sb.from('creator_enrichment').insert(rows)
     if (error) {
@@ -396,4 +458,79 @@ export async function getEnrichmentStats(): Promise<{
     console.warn('[creator_enrichment] stats threw:', e)
     return { total: 0, withEmail: 0, bouncedCount: 0, fetchedLast7d: 0, fetchedLast24h: 0 }
   }
+}
+
+/**
+ * Channel-id prefixes used by service-role smoke checks + automated
+ * tests. /api/admin/bulk-enrich filters these out of normal modes
+ * so they never hit the live enrichment pipeline (those endpoints
+ * 400 on synthetic IDs). The /admin/test-data tab surfaces them in
+ * isolation so Dylan can audit what's been seeded for testing.
+ */
+export const TEST_CHANNEL_PREFIXES = ['UC_TEST_', 'mock_', 'fake_'] as const
+
+/**
+ * List synthetic test rows from the latest-view. Mirrors the shape
+ * of listEnrichmentLatest but filters TO test rows instead of
+ * filtering them out.
+ */
+export async function listTestEnrichmentRows({
+  limit = 100,
+  offset = 0,
+}: {
+  limit?: number
+  offset?: number
+} = {}): Promise<{ rows: EnrichmentLatest[]; total: number }> {
+  const sb = getServiceClient()
+  if (!sb) return { rows: [], total: 0 }
+  try {
+    // Build an OR across the test prefixes against the latest-view.
+    // PostgREST supports `.or('a.ilike.%,b.ilike.%')` for ANY-match
+    // semantics — same pattern listEnrichmentLatest uses for search.
+    const orFilter = TEST_CHANNEL_PREFIXES.map(
+      p => `yt_channel_id.ilike.${p}%`,
+    ).join(',')
+    const q = sb
+      .from('creator_enrichment_latest')
+      .select('*', { count: 'exact' })
+      .or(orFilter)
+      .order('fetched_at', { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1)
+    const { data, count, error } = await q
+    if (error) {
+      console.warn('[creator_enrichment] test-rows list failed:', error.message)
+      return { rows: [], total: 0 }
+    }
+    return { rows: (data ?? []) as EnrichmentLatest[], total: count ?? 0 }
+  } catch (e) {
+    console.warn('[creator_enrichment] test-rows list threw:', e)
+    return { rows: [], total: 0 }
+  }
+}
+
+/**
+ * Per-prefix counts for the test-data tab summary. Returns
+ * { 'UC_TEST_': 3, 'mock_': 0, 'fake_': 1 }-shape map. Useful for
+ * the operator to see at a glance whether automated checks are
+ * actively seeding rows or whether the table just has stale leftovers.
+ */
+export async function getTestRowCounts(): Promise<Record<string, number>> {
+  const sb = getServiceClient()
+  const out: Record<string, number> = {}
+  for (const p of TEST_CHANNEL_PREFIXES) out[p] = 0
+  if (!sb) return out
+  try {
+    await Promise.all(
+      TEST_CHANNEL_PREFIXES.map(async p => {
+        const { count } = await sb
+          .from('creator_enrichment_latest')
+          .select('id', { count: 'exact', head: true })
+          .ilike('yt_channel_id', `${p}%`)
+        out[p] = count ?? 0
+      }),
+    )
+  } catch (e) {
+    console.warn('[creator_enrichment] test-row counts threw:', e)
+  }
+  return out
 }

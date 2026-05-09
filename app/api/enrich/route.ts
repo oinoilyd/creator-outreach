@@ -545,7 +545,16 @@ export async function GET(req: NextRequest) {
       const day = 24 * 60 * 60 * 1000
       const freshnessMs = pgRow.email ? 90 * day : 7 * day
       const isFresh = ageMs < freshnessMs
-      const usable = isFresh && !pgRow.email_bounced
+      // 2026-05-08: search-only rows (written by bulkSaveSearchResults)
+      // have email=null because /api/search never runs the email
+      // pipeline. They're a "we saw this channel" marker, NOT a "we
+      // tried and failed" verdict. Without this guard, bulk-seed
+      // would short-circuit on its own search writes and the live
+      // pipeline would never run — emails would never get resolved.
+      const rawSource =
+        (pgRow.raw_response_json as { source?: string } | null)?.source
+      const isSearchOnlyPlaceholder = !pgRow.email && rawSource === 'search_route'
+      const usable = isFresh && !pgRow.email_bounced && !isSearchOnlyPlaceholder
       if (usable) {
         // Reconstruct the response payload shape the route normally
         // returns, then warm Redis so the next read is L1-fast.
@@ -566,8 +575,13 @@ export async function GET(req: NextRequest) {
         void cacheSet(enrichmentCacheKey(channelId), reconstructed, CACHE_TTL.creatorEnrichment)
         return NextResponse.json(reconstructed)
       }
-      console.log(`[cache PG-MISS-STALE] channel=${channelId} ageDays=${(ageMs / day).toFixed(1)} bounced=${pgRow.email_bounced}`)
-      void cacheBumpCounter('enrich:miss:l2-stale')
+      if (isSearchOnlyPlaceholder) {
+        console.log(`[cache PG-MISS-SEARCH-ONLY] channel=${channelId} — search-time placeholder, running live pipeline`)
+        void cacheBumpCounter('enrich:miss:l2-search-only')
+      } else {
+        console.log(`[cache PG-MISS-STALE] channel=${channelId} ageDays=${(ageMs / day).toFixed(1)} bounced=${pgRow.email_bounced}`)
+        void cacheBumpCounter('enrich:miss:l2-stale')
+      }
     } else {
       void cacheBumpCounter('enrich:miss:l2-cold')
     }
@@ -765,19 +779,30 @@ export async function GET(req: NextRequest) {
   }
 
   const payload = { email, subscribers: yt.subscribers, videoDates, shortDates, avgViews, ...socials }
-  // Fire-and-forget cache write. Skip when strategy/aggressive paths
-  // ran (per skipCache check above) — those want fresh data each
-  // time and shouldn't poison the cache for normal flows. Also skip
-  // for fastMode: its result is intentionally partial (no email
+
+  // Redis cache write — fire-and-forget. Skip when strategy/aggressive
+  // paths ran (per skipCache check above) — those want fresh data
+  // each time and shouldn't poison the cache for normal flows. Also
+  // skip fastMode: its result is intentionally partial (no email
   // data), and a later full-enrich call for the same channel will
   // populate the cache properly.
   if (!skipCache && !fastMode) {
     void cacheSet(enrichmentCacheKey(channelId), payload, CACHE_TTL.creatorEnrichment)
+  }
 
-    // PHASE 1 of the durable enrichment cache (2026-05-08): also
-    // append a snapshot to creator_enrichment in Postgres. Read path
-    // is unchanged — Redis is still primary. This just builds the
-    // corpus across users + Redis evictions. Phase 2 wires reads.
+  // Postgres durable snapshot — separate gate from Redis. The
+  // durable log is append-only history and SHOULD record every live
+  // pipeline run, including aggressive ones. Previously this was
+  // gated behind `!skipCache`, which meant bulk-enrich (always sets
+  // aggressive=true) found emails but never persisted them. Bug
+  // diagnosed 2026-05-08.
+  //
+  // Still skip for:
+  //   - fastMode: intentionally partial result, no email data
+  //   - strategyParam (admin email-test harness): synthetic single-
+  //     strategy runs would pollute the durable history with
+  //     non-production results
+  if (!fastMode && strategyParam == null) {
     const recentDates = (videoDates || []).slice(0, 12)
     const lastVideoIso = recentDates[0]
       ? (() => {

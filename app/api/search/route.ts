@@ -766,9 +766,43 @@ function applyRegion(queries: string[], keyword: string, gl: string): string[] {
 
 function fallbackQueries(keyword: string, gl = ''): string[] {
   const base = [`${keyword}`, `${keyword} YouTube channel`, `${keyword} tips`, `${keyword} advice`, `how to ${keyword}`]
-  if (!gl || !REGION_SUFFIX[gl]) return base
+
+  // Parallel-occupation expansion (added 2026-05-09): when results
+  // are thin, pull in sister occupations from the same TOPIC_MAP
+  // bucket. E.g. "travel agent" → also try "tour planner", "travel
+  // advisor", "trip planner", "vacation specialist". Casts a wider
+  // net without making the user re-search.
+  const lower = keyword.toLowerCase().trim()
+  const parallel = new Set<string>()
+  for (const [key, roles] of Object.entries(TOPIC_MAP)) {
+    // Match if the topic key shares a substring with the keyword
+    // (or vice versa) — same matching rule expandTopic uses.
+    if (lower.includes(key) || key.includes(lower)) {
+      for (const r of roles) parallel.add(r)
+    } else {
+      // Cross-bucket fuzzy match: if the keyword shares a word with
+      // any of the topic's roles, include those roles. This catches
+      // cases where the keyword isn't a topic key but is itself a
+      // role (e.g. "travel advisor" → matches roles[] in 'travel').
+      for (const r of roles) {
+        const rLower = r.toLowerCase()
+        if (rLower.includes(lower) || lower.includes(rLower)) {
+          for (const sister of roles) parallel.add(sister)
+          break
+        }
+      }
+    }
+  }
+  // Also include role + intent variants on the original keyword for
+  // breadth — these are cheap and YouTube indexes some channels by
+  // these phrases that the bare keyword doesn't surface.
+  for (const r of GENERIC_ROLES.slice(0, 8)) parallel.add(`${keyword} ${r}`)
+  for (const s of INTENT_SUFFIXES.slice(0, 6)) parallel.add(`${keyword} ${s}`)
+
+  const all = [...new Set([...base, ...parallel])].slice(0, 30)
+  if (!gl || !REGION_SUFFIX[gl]) return all
   const suffix = REGION_SUFFIX[gl]
-  return [...base.map(q => `${q} ${suffix}`), ...base.slice(0, 2)]
+  return [...new Set([...all.map(q => `${q} ${suffix}`), ...all.slice(0, 4)])]
 }
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -935,9 +969,14 @@ export async function GET(req: NextRequest) {
     // count unique channel IDs with actual view data
     const withViews = new Set(hits.filter(h => !isNaN(h.viewCount)).map(h => h.channelId))
 
-    // fallback if thin — try broader queries (also region-aware)
-    if (withViews.size < 10) {
-      const extra = await runBatched(yt, fallbackQueries(keyword, gl))
+    // Fallback if thin — try parallel-occupation queries (also region-aware).
+    // Bumped 10 → 30 (2026-05-09) per Dylan: there are millions of YouTube
+    // channels, the search shouldn't bottom out at single-digit results just
+    // because the primary keyword's expansion didn't surface enough. Threshold
+    // is internal — the final result count is whatever the live data + filters
+    // produce, no fake padding.
+    if (withViews.size < 30) {
+      const extra = await runBatched(yt, fallbackQueries(keyword || keywordsList.join(' '), gl))
       hits.push(...extra)
     }
 
@@ -962,11 +1001,12 @@ export async function GET(req: NextRequest) {
       if (h.date) entry.dates.push(h.date)
     }
 
-    // build channel list — filter by avg views
-    const channels: any[] = []
+    // (channel list is built below into `candidates`, then filtered + sliced
+    //  into `channels` at the end. The legacy single-pass build was replaced
+    //  with the adaptive-tier filter on 2026-05-09.)
 
     // Helper: parse a subscriber string ("5.4M", "245K") to an int.
-    // Used for the news/big-channel hard-filter below.
+    // Used by the adaptive news/mega-network filter below.
     const parseSubs = (s: string): number => {
       if (!s) return 0
       const t = s.toLowerCase().replace(/[, ]/g, '')
@@ -979,8 +1019,32 @@ export async function GET(req: NextRequest) {
       return Math.round(n)
     }
 
+    // Build candidate pool first WITHOUT the news/mega-network filter.
+    // We apply that filter adaptively below — a strict pass first,
+    // and progressively relaxed tiers if the strict pass leaves the
+    // result set too thin.
+    type Candidate = {
+      channelId: string
+      channelName: string
+      channelUrl: string
+      avgViews: number
+      description: string
+      videoTitles: string[]
+      videoDates: string[]
+      shortDates: string[]
+      subscribers: string
+      email: string
+      relevanceScore: number
+      matchedVia: 'name' | 'title' | 'related'
+      instagram: string
+      twitter: string
+      tiktok: string
+      linkedin: string
+      website: string
+      _subsCount: number  // internal — used by adaptive filter
+    }
+    const candidates: Candidate[] = []
     for (const [channelId, data] of channelMap) {
-      if (channels.length >= maxResults) break
       if (data.views.length === 0) continue
 
       const avgViews = Math.round(data.views.reduce((a, b) => a + b, 0) / data.views.length)
@@ -995,17 +1059,9 @@ export async function GET(req: NextRequest) {
       // match contributes a smaller weight. A channel with title-match
       // but no name-match still ranks above a pure 'related' channel.
       const relevanceScore = nameScore * 4 + titleScore
-
-      // News / mega-network filter (2026-05-08): channels with no
-      // name-match AND no title-match AND >1M subscribers are almost
-      // always big news orgs (CBS News, NBC News, etc.) that
-      // incidentally covered the niche topic. They\\'re not creators
-      // we\\'d ever DM. Dropping them at the search layer keeps the
-      // result set focused.
       const subsCount = parseSubs(data.subscribers)
-      if (relevanceScore === 0 && subsCount > 1_000_000) continue
 
-      channels.push({
+      candidates.push({
         channelId,
         channelName,
         channelUrl: `https://www.youtube.com/channel/${channelId}`,
@@ -1019,10 +1075,52 @@ export async function GET(req: NextRequest) {
         relevanceScore,
         matchedVia: nameScore > 0 ? 'name' : titleScore > 0 ? 'title' : 'related',
         instagram: '', twitter: '', tiktok: '', linkedin: '', website: '',
+        _subsCount: subsCount,
       })
     }
 
-    channels.sort((a, b) => b.relevanceScore - a.relevanceScore)
+    // Adaptive news/mega-network filter (rewritten 2026-05-09):
+    //
+    // The earlier hard rule "drop relevance=0 AND subs>1M" was too
+    // aggressive on niche keywords with limited surface area — it
+    // could leave 5-10 results when YouTube has plenty of relevant
+    // creators that just didn't keyword-match perfectly. New behavior:
+    //
+    //   Tier 0 (strictest): drop relevance=0 AND subs > 1M
+    //   Tier 1:              drop relevance=0 AND subs > 5M
+    //   Tier 2:              drop relevance=0 AND subs > 20M
+    //   Tier 3 (no filter):  keep everything
+    //
+    // We pick the strictest tier that still yields a healthy result
+    // set (~30+). For thin niches we relax automatically; for fat
+    // ones we keep the original news-org filter teeth.
+    const SOFT_TARGET = 30
+    const tiers: Array<{ subsCap: number; label: string }> = [
+      { subsCap: 1_000_000,  label: 'strict' },
+      { subsCap: 5_000_000,  label: 'relaxed-5M' },
+      { subsCap: 20_000_000, label: 'relaxed-20M' },
+      { subsCap: Infinity,   label: 'unfiltered' },
+    ]
+    let filtered: Candidate[] = []
+    let chosenTier = tiers[0].label
+    for (const tier of tiers) {
+      filtered = candidates.filter(c => !(c.relevanceScore === 0 && c._subsCount > tier.subsCap))
+      chosenTier = tier.label
+      if (filtered.length >= SOFT_TARGET) break
+      // If even unfiltered is thin, that's fine — return what we have.
+    }
+    console.log(`[search] candidates=${candidates.length} filtered=${filtered.length} tier=${chosenTier} target=${SOFT_TARGET}`)
+
+    // Strip the internal _subsCount field before returning.
+    const channels = filtered
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, maxResults)
+      .map(c => {
+        // Destructure-and-drop the internal field.
+        const { _subsCount, ...rest } = c
+        void _subsCount
+        return rest
+      })
     const payload = { channels, expandedQueries: queries }
     // Fire-and-forget: cache the response for repeat queries within
     // the next 24h. Doesn't block the return.
