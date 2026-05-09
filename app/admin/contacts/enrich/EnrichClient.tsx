@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+import { useBulkJob } from '@/components/BulkJobProvider'
+
 type Mode = 'no-email' | 'stale' | 'bounced' | 'all'
 
 const MODE_LABEL: Record<Mode, string> = {
@@ -18,38 +20,30 @@ const MODE_DESCRIPTION: Record<Mode, string> = {
   all: 'Force-refresh every channel in the cache. Slow + expensive — only use when something fundamental has changed in the enrichment pipeline.',
 }
 
-type RunResponse = {
-  ok?: boolean
-  mode?: Mode
-  totalMatching?: number
-  processedThisCall?: number
-  channelIdsProcessed?: string[]
-  channelIdsRemaining?: string[]
-  errors?: string[]
-  elapsedMs?: number
-  timedOut?: boolean
-  error?: string
-}
-
+/**
+ * EnrichClient now hands the run loop to BulkJobProvider — same
+ * pattern as SeedClient. The form keeps its preview/count logic
+ * (calls /api/admin/bulk-enrich with dryRun=true to know how many
+ * channels match), but the long-running enrich loop lives in the
+ * provider so it survives navigation.
+ */
 export function EnrichClient() {
+  const { activeJob, startEnrichJob } = useBulkJob()
+
   const [mode, setMode] = useState<Mode>('no-email')
   // Default 4 (down from 8). With per-channel timeout 25s on the
   // server + concurrency=2, a chunk of 4 channels can complete in
   // ~50s worst-case, well under Vercel's 60s function timeout.
-  // Earlier default of 8 was busting the timeout on slow batches
-  // and producing "Load failed" errors.
   const [batchSize, setBatchSize] = useState<number>(4)
   const [concurrency, setConcurrency] = useState<number>(2)
-  const [running, setRunning] = useState<boolean>(false)
   const [matchingCount, setMatchingCount] = useState<number | null>(null)
   const [previewLoading, setPreviewLoading] = useState<boolean>(false)
-  const [agg, setAgg] = useState<{
-    totalMatching: number
-    processedTotal: number
-    errors: string[]
-    callsMade: number
-    elapsedMs: number
-  } | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const enrichJob = activeJob && activeJob.type === 'enrich' ? activeJob : null
+  const otherJobRunning =
+    activeJob && activeJob.type !== 'enrich' && activeJob.status === 'running'
+  const isRunning = enrichJob?.status === 'running'
 
   // Re-fetch the matching count whenever the mode changes (so the
   // operator sees how many channels they're about to enrich
@@ -82,143 +76,55 @@ export function EnrichClient() {
     }
   }, [mode])
 
-  async function run() {
+  function run() {
+    setSubmitError(null)
     if (matchingCount === null || matchingCount === 0) return
+    if (otherJobRunning) {
+      setSubmitError('Bulk seed is already running. Cancel or wait for it to finish.')
+      return
+    }
+    if (isRunning) {
+      setSubmitError('A bulk enrich job is already in progress.')
+      return
+    }
     if (
       !confirm(
         `Enrich ${matchingCount} channels in mode "${MODE_LABEL[mode]}"?\n\n` +
+        `Runs in the background — keeps going if you navigate away (but not if you close the tab).\n\n` +
         `This calls the live email pipeline (~10s per channel) and writes results to the cache.`,
       )
     )
       return
-
-    setRunning(true)
-    setAgg({
-      totalMatching: matchingCount,
-      processedTotal: 0,
-      errors: [],
-      callsMade: 0,
-      elapsedMs: 0,
-    })
-
-    const t0 = Date.now()
-    let offset = 0
-    let processed = 0
-    const errors: string[] = []
-    let total = matchingCount
-    let calls = 0
-    let consecutiveFailures = 0
-    const MAX_CONSECUTIVE_FAILURES = 3
-
-    /**
-     * Single call wrapper with one retry on fetch failures. Returns
-     * the parsed response or null on hard failure. Doesn't break
-     * the outer loop — the caller decides based on
-     * consecutiveFailures whether to abort.
-     */
-    async function callOnce(): Promise<RunResponse | null> {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        // Client-side timeout: 65s per call. Server's soft budget
-        // is 45s + 15s cleanup, so anything past 65s on the wire
-        // is definitely Vercel mid-kill — don't hang waiting.
-        const ctrl = new AbortController()
-        const tid = setTimeout(() => ctrl.abort(), 65_000)
-        try {
-          const res = await fetch('/api/admin/bulk-enrich', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ mode, limit: batchSize, offset, concurrency }),
-            signal: ctrl.signal,
-          })
-          clearTimeout(tid)
-          const text = await res.text()
-          let j: RunResponse
-          try {
-            j = JSON.parse(text)
-          } catch {
-            errors.push(`call ${calls + 1}: non-JSON (${text.slice(0, 60)})`)
-            if (attempt === 2) return null
-            // brief backoff before retry
-            await new Promise(r => setTimeout(r, 1000))
-            continue
-          }
-          if (!res.ok || j.error) {
-            errors.push(`call ${calls + 1}: ${j.error || `HTTP ${res.status}`}${attempt === 1 ? ' (retrying)' : ''}`)
-            if (attempt === 2) return null
-            await new Promise(r => setTimeout(r, 1000))
-            continue
-          }
-          return j
-        } catch (e: any) {
-          clearTimeout(tid)
-          // "Load failed" / "Failed to fetch" / our AbortError from
-          // the 65s timeout all land here. Retry once.
-          const msg = e?.name === 'AbortError'
-            ? 'client-side timeout (65s)'
-            : e?.message || String(e)
-          errors.push(`call ${calls + 1}: ${msg}${attempt === 1 ? ' (retrying)' : ''}`)
-          if (attempt === 2) return null
-          await new Promise(r => setTimeout(r, 1500))
-        }
-      }
-      return null
+    const label = `${MODE_LABEL[mode]} · ~${matchingCount.toLocaleString()} channels`
+    const id = startEnrichJob(
+      { mode, batchSize, concurrency },
+      label,
+    )
+    if (!id) {
+      setSubmitError('Could not start job — another bulk job may be running.')
     }
-
-    // Loop until totalMatching channels processed, server says
-    // nothing left, OR we hit MAX_CONSECUTIVE_FAILURES in a row.
-    while (offset < total && processed < total) {
-      const j = await callOnce()
-      if (!j) {
-        consecutiveFailures++
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          errors.push(
-            `aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive call failures — pause + retry by clicking Run again`,
-          )
-          break
-        }
-        // Keep going — advance offset so we don't keep retrying
-        // the same batch forever.
-        offset += batchSize
-        calls++
-        setAgg({ totalMatching: total, processedTotal: processed, errors: [...errors], callsMade: calls, elapsedMs: Date.now() - t0 })
-        continue
-      }
-      consecutiveFailures = 0 // reset on success
-      processed += j.processedThisCall ?? 0
-      if (j.errors?.length) {
-        errors.push(...j.errors.slice(0, 5).map(e => `call ${calls + 1}: ${e}`))
-      }
-      if (typeof j.totalMatching === 'number') {
-        total = j.totalMatching
-      }
-      offset += batchSize
-      calls++
-      setAgg({
-        totalMatching: total,
-        processedTotal: processed,
-        errors: [...errors],
-        callsMade: calls,
-        elapsedMs: Date.now() - t0,
-      })
-
-      // Empty page = nothing left.
-      if ((j.processedThisCall ?? 0) === 0 && (j.channelIdsRemaining?.length ?? 0) === 0) {
-        break
-      }
-    }
-
-    setAgg({
-      totalMatching: total,
-      processedTotal: processed,
-      errors,
-      callsMade: calls,
-      elapsedMs: Date.now() - t0,
-    })
-    setRunning(false)
   }
 
   return (
     <div className="space-y-6">
+      {/* BACKGROUND JOB BANNER */}
+      {enrichJob && (
+        <BackgroundJobBanner
+          done={enrichJob.done}
+          total={enrichJob.total}
+          elapsedMs={enrichJob.elapsedMs}
+          label={enrichJob.label}
+          status={enrichJob.status}
+          errors={enrichJob.errors.length}
+        />
+      )}
+      {otherJobRunning && (
+        <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-5 py-3 text-sm text-yellow-200">
+          Bulk seed is currently running in the background — this form is paused until that job
+          finishes (or you cancel it from the bar in the bottom-left).
+        </div>
+      )}
+
       {/* MODE PICKER */}
       <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
         <label className="block">
@@ -228,7 +134,7 @@ export function EnrichClient() {
           <select
             value={mode}
             onChange={e => setMode(e.target.value as Mode)}
-            disabled={running}
+            disabled={isRunning}
             className="w-full px-3 py-2.5 rounded-md bg-gray-950 border border-gray-800 text-sm font-medium text-white focus:outline-none focus:border-orange-500/50"
           >
             {(Object.keys(MODE_LABEL) as Mode[]).map(m => (
@@ -257,7 +163,7 @@ export function EnrichClient() {
               max={50}
               value={batchSize}
               onChange={e => setBatchSize(parseInt(e.target.value, 10) || 8)}
-              disabled={running}
+              disabled={isRunning}
               className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
             />
             <div className="text-xs text-gray-500 mt-1">Channels per server call (1–50). Smaller = safer for Vercel timeout.</div>
@@ -270,7 +176,7 @@ export function EnrichClient() {
               max={4}
               value={concurrency}
               onChange={e => setConcurrency(parseInt(e.target.value, 10) || 2)}
-              disabled={running}
+              disabled={isRunning}
               className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
             />
             <div className="text-xs text-gray-500 mt-1">Parallel /api/enrich workers per call (1–4)</div>
@@ -306,59 +212,82 @@ export function EnrichClient() {
           <button
             type="button"
             onClick={run}
-            disabled={running || matchingCount === null || matchingCount === 0}
+            disabled={isRunning || otherJobRunning || matchingCount === null || matchingCount === 0}
             className="px-5 py-2.5 rounded-md text-sm font-semibold bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {running ? 'Enriching…' : matchingCount ? `Enrich ${matchingCount.toLocaleString()} channels` : 'Enrich'}
+            {isRunning
+              ? `Running · ${enrichJob?.done ?? 0} / ${enrichJob?.total ?? 0}…`
+              : matchingCount
+              ? `Enrich ${matchingCount.toLocaleString()} in background`
+              : 'Enrich'}
           </button>
         </div>
+        {submitError && (
+          <div className="mt-3 text-xs text-red-400 font-mono">
+            {submitError}
+          </div>
+        )}
       </section>
 
-      {/* PROGRESS */}
-      {agg && (
-        <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
-            <span>Live progress</span>
-            <span className="font-mono normal-case tracking-normal text-gray-400">
-              {agg.processedTotal} / {agg.totalMatching} processed · {agg.callsMade} calls · {Math.round(agg.elapsedMs / 100) / 10}s
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-gray-800 overflow-hidden mb-4">
-            <div
-              className="h-full bg-orange-500 transition-all duration-500"
-              style={{
-                width: `${
-                  agg.totalMatching === 0
-                    ? 0
-                    : Math.min(100, (agg.processedTotal / agg.totalMatching) * 100)
-                }%`,
-              }}
-            />
-          </div>
-          {running && (
-            <div className="text-[11px] text-orange-300 flex items-center gap-2 mb-3">
-              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-              Working — each batch processes up to {batchSize} channels with concurrency={concurrency}
-            </div>
-          )}
-          {agg.errors.length > 0 && (
-            <div className="mt-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-yellow-300 font-bold mb-2">
-                Errors · {agg.errors.length}
-              </div>
-              <ul className="text-xs text-yellow-200/80 font-mono space-y-1 max-h-48 overflow-y-auto">
-                {agg.errors.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="mt-3 text-xs text-gray-500">
-            Snapshots are landing in <span className="font-mono text-gray-400">creator_enrichment</span>.{' '}
-            <a href="/admin/contacts" className="text-orange-400 hover:underline">View contacts →</a>
-          </div>
-        </section>
-      )}
+      {/* INFO PANEL */}
+      <section className="rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed">
+        <p>
+          <span className="text-gray-200 font-semibold">Background mode:</span>{' '}
+          The enrich loop hands off to a small floating progress card in the
+          bottom-left. Navigate freely between admin pages, the landing site, and
+          sign-up flows — the loop keeps running. Tab close kills it.
+        </p>
+        <p className="mt-2">
+          Only one bulk job at a time — bulk seed and bulk enrich share the same slot.
+        </p>
+      </section>
     </div>
+  )
+}
+
+function BackgroundJobBanner({
+  done,
+  total,
+  elapsedMs,
+  label,
+  status,
+  errors,
+}: {
+  done: number
+  total: number
+  elapsedMs: number
+  label: string
+  status: 'running' | 'done' | 'cancelled' | 'failed'
+  errors: number
+}) {
+  const pct = total === 0 ? 0 : Math.min(100, (done / total) * 100)
+  const accent =
+    status === 'running'
+      ? 'bg-orange-500'
+      : status === 'done'
+      ? 'bg-emerald-500'
+      : status === 'cancelled'
+      ? 'bg-gray-500'
+      : 'bg-red-500'
+  const seconds = Math.round(elapsedMs / 100) / 10
+
+  return (
+    <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+        <span>Background job · {status}</span>
+        <span className="font-mono normal-case tracking-normal text-gray-400">
+          {done} / {total} · {seconds}s{errors > 0 && ` · ${errors} errors`}
+        </span>
+      </div>
+      <div className="text-sm text-gray-200 mb-3 truncate" title={label}>
+        {label}
+      </div>
+      <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+        <div
+          className={`h-full ${accent} transition-all duration-500`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </section>
   )
 }

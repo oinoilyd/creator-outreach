@@ -165,6 +165,10 @@ export interface UserProfile {
   fullName: string
   linkedinUrl: string
   pitchLine: string
+  // Custom subject line for outreach emails. Supports placeholders
+  // {name}, {channel}, {content} that lib/format.ts substitutes at
+  // compose time. Empty or undefined falls back to the default subject.
+  subjectTemplate?: string
   // Which email-compose URL to use when the user clicks an outreach
   // email link. 'default' uses mailto: (OS default), the others open
   // the provider's web compose in a new tab.

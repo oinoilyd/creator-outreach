@@ -2491,7 +2491,7 @@ export default function Home() {
         // Use maybeSingle so missing row returns null instead of erroring
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, mail_client, onboarded')
+          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded')
           .eq('user_id', user.id)
           .maybeSingle()
         console.log('[home-init] profile row:', profileRow, 'error:', profileErr?.message)
@@ -2503,7 +2503,7 @@ export default function Home() {
           const { data: inserted } = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, mail_client, onboarded')
+            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded')
             .single()
           profileRow = inserted
         }
@@ -2513,6 +2513,7 @@ export default function Home() {
             fullName: profileRow.full_name ?? '',
             linkedinUrl: profileRow.linkedin_url ?? '',
             pitchLine: profileRow.pitch_line ?? '',
+            subjectTemplate: profileRow.subject_template ?? undefined,
             mailClient: (profileRow.mail_client ?? 'default') as UserProfile['mailClient'],
           })
           if (!profileRow.onboarded) {
@@ -4333,10 +4334,16 @@ export default function Home() {
               const supabase = createSupabaseClient()
               const { data } = await supabase
                 .from('user_profile')
-                .select('full_name, linkedin_url, pitch_line')
+                .select('full_name, linkedin_url, pitch_line, subject_template, mail_client')
                 .eq('user_id', userId)
                 .single()
-              if (data) setProfile({ fullName: data.full_name ?? '', linkedinUrl: data.linkedin_url ?? '', pitchLine: data.pitch_line ?? '' })
+              if (data) setProfile({
+                fullName: data.full_name ?? '',
+                linkedinUrl: data.linkedin_url ?? '',
+                pitchLine: data.pitch_line ?? '',
+                subjectTemplate: data.subject_template ?? undefined,
+                mailClient: (data.mail_client ?? 'default') as UserProfile['mailClient'],
+              })
             })()
           }}
         />

@@ -18,6 +18,7 @@ export function ProfileModal({
   const [fullName, setFullName] = useState(initial.fullName)
   const [linkedinUrl, setLinkedinUrl] = useState(initial.linkedinUrl)
   const [pitchLine, setPitchLine] = useState(initial.pitchLine)
+  const [subjectTemplate, setSubjectTemplate] = useState(initial.subjectTemplate ?? '')
   const [mailClient, setMailClient] = useState<UserProfile['mailClient']>(initial.mailClient ?? 'default')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -27,6 +28,7 @@ export function ProfileModal({
     setFullName(initial.fullName)
     setLinkedinUrl(initial.linkedinUrl)
     setPitchLine(initial.pitchLine)
+    setSubjectTemplate(initial.subjectTemplate ?? '')
     setMailClient(initial.mailClient ?? 'default')
   }, [initial])
 
@@ -42,6 +44,7 @@ export function ProfileModal({
       fullName: fullName.trim(),
       linkedinUrl: linkedinUrl.trim(),
       pitchLine: pitchLine.trim(),
+      subjectTemplate: subjectTemplate.trim() || undefined,
       mailClient,
     }
     const { error: err } = await supabase
@@ -50,6 +53,7 @@ export function ProfileModal({
         full_name: next.fullName,
         linkedin_url: next.linkedinUrl,
         pitch_line: next.pitchLine,
+        subject_template: next.subjectTemplate ?? null,
         mail_client: next.mailClient,
       })
       .eq('user_id', userId)
@@ -112,6 +116,32 @@ export function ProfileModal({
               className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500 resize-none"
             />
             <p className="text-[11px] text-muted-foreground/70 mt-1">One line about what you do. Goes after &quot;I&apos;m [your name]&quot; in outreach emails.</p>
+          </div>
+
+          {/* Subject-line template — used as the actual email subject when
+              the user clicks an outreach link. Supports placeholders that
+              lib/format.ts substitutes per recipient at compose time. */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Subject line template <span className="text-muted-foreground/70">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={subjectTemplate}
+              onChange={e => setSubjectTemplate(e.target.value)}
+              placeholder="e.g. quick question about {channel}"
+              maxLength={140}
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-[11px] text-muted-foreground/70 mt-1 leading-relaxed">
+              Used as the subject when you click an outreach email link. Placeholders:{' '}
+              <code className="px-1 py-0.5 rounded bg-muted-foreground/10 text-foreground/80">{'{name}'}</code>{' '}
+              recipient first name,{' '}
+              <code className="px-1 py-0.5 rounded bg-muted-foreground/10 text-foreground/80">{'{channel}'}</code>{' '}
+              channel name,{' '}
+              <code className="px-1 py-0.5 rounded bg-muted-foreground/10 text-foreground/80">{'{content}'}</code>{' '}
+              top video title. Leave blank to use the default subject.
+            </p>
           </div>
 
           {/* Mail client preference — controls where outreach email

@@ -70,6 +70,12 @@ export default async function AdminPage() {
               📇 Contacts
             </Link>
             <Link
+              href="/admin/test-data"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
+            >
+              🧪 Test data
+            </Link>
+            <Link
               href="/admin/email-test"
               className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
             >

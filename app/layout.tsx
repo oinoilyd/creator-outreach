@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { BulkJobProvider } from "@/components/BulkJobProvider";
+import { BulkJobBar } from "@/components/BulkJobBar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,6 +37,27 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // BulkJobProvider + BulkJobBar are mounted UNCONDITIONALLY (rewritten
+  // 2026-05-09). The previous version did a server-side cookie auth
+  // check here to gate the provider on isAdmin — but if that check
+  // ever flickered between true/false during navigation (auth race,
+  // cookie blip, network hiccup), the provider tree unmounted and the
+  // bar disappeared mid-job, even though the underlying loop was
+  // still running.
+  //
+  // Why it's safe to mount globally:
+  //   - The bulk-seed / bulk-enrich API routes ALREADY enforce admin-
+  //     only access (return 403 to non-admins). So a non-admin clicking
+  //     a hypothetical UI button would just get a rejection.
+  //   - The bar renders nothing when activeJob is null — and activeJob
+  //     is only ever populated by the admin-gated SeedClient/EnrichClient
+  //     pages.
+  //   - The provider is a thin useSyncExternalStore subscriber over a
+  //     module-level store; mounting it on every route adds no measurable
+  //     cost.
+  //
+  // Net effect: bar persists across EVERY navigation, regardless of
+  // auth state, regardless of whether the destination route is admin.
   return (
     <html
       lang="en"
@@ -43,7 +66,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-          {children}
+          <BulkJobProvider>
+            {children}
+            <BulkJobBar />
+          </BulkJobProvider>
           <Toaster position="bottom-right" />
         </ThemeProvider>
       </body>

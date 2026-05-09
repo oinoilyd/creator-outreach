@@ -69,6 +69,15 @@ export default async function AdminContactsPage({
   const hitRatePct = cacheTotal24h > 0 ? Math.round((cacheHits24h / cacheTotal24h) * 100) : null
   const liveFetchesSaved = l2Hits24h // L2 hits = saved live pipeline runs
 
+  // Email present rate — what % of the corpus has a usable email.
+  // Bounced rows are excluded from the numerator since they're known
+  // bad. This is the headline KPI for "how well is enrichment
+  // actually converting raw channels into actionable contacts?"
+  const usableEmail = Math.max(0, stats.withEmail - stats.bouncedCount)
+  const emailPresentPct = stats.total > 0
+    ? Math.round((usableEmail / stats.total) * 100)
+    : null
+
   const totalPages = Math.max(1, Math.ceil(listing.total / limit))
 
   return (
@@ -95,6 +104,12 @@ export default async function AdminContactsPage({
               className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
             >
               ⚙️ Enrich
+            </Link>
+            <Link
+              href="/admin/test-data"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
+            >
+              🧪 Test data
             </Link>
             <Link
               href="/admin"
@@ -162,9 +177,20 @@ export default async function AdminContactsPage({
 
         {/* CORPUS STATS */}
         <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">Corpus</div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <StatBox label="Total channels" value={stats.total.toLocaleString()} />
           <StatBox label="With email" value={stats.withEmail.toLocaleString()} accent />
+          <StatBox
+            label="Email present"
+            value={emailPresentPct == null ? '—' : `${emailPresentPct}%`}
+            sublabel={
+              stats.total > 0
+                ? `${usableEmail.toLocaleString()} of ${stats.total.toLocaleString()} usable`
+                : 'no data yet'
+            }
+            accent={emailPresentPct != null && emailPresentPct >= 50}
+            tone={emailPresentPct != null && emailPresentPct < 25 ? 'warn' : undefined}
+          />
           <StatBox label="Bounced" value={stats.bouncedCount.toLocaleString()} tone="warn" />
           <StatBox label="Snapshots · 7d" value={stats.fetchedLast7d.toLocaleString()} />
           <StatBox label="Snapshots · 24h" value={stats.fetchedLast24h.toLocaleString()} />
@@ -531,11 +557,14 @@ function formatRelative(iso: string): string {
 function StatBox({
   label,
   value,
+  sublabel,
   accent,
   tone,
 }: {
   label: string
   value: string
+  /** Optional small caption below the value (e.g. "12,432 of 30,108 usable"). */
+  sublabel?: string
   accent?: boolean
   tone?: 'warn'
 }) {
@@ -548,6 +577,11 @@ function StatBox({
     <div className="rounded-lg border border-gray-800 bg-gray-900/40 px-4 py-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-1">{label}</div>
       <div className={`text-xl font-semibold tabular-nums ${valueClass}`}>{value}</div>
+      {sublabel && (
+        <div className="text-[10px] text-gray-500 mt-0.5 truncate" title={sublabel}>
+          {sublabel}
+        </div>
+      )}
     </div>
   )
 }

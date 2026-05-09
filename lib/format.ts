@@ -295,6 +295,33 @@ export function parseRelativeDays(text: string): number {
   return Infinity
 }
 
+/**
+ * Substitute {name} / {channel} / {content} placeholders in a
+ * user-provided subject template. Case-insensitive; missing values
+ * collapse to empty string so the template doesn't show literal
+ * "{name}" if the parser couldn't pick out a recipient first name.
+ *
+ * Trailing whitespace / dangling separators that result from empty
+ * substitutions are cleaned up so a template like "hey {name}, quick
+ * question" with no name gracefully becomes "hey, quick question".
+ */
+export function applySubjectPlaceholders(
+  template: string,
+  ctx: { name?: string; channel?: string; content?: string },
+): string {
+  let out = template
+    .replace(/\{name\}/gi, ctx.name || '')
+    .replace(/\{channel\}/gi, ctx.channel || '')
+    .replace(/\{content\}/gi, ctx.content || '')
+  // Collapse multi-space, trim leading punctuation/space artifacts
+  // that empty substitutions can leave behind.
+  out = out.replace(/\s{2,}/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim()
+  // If the template was just placeholder + punctuation and everything
+  // collapsed away, fall back gracefully — caller treats empty as
+  // "no template, use default."
+  return out
+}
+
 export function buildOutreachEmail(c: Creator, profile?: UserProfile | null): string {
   const recipientFirst = c.channelName.split(/[\s,|–-]/)[0]
 
@@ -312,7 +339,19 @@ export function buildOutreachEmail(c: Creator, profile?: UserProfile | null): st
   const pitch = (profile?.pitchLine || '').trim()
   const linkedin = (profile?.linkedinUrl || '').trim()
 
-  const subject = `loved ${contentRef.startsWith('"') ? contentRef : 'your content'} — quick question`
+  // Subject — user template wins if set, with placeholder substitution.
+  // Empty/whitespace-only template falls back to the default phrasing
+  // so existing users see no behavior change until they set a template.
+  const subjectTemplate = (profile?.subjectTemplate || '').trim()
+  const userSubject = subjectTemplate
+    ? applySubjectPlaceholders(subjectTemplate, {
+        name: recipientFirst,
+        channel: c.channelName,
+        content: contentRef.replace(/^"|"$/g, ''),
+      })
+    : ''
+  const subject = userSubject ||
+    `loved ${contentRef.startsWith('"') ? contentRef : 'your content'} — quick question`
 
   const lines: string[] = [
     `Hey ${recipientFirst},`,
