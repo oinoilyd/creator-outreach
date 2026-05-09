@@ -1870,6 +1870,12 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
 }) {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false)
   const [followedUpOpen, setFollowedUpOpen] = useState(false)
+  // Single vs double-click detector for the "Followed up" button.
+  // Single click → opens the popover (manual cadence + status pick).
+  // Double click → applies the user's last-saved cadence + status
+  // immediately, no popover. First-time double-click before any
+  // manual choice falls back to the default cadence.
+  const followedUpClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initials = (e.channelName || '?')
     .trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() ?? '').join('') || '?'
 
@@ -1995,11 +2001,45 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
             </>
           ) : (
             <>
-              {/* Primary action — opens confirm popover with date + status */}
+              {/* Primary action — single click opens manual popover,
+                  double click applies the last-saved cadence + status
+                  immediately. The setTimeout-based detector defers
+                  the single-click action by 250ms so a fast second
+                  click can pre-empt it cleanly. */}
               <div className="relative">
                 <button
-                  onClick={() => setFollowedUpOpen(v => !v)}
-                  title="Confirm follow-up: pick next date + status"
+                  onClick={() => {
+                    if (followedUpClickTimerRef.current) {
+                      // Second click within the 250ms window → double click
+                      clearTimeout(followedUpClickTimerRef.current)
+                      followedUpClickTimerRef.current = null
+                      // Read last-saved cadence + status from localStorage.
+                      // Fallback to the smart cadence + current status when
+                      // the user hasn't manually confirmed any follow-up yet.
+                      const savedDays = (() => {
+                        if (typeof window === 'undefined') return null
+                        const v = parseInt(localStorage.getItem('followedUp:lastCadenceDays') || '', 10)
+                        return Number.isFinite(v) && v > 0 && v < 365 ? v : null
+                      })()
+                      const savedStatus = typeof window !== 'undefined'
+                        ? localStorage.getItem('followedUp:lastStatus') || ''
+                        : ''
+                      const days = savedDays ?? nextFollowUpDays(tps + 1)
+                      const status = savedStatus || e.status || 'Open'
+                      onMarkFollowedUp(e, {
+                        date: isoDaysFromNow(days),
+                        status,
+                      })
+                      return
+                    }
+                    // First click — defer the popover open in case a
+                    // second click follows.
+                    followedUpClickTimerRef.current = setTimeout(() => {
+                      followedUpClickTimerRef.current = null
+                      setFollowedUpOpen(v => !v)
+                    }, 250)
+                  }}
+                  title="Single click: pick next date + status manually. Double click: apply your last-used cadence (defaults to the smart cadence the first time)."
                   className="text-[10px] font-medium text-purple-800 dark:text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
                 >
                   Followed up
@@ -2009,6 +2049,22 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
                     touchpoints={tps}
                     currentStatus={e.status}
                     onConfirm={({ date, status }) => {
+                      // Persist the user's manual choice so the next
+                      // double-click on any row in this browser uses
+                      // these values. Days is computed from today —
+                      // local-time, not UTC, to match the date input.
+                      if (typeof window !== 'undefined' && date) {
+                        const today = new Date(); today.setHours(0, 0, 0, 0)
+                        const picked = parseLocalDate(date)
+                        if (picked) {
+                          picked.setHours(0, 0, 0, 0)
+                          const days = Math.round((picked.getTime() - today.getTime()) / 86_400_000)
+                          if (days > 0 && days < 365) {
+                            localStorage.setItem('followedUp:lastCadenceDays', String(days))
+                          }
+                        }
+                        if (status) localStorage.setItem('followedUp:lastStatus', status)
+                      }
                       onMarkFollowedUp(e, { date, status })
                       setFollowedUpOpen(false)
                     }}
