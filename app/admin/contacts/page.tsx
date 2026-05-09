@@ -5,7 +5,9 @@ import {
   getEnrichmentStats,
   listEnrichmentLatest,
   checkEnrichmentHealth,
+  SORTABLE_COLUMNS,
   type EnrichmentLatest,
+  type SortColumn,
 } from '@/lib/creator-enrichment'
 import { cacheReadCounterRange } from '@/lib/cache'
 import { formatSubscribers } from '@/lib/format'
@@ -27,7 +29,7 @@ export const dynamic = 'force-dynamic'
 export default async function AdminContactsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; src?: string; page?: string }>
+  searchParams: Promise<{ q?: string; src?: string; page?: string; sort?: string; dir?: string }>
 }) {
   const supabase = await createClient()
   const {
@@ -42,10 +44,19 @@ export default async function AdminContactsPage({
   const limit = 50
   const offset = (page - 1) * limit
 
+  // Sort params — validated against the SORTABLE_COLUMNS whitelist
+  // so a malformed URL doesn't break the page or open an injection
+  // hole. Default sort is fetched_at desc (most-recently-cached first).
+  const sortRaw = (params.sort ?? '').trim()
+  const sort: SortColumn = (SORTABLE_COLUMNS as readonly string[]).includes(sortRaw)
+    ? (sortRaw as SortColumn)
+    : 'fetched_at'
+  const dir: 'asc' | 'desc' = params.dir === 'asc' ? 'asc' : 'desc'
+
   const [health, stats, listing, l1Hits24h, l2Hits24h, missCold24h, missStale24h] = await Promise.all([
     checkEnrichmentHealth(),
     getEnrichmentStats(),
-    listEnrichmentLatest({ search: q || undefined, source: src || undefined, limit, offset }),
+    listEnrichmentLatest({ search: q || undefined, source: src || undefined, sort, dir, limit, offset }),
     cacheReadCounterRange('enrich:hit:l1', 1),
     cacheReadCounterRange('enrich:hit:l2', 1),
     cacheReadCounterRange('enrich:miss:l2-cold', 1),
@@ -240,21 +251,30 @@ export default async function AdminContactsPage({
             <table className="w-full text-sm">
               <thead className="bg-gray-900/80 text-gray-400">
                 <tr className="border-b border-gray-800">
-                  {/* Column shape mirrors the in-app Outreach board
-                      so a row in the admin cache reads like a row in
-                      the user-facing table — minus the free-text
-                      slots (description / product / headerUsed) and
-                      the per-user state (favorite / status / medium /
-                      reachedOut). Cache-specific cols at the end:
-                      source + fetched. */}
+                  {/* YT + Socials aren't sortable (they're action
+                      columns). Everything else has a clickable
+                      header that toggles asc/desc and routes via
+                      URL params (so refresh/share preserves state). */}
                   <Th>YT</Th>
-                  <Th>Channel</Th>
-                  <Th>Email</Th>
-                  <Th>Subs</Th>
-                  <Th>Avg views</Th>
+                  <SortableTh col="channel_name" sort={sort} dir={dir} q={q} src={src}>
+                    Channel
+                  </SortableTh>
+                  <SortableTh col="email" sort={sort} dir={dir} q={q} src={src}>
+                    Email
+                  </SortableTh>
+                  <SortableTh col="subscribers" sort={sort} dir={dir} q={q} src={src}>
+                    Subs
+                  </SortableTh>
+                  <SortableTh col="avg_views" sort={sort} dir={dir} q={q} src={src}>
+                    Avg views
+                  </SortableTh>
                   <Th>Socials</Th>
-                  <Th>Source</Th>
-                  <Th>Fetched</Th>
+                  <SortableTh col="email_source" sort={sort} dir={dir} q={q} src={src}>
+                    Source
+                  </SortableTh>
+                  <SortableTh col="fetched_at" sort={sort} dir={dir} q={q} src={src}>
+                    Fetched
+                  </SortableTh>
                 </tr>
               </thead>
               <tbody>
@@ -283,7 +303,7 @@ export default async function AdminContactsPage({
             <div className="flex items-center gap-2">
               {page > 1 && (
                 <Link
-                  href={buildHref({ q, src, page: page - 1 })}
+                  href={buildHref({ q, src, page: page - 1, sort, dir })}
                   className="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-colors"
                 >
                   ← Prev
@@ -291,7 +311,7 @@ export default async function AdminContactsPage({
               )}
               {page < totalPages && (
                 <Link
-                  href={buildHref({ q, src, page: page + 1 })}
+                  href={buildHref({ q, src, page: page + 1, sort, dir })}
                   className="px-3 py-1.5 rounded-md text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 transition-colors"
                 >
                   Next →
@@ -305,11 +325,27 @@ export default async function AdminContactsPage({
   )
 }
 
-function buildHref({ q, src, page }: { q: string; src: string; page: number }) {
+function buildHref({
+  q,
+  src,
+  page,
+  sort,
+  dir,
+}: {
+  q: string
+  src: string
+  page: number
+  sort?: SortColumn
+  dir?: 'asc' | 'desc'
+}) {
   const sp = new URLSearchParams()
   if (q) sp.set('q', q)
   if (src) sp.set('src', src)
   if (page > 1) sp.set('page', String(page))
+  // Only emit sort params when they differ from the default
+  // (fetched_at desc) so the URL stays clean for the common case.
+  if (sort && sort !== 'fetched_at') sp.set('sort', sort)
+  if (dir && dir === 'asc') sp.set('dir', dir)
   const qs = sp.toString()
   return `/admin/contacts${qs ? `?${qs}` : ''}`
 }
@@ -318,6 +354,52 @@ function Th({ children }: { children: React.ReactNode }) {
   return (
     <th className="text-left font-semibold text-[10px] uppercase tracking-[0.18em] px-4 py-2.5">
       {children}
+    </th>
+  )
+}
+
+/**
+ * Clickable header. Click once → sort asc by this column. Click
+ * again on the same column → flip to desc. Click a different
+ * column → start at desc (most useful default for time/numeric
+ * columns; alphabetic asc just isn't usually what you want first).
+ *
+ * The chevron makes the active sort + direction immediately
+ * visible — same affordance every spreadsheet has.
+ */
+function SortableTh({
+  col,
+  sort,
+  dir,
+  q,
+  src,
+  children,
+}: {
+  col: SortColumn
+  sort: SortColumn
+  dir: 'asc' | 'desc'
+  q: string
+  src: string
+  children: React.ReactNode
+}) {
+  const isActive = sort === col
+  const nextDir: 'asc' | 'desc' = isActive ? (dir === 'asc' ? 'desc' : 'asc') : 'desc'
+  const href = buildHref({ q, src, page: 1, sort: col, dir: nextDir })
+  return (
+    <th className="text-left font-semibold text-[10px] uppercase tracking-[0.18em] px-4 py-2.5">
+      <Link
+        href={href}
+        className={`inline-flex items-center gap-1 transition-colors ${
+          isActive ? 'text-orange-400 hover:text-orange-300' : 'text-gray-400 hover:text-white'
+        }`}
+        title={`Sort by ${col} ${nextDir === 'asc' ? 'ascending' : 'descending'}`}
+      >
+        {children}
+        <span aria-hidden className="inline-flex flex-col leading-none -my-1">
+          <span className={`text-[8px] ${isActive && dir === 'asc' ? 'text-orange-400' : 'text-gray-700'}`}>▲</span>
+          <span className={`text-[8px] -mt-1 ${isActive && dir === 'desc' ? 'text-orange-400' : 'text-gray-700'}`}>▼</span>
+        </span>
+      </Link>
     </th>
   )
 }

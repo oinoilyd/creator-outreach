@@ -233,20 +233,36 @@ export async function getLatestEnrichment(channelId: string): Promise<Enrichment
   }
 }
 
+/** Columns the admin table can sort by. Whitelist enforced
+ *  server-side so URL-param injection can't introduce arbitrary
+ *  ORDER BY clauses. */
+export const SORTABLE_COLUMNS = [
+  'channel_name',
+  'email',
+  'email_source',
+  'subscribers',
+  'avg_views',
+  'fetched_at',
+] as const
+export type SortColumn = (typeof SORTABLE_COLUMNS)[number]
+
 /**
  * Admin-page query: list latest snapshots, paginated, with
- * optional substring search across email / channel_name / handle.
- * Uses the latest-view so the admin sees one row per channel
- * (not the full append-only history).
+ * optional substring search across email / channel_name / handle,
+ * filterable by source, and sortable by any whitelisted column.
  */
 export async function listEnrichmentLatest({
   search,
   source,
+  sort = 'fetched_at',
+  dir = 'desc',
   limit = 100,
   offset = 0,
 }: {
   search?: string
   source?: string
+  sort?: SortColumn
+  dir?: 'asc' | 'desc'
   limit?: number
   offset?: number
 }): Promise<{ rows: EnrichmentLatest[]; total: number }> {
@@ -255,7 +271,6 @@ export async function listEnrichmentLatest({
   try {
     let q = sb.from('creator_enrichment_latest').select('*', { count: 'exact' })
     if (search) {
-      // Match against email / channel_name / handles. Case-insensitive.
       const pattern = `%${search}%`
       q = q.or(
         `email.ilike.${pattern},channel_name.ilike.${pattern},instagram_handle.ilike.${pattern},twitter_handle.ilike.${pattern},linkedin_url.ilike.${pattern}`,
@@ -264,7 +279,14 @@ export async function listEnrichmentLatest({
     if (source) {
       q = q.eq('email_source', source)
     }
-    q = q.order('fetched_at', { ascending: false }).range(offset, offset + limit - 1)
+    // Whitelist sort col — fall back to fetched_at on anything funky.
+    const sortCol = (SORTABLE_COLUMNS as readonly string[]).includes(sort) ? sort : 'fetched_at'
+    const ascending = dir === 'asc'
+    // NULLS LAST in both directions so rows-with-values float to the
+    // top — when sorting by email asc, the operator wants channels
+    // WITH emails first, not pages of nulls before any data.
+    q = q.order(sortCol, { ascending, nullsFirst: false })
+    q = q.range(offset, offset + limit - 1)
     const { data, count, error } = await q
     if (error) {
       console.warn('[creator_enrichment] list failed:', error.message)
