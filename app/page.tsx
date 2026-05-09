@@ -4343,8 +4343,15 @@ export default function Home() {
               <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity">
                 <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent leading-none">Creator Outreach</h1>
               </Link>
-              <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground leading-none">
-                <span className="leading-none">Find</span>
+              {/* "Find [platform] creators" — items-center keeps the
+                  flex children vertically aligned. Removed the
+                  per-element leading-none overrides that were creating
+                  a half-pixel offset between the text spans (line-height
+                  0) and the dropdown button (line-height inherited from
+                  the icon). All elements now share normal line-height,
+                  flex centers them cleanly. */}
+              <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span>Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                   void savePlatformWeights(activePlatform, scoreWeights)
                   void savePlatformNarrative(activePlatform, scoreNarrative)
@@ -4355,7 +4362,7 @@ export default function Home() {
                   setGuidanceEntries(guidance)
                   setActivePlatform(newPlatform)
                 }} />
-                <span className="leading-none">creators</span>
+                <span>creators</span>
               </div>
             </div>
             <HamburgerMenu
@@ -4447,37 +4454,37 @@ export default function Home() {
               </span>
             )}
           </button>
-          {/* Search button — quiet mid-search awareness (toned down 2026-05-09).
-              Stays the same purple regardless of state. The only visual
-              signal is whether the loading "shimmer + spinner" treatment
-              is on:
-                - idle:                "Search" (clean, no shimmer)
-                - loading, same kw:    "Searching…" with spinner + shimmer (disabled)
-                - loading, new kw:     "Search" (no shimmer, no spinner, enabled)
-                                       — visually identical to idle, signaling the
-                                       button is reactive again. Click or Enter
-                                       cancels the in-flight via the version
-                                       counter and runs the new query. */}
+          {/* Search button — spinner + "Searching…" stay visible the
+              entire time `loading` is true, regardless of whether the
+              user typed a new query mid-flight. Reflects "something
+              is searching" honestly. When the user types a new query
+              while one's in flight, the button BECOMES CLICKABLE again
+              (the only state difference) so they can cancel + restart
+              with Enter or a click — but the spinner keeps spinning
+              until the loading state actually clears. */}
           {(() => {
             const typedSinceSearch =
               loading && keyword.trim().toLowerCase() !== currentKeyword.trim().toLowerCase()
             const onOutreach = activeTab === 'outreach'
-            const showLoadingTreatment = loading && !typedSinceSearch
+            // Disabled only when truly idle-loading (not typed since
+            // search). Lets the user click to fire a new search even
+            // while the spinner is still going for the previous one.
+            const isClickable = (!loading || typedSinceSearch) && !onOutreach
             return (
               <button
                 onClick={handleSearch}
-                disabled={showLoadingTreatment || onOutreach}
+                disabled={!isClickable}
                 title={
                   onOutreach
                     ? 'On Outreach tab the search bar filters your list — switch to Results to search YouTube.'
                     : typedSinceSearch
-                    ? 'Hit Enter or click to search this new query.'
+                    ? 'Hit Enter or click to search this new query — the spinner will reflect the new request.'
                     : undefined
                 }
                 className="relative bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-2">
-                  {showLoadingTreatment && (
+                  {loading && (
                     <svg
                       className="w-3.5 h-3.5 animate-spin opacity-90"
                       fill="none"
@@ -4488,48 +4495,22 @@ export default function Home() {
                       <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                     </svg>
                   )}
-                  {showLoadingTreatment ? 'Searching…' : 'Search'}
+                  {loading ? 'Searching…' : 'Search'}
                 </span>
-                {/* Shimmer only during pure loading — vanishes the
-                    moment the user types something new. The lack of
-                    shimmer IS the cue that the button is reactive. */}
-                {showLoadingTreatment && (
+                {/* Shimmer animates the entire time we're loading — the
+                    spinner + shimmer combo signals ongoing work even
+                    after the user typed something new. */}
+                {loading && (
                   <span className="absolute inset-0 shimmer-bg rounded-xl pointer-events-none" aria-hidden />
                 )}
               </button>
             )
           })()}
-          <div className="relative">
-            <button
-              onClick={() => setShowExport(v => !v)}
-              disabled={activeTab === 'outreach' ? outreach.length === 0 : activeTab === 'dismissed' ? true : currentList.length === 0}
-              title="Export"
-              className="bg-gradient-to-br from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed px-3.5 py-3 rounded-xl flex items-center text-white shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-            </button>
-            {showExport && (
-              <div className="absolute right-0 mt-1 w-48 bg-muted border border-border rounded shadow-lg z-10">
-                {activeTab === 'outreach' ? <>
-                  <button onClick={handleExportOutreachExcel} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
-                    <BarChart3 className="w-3.5 h-3.5" />Excel (.xlsx)
-                  </button>
-                  <button onClick={handleExportOutreachCSV} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
-                    📄 CSV (Google Sheets)
-                  </button>
-                </> : <>
-                  <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
-                    📊 Excel (.xlsx)
-                  </button>
-                  <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2">
-                    📄 CSV (Google Sheets)
-                  </button>
-                </>}
-              </div>
-            )}
-          </div>
+          {/* Export moved out of the search bar (2026-05-09). It now
+              lives inline with the tab nav, right next to Customize —
+              closer to the actual data the user is exporting and out
+              of the way of the search controls. See the tab bar
+              section further below. */}
         </div>
         </div>
 
@@ -4816,6 +4797,50 @@ export default function Home() {
             active={activeTab}
             onChange={setActiveTab}
           />
+          {/* Export — small icon-only button next to Customize. Opens
+              a popover with Excel / CSV options. Hooked to the active
+              tab automatically (Results → creators export, Outreach →
+              outreach export). Disabled state mirrors the active tab's
+              empty-data condition. Dismissed currently has no exporter
+              so the button is hidden on that tab. */}
+          {activeTab !== 'dismissed' && (
+            <div className="ml-auto relative">
+              <button
+                onClick={() => setShowExport(v => !v)}
+                disabled={activeTab === 'outreach' ? outreach.length === 0 : currentList.length === 0}
+                title="Export this list to Excel or CSV"
+                aria-label="Export"
+                className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 border border-border hover:border-emerald-500/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed mb-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+              {showExport && (
+                <div className="absolute right-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-2xl shadow-black/30 z-30 overflow-hidden">
+                  {activeTab === 'outreach' ? (
+                    <>
+                      <button onClick={handleExportOutreachExcel} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors">
+                        <BarChart3 className="w-3.5 h-3.5" />Excel (.xlsx)
+                      </button>
+                      <button onClick={handleExportOutreachCSV} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60">
+                        📄 CSV (Google Sheets)
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors">
+                        📊 Excel (.xlsx)
+                      </button>
+                      <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60">
+                        📄 CSV (Google Sheets)
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <button
             onClick={() => {
               const draft = activePlatform === 'youtube'
@@ -4824,7 +4849,7 @@ export default function Home() {
               setDraftCols(draft)
               setShowCustomize(true)
             }}
-            className={`ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' || activeTab === 'dismissed' ? 'invisible' : ''}`}
+            className={`flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' || activeTab === 'dismissed' ? 'invisible' : ''}${activeTab === 'dismissed' ? ' ml-auto' : ''}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
