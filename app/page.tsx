@@ -2071,6 +2071,107 @@ function isoDaysFromNow(days: number): string {
 }
 
 /**
+ * Right-click / two-finger-click context menu rendered when the user
+ * triggers contextmenu on a column header in either table. Tiny
+ * popover positioned at the click coordinates with two actions:
+ *
+ *   - Hide column     → flips visible=false on the matching colConfig
+ *                       entry. Disabled for "favorite" (locked col).
+ *   - Customize…      → opens the table's full customize modal so the
+ *                       user can re-show / reorder later.
+ *
+ * Click anywhere outside or hit Escape to dismiss.
+ */
+function ColumnContextMenu({
+  x,
+  y,
+  label,
+  canHide,
+  onHide,
+  onCustomize,
+  onClose,
+}: {
+  x: number
+  y: number
+  label: string
+  canHide: boolean
+  onHide: () => void
+  onCustomize: () => void
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const onMouseDown = () => onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    // Defer the listener registration by one tick so the same click
+    // event that opened the menu doesn't immediately dismiss it.
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', onMouseDown)
+      document.addEventListener('keydown', onKey)
+    }, 0)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+
+  // Clamp the menu inside the viewport — prevents the popover
+  // overflowing off the right edge when the user right-clicks the
+  // last column.
+  const MENU_WIDTH = 220
+  const MENU_HEIGHT = 90
+  const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 768
+  const left = Math.min(x, viewportW - MENU_WIDTH - 8)
+  const top = Math.min(y, viewportH - MENU_HEIGHT - 8)
+
+  return (
+    <div
+      role="menu"
+      onMouseDown={e => e.stopPropagation()}
+      style={{ position: 'fixed', left, top, width: MENU_WIDTH }}
+      className="z-50 rounded-lg border border-border bg-card shadow-2xl shadow-black/30 overflow-hidden"
+    >
+      <div className="px-3 py-2 text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground border-b border-border truncate">
+        {label}
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          if (!canHide) return
+          onHide()
+          onClose()
+        }}
+        disabled={!canHide}
+        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+          <line x1="1" y1="1" x2="23" y2="23" />
+        </svg>
+        Hide column
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onCustomize()
+          onClose()
+        }}
+        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted border-t border-border transition-colors flex items-center gap-2"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+        Customize columns…
+      </button>
+    </div>
+  )
+}
+
+/**
  * Live filter for the Outreach tab. When the user types in the main
  * search bar while on the Outreach tab, we filter their existing list
  * instead of running a YouTube search. Case-insensitive substring
@@ -2408,6 +2509,17 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   // HomePage now (see comment on the parent state). Lifting fixed the
   // bug where switching Results → Outreach unmounted this component
   // and reset the pin set, hiding newly-added rows.
+
+  // Right-click context menu state for column-header "Hide column"
+  // affordance. One menu at a time across the table — opening on a
+  // different header replaces the previous menu, which is what users
+  // expect from native context menus.
+  const [headerMenu, setHeaderMenu] = useState<{
+    colId: keyof OutreachEntry
+    label: string
+    x: number
+    y: number
+  } | null>(null)
   const [showFavTooltip, setShowFavTooltip] = useState(false)
   const favTooltipRef = useRef<HTMLDivElement>(null)
   const [showStatusTooltip, setShowStatusTooltip] = useState(false)
@@ -2588,6 +2700,17 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                       if (target.closest('[data-no-sort]')) return
                       handleHeaderClick(col.id)
                     }}
+                    onContextMenu={(e) => {
+                      // Right-click / two-finger-click → "Hide column"
+                      // popover. Suppress the browser's native menu.
+                      e.preventDefault()
+                      setHeaderMenu({
+                        colId: col.id,
+                        label: col.label,
+                        x: e.clientX,
+                        y: e.clientY,
+                      })
+                    }}
                     className={`relative text-left px-3 py-3 select-none font-medium transition-colors ${!isLocked ? 'cursor-grab' : ''} ${sort.col === col.id ? 'text-foreground bg-muted/30' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
                   >
                     {colId === 'favorite' ? (
@@ -2728,11 +2851,30 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           </tbody>
         </table>
       </div>
+
+      {/* Context menu — right-click on any column header opens this. */}
+      {headerMenu && (
+        <ColumnContextMenu
+          x={headerMenu.x}
+          y={headerMenu.y}
+          label={headerMenu.label}
+          // 'favorite' is the locked leftmost column — can't hide it.
+          canHide={headerMenu.colId !== 'favorite'}
+          onHide={() => {
+            const newConfig = colConfig.map(c =>
+              c.id === headerMenu.colId ? { ...c, visible: false } : c,
+            )
+            onReorderCols(newConfig)
+          }}
+          onCustomize={onOpenCustomize}
+          onClose={() => setHeaderMenu(null)}
+        />
+      )}
     </div>
   )
 }
 
-function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sorts, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning, emailFirst = true, onUpdateInstagram }: {
+function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, onDismiss, onReorderCols, loading, sorts, onSort, colConfig, loadMoreBatch, scoreWeights, scoreNarrative, activePlatform, totalUnfiltered, profile, onDeepSearch, deepSearchingIds, onDeepSearchAll, bulkRunning, emailFirst = true, onUpdateInstagram, onOpenCustomize }: {
   creators: Creator[], outreachIds: Set<string>, dismissedIds: Set<string>
   onAddToOutreach: (c: Creator) => void
   onDismiss: (c: Creator) => void
@@ -2755,6 +2897,9 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
    *  button for creators where IG wasn't auto-resolved, plus a metrics
    *  badge that polls /api/instagram-status when an IG handle is known. */
   onUpdateInstagram?: (channelId: string, igUrl: string) => void
+  /** Opens the parent's customize-columns modal. Surfaced via the
+   *  right-click context menu on any column header. */
+  onOpenCustomize?: () => void
 }) {
   const { entries: guidanceEntries } = useContext(GuidanceContext)
   // Multi-key sort: pass the sorts array straight through to
@@ -2763,6 +2908,13 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
   const visibleCols = colConfig.filter(c => c.visible)
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  // Right-click context menu state — same pattern as OutreachTab.
+  const [headerMenu, setHeaderMenu] = useState<{
+    colId: ColId
+    label: string
+    x: number
+    y: number
+  } | null>(null)
 
   function handleColDrop(targetIdx: number) {
     const from = dragIdx.current
@@ -2806,6 +2958,15 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                   onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
                   onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
                   onClick={() => sc && onSort(sc)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setHeaderMenu({
+                      colId: col.id,
+                      label: col.label,
+                      x: e.clientX,
+                      y: e.clientY,
+                    })
+                  }}
                   className={`text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-foreground' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
                 >
                   <span className="mr-1 text-muted-foreground/70 text-xs">⠿</span>
@@ -2902,6 +3063,25 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
           )}
         </tbody>
       </table>
+
+      {/* Right-click context menu — same shared component used by
+          OutreachTab. Hides the column or opens the customize modal. */}
+      {headerMenu && (
+        <ColumnContextMenu
+          x={headerMenu.x}
+          y={headerMenu.y}
+          label={headerMenu.label}
+          canHide={true}
+          onHide={() => {
+            const newConfig = colConfig.map(c =>
+              c.id === headerMenu.colId ? { ...c, visible: false } : c,
+            )
+            onReorderCols(newConfig)
+          }}
+          onCustomize={onOpenCustomize ?? (() => {})}
+          onClose={() => setHeaderMenu(null)}
+        />
+      )}
     </div>
   )
 }
@@ -4231,15 +4411,76 @@ export default function Home() {
               </span>
             )}
           </button>
-          <button
-            onClick={handleSearch}
-            disabled={loading || activeTab === 'outreach'}
-            title={activeTab === 'outreach' ? 'On Outreach tab the search bar filters your list — switch to Results to search YouTube.' : undefined}
-            className="relative bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30 overflow-hidden"
-          >
-            <span className="relative z-10">{loading ? 'Searching...' : 'Search'}</span>
-            <span className="absolute inset-0 shimmer-bg rounded-lg pointer-events-none" aria-hidden />
-          </button>
+          {/* Search button with mid-search awareness:
+              - idle:                   "Search"               (purple, enabled)
+              - loading, no new typing:  "Searching..."         (disabled, pulse)
+              - loading, user typed new: "Search again"         (re-enabled, amber pulse — clicking
+                                                                 cancels the in-flight via the version
+                                                                 counter and runs the new keyword)
+              The runSearch implementation already invalidates stale
+              results via searchVersion.current so racing requests are
+              safe — what was missing was the user-facing signal that
+              the button is reactive again. */}
+          {(() => {
+            const typedSinceSearch =
+              loading && keyword.trim().toLowerCase() !== currentKeyword.trim().toLowerCase()
+            const onOutreach = activeTab === 'outreach'
+            return (
+              <button
+                onClick={handleSearch}
+                disabled={(loading && !typedSinceSearch) || onOutreach}
+                title={
+                  onOutreach
+                    ? 'On Outreach tab the search bar filters your list — switch to Results to search YouTube.'
+                    : typedSinceSearch
+                    ? 'Click to cancel the in-flight search and start over with the new query.'
+                    : undefined
+                }
+                className={`relative px-6 py-2.5 rounded-lg font-semibold text-white shadow-md transition-all overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed ${
+                  typedSinceSearch
+                    ? 'bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/30 hover:shadow-lg hover:shadow-amber-500/40 ring-2 ring-amber-300/40'
+                    : 'bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30'
+                }`}
+              >
+                <span className="relative z-10 flex items-center gap-2">
+                  {loading && !typedSinceSearch && (
+                    <svg
+                      className="w-3.5 h-3.5 animate-spin opacity-90"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        opacity="0.3"
+                      />
+                      <path
+                        d="M22 12a10 10 0 0 0-10-10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  )}
+                  {loading && !typedSinceSearch
+                    ? 'Searching…'
+                    : typedSinceSearch
+                    ? 'Search again ↻'
+                    : 'Search'}
+                </span>
+                <span
+                  className={`absolute inset-0 rounded-lg pointer-events-none ${
+                    typedSinceSearch ? 'animate-pulse bg-amber-300/10' : 'shimmer-bg'
+                  }`}
+                  aria-hidden
+                />
+              </button>
+            )
+          })()}
           <div className="relative">
             <button
               onClick={() => setShowExport(v => !v)}
@@ -4915,6 +5156,7 @@ export default function Home() {
               onDeepSearch={deepSearchResultEmail}
               deepSearchingIds={deepSearchingResultIds}
               onDeepSearchAll={deepSearchAllResults}
+              onOpenCustomize={() => { setDraftCols(colConfig); setShowCustomize(true) }}
               bulkRunning={resultsBulkRunning}
               onUpdateInstagram={updateInstagramHandle}
             />
