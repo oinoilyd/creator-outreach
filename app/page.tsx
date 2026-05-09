@@ -2751,8 +2751,30 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                               title="Status info"
                             >i</button>
                             {showStatusTooltip && (
-                              <div className="absolute left-0 top-6 z-30 w-72 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
-                                <strong className="text-foreground">Editable inline.</strong> Pick Open / No Response / Successful / Rejected. Setting it to <span className="text-blue-700 dark:text-blue-400">Open</span> or <span className="text-amber-700 dark:text-yellow-400">No Response</span> auto-schedules the next follow-up date in the <span className="text-purple-700 dark:text-purple-400">Follow-ups</span> tab — cadence is 3d → 7d → 14d → 21d as touchpoints accumulate. Setting Successful pops confetti.
+                              <div className="absolute left-0 top-6 z-30 w-80 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal space-y-2">
+                                <div>
+                                  <strong className="text-foreground">Status drives the Follow-ups tab.</strong> Each status maps to a state in your follow-up pipeline:
+                                </div>
+                                <ul className="space-y-1 ml-1">
+                                  <li>
+                                    <span className="text-muted-foreground">Not Outreached</span> — not on the follow-up board.
+                                  </li>
+                                  <li>
+                                    <span className="text-amber-700 dark:text-yellow-400 font-medium">No Response</span> — sent, awaiting reply. Auto-schedules a follow-up date (3d → 7d → 14d → 21d as touchpoints accumulate).
+                                  </li>
+                                  <li>
+                                    <span className="text-blue-700 dark:text-blue-400 font-medium">Open</span> — they replied positively, conversation is live. Stays on the follow-up board with a fresh date.
+                                  </li>
+                                  <li>
+                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium">Successful</span> — closed/won. Drops off the follow-up board. Pops confetti 🎉.
+                                  </li>
+                                  <li>
+                                    <span className="text-red-700 dark:text-red-400 font-medium">Rejected</span> — declined. Drops off the follow-up board.
+                                  </li>
+                                </ul>
+                                <div className="text-[11px] text-muted-foreground italic pt-1 border-t border-border">
+                                  Clicking the green email link sets status to <span className="text-amber-700 dark:text-yellow-400 font-medium">No Response</span> automatically — no manual change needed.
+                                </div>
                               </div>
                             )}
                           </span>
