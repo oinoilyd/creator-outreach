@@ -1171,6 +1171,68 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
         </div>
       </div>
 
+      {/* Sort-aware rendering branch.
+          When sort === 'urgency', we group leads into priority
+          buckets (High / Medium / Low / Unset / Ghosted) — that's
+          the default workflow view.
+          When sort === 'pipeline' or 'touchpoints', the bucketing
+          stops making sense (the user wants to see highest-value
+          or most-touched leads at top, regardless of urgency). We
+          flatten everything into a single sorted list.
+      */}
+      {sort !== 'urgency' ? (
+        (() => {
+          // Build the flat list. Priority filter still applies for
+          // 'high' / 'medium'; otherwise include open + ghosted.
+          let flat: OutreachEntry[] = []
+          if (priorityFilter === 'high') flat = [...groups.high]
+          else if (priorityFilter === 'medium') flat = [...groups.medium]
+          else flat = [...open, ...ghosted]
+          // Re-apply the chosen sort against the flat list (already
+          // sorted within each bucket, but cross-bucket ordering
+          // matters here).
+          flat = applySort(flat)
+          if (flat.length === 0) {
+            return (
+              <Section title={sort === 'pipeline' ? 'Sorted by pipeline value' : 'Sorted by touch count'} accent="blue" count={0} icon={<span className="text-base">∅</span>}>
+                <div className="text-xs text-muted-foreground italic px-1 py-2">
+                  No leads match the current filter.
+                </div>
+              </Section>
+            )
+          }
+          const totalValue = flat.reduce((s, e) => s + dealValueNum(e), 0)
+          return (
+            <Section
+              title={sort === 'pipeline' ? 'By pipeline $ (high to low)' : 'By touches (most to least)'}
+              accent="blue"
+              count={flat.length}
+              subtitle={
+                sort === 'pipeline'
+                  ? totalValue > 0
+                    ? `Total pipeline: $${totalValue.toLocaleString()}`
+                    : 'No deal values set yet — fill them in to use this sort.'
+                  : 'Highest-touch leads first. Useful for spotting who needs the next nudge.'
+              }
+              icon={<span className="text-base">{sort === 'pipeline' ? '💰' : '🔥'}</span>}
+            >
+              {flat.map(e => (
+                <FollowUpRow
+                  key={e.id}
+                  entry={e}
+                  bucket={bucketOf(e)}
+                  onUpdate={onUpdate}
+                  onSnooze={snooze}
+                  onMarkFollowedUp={markFollowedUp}
+                  onOpen={onOpenEntry}
+                  profile={profile}
+                />
+              ))}
+            </Section>
+          )
+        })()
+      ) : (
+        <>
       {/* Section: High priority (overdue + today) */}
       {(priorityFilter === 'all' || priorityFilter === 'high') && (
         groups.high.length > 0 ? (
@@ -1190,6 +1252,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
                 onSnooze={snooze}
                 onMarkFollowedUp={markFollowedUp}
                 onOpen={onOpenEntry}
+                profile={profile}
               />
             ))}
           </Section>
@@ -1220,6 +1283,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
               onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
+              profile={profile}
             />
           ))}
         </Section>
@@ -1243,6 +1307,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
               onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
+              profile={profile}
             />
           ))}
         </CollapsibleSection>
@@ -1266,6 +1331,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
               onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
+              profile={profile}
             />
           ))}
         </CollapsibleSection>
@@ -1289,9 +1355,12 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
               onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
+              profile={profile}
             />
           ))}
         </CollapsibleSection>
+      )}
+        </>
       )}
     </div>
   )
@@ -1860,13 +1929,15 @@ function FUStat({ label, value, accent, sub, onClick, active }: {
   )
 }
 
-function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, onOpen }: {
+function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, onOpen, profile }: {
   entry: OutreachEntry
   bucket: FUBucket
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onSnooze: (e: OutreachEntry, days: number) => void
   onMarkFollowedUp: (e: OutreachEntry, opts?: { date?: string; status?: string }) => void
   onOpen: (id: string) => void
+  /** Profile drives the compose URL (mailClient + authuser hint). */
+  profile: UserProfile | null
 }) {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false)
   const [followedUpOpen, setFollowedUpOpen] = useState(false)
@@ -1939,21 +2010,74 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
           <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-border ${dotColor}`} title={e.status} />
         </div>
 
-        {/* Identity + stage. Click to open detail modal. */}
-        <button onClick={() => onOpen(e.id)} className="flex-1 min-w-0 text-left" title="Open lead details">
+        {/* Identity + stage + indicators.
+            Refactored 2026-05-09: the channel name is its own
+            click-to-open-detail button. The email / LinkedIn icons
+            live OUTSIDE that button as separate clickable links so
+            users can fire the compose URL directly without having
+            to open the detail modal first. Favorite icon stays
+            inert (just a status indicator). */}
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[12px] font-medium text-foreground truncate">{e.channelName}</span>
-            {e.favorite && <Star className="w-3 h-3 text-amber-700 dark:text-yellow-400 shrink-0 fill-current" aria-label="Favorited" />}
-            {e.email && <Mail className="w-3 h-3 text-emerald-700 dark:text-emerald-400/80 shrink-0" aria-label="Has email" />}
-            {e.linkedin && <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 shrink-0" title="Has LinkedIn">in</span>}
+            <button
+              onClick={() => onOpen(e.id)}
+              className="text-[12px] font-medium text-foreground truncate text-left hover:underline"
+              title="Open lead details"
+            >
+              {e.channelName}
+            </button>
+            {e.favorite && (
+              <Star
+                className="w-3 h-3 text-amber-700 dark:text-yellow-400 shrink-0 fill-current"
+                aria-label="Favorited"
+              />
+            )}
+            {e.email && (
+              <a
+                href={buildOutreachEmail(
+                  {
+                    channelName: e.channelName,
+                    email: e.email,
+                    videoTitles: [],
+                    description: e.description,
+                  } as unknown as Creator,
+                  profile,
+                  e.trackingId,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(ev) => ev.stopPropagation()}
+                title={`Email ${e.email} — opens compose with template`}
+                aria-label={`Email ${e.email}`}
+                className="inline-flex items-center text-emerald-700 dark:text-emerald-400/80 hover:text-emerald-500 transition-colors shrink-0"
+              >
+                <Mail className="w-3 h-3" />
+              </a>
+            )}
+            {e.linkedin && (
+              <a
+                href={e.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(ev) => ev.stopPropagation()}
+                title="Open LinkedIn"
+                className="text-[10px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-500 shrink-0 transition-colors"
+              >
+                in
+              </a>
+            )}
           </div>
-          <div className="text-[10px] text-muted-foreground truncate">
+          <button
+            onClick={() => onOpen(e.id)}
+            className="text-[10px] text-muted-foreground truncate text-left w-full hover:text-foreground/80 transition-colors"
+            title="Open lead details"
+          >
             <span className="text-foreground/80">{stageHint}</span>
             {e.dateReachedOut && <span> · reached {daysAgo(e.dateReachedOut)} ago</span>}
             {e.medium && <span> · via {e.medium}</span>}
             {e.addedAt && <span> · added {formatAddedAtRelative(e.addedAt)}</span>}
-          </div>
-        </button>
+          </button>
+        </div>
 
         {/* Pipeline value chip — inline editable. Click the chip to type
             a new value. Empty / zero shows a faint $ placeholder. */}
