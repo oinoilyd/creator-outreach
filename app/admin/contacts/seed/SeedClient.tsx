@@ -50,7 +50,7 @@ export function SeedClient() {
     activeJob && activeJob.type !== 'seed' && activeJob.status === 'running'
   const isRunning = seedJob?.status === 'running'
 
-  function run() {
+  async function run() {
     setSubmitError(null)
     if (queryList.length === 0) return
     if (otherJobRunning) {
@@ -63,12 +63,14 @@ export function SeedClient() {
     }
     const regionLabel = region ? REGIONS.find(r => r.code === region)?.label ?? region : 'Global'
     const label = `${queryList.length} ${queryList.length === 1 ? 'query' : 'queries'} · ${regionLabel}${enrich ? ' · with emails' : ''}`
-    const id = startSeedJob(
+    const id = await startSeedJob(
       { queries: queryList, enrich, concurrency, maxResults, region },
       label,
     )
     if (!id) {
-      setSubmitError('Could not start job — another bulk job may be running.')
+      setSubmitError(
+        'Could not start job — another bulk job may be running, or QStash isn\'t configured. Check the bar for details.',
+      )
     }
   }
 
@@ -240,10 +242,10 @@ export function SeedClient() {
       <section className="rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed">
         <p>
           <span className="text-gray-200 font-semibold">How background mode works:</span>{' '}
-          When you click Run, the job hands off to a small floating progress card in the
-          bottom-left of the screen. You can navigate to <span className="text-orange-300">/admin</span>,
-          the landing page, or the sign-up flow — the loop keeps running. Closing the
-          browser tab kills the loop (this is in-tab only — no Redis/QStash backend yet).
+          When you click Run, the job is handed off to a server-side queue (QStash).
+          Processing continues whether you&apos;re on this page, on the landing site, on
+          a different browser tab, or have closed the browser entirely. The floating
+          card in the bottom-left polls the server every 2 seconds for progress.
         </p>
         <p className="mt-2">
           Only one bulk job at a time — bulk seed and bulk enrich share the same slot.

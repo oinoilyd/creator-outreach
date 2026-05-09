@@ -76,7 +76,7 @@ export function EnrichClient() {
     }
   }, [mode])
 
-  function run() {
+  async function run() {
     setSubmitError(null)
     if (matchingCount === null || matchingCount === 0) return
     if (otherJobRunning) {
@@ -90,18 +90,20 @@ export function EnrichClient() {
     if (
       !confirm(
         `Enrich ${matchingCount} channels in mode "${MODE_LABEL[mode]}"?\n\n` +
-        `Runs in the background — keeps going if you navigate away (but not if you close the tab).\n\n` +
+        `Runs in the background on the server — keeps going even if you close this tab.\n\n` +
         `This calls the live email pipeline (~10s per channel) and writes results to the cache.`,
       )
     )
       return
     const label = `${MODE_LABEL[mode]} · ~${matchingCount.toLocaleString()} channels`
-    const id = startEnrichJob(
+    const id = await startEnrichJob(
       { mode, batchSize, concurrency },
       label,
     )
     if (!id) {
-      setSubmitError('Could not start job — another bulk job may be running.')
+      setSubmitError(
+        'Could not start job — another bulk job may be running, or QStash isn\'t configured. Check the bar for details.',
+      )
     }
   }
 
@@ -233,9 +235,9 @@ export function EnrichClient() {
       <section className="rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed">
         <p>
           <span className="text-gray-200 font-semibold">Background mode:</span>{' '}
-          The enrich loop hands off to a small floating progress card in the
-          bottom-left. Navigate freely between admin pages, the landing site, and
-          sign-up flows — the loop keeps running. Tab close kills it.
+          The enrich loop is processed server-side via QStash. The browser just
+          polls for progress — close the tab, switch to a different app, walk
+          away. The job keeps running.
         </p>
         <p className="mt-2">
           Only one bulk job at a time — bulk seed and bulk enrich share the same slot.

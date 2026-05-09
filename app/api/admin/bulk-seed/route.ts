@@ -43,13 +43,33 @@ export const maxDuration = 60
  *   admin user keeps the bulk-seed harness from being abused.
  */
 export async function POST(req: NextRequest) {
-  // Auth gate.
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
+  // Auth gate. Two acceptable paths:
+  //   1. Admin user cookie (browser request from the bulk-seed UI)
+  //   2. Internal server-to-server call from /api/admin/bulk-job/tick
+  //      (the QStash-driven background worker) bearing a shared secret
+  //      via the X-Internal-Bulk-Secret header. The tick handler is
+  //      itself QStash-signature-verified, so it acts as a trusted
+  //      caller — but we still require the secret defense-in-depth so
+  //      randos who somehow trigger this route can't bypass auth.
+  //
+  // To enable the background-job path, set INTERNAL_BULK_SECRET to a
+  // strong random string in Vercel envs. Without it, only browser
+  // requests work.
+  const internalSecret = req.headers.get('x-internal-bulk-secret')
+  const expectedSecret = process.env.INTERNAL_BULK_SECRET
+  const isInternal = !!(
+    internalSecret &&
+    expectedSecret &&
+    internalSecret === expectedSecret
+  )
+  if (!isInternal) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user || user.email !== ADMIN_EMAIL) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
+    }
   }
 
   let body: {

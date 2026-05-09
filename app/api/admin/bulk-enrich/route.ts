@@ -54,13 +54,26 @@ const STALE_DAYS = 90
  *   }
  */
 export async function POST(req: NextRequest) {
-  // Auth gate — admin only.
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
+  // Auth gate. Two acceptable paths (see bulk-seed for the same
+  // pattern + rationale):
+  //   1. Admin user cookie (browser request)
+  //   2. Internal call from /api/admin/bulk-job/tick with a valid
+  //      X-Internal-Bulk-Secret header.
+  const internalSecret = req.headers.get('x-internal-bulk-secret')
+  const expectedSecret = process.env.INTERNAL_BULK_SECRET
+  const isInternal = !!(
+    internalSecret &&
+    expectedSecret &&
+    internalSecret === expectedSecret
+  )
+  if (!isInternal) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user || user.email !== ADMIN_EMAIL) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
+    }
   }
 
   let body: { mode?: Mode; limit?: number; offset?: number; concurrency?: number; dryRun?: boolean } = {}
