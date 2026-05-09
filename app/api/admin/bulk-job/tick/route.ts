@@ -37,11 +37,18 @@ import {
 
 export const maxDuration = 60
 
-// Mirror the chunking knobs the old client-side loop used. Different
-// for seed (whole queries take ~6s search-only, ~50s with enrich) vs
-// enrich (per-channel ~10s, batchSize from config).
-const SEED_CHUNK_SEARCH_ONLY = 6
-const SEED_CHUNK_WITH_ENRICH = 3
+// Chunking knobs. Sized to keep each tick safely under the 60s
+// Vercel function budget while making progress as fast as possible.
+//
+//   Search-only: each query ~6-8s. With concurrency=3 server-side,
+//   12 queries fits in ~30s. Bumped from 6 → 12 (2026-05-09) to halve
+//   tick count and total wall time.
+//
+//   With-enrich: each query expands to ~30 channels × ~10s of email
+//   pipeline. Even concurrency=2 hits 60s on a SINGLE query. Keep
+//   chunk small at 1 so we don't bust the budget.
+const SEED_CHUNK_SEARCH_ONLY = 12
+const SEED_CHUNK_WITH_ENRICH = 1
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()

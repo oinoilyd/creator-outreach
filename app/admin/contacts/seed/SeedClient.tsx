@@ -32,11 +32,21 @@ export function SeedClient() {
   const { activeJob, startSeedJob } = useBulkJob()
 
   const [queries, setQueries] = useState<string>('travel agent\nyoga instructor\nfinancial advisor')
-  // Default ON — the whole point of bulk-seeding is to fill the
-  // contacts cache with EMAILS, not just channel metadata.
-  const [enrich, setEnrich] = useState<boolean>(true)
-  const [concurrency, setConcurrency] = useState<number>(2)
-  const [maxResults, setMaxResults] = useState<number>(10)
+  // Default OFF (changed 2026-05-09).
+  //
+  // The earlier default ON meant every bulk seed also ran the full
+  // 7-strategy email pipeline per channel (~10s each) inline. With
+  // ~30 channels per query that's ~150s of enrichment per single
+  // query — orders of magnitude slower than just discovering the
+  // channels. Net effect: bulk seed felt unusably slow.
+  //
+  // New mental model = bulk seed mirrors a regular results search,
+  // just automated across many queries. Fast channel discovery only.
+  // Emails come from running Bulk Enrich as a follow-up — that's the
+  // job that's actually built around chasing emails.
+  const [enrich, setEnrich] = useState<boolean>(false)
+  const [concurrency, setConcurrency] = useState<number>(3)
+  const [maxResults, setMaxResults] = useState<number>(20)
   const [region, setRegion] = useState<string>('') // '' = global / no targeting
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -155,11 +165,16 @@ export function SeedClient() {
             />
             <div>
               <div className="text-sm font-semibold text-white">
-                Resolve emails {enrich ? <span className="text-emerald-400">(on — recommended)</span> : <span className="text-yellow-400">(off — channels only, no emails)</span>}
+                Inline email pipeline {enrich
+                  ? <span className="text-yellow-400">(on — slow)</span>
+                  : <span className="text-emerald-400">(off — fast, recommended)</span>}
               </div>
               <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                When on: each search result is enriched (7 strategies, ~10s each) and emails land in the contacts cache. <br />
-                When off: only channel metadata is written (channelId, name, subs, avg views). No emails — useful only for fast corpus shape scanning.
+                <span className="text-gray-300">Recommended: leave OFF.</span> Bulk seed runs the same
+                logic as a regular results search (channelId + name + subs + avg views) and writes
+                the rows. Fast — ~10s per query. <br />
+                Run <a href="/admin/contacts/enrich" className="text-orange-400 hover:underline">Bulk Enrich</a> after to fill in emails — that&apos;s the job built for it. <br />
+                <span className="text-yellow-400/80">If you check this:</span> each found channel also runs the full 7-strategy email pipeline (~10s each). 30 channels × 30 queries means hours instead of minutes.
               </div>
             </div>
           </label>
@@ -239,16 +254,22 @@ export function SeedClient() {
       </div>
 
       {/* INFO PANEL */}
-      <section className="rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed">
+      <section className="rounded-xl border border-gray-800/60 bg-gray-900/20 p-4 text-[12px] text-gray-400 leading-relaxed space-y-2">
         <p>
-          <span className="text-gray-200 font-semibold">How background mode works:</span>{' '}
-          When you click Run, the job is handed off to a server-side queue (QStash).
-          Processing continues whether you&apos;re on this page, on the landing site, on
-          a different browser tab, or have closed the browser entirely. The floating
-          card in the bottom-left polls the server every 2 seconds for progress.
+          <span className="text-gray-200 font-semibold">Two-step workflow:</span>{' '}
+          (1) Bulk seed (this page) discovers channels in your niche — same logic as
+          a regular results search, just automated across many queries. Fast.
+          (2) <a href="/admin/contacts/enrich" className="text-orange-400 hover:underline">Bulk Enrich</a> chases emails for whatever lands in the cache. Slower,
+          but you only run it once per channel.
         </p>
-        <p className="mt-2">
-          Only one bulk job at a time — bulk seed and bulk enrich share the same slot.
+        <p>
+          <span className="text-gray-200 font-semibold">Background:</span>{' '}
+          When you click Run, the job hands off to a server queue. Close this tab,
+          switch to a different app, walk away — the loop keeps running. The bar
+          polls every 2 seconds for progress.
+        </p>
+        <p>
+          Only one bulk job at a time — seed and enrich share the same slot.
         </p>
       </section>
     </div>
