@@ -1893,7 +1893,7 @@ function StackedBar({ segments, total }: { segments: { label: string; value: num
   )
 }
 
-function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant, onOpenEntry, recentlyAddedIds, onClearRecentlyAdded }: {
+function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant, onOpenEntry, recentlyAddedIds, onClearRecentlyAdded, interactedNewIds, onMarkNewInteracted }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -1914,6 +1914,14 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   /** Called when the user clicks a column header — parent clears the
    *  pin so user-driven sort takes precedence. */
   onClearRecentlyAdded: () => void
+  /** Subset of recentlyAddedIds whose purple highlight has already
+   *  been dismissed by user click. The row stays pinned but loses the
+   *  visual flair. */
+  interactedNewIds: Set<string>
+  /** Called once the first time the user clicks anywhere on a
+   *  pinned-new row. Parent records the id so the highlight stops
+   *  rendering on subsequent re-renders. */
+  onMarkNewInteracted: (id: string) => void
 }) {
   const visibleCols = colConfig.filter(c => c.visible)
   const [widths, setWidths] = useState<Record<string, number>>(() =>
@@ -2206,15 +2214,27 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
           */}
           <tbody className="divide-y divide-border">
             {sortedEntries.map((e, i) => {
-              // Subtle highlight for newly-added rows so the user can
-              // spot which rows just got pinned. Goes away when the
-              // user clicks any column header (pin clears) or after
-              // the row is no longer in recentlyAddedIds.
-              const isJustAdded = recentlyAddedIds.has(e.id)
+              // Subtle highlight for newly-added rows. Stops rendering
+              // on the first user click anywhere in the row (via the
+              // onMouseDownCapture handler below) — the row stays
+              // pinned at top until the next sort change, but the
+              // visual flair fades so the table calms down once the
+              // operator has acknowledged it.
+              const isJustAdded = recentlyAddedIds.has(e.id) && !interactedNewIds.has(e.id)
               return (
               <AnimatedRow
                 key={e.id}
                 index={i}
+                onMouseDownCapture={() => {
+                  // Capture phase fires before any inner control's
+                  // own click — guarantees the highlight fades on the
+                  // first interaction even if the click lands on a
+                  // dropdown or button cell. No-op if not currently
+                  // pinned-new (cheap check inside the parent).
+                  if (recentlyAddedIds.has(e.id) && !interactedNewIds.has(e.id)) {
+                    onMarkNewInteracted(e.id)
+                  }
+                }}
                 className={`transition-colors hover:bg-card/40 ${isJustAdded ? 'bg-purple-500/10 dark:bg-purple-500/15' : ''}`}
               >
                 {visibleCols.map(col => (
@@ -2464,6 +2484,12 @@ export default function Home() {
   // between Results and Outreach tabs. Cleared on column-header sort
   // by OutreachTab via the onClearRecentlyAdded callback.
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
+  // Subset of recentlyAddedIds that the user has already touched (any
+  // click on the row). The purple highlight is only painted while a
+  // row is in recentlyAddedIds AND NOT in this set — once you've
+  // interacted with the new row, the highlight fades but the row
+  // stays pinned at top until the next sort change.
+  const [interactedNewIds, setInteractedNewIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [emailOnly, setEmailOnly] = useState(false)
@@ -4355,7 +4381,17 @@ export default function Home() {
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
                 onOpenEntry={(id: string) => setViewingLeadId(id)}
                 recentlyAddedIds={recentlyAddedIds}
-                onClearRecentlyAdded={() => setRecentlyAddedIds(new Set())}
+                onClearRecentlyAdded={() => {
+                  setRecentlyAddedIds(new Set())
+                  setInteractedNewIds(new Set())
+                }}
+                interactedNewIds={interactedNewIds}
+                onMarkNewInteracted={(id) => setInteractedNewIds(prev => {
+                  if (prev.has(id)) return prev // no-op if already marked
+                  const next = new Set(prev)
+                  next.add(id)
+                  return next
+                })}
               />
             )}
           </>
