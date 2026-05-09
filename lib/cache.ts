@@ -37,10 +37,14 @@ function getClient(): Redis | null {
 
 /** TTL constants (seconds). */
 export const CACHE_TTL = {
-  /** Search-result cache — 24 hours. Same query within a day reuses
-   *  the prior search. Beyond that the world's moved on enough that
-   *  fresh results are likely worth the wait. */
-  searchResults: 60 * 60 * 24,
+  /** Search-result cache — 10 minutes. Was 24h but that locked
+   *  searchers into a single result set per query for too long.
+   *  YouTube content turns over constantly; new channels appear
+   *  every day. 10 minutes covers the immediate back/forward
+   *  navigation case but lets fresh discovery happen on every
+   *  longer return visit. The per-creator enrichment cache (7d
+   *  Redis + 90d Postgres) is where the real durable value lives. */
+  searchResults: 60 * 10,
   /** Per-creator enrichment cache — 7 days. Email + about + socials
    *  rarely change. If a creator goes private/deletes, the cache
    *  expires within a week. */

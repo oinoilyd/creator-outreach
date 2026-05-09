@@ -899,9 +899,16 @@ export async function GET(req: NextRequest) {
     maxViews,
     gl,
   })
-  const cached = await cacheGet<{ channels: unknown[]; expandedQueries: string[] }>(cacheKey)
-  if (cached) {
-    return NextResponse.json(cached)
+  // ?fresh=true bypasses the search-results cache entirely. Used by
+  // the bulk-seed admin tool so every preset run discovers new
+  // channels rather than re-returning the same cached set. End-user
+  // searches default to cached (10-min TTL) for navigation speed.
+  const skipSearchCache = searchParams.get('fresh') === 'true'
+  if (!skipSearchCache) {
+    const cached = await cacheGet<{ channels: unknown[]; expandedQueries: string[] }>(cacheKey)
+    if (cached) {
+      return NextResponse.json(cached)
+    }
   }
   // ───────────────────────────────────────────────────────────────
 

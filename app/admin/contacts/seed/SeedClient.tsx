@@ -25,15 +25,40 @@ type RunResult = {
   errors?: string[]
   elapsedMs?: number
   error?: string
+  timedOut?: boolean
+  queriesRemaining?: number
 }
+
+type AggResult = {
+  totalQueries: number
+  queriesRun: number
+  channelsSeen: number
+  uniqueChannels: number
+  enrichesAttempted: number
+  errors: string[]
+  elapsedMs: number
+  /** Index of last completed chunk for resume. */
+  lastChunkDone: number
+  totalChunks: number
+}
+
+/**
+ * Chunk size for client-side batching. The Vercel function timeout
+ * is ~60s on hobby tier. With concurrency=2 and ~5–8s per query,
+ * 6 queries per chunk gives the server plenty of headroom and
+ * progress feels live in the UI as chunks complete. Each chunk
+ * is a separate POST, so the function timeout per chunk is reset.
+ */
+const CHUNK_SIZE = 6
 
 export function SeedClient() {
   const [queries, setQueries] = useState<string>('travel agent\nyoga instructor\nfinancial advisor')
   const [enrich, setEnrich] = useState<boolean>(false)
-  const [concurrency, setConcurrency] = useState<number>(3)
-  const [maxResults, setMaxResults] = useState<number>(30)
+  const [concurrency, setConcurrency] = useState<number>(2)
+  const [maxResults, setMaxResults] = useState<number>(15)
   const [running, setRunning] = useState<boolean>(false)
-  const [result, setResult] = useState<RunResult | null>(null)
+  const [result, setResult] = useState<AggResult | null>(null)
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null)
 
   const queryList = queries
     .split('\n')
@@ -43,24 +68,91 @@ export function SeedClient() {
   async function run() {
     setRunning(true)
     setResult(null)
-    try {
-      const res = await fetch('/api/admin/bulk-seed', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          queries: queryList,
-          enrich,
-          concurrency,
-          maxResults,
-        }),
-      })
-      const j = (await res.json()) as RunResult
-      setResult(j)
-    } catch (e: any) {
-      setResult({ error: e?.message || String(e) })
-    } finally {
-      setRunning(false)
+    setProgress(null)
+
+    // Chunk the query list. Each chunk = one POST = one function
+    // invocation = its own 60s timeout window. This is the fix
+    // for the "string did not match expected pattern" timeout.
+    const chunks: string[][] = []
+    for (let i = 0; i < queryList.length; i += CHUNK_SIZE) {
+      chunks.push(queryList.slice(i, i + CHUNK_SIZE))
     }
+
+    const agg: AggResult = {
+      totalQueries: queryList.length,
+      queriesRun: 0,
+      channelsSeen: 0,
+      uniqueChannels: 0,
+      enrichesAttempted: 0,
+      errors: [],
+      elapsedMs: 0,
+      lastChunkDone: 0,
+      totalChunks: chunks.length,
+    }
+    const seenChannels = new Set<string>()
+    const t0 = Date.now()
+
+    for (let ci = 0; ci < chunks.length; ci++) {
+      setProgress({ current: ci, total: chunks.length })
+      try {
+        const res = await fetch('/api/admin/bulk-seed', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            queries: chunks[ci],
+            enrich,
+            concurrency,
+            maxResults,
+          }),
+        })
+        if (!res.ok) {
+          agg.errors.push(`chunk ${ci + 1}/${chunks.length}: HTTP ${res.status}`)
+        } else {
+          // Defensive parse — server SHOULD return JSON but timeouts
+          // can produce HTML error pages.
+          const text = await res.text()
+          let j: RunResult
+          try {
+            j = JSON.parse(text)
+          } catch {
+            agg.errors.push(`chunk ${ci + 1}/${chunks.length}: non-JSON response (${text.slice(0, 60)})`)
+            continue
+          }
+          if (j.error) {
+            agg.errors.push(`chunk ${ci + 1}/${chunks.length}: ${j.error}`)
+          } else {
+            agg.queriesRun += j.queriesRun ?? 0
+            agg.channelsSeen += j.channelsSeen ?? 0
+            agg.enrichesAttempted += j.enrichesAttempted ?? 0
+            if (j.uniqueChannels) {
+              // We can't perfectly de-dupe without channel IDs — best-effort
+              // by aggregating the per-chunk uniques; small over-count is OK.
+              agg.uniqueChannels += j.uniqueChannels
+            }
+            if (j.errors?.length) {
+              agg.errors.push(...j.errors.slice(0, 5).map(e => `chunk ${ci + 1}: ${e}`))
+            }
+            if (j.timedOut) {
+              agg.errors.push(
+                `chunk ${ci + 1} hit soft timeout — ${j.queriesRemaining ?? 0} queries skipped`,
+              )
+            }
+          }
+        }
+      } catch (e: any) {
+        agg.errors.push(`chunk ${ci + 1}/${chunks.length}: ${e?.message || String(e)}`)
+      }
+      agg.lastChunkDone = ci + 1
+      agg.elapsedMs = Date.now() - t0
+      setResult({ ...agg })
+      // De-dup: best effort approximation using set tracking on
+      // returned data (we don't have channelIds in the response,
+      // so just trust per-chunk uniques for now).
+      void seenChannels
+    }
+
+    setProgress({ current: chunks.length, total: chunks.length })
+    setRunning(false)
   }
 
   function loadPreset(qs: string[]) {
@@ -158,19 +250,35 @@ export function SeedClient() {
       </section>
 
       {/* RUN BUTTON */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           type="button"
           onClick={run}
           disabled={running || queryList.length === 0}
           className="px-5 py-2.5 rounded-md text-sm font-semibold bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {running ? 'Running…' : `Run ${queryList.length} ${queryList.length === 1 ? 'query' : 'queries'}`}
+          {running
+            ? progress
+              ? `Chunk ${progress.current}/${progress.total}…`
+              : 'Running…'
+            : `Run ${queryList.length} ${queryList.length === 1 ? 'query' : 'queries'}`}
         </button>
         {running && (
           <div className="text-xs text-gray-400 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-            Working — search runs in parallel + writes to Postgres as it goes
+            Chunked into {Math.ceil(queryList.length / CHUNK_SIZE)}{' '}
+            {Math.ceil(queryList.length / CHUNK_SIZE) === 1 ? 'request' : 'requests'} of ≤{CHUNK_SIZE} queries
+            each — bypasses Vercel&apos;s 60s function timeout.
+          </div>
+        )}
+        {progress && progress.total > 1 && (
+          <div className="w-full max-w-[400px]">
+            <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+              <div
+                className="h-full bg-orange-500 transition-all duration-300"
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -179,37 +287,36 @@ export function SeedClient() {
       {result && (
         <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
           <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-3">
-            Run summary
+            Run summary{' '}
+            {result.lastChunkDone < result.totalChunks && (
+              <span className="text-yellow-300 font-normal normal-case tracking-normal ml-2">
+                (in progress: chunk {result.lastChunkDone}/{result.totalChunks})
+              </span>
+            )}
           </div>
-          {result.error ? (
-            <div className="text-sm text-red-400">Error: {result.error}</div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <Stat label="Queries run" value={String(result.queriesRun ?? 0)} />
-                <Stat label="Channels seen" value={String(result.channelsSeen ?? 0)} />
-                <Stat label="Unique" value={String(result.uniqueChannels ?? 0)} accent />
-                <Stat label="Enrichments" value={String(result.enrichesAttempted ?? 0)} />
-                <Stat label="Elapsed" value={`${Math.round((result.elapsedMs ?? 0) / 100) / 10}s`} />
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <Stat label="Queries run" value={`${result.queriesRun} / ${result.totalQueries}`} />
+            <Stat label="Channels seen" value={String(result.channelsSeen)} />
+            <Stat label="Unique (approx.)" value={String(result.uniqueChannels)} accent />
+            <Stat label="Enrichments" value={String(result.enrichesAttempted)} />
+            <Stat label="Elapsed" value={`${Math.round(result.elapsedMs / 100) / 10}s`} />
+          </div>
+          {result.errors.length > 0 && (
+            <div className="mt-4">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-yellow-300 font-bold mb-2">
+                Errors · {result.errors.length}
               </div>
-              {(result.errors?.length ?? 0) > 0 && (
-                <div className="mt-4">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-yellow-300 font-bold mb-2">
-                    Errors · first {Math.min(20, result.errors!.length)} of {result.errors!.length}
-                  </div>
-                  <ul className="text-xs text-yellow-200/80 font-mono space-y-1 max-h-48 overflow-y-auto">
-                    {result.errors!.map((e, i) => (
-                      <li key={i}>{e}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div className="mt-4 text-xs text-gray-500">
-                Snapshots are now in <span className="font-mono text-gray-400">creator_enrichment</span>.{' '}
-                <a href="/admin/contacts" className="text-orange-400 hover:underline">View contacts →</a>
-              </div>
-            </>
+              <ul className="text-xs text-yellow-200/80 font-mono space-y-1 max-h-48 overflow-y-auto">
+                {result.errors.map((e, i) => (
+                  <li key={i}>{e}</li>
+                ))}
+              </ul>
+            </div>
           )}
+          <div className="mt-4 text-xs text-gray-500">
+            Snapshots are now in <span className="font-mono text-gray-400">creator_enrichment</span>.{' '}
+            <a href="/admin/contacts" className="text-orange-400 hover:underline">View contacts →</a>
+          </div>
         </section>
       )}
     </div>
