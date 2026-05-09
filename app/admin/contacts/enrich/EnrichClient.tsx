@@ -101,8 +101,10 @@ export function EnrichClient() {
       label,
     )
     if (!id) {
+      // The bar will now show the existing/conflicting job (if any).
+      // Surface a short hint so the user knows to look at it.
       setSubmitError(
-        'Could not start job — another bulk job may be running, or QStash isn\'t configured. Check the bar for details.',
+        'Another bulk job is currently running — see the floating bar in the bottom-left. Cancel it there if you want to start a fresh enrich.',
       )
     }
   }

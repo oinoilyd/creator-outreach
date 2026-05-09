@@ -105,21 +105,23 @@ export async function POST(req: NextRequest) {
     total = Math.min(c.queries.length, 200) // hard cap to keep budgets reasonable
   }
 
-  // Refuse if a job is already running (single-slot system).
-  const currentJob = await readCurrentBulkJob()
-  if (currentJob && currentJob.status === 'running') {
-    return NextResponse.json(
-      { error: 'job-already-running', currentJob },
-      { status: 409 },
-    )
-  }
-
-  const job = await createBulkJob({
+  // createBulkJob is the single source of truth for slot management:
+  //   - If a running job exists with recent activity → returns conflict
+  //   - If a running job is stale (no tick in >5min) → auto-clears it
+  //     and creates the new one
+  //   - If a terminal job exists → overwrites it
+  const { job, conflict } = await createBulkJob({
     type: body.type,
     label: body.label,
     config: body.config,
     total,
   })
+  if (conflict) {
+    return NextResponse.json(
+      { error: 'job-already-running', currentJob: conflict },
+      { status: 409 },
+    )
+  }
   if (!job) {
     return NextResponse.json({ error: 'create-failed' }, { status: 500 })
   }

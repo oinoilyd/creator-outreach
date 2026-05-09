@@ -252,6 +252,18 @@ async function startSeedJobImpl(config: SeedConfig, label: string): Promise<stri
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'seed', config, label }),
     })
+    // On 409 (job-already-running), hydrate the bar with the EXISTING
+    // job so the user sees what's running and can cancel it. Don't
+    // show a synthetic error — the actual job state is more useful.
+    if (res.status === 409) {
+      const j = await res.json().catch(() => ({}))
+      if (j?.currentJob) {
+        const existing = toActiveJob(j.currentJob as ServerJob)
+        setJob(existing)
+        if (existing.status === 'running') startPolling(existing.id)
+      }
+      return null
+    }
     if (!res.ok) {
       const j = await res.json().catch(() => ({}))
       console.warn('[bulk-job] start failed:', j)
@@ -292,6 +304,17 @@ async function startEnrichJobImpl(config: EnrichConfig, label: string): Promise<
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'enrich', config, label }),
     })
+    // On 409, hydrate the bar with the existing job so the user can
+    // see + cancel it (instead of showing a synthetic error).
+    if (res.status === 409) {
+      const j = await res.json().catch(() => ({}))
+      if (j?.currentJob) {
+        const existing = toActiveJob(j.currentJob as ServerJob)
+        setJob(existing)
+        if (existing.status === 'running') startPolling(existing.id)
+      }
+      return null
+    }
     if (!res.ok) {
       const j = await res.json().catch(() => ({}))
       console.warn('[bulk-job] start failed:', j)

@@ -81,20 +81,56 @@ const CURRENT_JOB_KEY = 'bulk-job:v1:current'
 /** TTL — jobs disappear from Redis 24h after their last write. */
 const JOB_TTL_SECONDS = 24 * 60 * 60
 
-/** Atomic-ish create. Returns null if a job is already running. */
+/**
+ * If a "running" job hasn't been ticked in this many ms, it's
+ * considered abandoned and createBulkJob will auto-finalize it as
+ * failed before creating a new one. Catches the case where a tick
+ * silently dies (network blip, function timeout that didn't update
+ * Redis, env-var misconfig) and leaves the slot occupied forever.
+ *
+ * Set higher than the longest realistic tick duration (60s for the
+ * inner self-call + buffer) but low enough that the user doesn't
+ * have to wait long after a stuck job. 5 minutes is comfortable.
+ */
+const STALE_JOB_THRESHOLD_MS = 5 * 60 * 1000
+
+/**
+ * Create a new bulk job. Returns either:
+ *   { job, conflict: null } — slot was free, job is created and pending
+ *   { job: null, conflict } — slot is held by a still-active job
+ *
+ * Auto-clears stale running jobs (lastTickAt > 5min ago).
+ */
 export async function createBulkJob(input: {
   type: BulkJobType
   label: string
   config: SeedJobConfig | EnrichJobConfig
   total: number
-}): Promise<BulkJob | null> {
+}): Promise<{ job: BulkJob | null; conflict: BulkJob | null }> {
   const currentId = await cacheGet<string>(CURRENT_JOB_KEY)
   if (currentId) {
     const existing = await readBulkJob(currentId)
     if (existing && existing.status === 'running') {
-      return null // refuse — only one bulk job at a time
+      const lastTickMs = new Date(existing.lastTickAt).getTime()
+      const sinceLastTick = Date.now() - lastTickMs
+      if (sinceLastTick < STALE_JOB_THRESHOLD_MS) {
+        // Slot is genuinely held — refuse with a conflict descriptor.
+        return { job: null, conflict: existing }
+      }
+      // Stale running job — finalize as failed and proceed. Add a
+      // breadcrumb to its errors so the operator can see why it died.
+      console.warn(
+        `[bulk-job-store] auto-clearing stale running job ${existing.id} (sinceLastTick=${Math.round(sinceLastTick / 1000)}s)`,
+      )
+      await finalizeBulkJob(existing.id, 'failed', {
+        errors: [
+          ...existing.errors,
+          `auto-cleared: no tick activity for ${Math.round(sinceLastTick / 60000)}min`,
+        ].slice(-20),
+      })
     }
-    // Stale pointer (job is done / TTL expired). Fall through and overwrite.
+    // Else: existing job is done/cancelled/failed — slot is effectively
+    // free. Fall through to create the new one.
   }
   const id = `${input.type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
   const now = new Date().toISOString()
@@ -115,7 +151,7 @@ export async function createBulkJob(input: {
   }
   await cacheSet(jobKey(id), job, JOB_TTL_SECONDS)
   await cacheSet(CURRENT_JOB_KEY, id, JOB_TTL_SECONDS)
-  return job
+  return { job, conflict: null }
 }
 
 /** Read a job by id. Returns null when missing or expired. */
