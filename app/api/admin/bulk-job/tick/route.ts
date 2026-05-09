@@ -42,17 +42,23 @@ export const maxDuration = 60
 
 // Chunking knobs. Sized to keep each tick safely under the 60s
 // Vercel function budget while making progress as fast as possible.
-//   Search-only: ~6-8s per query at concurrency=3 → 12 queries ≈ 30s.
+//   Search-only: ~6-8s per query at concurrency=3 → 18 queries ≈ 42s.
+//   Bumped 12 → 18 (2026-05-09) now that the inter-tick gap is gone:
+//   bigger chunks amortize tick overhead better.
 //   With-enrich: each query expands to ~30 channels × ~10s pipeline.
 //   Even concurrency=2 hits 60s on a SINGLE query, so chunk = 1.
-const SEED_CHUNK_SEARCH_ONLY = 12
+const SEED_CHUNK_SEARCH_ONLY = 18
 const SEED_CHUNK_WITH_ENRICH = 1
 
 // Race guard: if a tick was processed within the last N ms, the
 // incoming tick request bails (assumes another driver is actively
-// processing). Browser polls every 2s; with this set to 1500ms,
-// most races will be deflected without rejecting genuine work.
-const TICK_DEDUP_MS = 1500
+// processing). Tightened from 1500 → 600ms (2026-05-09) to reduce
+// the gap between back-to-back ticks. Browser polls every 1s and
+// fires a tick if state is stale by >800ms; with this guard at
+// 600ms, the only races that get rejected are genuine same-instant
+// duplicates (e.g. browser + QStash chain colliding on the same
+// completion).
+const TICK_DEDUP_MS = 600
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
@@ -108,8 +114,8 @@ export async function POST(req: NextRequest) {
 
   // Honor cancellation immediately.
   if (job.cancelRequested) {
-    await finalizeBulkJob(jobId, 'cancelled')
-    return NextResponse.json({ ok: true, status: 'cancelled' })
+    const cancelled = await finalizeBulkJob(jobId, 'cancelled')
+    return NextResponse.json({ ok: true, status: 'cancelled', job: cancelled })
   }
 
   // Skip if job is already terminal.
@@ -173,22 +179,22 @@ export async function POST(req: NextRequest) {
   // 3-consecutive-failure abort.
   const consecutiveFailures = countTrailingFailures(newErrors, job.errors.length)
   if (consecutiveFailures >= 3) {
-    await finalizeBulkJob(jobId, 'failed', {
+    const failed = await finalizeBulkJob(jobId, 'failed', {
       errors: [...newErrors, 'aborting: 3 consecutive tick failures'].slice(-20),
       done: newDone,
       total: newTotal,
     })
-    return NextResponse.json({ ok: true, status: 'failed' })
+    return NextResponse.json({ ok: true, status: 'failed', job: failed })
   }
 
   // Done if no more work.
   if (!result.hasMore) {
-    await finalizeBulkJob(jobId, 'done', {
+    const done = await finalizeBulkJob(jobId, 'done', {
       errors: newErrors,
       done: newDone,
       total: newTotal,
     })
-    return NextResponse.json({ ok: true, status: 'done' })
+    return NextResponse.json({ ok: true, status: 'done', job: done })
   }
 
   // Persist progress.
@@ -201,26 +207,31 @@ export async function POST(req: NextRequest) {
   })
 
   // Schedule next tick via QStash IF this tick was driven by QStash
-  // (continues the chain) AND QStash is configured. If we were
-  // browser-driven, the browser's next poll handles the next tick
-  // — no need to chain.
+  // (continues the chain) AND QStash is configured. Browser-driven
+  // ticks rely on the next poll to fire the next tick.
+  //
+  // delaySeconds = 0 (tightened from 2 → 0 on 2026-05-09): no need
+  // to throttle ourselves; the per-tick race guard already prevents
+  // double-processing. Want chunks back-to-back for max throughput.
   if (authedVia === 'qstash' && isQStashConfigured()) {
     const tickUrl = `${baseUrl}/api/admin/bulk-job/tick`
-    const messageId = await publishJob(tickUrl, { jobId }, { delaySeconds: 2 })
+    const messageId = await publishJob(tickUrl, { jobId }, { delaySeconds: 0 })
     if (!messageId) {
-      // QStash publish failed mid-chain. Don't fail the job —
-      // browser polling will pick up where this left off if the user
-      // has the app open. Just log.
       console.warn(`[bulk-job/tick] qstash publish failed for ${jobId}; relying on browser polling`)
     }
   }
 
+  // Re-read the job so the response reflects the freshest persisted
+  // state (the browser uses this to update the bar without waiting
+  // for the next poll cycle).
+  const finalJob = await readBulkJob(jobId)
   return NextResponse.json({
     ok: true,
     status: 'running',
     done: newDone,
     total: newTotal,
     authedVia,
+    job: finalJob,
   })
 }
 

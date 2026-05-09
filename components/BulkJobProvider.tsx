@@ -141,7 +141,13 @@ function toActiveJob(server: ServerJob): ActiveJob {
 
 // ─── Polling ───────────────────────────────────────────────────────
 
-const POLL_INTERVAL_MS = 2000
+// Poll cadence (tightened 2026-05-09 from 2s → 1s):
+// The bar refreshes from server state every POLL_INTERVAL_MS, and
+// fires a new tick when state hasn't been ticked in >TICK_STALE_MS.
+// Smaller numbers = faster perceived progress at the cost of more
+// HTTP traffic. 1s + 800ms keeps Redis QPS modest while making the
+// bar feel responsive — chunk completion shows up almost immediately.
+const POLL_INTERVAL_MS = 1000
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
@@ -178,12 +184,14 @@ function stopPolling() {
 
 /**
  * How stale lastTickAt has to be before we kick off a new tick.
- * Browser polls every 2s; setting this to 2s means every poll that
- * sees stale state triggers exactly one tick. With the server-side
- * race guard (TICK_DEDUP_MS = 1500ms), simultaneous browser-driven
- * and QStash-driven ticks won't double-process.
+ * 800ms means as soon as a previous tick has finished and ~0.8s have
+ * passed (the natural poll cadence), we kick off the next one. This
+ * eliminates the 2s "dead air" gap between ticks that used to make
+ * long jobs feel laggy. The server-side race guard (TICK_DEDUP_MS,
+ * now 600ms) prevents double-processing if a poll-driven tick races
+ * with a QStash-driven one.
  */
-const TICK_STALE_MS = 2000
+const TICK_STALE_MS = 800
 
 async function pollOnce(jobId: string): Promise<void> {
   try {
@@ -214,15 +222,28 @@ async function pollOnce(jobId: string): Promise<void> {
     if (j.job.lastTickAt) {
       const lastTickMs = new Date(j.job.lastTickAt).getTime()
       if (Date.now() - lastTickMs > TICK_STALE_MS) {
-        // No await — fire-and-forget.
-        void fetch('/api/admin/bulk-job/tick', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ jobId }),
-        }).catch(() => {
-          // Tick failures are visible via the next poll's job.errors.
-          // No need to surface them here.
-        })
+        // Fire the tick, await its response, and use the returned
+        // job state to update the store IMMEDIATELY (rather than
+        // waiting for the next poll). Cuts up to 1s of perceived
+        // lag per chunk transition.
+        ;(async () => {
+          try {
+            const tickRes = await fetch('/api/admin/bulk-job/tick', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ jobId }),
+            })
+            if (!tickRes.ok) return
+            const tj = (await tickRes.json()) as { job?: ServerJob & { lastTickAt?: string } }
+            if (tj.job) {
+              const updated = toActiveJob(tj.job)
+              setJob(updated)
+              if (updated.status !== 'running') stopPolling()
+            }
+          } catch {
+            // Tick failures surface via the next poll's job.errors.
+          }
+        })()
       }
     }
   } catch {
