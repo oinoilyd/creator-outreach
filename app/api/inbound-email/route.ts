@@ -132,28 +132,27 @@ export async function POST(req: NextRequest) {
         } else if (data) {
           matched = true
           matchedEntryId = data.id
-          // Update status. We deliberately don't override "Successful" /
-          // "Rejected" — the user may have manually classified the reply.
-          // For "Open" / "Not Outreached" / "" we set to "Open" (still
-          // means "in conversation, awaiting next step") and stamp
-          // response_date.
-          const shouldUpdateStatus =
-            data.status === 'Open' ||
-            data.status === 'Not Outreached' ||
+          // Status flow on reply (revised 2026-05-09):
+          //   Click email → 'No Response' (sent, awaiting reply)
+          //   Reply detected → 'Open'      (they wrote back; user
+          //                                 then classifies as
+          //                                 Successful / Rejected)
+          // We don't overwrite manual classifications — if the user
+          // already marked Successful or Rejected, leave it alone and
+          // just stamp response_date so analytics know when the reply
+          // landed.
+          const shouldFlipToOpen =
             data.status === 'No Response' ||
+            data.status === 'Not Outreached' ||
             data.status === '' ||
             data.status == null
           const today = new Date().toISOString().slice(0, 10)
           const patch: Record<string, unknown> = {
             response_date: today,
           }
-          if (shouldUpdateStatus) {
-            // Keep status as 'Open' — the user can manually flip to
-            // Successful / Rejected after reading the reply. Treating
-            // every reply as Successful would over-claim wins.
+          if (shouldFlipToOpen) {
             patch.status = 'Open'
-            patch.reached_out = true // defensive — they replied, so we
-                                     // definitely reached out
+            patch.reached_out = true // defensive — a reply implies a send
           }
           const { error: updErr } = await sb
             .from('outreach_entries')

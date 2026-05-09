@@ -419,24 +419,53 @@ export function buildOutreachEmail(
   lines.push(senderFirst)
 
   const body = lines.join('\n')
-  return composeUrl(profile?.mailClient ?? 'default', c.email, subject, body)
+  return composeUrl(
+    profile?.mailClient ?? 'default',
+    c.email,
+    subject,
+    body,
+    profile?.userEmail,
+  )
 }
 
 // Builds a compose URL for whichever mail client the user picked. Each
 // provider has its own web-compose endpoint that pre-fills to/subject/
 // body — except Apple-style mailto: which opens the OS default.
-export function composeUrl(client: 'default' | 'gmail' | 'outlook' | 'yahoo', to: string, subject: string, body: string): string {
+//
+// When userEmail is provided, we inject the appropriate "use this
+// account" parameter so multi-account browser users (signed into a
+// work + personal Google, etc.) open the compose window in the
+// account that matches their Creator Outreach login. Without this,
+// Gmail picks whichever account was last active — frequent source of
+// "wait, why is it sending from my work account?" surprises.
+export function composeUrl(
+  client: 'default' | 'gmail' | 'outlook' | 'yahoo',
+  to: string,
+  subject: string,
+  body: string,
+  userEmail?: string,
+): string {
   const t = encodeURIComponent(to)
   const s = encodeURIComponent(subject)
   const b = encodeURIComponent(body)
+  const userEmailEnc = userEmail ? encodeURIComponent(userEmail) : ''
   switch (client) {
     case 'gmail':
-      // Gmail web compose. fs=1 forces a fresh compose window even if
-      // the user has multiple Gmail accounts logged in.
-      return `https://mail.google.com/mail/?view=cm&fs=1&to=${t}&su=${s}&body=${b}`
+      // authuser accepts either the email address itself or a numeric
+      // index. Using the address is more reliable across multi-account
+      // setups where the index can shift. fs=1 forces a fresh compose
+      // window even when the user already has Gmail open.
+      // eslint-disable-next-line no-case-declarations
+      const gmailAuth = userEmailEnc ? `&authuser=${userEmailEnc}` : ''
+      return `https://mail.google.com/mail/?view=cm&fs=1&to=${t}&su=${s}&body=${b}${gmailAuth}`
     case 'outlook':
-      return `https://outlook.office.com/mail/deeplink/compose?to=${t}&subject=${s}&body=${b}`
+      // Outlook web compose accepts a similar `login_hint` parameter.
+      // eslint-disable-next-line no-case-declarations
+      const outlookHint = userEmailEnc ? `&login_hint=${userEmailEnc}` : ''
+      return `https://outlook.office.com/mail/deeplink/compose?to=${t}&subject=${s}&body=${b}${outlookHint}`
     case 'yahoo':
+      // Yahoo doesn't expose an account-hint parameter — user must be
+      // signed into the right account already.
       return `https://compose.mail.yahoo.com/?to=${t}&subject=${s}&body=${b}`
     default:
       return `mailto:${to}?subject=${s}&body=${b}`

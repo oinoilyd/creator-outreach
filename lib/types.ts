@@ -178,6 +178,12 @@ export interface UserProfile {
   // email link. 'default' uses mailto: (OS default), the others open
   // the provider's web compose in a new tab.
   mailClient?: MailClient
+  /** The user's auth email (the address they signed up / signed in
+   *  with). Read-only — not editable via ProfileModal. Used by
+   *  composeUrl to inject &authuser=... into the Gmail / Outlook
+   *  compose URL so multi-account browser users open the compose
+   *  window in the right account. */
+  userEmail?: string
 }
 
 // ── Custom analytics metrics (Outreach > Analytics tab) ─────────────────────

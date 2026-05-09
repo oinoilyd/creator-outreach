@@ -732,16 +732,23 @@ function renderOutreachCell(
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => {
-                  // Phase 1 — click-to-track. Clicking the email link is a
-                  // strong signal that the user is sending the outreach
-                  // right now, so flip the entry to "Open" + record the
-                  // date. Idempotent — re-clicking a row that's already
-                  // "Open" / "Successful" doesn't downgrade status.
-                  const today = new Date().toISOString().slice(0, 10)
-                  if (!e.reachedOut) onUpdate(e.id, 'reachedOut', true)
-                  if (!e.dateReachedOut) onUpdate(e.id, 'dateReachedOut', today)
+                  // Phase 1 — click-to-track.
+                  //
+                  // Status flow (revised 2026-05-09 per Dylan):
+                  //   click email      → 'No Response' (sent, awaiting reply)
+                  //   reply detected   → 'Open'        (they responded; user
+                  //                                     classifies as
+                  //                                     Successful/Rejected
+                  //                                     after reading)
+                  //
+                  // Idempotent: re-clicking a row already past 'Not Outreached'
+                  // doesn't change status — only the first click matters for
+                  // the auto-flip. The existing updateOutreachEntry logic
+                  // treats 'No Response' as active, so it auto-stamps
+                  // dateReachedOut + touchpoints + followUpDate via the same
+                  // cadence as a manual dropdown change.
                   if (e.status === 'Not Outreached' || e.status === '') {
-                    onUpdate(e.id, 'status', 'Open')
+                    onUpdate(e.id, 'status', 'No Response')
                   }
                 }}
                 className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all flex-1"
@@ -2597,6 +2604,9 @@ export default function Home() {
             pitchLine: profileRow.pitch_line ?? '',
             subjectTemplate: profileRow.subject_template ?? undefined,
             mailClient: (profileRow.mail_client ?? 'default') as UserProfile['mailClient'],
+            // Auth email — used by composeUrl to pin the Gmail/Outlook
+            // compose window to the right multi-account browser session.
+            userEmail: user.email ?? undefined,
           })
           if (!profileRow.onboarded) {
             console.log('[home-init] onboarded=false → showing modal')
@@ -4429,6 +4439,7 @@ export default function Home() {
                 pitchLine: data.pitch_line ?? '',
                 subjectTemplate: data.subject_template ?? undefined,
                 mailClient: (data.mail_client ?? 'default') as UserProfile['mailClient'],
+                userEmail: userEmail ?? undefined,
               })
             })()
           }}
