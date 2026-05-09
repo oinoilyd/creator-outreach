@@ -132,27 +132,26 @@ export async function POST(req: NextRequest) {
         } else if (data) {
           matched = true
           matchedEntryId = data.id
-          // Status flow on reply (revised 2026-05-09):
-          //   Click email → 'No Response' (sent, awaiting reply)
-          //   Reply detected → 'Open'      (they wrote back; user
-          //                                 then classifies as
-          //                                 Successful / Rejected)
-          // We don't overwrite manual classifications — if the user
-          // already marked Successful or Rejected, leave it alone and
-          // just stamp response_date so analytics know when the reply
-          // landed.
-          const shouldFlipToOpen =
-            data.status === 'No Response' ||
-            data.status === 'Not Outreached' ||
-            data.status === '' ||
-            data.status == null
+          // Status flow on reply (revised 2026-05-09 per Dylan):
+          //   Click email     → 'No Response' (sent, awaiting reply)
+          //   Reply detected  → status UNCHANGED (just stamp date)
+          //   User reads reply → manually picks Open / Rejected / Successful
+          //
+          // Why don't auto-flip: 'Open' in this app means "positive,
+          // open-to-business response" — not a neutral "reply received."
+          // Auto-flipping every reply to Open would over-claim wins
+          // (negative replies, autoresponders, OOO bounces, etc. would
+          // all show as Open). Better to surface the date stamp + leave
+          // classification to the user who's actually reading the
+          // content.
+          //
+          // We DO stamp reached_out=true defensively in case the user
+          // sent the email outside our app (didn't click the tracked
+          // link) — a reply proves they did send.
           const today = new Date().toISOString().slice(0, 10)
           const patch: Record<string, unknown> = {
             response_date: today,
-          }
-          if (shouldFlipToOpen) {
-            patch.status = 'Open'
-            patch.reached_out = true // defensive — a reply implies a send
+            reached_out: true,
           }
           const { error: updErr } = await sb
             .from('outreach_entries')
