@@ -8,6 +8,7 @@ import {
   type EnrichmentLatest,
 } from '@/lib/creator-enrichment'
 import { cacheReadCounterRange } from '@/lib/cache'
+import { formatSubscribers } from '@/lib/format'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -233,19 +234,27 @@ export default async function AdminContactsPage({
             <table className="w-full text-sm">
               <thead className="bg-gray-900/80 text-gray-400">
                 <tr className="border-b border-gray-800">
+                  {/* Column shape mirrors the in-app Outreach board
+                      so a row in the admin cache reads like a row in
+                      the user-facing table — minus the free-text
+                      slots (description / product / headerUsed) and
+                      the per-user state (favorite / status / medium /
+                      reachedOut). Cache-specific cols at the end:
+                      source + fetched. */}
+                  <Th>YT</Th>
                   <Th>Channel</Th>
                   <Th>Email</Th>
-                  <Th>Source</Th>
                   <Th>Subs</Th>
                   <Th>Avg views</Th>
                   <Th>Socials</Th>
+                  <Th>Source</Th>
                   <Th>Fetched</Th>
                 </tr>
               </thead>
               <tbody>
                 {listing.rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                       {q || src
                         ? 'No matches. Try clearing filters.'
                         : 'No contacts cached yet — run a few searches in the app and snapshots will appear here.'}
@@ -308,6 +317,10 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 
 function Row({ r }: { r: EnrichmentLatest }) {
+  // Mirrors the in-app Outreach board's social-pill set + visual
+  // hierarchy. Channel name + YT logo column are linked the same
+  // way the outreach view links them.
+  const channelUrl = `https://www.youtube.com/channel/${r.yt_channel_id}`
   const handles: { label: string; href: string | null }[] = [
     { label: 'IG', href: r.instagram_handle ? `https://instagram.com/${r.instagram_handle.replace('@', '')}` : null },
     { label: 'X', href: r.twitter_handle ? `https://x.com/${r.twitter_handle.replace('@', '')}` : null },
@@ -316,23 +329,73 @@ function Row({ r }: { r: EnrichmentLatest }) {
   ]
   return (
     <tr className="border-b border-gray-800/60 hover:bg-gray-900/40 transition-colors">
-      <td className="px-4 py-3">
-        <div className="font-semibold text-white">{r.channel_name || <span className="text-gray-600">—</span>}</div>
-        <div className="text-[11px] text-gray-500 font-mono mt-0.5">{r.yt_channel_id}</div>
-        {r.niche && <div className="text-[11px] text-gray-600 mt-0.5">{r.niche}</div>}
+      {/* YT logo column — same affordance as the outreach board's
+          channelUrl column. Single click to open the YouTube channel
+          in a new tab. */}
+      <td className="px-3 py-3">
+        <a
+          href={channelUrl}
+          target="_blank"
+          rel="noreferrer"
+          title="Open YouTube channel"
+          className="inline-flex items-center justify-center w-7 h-7 rounded text-red-500/80 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+          aria-label="Open YouTube channel"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 3.993L9 16z" />
+          </svg>
+        </a>
       </td>
+
+      {/* Channel name — hyperlinked to YouTube, blue underline-on-
+          hover same as the outreach board\\'s channelName cell. */}
+      <td className="px-4 py-3">
+        <a
+          href={channelUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-blue-400 hover:text-blue-300 hover:underline"
+        >
+          {r.channel_name || <span className="text-gray-600 italic font-normal no-underline">unnamed</span>}
+        </a>
+        <div className="text-[10px] text-gray-600 font-mono mt-0.5 truncate max-w-[220px]" title={r.yt_channel_id}>
+          {r.yt_channel_id}
+        </div>
+        {r.niche && <div className="text-[11px] text-gray-500 mt-0.5">{r.niche}</div>}
+      </td>
+
+      {/* Email — same green/strikethrough treatment as the outreach
+          board email cell. mailto link opens the user\\'s mail
+          client when clicked, exactly like the in-app behavior. */}
       <td className="px-4 py-3">
         {r.email ? (
-          <span className={r.email_bounced ? 'text-red-400 line-through' : 'text-emerald-300'}>
+          <a
+            href={`mailto:${r.email}`}
+            className={
+              r.email_bounced
+                ? 'text-red-400 line-through hover:no-underline'
+                : 'text-emerald-300 hover:underline break-all'
+            }
+            title={r.email_bounced ? 'Marked bounced — needs re-fetch' : 'Open in mail client'}
+          >
             {r.email}
-          </span>
+          </a>
         ) : (
           <span className="text-gray-600 italic">none</span>
         )}
       </td>
-      <td className="px-4 py-3 text-gray-400 font-mono text-[11px]">{r.email_source ?? '—'}</td>
-      <td className="px-4 py-3 tabular-nums text-gray-300">{r.subscribers != null ? Number(r.subscribers).toLocaleString() : '—'}</td>
-      <td className="px-4 py-3 tabular-nums text-gray-300">{r.avg_views != null ? Number(r.avg_views).toLocaleString() : '—'}</td>
+
+      {/* Subscribers — formatted with K/M same as the outreach view. */}
+      <td className="px-4 py-3 tabular-nums text-gray-300 whitespace-nowrap">
+        {formatSubscribers(r.subscribers != null ? String(r.subscribers) : '')}
+      </td>
+
+      {/* Avg views — formatted same way. */}
+      <td className="px-4 py-3 tabular-nums text-gray-300 whitespace-nowrap">
+        {formatSubscribers(r.avg_views != null ? String(r.avg_views) : '')}
+      </td>
+
+      {/* Socials — same compact pills as the outreach board. */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
           {handles.map(h =>
@@ -350,6 +413,11 @@ function Row({ r }: { r: EnrichmentLatest }) {
           )}
         </div>
       </td>
+
+      {/* Source — admin-specific column, mono-styled */}
+      <td className="px-4 py-3 text-gray-400 font-mono text-[11px]">{r.email_source ?? '—'}</td>
+
+      {/* Fetched — admin-specific column */}
       <td className="px-4 py-3 text-[11px] text-gray-400 whitespace-nowrap">
         {formatRelative(r.fetched_at)}
       </td>

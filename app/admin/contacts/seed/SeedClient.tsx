@@ -47,18 +47,30 @@ type QueryState = 'pending' | 'running' | 'done' | 'error'
 
 /**
  * Chunk size for client-side batching. The Vercel function timeout
- * is ~60s on hobby tier. With concurrency=2 and ~5–8s per query,
- * 6 queries per chunk gives the server plenty of headroom and
- * progress feels live in the UI as chunks complete. Each chunk
- * is a separate POST, so the function timeout per chunk is reset.
+ * is ~60s on hobby tier. Each chunk = one POST = its own timeout
+ * window. We pick chunk size based on whether enrichment is on:
+ *   - enrich=false: ~6s per query → 6 queries per chunk fits in 60s
+ *   - enrich=true:  search ~6s + enrich ~10s × maxResults=10 →
+ *     much heavier. Keep chunk small (3) so the search+enrich
+ *     phases both fit in the platform timeout.
  */
-const CHUNK_SIZE = 6
+const CHUNK_SIZE_SEARCH_ONLY = 6
+const CHUNK_SIZE_WITH_ENRICH = 3
 
 export function SeedClient() {
   const [queries, setQueries] = useState<string>('travel agent\nyoga instructor\nfinancial advisor')
-  const [enrich, setEnrich] = useState<boolean>(false)
+  // Default ON — the whole point of bulk-seeding is to fill the
+  // contacts cache with EMAILS, not just channel metadata. Without
+  // enrichment, /api/search only returns channelId + name + subs +
+  // views (no email). Search-only mode is still available by
+  // unchecking, but the default should be the user's actual goal.
+  const [enrich, setEnrich] = useState<boolean>(true)
   const [concurrency, setConcurrency] = useState<number>(2)
-  const [maxResults, setMaxResults] = useState<number>(15)
+  // Lower default when enriching is on — each enriched channel takes
+  // ~10s, so 15 channels × 6 queries × concurrency 2 = a 90s+ chunk.
+  // 10 keeps each chunk well under the 60s function timeout when
+  // enrichment is included.
+  const [maxResults, setMaxResults] = useState<number>(10)
   const [region, setRegion] = useState<string>('') // '' = global / no targeting
   const [queryStatus, setQueryStatus] = useState<Record<string, QueryState>>({})
   const [currentStage, setCurrentStage] = useState<string>('idle')
@@ -82,8 +94,9 @@ export function SeedClient() {
     // invocation = its own 60s timeout window. This is the fix
     // for the "string did not match expected pattern" timeout.
     const chunks: string[][] = []
-    for (let i = 0; i < queryList.length; i += CHUNK_SIZE) {
-      chunks.push(queryList.slice(i, i + CHUNK_SIZE))
+    const chunkSize = enrich ? CHUNK_SIZE_WITH_ENRICH : CHUNK_SIZE_SEARCH_ONLY
+    for (let i = 0; i < queryList.length; i += chunkSize) {
+      chunks.push(queryList.slice(i, i + chunkSize))
     }
 
     // Initial query-status map: every query is 'pending' until its
@@ -259,9 +272,12 @@ export function SeedClient() {
               disabled={running}
             />
             <div>
-              <div className="text-sm font-semibold text-white">Also enrich emails</div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                Slower (~10s per channel) but resolves email + socials. Off by default — search-only is much faster for corpus building.
+              <div className="text-sm font-semibold text-white">
+                Resolve emails {enrich ? <span className="text-emerald-400">(on — recommended)</span> : <span className="text-yellow-400">(off — channels only, no emails)</span>}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                When on: each search result is enriched (7 strategies, ~10s each) and emails land in the contacts cache. <br />
+                When off: only channel metadata is written (channelId, name, subs, avg views). No emails — useful only for fast corpus shape scanning.
               </div>
             </div>
           </label>
@@ -389,8 +405,8 @@ export function SeedClient() {
           </div>
 
           <div className="mt-3 text-[11px] text-gray-500 leading-relaxed">
-            Chunked into {Math.ceil(queryList.length / CHUNK_SIZE)}{' '}
-            {Math.ceil(queryList.length / CHUNK_SIZE) === 1 ? 'request' : 'requests'} of ≤{CHUNK_SIZE} queries each.
+            Chunked into {Math.ceil(queryList.length / (enrich ? CHUNK_SIZE_WITH_ENRICH : CHUNK_SIZE_SEARCH_ONLY))}{' '}
+            {Math.ceil(queryList.length / (enrich ? CHUNK_SIZE_WITH_ENRICH : CHUNK_SIZE_SEARCH_ONLY)) === 1 ? 'request' : 'requests'} of ≤{enrich ? CHUNK_SIZE_WITH_ENRICH : CHUNK_SIZE_SEARCH_ONLY} queries each.
             Each chunk runs server-side with concurrency={concurrency} — when a chunk finishes, all
             its queries flip from <span className="text-orange-300">running</span> to{' '}
             <span className="text-emerald-300">done</span>.
