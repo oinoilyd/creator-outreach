@@ -37,7 +37,11 @@ export const ALL_OUTREACH_COLS: OutreachColDef[] = [
   // newly-added pin (see app/page.tsx) hoists fresh entries to the
   // top regardless of this column's sort state, until the user
   // clicks any column header to express a sort intent.
-  { id: 'addedAt',         label: 'Added to outreach', defaultVisible: true,  defaultWidth: 130, tooltip: 'When this entry landed on your outreach board. Newly-added rows pin to the top automatically until you click any column header to sort by something else. Sortable.' },
+  //
+  // Width 175 = "Added to outreach" label fits without truncation
+  // alongside the drag handle + sort chevrons in the header. Bumped
+  // from 130 → 175 (2026-05-09) after the label was getting clipped.
+  { id: 'addedAt',         label: 'Added to outreach', defaultVisible: true,  defaultWidth: 175, tooltip: 'When this entry landed on your outreach board. Newly-added rows pin to the top automatically until you click any column header to sort by something else. Sortable.' },
 ]
 
 export const DEFAULT_OUTREACH_COLS: OutreachColConfig[] =

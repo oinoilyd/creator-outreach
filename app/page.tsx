@@ -1945,6 +1945,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
             <span className="text-foreground/80">{stageHint}</span>
             {e.dateReachedOut && <span> · reached {daysAgo(e.dateReachedOut)} ago</span>}
             {e.medium && <span> · via {e.medium}</span>}
+            {e.addedAt && <span> · added {formatAddedAtRelative(e.addedAt)}</span>}
           </div>
         </button>
 
