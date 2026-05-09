@@ -24,7 +24,7 @@ export function PlatformDropdown({ activePlatform, onChange }: { activePlatform:
         onClick={() => setOpen(v => !v)}
         className="inline-flex items-center gap-1.5 h-7 leading-none text-foreground font-semibold hover:text-foreground transition-colors group"
       >
-        <PlatformIcon id={activePlatform} className="w-4 h-4" />
+        <PlatformIcon id={activePlatform} className="w-4 h-4" colored />
         <span>{active.label}</span>
         <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -42,7 +42,7 @@ export function PlatformDropdown({ activePlatform, onChange }: { activePlatform:
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
-              <PlatformIcon id={p.id} className={p.id === 'twitter' ? 'w-4 h-4 shrink-0' : 'w-4 h-4 shrink-0'} />
+              <PlatformIcon id={p.id} className="w-4 h-4 shrink-0" colored />
               {p.id !== 'twitter' && <span className="font-medium">{p.label}</span>}
               {(p.id === 'youtube' || p.id === 'instagram') && <span className="text-[10px] text-muted-foreground ml-1">(suggested)</span>}
               {p.id === activePlatform && (
