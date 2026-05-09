@@ -4,7 +4,19 @@ import { createClient } from '@/lib/supabase/server'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
-const SOFT_BUDGET_MS = 55_000
+// 45s soft budget gives 15s of cleanup time before Vercel's 60s
+// hard kill. Earlier 55s was too tight — when one slow new_method-
+// ology channel took 12s during cleanup, the response stream was
+// truncated and the client saw "Load failed."
+const SOFT_BUDGET_MS = 45_000
+
+// Per-channel hard cap. /api/enrich's new_methodology fallback
+// (AI vision + Wayback multi-snapshot) can take 12-15s each. With
+// concurrency=2, two slow channels can blow our budget. Hard cap
+// each fetch at 25s so one stuck channel never costs more than
+// that. Implementation uses AbortController.
+const PER_CHANNEL_TIMEOUT_MS = 25_000
+
 export const maxDuration = 60
 
 type Mode = 'no-email' | 'stale' | 'bounced' | 'all'
@@ -175,6 +187,11 @@ export async function POST(req: NextRequest) {
       }
       const id = queue.shift()
       if (!id) break
+      // Per-channel timeout — abort the fetch if /api/enrich takes
+      // longer than PER_CHANNEL_TIMEOUT_MS. Stops one slow channel
+      // from eating the entire bulk budget.
+      const controller = new AbortController()
+      const timeoutHandle = setTimeout(() => controller.abort(), PER_CHANNEL_TIMEOUT_MS)
       try {
         const u = new URL(`${baseUrl}/api/enrich`)
         u.searchParams.set('channelId', id)
@@ -183,6 +200,7 @@ export async function POST(req: NextRequest) {
           method: 'GET',
           headers: { cookie: req.headers.get('cookie') || '' },
           cache: 'no-store',
+          signal: controller.signal,
         })
         if (!res.ok) {
           errors.push(`${id} → HTTP ${res.status}`)
@@ -190,7 +208,14 @@ export async function POST(req: NextRequest) {
           processed.push(id)
         }
       } catch (e: any) {
-        errors.push(`${id} → ${e?.message || e}`)
+        // AbortError when our timeout fires; surface that distinctly
+        // so the operator can see whether channels are timing out.
+        const msg = e?.name === 'AbortError'
+          ? `timed out after ${PER_CHANNEL_TIMEOUT_MS / 1000}s`
+          : e?.message || String(e)
+        errors.push(`${id} → ${msg}`)
+      } finally {
+        clearTimeout(timeoutHandle)
       }
     }
   }

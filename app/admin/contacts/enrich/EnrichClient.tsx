@@ -33,7 +33,12 @@ type RunResponse = {
 
 export function EnrichClient() {
   const [mode, setMode] = useState<Mode>('no-email')
-  const [batchSize, setBatchSize] = useState<number>(8)
+  // Default 4 (down from 8). With per-channel timeout 25s on the
+  // server + concurrency=2, a chunk of 4 channels can complete in
+  // ~50s worst-case, well under Vercel's 60s function timeout.
+  // Earlier default of 8 was busting the timeout on slow batches
+  // and producing "Load failed" errors.
+  const [batchSize, setBatchSize] = useState<number>(4)
   const [concurrency, setConcurrency] = useState<number>(2)
   const [running, setRunning] = useState<boolean>(false)
   const [matchingCount, setMatchingCount] = useState<number | null>(null)
@@ -113,12 +118,19 @@ export function EnrichClient() {
      */
     async function callOnce(): Promise<RunResponse | null> {
       for (let attempt = 1; attempt <= 2; attempt++) {
+        // Client-side timeout: 65s per call. Server's soft budget
+        // is 45s + 15s cleanup, so anything past 65s on the wire
+        // is definitely Vercel mid-kill — don't hang waiting.
+        const ctrl = new AbortController()
+        const tid = setTimeout(() => ctrl.abort(), 65_000)
         try {
           const res = await fetch('/api/admin/bulk-enrich', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ mode, limit: batchSize, offset, concurrency }),
+            signal: ctrl.signal,
           })
+          clearTimeout(tid)
           const text = await res.text()
           let j: RunResponse
           try {
@@ -138,8 +150,13 @@ export function EnrichClient() {
           }
           return j
         } catch (e: any) {
-          // "Load failed" / "Failed to fetch" land here. Retry once.
-          errors.push(`call ${calls + 1}: ${e?.message || String(e)}${attempt === 1 ? ' (retrying)' : ''}`)
+          clearTimeout(tid)
+          // "Load failed" / "Failed to fetch" / our AbortError from
+          // the 65s timeout all land here. Retry once.
+          const msg = e?.name === 'AbortError'
+            ? 'client-side timeout (65s)'
+            : e?.message || String(e)
+          errors.push(`call ${calls + 1}: ${msg}${attempt === 1 ? ' (retrying)' : ''}`)
           if (attempt === 2) return null
           await new Promise(r => setTimeout(r, 1500))
         }
