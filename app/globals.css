@@ -148,6 +148,25 @@ body {
   overflow-x: hidden;
   overscroll-behavior-x: none;
 }
+
+/*
+  Cursor: hand on every clickable. Tailwind v4 + Preflight does NOT
+  set `cursor: pointer` on <button> by default (matching browser-spec
+  behavior, which surprises most users). We override here so anything
+  that's actually clickable feels clickable. Disabled buttons fall back
+  to `not-allowed` cursor — Tailwind already does that via the
+  `:disabled` state, but we belt-and-suspenders it here too.
+*/
+button:not(:disabled),
+[role="button"]:not(:disabled),
+summary:not(:disabled),
+label[for]:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
 html {
   overflow-x: hidden;
   overscroll-behavior-x: none;

@@ -5076,6 +5076,20 @@ export default function Home() {
           </div>
         )}
 
+        {/*
+          Tab content fade — wrap each branch in a motion.div keyed
+          by activeTab. Motion auto-plays the initial transition on
+          every key change, giving a soft cross-fade between Results /
+          Outreach / Dismissed without any extra state plumbing. ~150
+          ms is the sweet spot — fast enough not to feel laggy, slow
+          enough to read as a transition rather than a jarring swap.
+        */}
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+        >
         {activeTab === 'outreach' ? (
           <>
             {(() => {
@@ -5199,6 +5213,7 @@ export default function Home() {
             )}
           </>
         )}
+        </motion.div>
       </div>
 
       {showScoreSettings && (
