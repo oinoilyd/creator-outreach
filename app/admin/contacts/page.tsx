@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { AuditMenu } from '@/components/admin/AuditMenu'
 import {
   getEnrichmentStats,
   listEnrichmentLatest,
@@ -106,17 +107,12 @@ export default async function AdminContactsPage({
               ⚙️ Enrich
             </Link>
             <Link
-              href="/admin/test-data"
-              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
-            >
-              🧪 Test data
-            </Link>
-            <Link
               href="/admin"
               className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"
             >
               ← Admin home
             </Link>
+            <AuditMenu />
             <Link
               href="/"
               className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors"

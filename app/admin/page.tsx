@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { AuditMenu } from '@/components/admin/AuditMenu'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -70,12 +71,6 @@ export default async function AdminPage() {
               📇 Contacts
             </Link>
             <Link
-              href="/admin/test-data"
-              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
-            >
-              🧪 Test data
-            </Link>
-            <Link
               href="/admin/email-test"
               className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-gray-800 text-gray-400 hover:border-gray-600 hover:text-white"
             >
@@ -94,6 +89,7 @@ export default async function AdminPage() {
                 <span className="text-xs font-mono bg-yellow-500/20 px-1.5 py-0.5 rounded">{unresolvedContact}</span>
               )}
             </Link>
+            <AuditMenu />
             <Link href="/" className="text-sm text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-lg px-4 py-2 transition-colors">
               Back to app
             </Link>
