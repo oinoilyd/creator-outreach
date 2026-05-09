@@ -78,21 +78,25 @@ export async function POST(req: NextRequest) {
 
   // Build the filter for the chosen mode against
   // creator_enrichment_latest.
-  function applyFilter<T extends { eq: any; is: any; lt: any; gte: any }>(q: T): T {
+  //
+  // Every mode also excludes synthetic test/smoke-check rows
+  // (yt_channel_id starting with UC_TEST_, mock_, fake_) — those
+  // exist for service-role health checks but aren't real YouTube
+  // channels, so /api/enrich would 400 on them.
+  function applyFilter<T extends { eq: any; is: any; lt: any; not: any }>(q: T): T {
     const staleCutoffIso = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    let filtered: any = q.not('yt_channel_id', 'ilike', 'UC_TEST_%').not('yt_channel_id', 'ilike', 'mock_%').not('yt_channel_id', 'ilike', 'fake_%')
     if (mode === 'no-email') {
       // No email AND not bounced (bounced gets its own bucket)
-      return q.is('email', null).eq('email_bounced', false) as T
-    }
-    if (mode === 'stale') {
+      filtered = filtered.is('email', null).eq('email_bounced', false)
+    } else if (mode === 'stale') {
       // Has email, not bounced, fetched longer than STALE_DAYS ago.
-      return q.eq('email_bounced', false).lt('fetched_at', staleCutoffIso) as T
+      filtered = filtered.eq('email_bounced', false).lt('fetched_at', staleCutoffIso)
+    } else if (mode === 'bounced') {
+      filtered = filtered.eq('email_bounced', true)
     }
-    if (mode === 'bounced') {
-      return q.eq('email_bounced', true) as T
-    }
-    // 'all' — every row matches; useful for a force re-fetch
-    return q
+    // 'all' falls through with just the test-row exclusion
+    return filtered as T
   }
 
   // Step 1 — count matching rows for the UI.

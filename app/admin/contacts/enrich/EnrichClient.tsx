@@ -102,55 +102,90 @@ export function EnrichClient() {
     const errors: string[] = []
     let total = matchingCount
     let calls = 0
+    let consecutiveFailures = 0
+    const MAX_CONSECUTIVE_FAILURES = 3
 
-    // Loop until totalMatching channels processed (or server says nothing left).
-    while (offset < total && processed < total) {
-      try {
-        const res = await fetch('/api/admin/bulk-enrich', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ mode, limit: batchSize, offset, concurrency }),
-        })
-        const text = await res.text()
-        let j: RunResponse
+    /**
+     * Single call wrapper with one retry on fetch failures. Returns
+     * the parsed response or null on hard failure. Doesn't break
+     * the outer loop — the caller decides based on
+     * consecutiveFailures whether to abort.
+     */
+    async function callOnce(): Promise<RunResponse | null> {
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          j = JSON.parse(text)
-        } catch {
-          errors.push(`call ${calls + 1}: non-JSON response (${text.slice(0, 80)})`)
+          const res = await fetch('/api/admin/bulk-enrich', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ mode, limit: batchSize, offset, concurrency }),
+          })
+          const text = await res.text()
+          let j: RunResponse
+          try {
+            j = JSON.parse(text)
+          } catch {
+            errors.push(`call ${calls + 1}: non-JSON (${text.slice(0, 60)})`)
+            if (attempt === 2) return null
+            // brief backoff before retry
+            await new Promise(r => setTimeout(r, 1000))
+            continue
+          }
+          if (!res.ok || j.error) {
+            errors.push(`call ${calls + 1}: ${j.error || `HTTP ${res.status}`}${attempt === 1 ? ' (retrying)' : ''}`)
+            if (attempt === 2) return null
+            await new Promise(r => setTimeout(r, 1000))
+            continue
+          }
+          return j
+        } catch (e: any) {
+          // "Load failed" / "Failed to fetch" land here. Retry once.
+          errors.push(`call ${calls + 1}: ${e?.message || String(e)}${attempt === 1 ? ' (retrying)' : ''}`)
+          if (attempt === 2) return null
+          await new Promise(r => setTimeout(r, 1500))
+        }
+      }
+      return null
+    }
+
+    // Loop until totalMatching channels processed, server says
+    // nothing left, OR we hit MAX_CONSECUTIVE_FAILURES in a row.
+    while (offset < total && processed < total) {
+      const j = await callOnce()
+      if (!j) {
+        consecutiveFailures++
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          errors.push(
+            `aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive call failures — pause + retry by clicking Run again`,
+          )
           break
         }
-        if (!res.ok || j.error) {
-          errors.push(`call ${calls + 1}: ${j.error || `HTTP ${res.status}`}`)
-          break
-        }
-        processed += j.processedThisCall ?? 0
-        if (j.errors?.length) {
-          errors.push(...j.errors.slice(0, 5).map(e => `call ${calls + 1}: ${e}`))
-        }
-        // Server tells us totalMatching each call — use the latest
-        // since rows can move between buckets while we run.
-        if (typeof j.totalMatching === 'number') {
-          total = j.totalMatching
-        }
-        // Advance offset by what we asked for (limit), not what
-        // came back, so we keep moving forward even if some
-        // channels failed.
+        // Keep going — advance offset so we don't keep retrying
+        // the same batch forever.
         offset += batchSize
         calls++
-        setAgg({
-          totalMatching: total,
-          processedTotal: processed,
-          errors: [...errors],
-          callsMade: calls,
-          elapsedMs: Date.now() - t0,
-        })
+        setAgg({ totalMatching: total, processedTotal: processed, errors: [...errors], callsMade: calls, elapsedMs: Date.now() - t0 })
+        continue
+      }
+      consecutiveFailures = 0 // reset on success
+      processed += j.processedThisCall ?? 0
+      if (j.errors?.length) {
+        errors.push(...j.errors.slice(0, 5).map(e => `call ${calls + 1}: ${e}`))
+      }
+      if (typeof j.totalMatching === 'number') {
+        total = j.totalMatching
+      }
+      offset += batchSize
+      calls++
+      setAgg({
+        totalMatching: total,
+        processedTotal: processed,
+        errors: [...errors],
+        callsMade: calls,
+        elapsedMs: Date.now() - t0,
+      })
 
-        // If server reported nothing left to do, break.
-        if ((j.processedThisCall ?? 0) === 0 && (j.channelIdsRemaining?.length ?? 0) === 0) {
-          break
-        }
-      } catch (e: any) {
-        errors.push(`call ${calls + 1}: ${e?.message || String(e)}`)
+      // Empty page = nothing left.
+      if ((j.processedThisCall ?? 0) === 0 && (j.channelIdsRemaining?.length ?? 0) === 0) {
         break
       }
     }
