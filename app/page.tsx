@@ -959,16 +959,22 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
 // `unset` and `ghosted` are special states, not priorities.
 type FUBucket = 'high' | 'medium' | 'low' | 'unset' | 'ghosted'
 
-function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
+function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   entries: OutreachEntry[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onOpenEntry: (id: string) => void
+  profile: UserProfile | null
 }) {
   const [sort, setSort] = useState<'urgency' | 'pipeline' | 'touchpoints'>('urgency')
   const [showLater, setShowLater] = useState(false)
   const [showUnset, setShowUnset] = useState(false)
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium'>('all')
   const [showGhosted, setShowGhosted] = useState(false)
+  // List vs Calendar view toggle. Default 'list' to preserve the
+  // existing experience; switching to 'calendar' renders a month
+  // grid of every entry that has a followUpDate (status = Open or
+  // No Response). Click a day → expand a sheet with quick actions.
+  const [view, setView] = useState<'list' | 'calendar'>('list')
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayMs = today.getTime()
@@ -1067,8 +1073,25 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
     )
   }
 
+  // Calendar view — month grid of every follow-up. Click a day to
+  // expand a sheet with quick actions (email / IG / open details).
+  if (view === 'calendar') {
+    return (
+      <div className="space-y-4">
+        <FollowUpsViewToggle current={view} onChange={setView} />
+        <FollowUpCalendar
+          entries={[...open, ...ghosted]}
+          onUpdate={onUpdate}
+          onOpenEntry={onOpenEntry}
+          profile={profile}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
+      <FollowUpsViewToggle current={view} onChange={setView} />
       {/* Headline + 4 priority-aware stats */}
       <div>
         <p className="text-sm text-foreground/80">{headline}</p>
@@ -1271,6 +1294,425 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry }: {
         </CollapsibleSection>
       )}
     </div>
+  )
+}
+
+/**
+ * List/Calendar toggle pill rendered at the top of the Follow-ups
+ * tab. Two-button segmented control. Shared by both the empty-state
+ * and populated returns of OutreachFollowUps.
+ */
+function FollowUpsViewToggle({
+  current,
+  onChange,
+}: {
+  current: 'list' | 'calendar'
+  onChange: (next: 'list' | 'calendar') => void
+}) {
+  return (
+    <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">View</div>
+      <div className="flex bg-card/60 rounded-md p-0.5 border border-border">
+        {([
+          { id: 'list', label: 'List' },
+          { id: 'calendar', label: 'Calendar' },
+        ] as { id: 'list' | 'calendar'; label: string }[]).map(opt => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={`px-3 py-1 text-[11px] rounded transition-colors ${
+              current === opt.id
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Month-grid calendar showing every entry that has a followUpDate.
+ * Click a day with follow-ups → expand a sheet below showing the
+ * leads with quick-action buttons (email, IG, LinkedIn, open
+ * detail). The detail modal is wired through onOpenEntry — same as
+ * the list view's row-click behavior — so users get full editable
+ * details without leaving the calendar context.
+ *
+ * Implementation: pure UI atop existing state. No new persistence.
+ * Future: hook into an external calendar (Google / Outlook) via the
+ * `integratable` follow-on Dylan mentioned — when wired, each cell
+ * here becomes a real event in the user's external calendar.
+ */
+function FollowUpCalendar({
+  entries,
+  onOpenEntry,
+  profile,
+}: {
+  entries: OutreachEntry[]
+  onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
+  onOpenEntry: (id: string) => void
+  profile: UserProfile | null
+}) {
+  // Anchored to the first of the displayed month. Navigation arrows
+  // mutate this in 1-month steps.
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
+  const [selectedIso, setSelectedIso] = useState<string | null>(null)
+
+  // ISO yyyy-mm-dd from a Date.
+  const toIso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  // Bucket all entries by their followUpDate string. Skip entries
+  // with no date — they don't belong on a calendar anyway.
+  const byDate = useMemo(() => {
+    const map = new Map<string, OutreachEntry[]>()
+    for (const e of entries) {
+      if (!e.followUpDate) continue
+      const list = map.get(e.followUpDate) ?? []
+      list.push(e)
+      map.set(e.followUpDate, list)
+    }
+    return map
+  }, [entries])
+
+  // Build the grid: full weeks (Sunday-start) covering the view month.
+  // Includes leading days from the previous month + trailing days from
+  // the next month so every row has 7 cells.
+  const gridDays = useMemo(() => {
+    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1)
+    const start = new Date(first)
+    start.setDate(first.getDate() - first.getDay())
+    const lastOfMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0)
+    const end = new Date(lastOfMonth)
+    end.setDate(lastOfMonth.getDate() + (6 - lastOfMonth.getDay()))
+    const out: Date[] = []
+    for (let d = new Date(start); d.getTime() <= end.getTime(); d.setDate(d.getDate() + 1)) {
+      out.push(new Date(d))
+    }
+    return out
+  }, [viewMonth])
+
+  const todayIsoStr = toIso(new Date())
+  const monthLabel = viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const totalThisMonth = entries.filter(e => {
+    const d = parseLocalDate(e.followUpDate)
+    return d && d.getFullYear() === viewMonth.getFullYear() && d.getMonth() === viewMonth.getMonth()
+  }).length
+
+  // Bucket → tailwind color class for the dot. Mirrors the High /
+  // Medium / Low convention in the list view.
+  function dotClass(e: OutreachEntry, dayIsoForBucket: string): string {
+    if (e.status === 'No Response') return 'bg-purple-500'
+    const d = parseLocalDate(e.followUpDate)
+    if (!d) return 'bg-gray-500'
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const dayDate = parseLocalDate(dayIsoForBucket)
+    if (!dayDate) return 'bg-gray-500'
+    const diffDays = Math.round((dayDate.getTime() - today.getTime()) / 86_400_000)
+    if (diffDays <= 0) return 'bg-red-500'
+    if (diffDays <= 7) return 'bg-yellow-500'
+    return 'bg-blue-500'
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* HEADER — month nav + count summary */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))
+            }
+            className="w-8 h-8 rounded-md border border-border text-muted-foreground hover:border-purple-500/50 hover:text-foreground transition-colors flex items-center justify-center"
+            aria-label="Previous month"
+          >
+            ‹
+          </button>
+          <h2 className="text-base font-semibold text-foreground tabular-nums w-44 text-center">
+            {monthLabel}
+          </h2>
+          <button
+            type="button"
+            onClick={() =>
+              setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))
+            }
+            className="w-8 h-8 rounded-md border border-border text-muted-foreground hover:border-purple-500/50 hover:text-foreground transition-colors flex items-center justify-center"
+            aria-label="Next month"
+          >
+            ›
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const today = new Date()
+              setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1))
+              setSelectedIso(toIso(today))
+            }}
+            className="ml-1 px-2.5 py-1 text-[11px] rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-purple-500/40 transition-colors"
+          >
+            Today
+          </button>
+        </div>
+        <div className="text-[11px] text-muted-foreground tabular-nums">
+          {totalThisMonth} follow-up{totalThisMonth === 1 ? '' : 's'} this month
+        </div>
+      </div>
+
+      {/* DAY-OF-WEEK HEADERS */}
+      <div className="grid grid-cols-7 gap-1">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+          <div
+            key={d}
+            className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground text-center py-1.5"
+          >
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* MONTH GRID */}
+      <div className="grid grid-cols-7 gap-1">
+        {gridDays.map(d => {
+          const iso = toIso(d)
+          const dayEntries = byDate.get(iso) ?? []
+          const inMonth = d.getMonth() === viewMonth.getMonth()
+          const isToday = iso === todayIsoStr
+          const isSelected = iso === selectedIso
+
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => setSelectedIso(prev => (prev === iso ? null : iso))}
+              className={`relative min-h-[72px] rounded-md border text-left p-1.5 transition-colors flex flex-col ${
+                isSelected
+                  ? 'border-purple-500 bg-purple-500/10'
+                  : isToday
+                  ? 'border-purple-500/50 bg-purple-500/5 hover:bg-purple-500/10'
+                  : inMonth
+                  ? 'border-border bg-card/40 hover:bg-card/80'
+                  : 'border-border/40 bg-transparent text-muted-foreground/50 hover:bg-card/20'
+              }`}
+              aria-label={`${d.toDateString()} — ${dayEntries.length} follow-up${dayEntries.length === 1 ? '' : 's'}`}
+            >
+              <span
+                className={`text-[11px] font-mono tabular-nums ${
+                  isToday ? 'text-purple-500 font-bold' : ''
+                }`}
+              >
+                {d.getDate()}
+              </span>
+              {dayEntries.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1 items-start">
+                  {dayEntries.slice(0, 3).map(e => (
+                    <span
+                      key={e.id}
+                      className={`w-1.5 h-1.5 rounded-full ${dotClass(e, iso)}`}
+                      aria-hidden
+                    />
+                  ))}
+                  {dayEntries.length > 3 && (
+                    <span className="text-[9px] font-bold text-muted-foreground leading-none">
+                      +{dayEntries.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* SELECTED DAY SHEET */}
+      {selectedIso && (
+        <FollowUpDaySheet
+          dateIso={selectedIso}
+          entries={byDate.get(selectedIso) ?? []}
+          onClose={() => setSelectedIso(null)}
+          onOpenEntry={onOpenEntry}
+          profile={profile}
+        />
+      )}
+
+      {/* LEGEND */}
+      <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-red-500" /> Overdue / today
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-yellow-500" /> Due this week
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-blue-500" /> Future
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-purple-500" /> Ghosted (No Response)
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Expanded "details for this day" panel that drops below the calendar
+ * grid when the user clicks a day with follow-ups. Shows each lead
+ * with quick-action buttons (email / IG / LinkedIn) and an "Open
+ * details" button that fires onOpenEntry → LeadDetailModal.
+ */
+function FollowUpDaySheet({
+  dateIso,
+  entries,
+  onClose,
+  onOpenEntry,
+  profile,
+}: {
+  dateIso: string
+  entries: OutreachEntry[]
+  onClose: () => void
+  onOpenEntry: (id: string) => void
+  profile: UserProfile | null
+}) {
+  const dateLabel = (() => {
+    const d = parseLocalDate(dateIso)
+    if (!d) return dateIso
+    return d.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  })()
+  return (
+    <section className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-4">
+      <header className="flex items-center justify-between gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          {dateLabel}
+          <span className="ml-2 text-muted-foreground font-normal">
+            · {entries.length} follow-up{entries.length === 1 ? '' : 's'}
+          </span>
+        </h3>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground text-lg leading-none px-1"
+          aria-label="Close day"
+        >
+          ×
+        </button>
+      </header>
+      {entries.length === 0 ? (
+        <div className="text-xs text-muted-foreground italic">
+          No follow-ups scheduled for this day.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {entries.map(e => {
+            const igHandle = e.instagram?.replace('@', '').trim()
+            const igUrl = igHandle ? `https://instagram.com/${igHandle}` : null
+            const emailHref = e.email
+              ? buildOutreachEmail(
+                  {
+                    channelName: e.channelName,
+                    email: e.email,
+                    videoTitles: [],
+                    description: e.description,
+                  } as unknown as Creator,
+                  profile,
+                  e.trackingId,
+                )
+              : null
+            return (
+              <li
+                key={e.id}
+                className="rounded-lg border border-border bg-card/40 p-3 flex items-center justify-between gap-3 flex-wrap"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <a
+                      href={e.channelUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-semibold text-blue-700 dark:text-blue-400 hover:underline truncate"
+                    >
+                      {e.channelName || 'Unnamed'}
+                    </a>
+                    <span
+                      className={`text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border ${
+                        e.status === 'Open'
+                          ? 'border-blue-500/40 text-blue-700 dark:text-blue-400 bg-blue-500/10'
+                          : e.status === 'No Response'
+                          ? 'border-purple-500/40 text-purple-700 dark:text-purple-400 bg-purple-500/10'
+                          : 'border-border text-muted-foreground bg-muted'
+                      }`}
+                    >
+                      {e.status || 'Not Outreached'}
+                    </span>
+                  </div>
+                  {e.notes && (
+                    <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                      {e.notes}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {emailHref && (
+                    <a
+                      href={emailHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open compose with template + tracking ID"
+                      className="text-[11px] font-medium px-2.5 py-1 rounded border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                    >
+                      📧 Email
+                    </a>
+                  )}
+                  {igUrl && (
+                    <a
+                      href={igUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => copyInstagramDm(e.channelName)}
+                      title="Open Instagram + copy DM template to clipboard"
+                      className="text-[11px] font-medium px-2.5 py-1 rounded border border-pink-500/40 text-pink-700 dark:text-pink-400 hover:bg-pink-500/10 transition-colors"
+                    >
+                      📸 IG DM
+                    </a>
+                  )}
+                  {e.linkedin && (
+                    <a
+                      href={e.linkedin}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => copyLinkedInMessage(e.channelName)}
+                      title="Open LinkedIn + copy message template to clipboard"
+                      className="text-[11px] font-medium px-2.5 py-1 rounded border border-blue-500/40 text-blue-700 dark:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                    >
+                      in LinkedIn
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onOpenEntry(e.id)}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded border border-purple-500/40 text-purple-700 dark:text-purple-400 hover:bg-purple-500/10 transition-colors"
+                  >
+                    Open details →
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -4363,6 +4805,7 @@ export default function Home() {
                 entries={outreach}
                 onUpdate={updateOutreachEntry}
                 onOpenEntry={(id: string) => setViewingLeadId(id)}
+                profile={profile}
               />
             ) : (
               <OutreachTab
