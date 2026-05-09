@@ -4379,37 +4379,50 @@ export default function Home() {
 
       <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} pt-6 pb-16`}>
 
-        {/* Premium search bar */}
-        <div className="flex gap-2 mb-2 flex-wrap">
-          <div className="flex-1 min-w-64 relative group">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-muted-foreground group-focus-within:text-purple-700 dark:text-purple-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+        {/* Premium search bar — chunkier sizing + gradient glow on focus.
+            The outer wrapper renders an absolute-positioned blur that
+            fades in when any child is focused (group-focus-within),
+            giving the whole row a soft purple-blue halo without
+            adding state or refs. The input itself is taller (py-3 vs
+            py-2.5) with rounded-xl corners and a wider focus ring. */}
+        <div className="relative group/search mb-2">
+          {/* Soft ambient glow visible only when something inside the
+              search row has focus. Sits beneath everything, doesn't
+              capture clicks. */}
+          <div
+            className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-purple-500/10 via-blue-500/8 to-purple-500/10 opacity-0 blur-2xl transition-opacity duration-500 group-focus-within/search:opacity-100 pointer-events-none"
+            aria-hidden
+          />
+          <div className="relative flex gap-2 flex-wrap">
+            <div className="flex-1 min-w-64 relative group">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px] text-muted-foreground/80 group-focus-within:text-purple-600 dark:group-focus-within:text-purple-400 transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                className="w-full bg-card/70 backdrop-blur-sm border border-border/80 rounded-xl pl-11 pr-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-purple-500/60 focus:ring-4 focus:ring-purple-500/15 focus:bg-card hover:border-border transition-all duration-200 shadow-sm"
+                placeholder={
+                  activeTab === 'outreach'
+                    ? 'Filter your outreach by name, email, notes, niche…'
+                    : "Search a topic, paste a YouTube URL, or describe what you're looking for…"
+                }
+                value={keyword}
+                onChange={e => setKeyword(e.target.value)}
+                onKeyDown={e => {
+                  // On Outreach tab, Enter is a no-op — the filter is
+                  // already live as the user types. Suppressing prevents
+                  // accidental YouTube search triggers from people who
+                  // hit Enter out of habit.
+                  if (e.key === 'Enter' && activeTab !== 'outreach') handleSearch()
+                }}
+              />
             </div>
-            <input
-              className="w-full bg-card/60 border border-border rounded-lg pl-9 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/15 transition-all"
-              placeholder={
-                activeTab === 'outreach'
-                  ? 'Filter your outreach by name, email, notes, niche…'
-                  : "Search a topic, paste a YouTube URL, or describe what you're looking for…"
-              }
-              value={keyword}
-              onChange={e => setKeyword(e.target.value)}
-              onKeyDown={e => {
-                // On Outreach tab, Enter is a no-op — the filter is
-                // already live as the user types. Suppressing prevents
-                // accidental YouTube search triggers from people who
-                // hit Enter out of habit.
-                if (e.key === 'Enter' && activeTab !== 'outreach') handleSearch()
-              }}
-            />
-          </div>
-          {/* Score settings icon */}
+          {/* Score settings icon — sized to match the chunkier input. */}
           <button
             onClick={() => setShowScoreSettings(true)}
             title="Lead Criteria"
-            className={`px-3 py-2.5 rounded-lg border transition-all flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500/60 text-white shadow-md shadow-purple-500/20' : 'bg-card/60 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+            className={`px-3.5 py-3 rounded-xl border transition-all flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500/60 text-white shadow-md shadow-purple-500/20' : 'bg-card/70 backdrop-blur-sm border-border/80 text-muted-foreground hover:text-foreground hover:border-border'}`}
           >
             <span className="text-sm">⚡</span>
           </button>
@@ -4417,7 +4430,7 @@ export default function Home() {
           <button
             onClick={() => setShowFilter(v => !v)}
             title={regions.length === 0 ? 'Filters — English-language search (no regional filter)' : regions.length === REGIONS.length ? 'Filters — Global (all regions)' : `Filters — searching: ${regions.map(code => REGIONS.find(r => r.code === code)?.label).join(', ')}`}
-            className={`px-3 py-2.5 rounded-lg border transition-all flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500/60 text-white shadow-md shadow-blue-500/20' : 'bg-card/60 border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+            className={`px-3.5 py-3 rounded-xl border transition-all flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500/60 text-white shadow-md shadow-blue-500/20' : 'bg-card/70 backdrop-blur-sm border-border/80 text-muted-foreground hover:text-foreground hover:border-border'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
@@ -4434,73 +4447,55 @@ export default function Home() {
               </span>
             )}
           </button>
-          {/* Search button with mid-search awareness:
-              - idle:                   "Search"               (purple, enabled)
-              - loading, no new typing:  "Searching..."         (disabled, pulse)
-              - loading, user typed new: "Search again"         (re-enabled, amber pulse — clicking
-                                                                 cancels the in-flight via the version
-                                                                 counter and runs the new keyword)
-              The runSearch implementation already invalidates stale
-              results via searchVersion.current so racing requests are
-              safe — what was missing was the user-facing signal that
-              the button is reactive again. */}
+          {/* Search button — quiet mid-search awareness (toned down 2026-05-09).
+              Stays the same purple regardless of state. The only visual
+              signal is whether the loading "shimmer + spinner" treatment
+              is on:
+                - idle:                "Search" (clean, no shimmer)
+                - loading, same kw:    "Searching…" with spinner + shimmer (disabled)
+                - loading, new kw:     "Search" (no shimmer, no spinner, enabled)
+                                       — visually identical to idle, signaling the
+                                       button is reactive again. Click or Enter
+                                       cancels the in-flight via the version
+                                       counter and runs the new query. */}
           {(() => {
             const typedSinceSearch =
               loading && keyword.trim().toLowerCase() !== currentKeyword.trim().toLowerCase()
             const onOutreach = activeTab === 'outreach'
+            const showLoadingTreatment = loading && !typedSinceSearch
             return (
               <button
                 onClick={handleSearch}
-                disabled={(loading && !typedSinceSearch) || onOutreach}
+                disabled={showLoadingTreatment || onOutreach}
                 title={
                   onOutreach
                     ? 'On Outreach tab the search bar filters your list — switch to Results to search YouTube.'
                     : typedSinceSearch
-                    ? 'Click to cancel the in-flight search and start over with the new query.'
+                    ? 'Hit Enter or click to search this new query.'
                     : undefined
                 }
-                className={`relative px-6 py-2.5 rounded-lg font-semibold text-white shadow-md transition-all overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed ${
-                  typedSinceSearch
-                    ? 'bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-500/30 hover:shadow-lg hover:shadow-amber-500/40 ring-2 ring-amber-300/40'
-                    : 'bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30'
-                }`}
+                className="relative bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-semibold text-white shadow-md shadow-purple-500/20 transition-all hover:shadow-lg hover:shadow-purple-500/30 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-2">
-                  {loading && !typedSinceSearch && (
+                  {showLoadingTreatment && (
                     <svg
                       className="w-3.5 h-3.5 animate-spin opacity-90"
                       fill="none"
                       viewBox="0 0 24 24"
                       aria-hidden
                     >
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        opacity="0.3"
-                      />
-                      <path
-                        d="M22 12a10 10 0 0 0-10-10"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
+                      <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                     </svg>
                   )}
-                  {loading && !typedSinceSearch
-                    ? 'Searching…'
-                    : typedSinceSearch
-                    ? 'Search again ↻'
-                    : 'Search'}
+                  {showLoadingTreatment ? 'Searching…' : 'Search'}
                 </span>
-                <span
-                  className={`absolute inset-0 rounded-lg pointer-events-none ${
-                    typedSinceSearch ? 'animate-pulse bg-amber-300/10' : 'shimmer-bg'
-                  }`}
-                  aria-hidden
-                />
+                {/* Shimmer only during pure loading — vanishes the
+                    moment the user types something new. The lack of
+                    shimmer IS the cue that the button is reactive. */}
+                {showLoadingTreatment && (
+                  <span className="absolute inset-0 shimmer-bg rounded-xl pointer-events-none" aria-hidden />
+                )}
               </button>
             )
           })()}
@@ -4509,7 +4504,7 @@ export default function Home() {
               onClick={() => setShowExport(v => !v)}
               disabled={activeTab === 'outreach' ? outreach.length === 0 : activeTab === 'dismissed' ? true : currentList.length === 0}
               title="Export"
-              className="bg-gradient-to-br from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed px-3 py-2.5 rounded-lg flex items-center text-white shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
+              className="bg-gradient-to-br from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed px-3.5 py-3 rounded-xl flex items-center text-white shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -4535,6 +4530,7 @@ export default function Home() {
               </div>
             )}
           </div>
+        </div>
         </div>
 
         {/* Filter panel — hidden by default */}
