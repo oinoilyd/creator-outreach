@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   getEnrichmentStats,
   listEnrichmentLatest,
+  checkEnrichmentHealth,
   type EnrichmentLatest,
 } from '@/lib/creator-enrichment'
 import { cacheReadCounterRange } from '@/lib/cache'
@@ -40,7 +41,8 @@ export default async function AdminContactsPage({
   const limit = 50
   const offset = (page - 1) * limit
 
-  const [stats, listing, l1Hits24h, l2Hits24h, missCold24h, missStale24h] = await Promise.all([
+  const [health, stats, listing, l1Hits24h, l2Hits24h, missCold24h, missStale24h] = await Promise.all([
+    checkEnrichmentHealth(),
     getEnrichmentStats(),
     listEnrichmentLatest({ search: q || undefined, source: src || undefined, limit, offset }),
     cacheReadCounterRange('enrich:hit:l1', 1),
@@ -90,6 +92,55 @@ export default async function AdminContactsPage({
             </Link>
           </div>
         </div>
+
+        {/* HEALTH BANNER — surfaces the most common failure modes
+            (migration not run, service-role missing) loudly so they
+            don't cause silent zero-rows behavior. */}
+        {!health.ok && (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 mb-6 flex items-start gap-3">
+            <span className="mt-0.5 text-xl" aria-hidden>⚠️</span>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-red-300 mb-1">
+                Cache is broken — writes are failing silently
+              </div>
+              <div className="text-sm text-red-200/90 leading-relaxed mb-2">{health.error}</div>
+              {!health.tableExists && health.serviceRoleConfigured && (
+                <div className="text-xs text-red-200/70 mt-2">
+                  Fix:&nbsp;
+                  <span className="font-mono text-red-100">
+                    Supabase dashboard → SQL editor → paste contents of{' '}
+                    <code className="px-1 py-0.5 rounded bg-red-500/20">supabase/migrations/0011_creator_enrichment.sql</code>{' '}
+                    → run.
+                  </span>
+                </div>
+              )}
+              {!health.serviceRoleConfigured && (
+                <div className="text-xs text-red-200/70 mt-2">
+                  Fix:&nbsp;
+                  <span className="font-mono text-red-100">
+                    Vercel project → settings → environment variables → add{' '}
+                    <code className="px-1 py-0.5 rounded bg-red-500/20">SUPABASE_SERVICE_ROLE_KEY</code>{' '}
+                    → redeploy.
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {health.ok && health.rowCount === 0 && (
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 mb-6 flex items-start gap-3">
+            <span className="mt-0.5 text-xl" aria-hidden>ℹ️</span>
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-yellow-200 mb-1">
+                Cache is healthy but empty
+              </div>
+              <div className="text-xs text-yellow-200/75 leading-relaxed">
+                Table exists, service role configured, just no rows yet. Run a bulk-seed batch or
+                do a few searches in the app to start populating.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CORPUS STATS */}
         <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">Corpus</div>

@@ -43,6 +43,8 @@ type AggResult = {
   totalChunks: number
 }
 
+type QueryState = 'pending' | 'running' | 'done' | 'error'
+
 /**
  * Chunk size for client-side batching. The Vercel function timeout
  * is ~60s on hobby tier. With concurrency=2 and ~5–8s per query,
@@ -58,6 +60,8 @@ export function SeedClient() {
   const [concurrency, setConcurrency] = useState<number>(2)
   const [maxResults, setMaxResults] = useState<number>(15)
   const [region, setRegion] = useState<string>('') // '' = global / no targeting
+  const [queryStatus, setQueryStatus] = useState<Record<string, QueryState>>({})
+  const [currentStage, setCurrentStage] = useState<string>('idle')
   const [running, setRunning] = useState<boolean>(false)
   const [result, setResult] = useState<AggResult | null>(null)
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null)
@@ -71,6 +75,8 @@ export function SeedClient() {
     setRunning(true)
     setResult(null)
     setProgress(null)
+    setQueryStatus({})
+    setCurrentStage('preparing')
 
     // Chunk the query list. Each chunk = one POST = one function
     // invocation = its own 60s timeout window. This is the fix
@@ -79,6 +85,12 @@ export function SeedClient() {
     for (let i = 0; i < queryList.length; i += CHUNK_SIZE) {
       chunks.push(queryList.slice(i, i + CHUNK_SIZE))
     }
+
+    // Initial query-status map: every query is 'pending' until its
+    // chunk runs.
+    const initialStatus: Record<string, QueryState> = {}
+    queryList.forEach(q => { initialStatus[q] = 'pending' })
+    setQueryStatus(initialStatus)
 
     const agg: AggResult = {
       totalQueries: queryList.length,
@@ -91,11 +103,20 @@ export function SeedClient() {
       lastChunkDone: 0,
       totalChunks: chunks.length,
     }
-    const seenChannels = new Set<string>()
     const t0 = Date.now()
 
     for (let ci = 0; ci < chunks.length; ci++) {
       setProgress({ current: ci, total: chunks.length })
+      setCurrentStage(enrich ? `searching + enriching · chunk ${ci + 1}/${chunks.length}` : `searching · chunk ${ci + 1}/${chunks.length}`)
+      // Mark every query in this chunk as "running" — we don't get
+      // per-query updates from the server (single POST per chunk),
+      // but flagging them as in-flight makes the UI feel alive.
+      setQueryStatus(prev => {
+        const next = { ...prev }
+        chunks[ci].forEach(q => { next[q] = 'running' })
+        return next
+      })
+
       try {
         const res = await fetch('/api/admin/bulk-seed', {
           method: 'POST',
@@ -110,6 +131,11 @@ export function SeedClient() {
         })
         if (!res.ok) {
           agg.errors.push(`chunk ${ci + 1}/${chunks.length}: HTTP ${res.status}`)
+          setQueryStatus(prev => {
+            const next = { ...prev }
+            chunks[ci].forEach(q => { next[q] = 'error' })
+            return next
+          })
         } else {
           // Defensive parse — server SHOULD return JSON but timeouts
           // can produce HTML error pages.
@@ -119,17 +145,25 @@ export function SeedClient() {
             j = JSON.parse(text)
           } catch {
             agg.errors.push(`chunk ${ci + 1}/${chunks.length}: non-JSON response (${text.slice(0, 60)})`)
+            setQueryStatus(prev => {
+              const next = { ...prev }
+              chunks[ci].forEach(q => { next[q] = 'error' })
+              return next
+            })
             continue
           }
           if (j.error) {
             agg.errors.push(`chunk ${ci + 1}/${chunks.length}: ${j.error}`)
+            setQueryStatus(prev => {
+              const next = { ...prev }
+              chunks[ci].forEach(q => { next[q] = 'error' })
+              return next
+            })
           } else {
             agg.queriesRun += j.queriesRun ?? 0
             agg.channelsSeen += j.channelsSeen ?? 0
             agg.enrichesAttempted += j.enrichesAttempted ?? 0
             if (j.uniqueChannels) {
-              // We can't perfectly de-dupe without channel IDs — best-effort
-              // by aggregating the per-chunk uniques; small over-count is OK.
               agg.uniqueChannels += j.uniqueChannels
             }
             if (j.errors?.length) {
@@ -140,20 +174,28 @@ export function SeedClient() {
                 `chunk ${ci + 1} hit soft timeout — ${j.queriesRemaining ?? 0} queries skipped`,
               )
             }
+            // Mark queries in this chunk done.
+            setQueryStatus(prev => {
+              const next = { ...prev }
+              chunks[ci].forEach(q => { next[q] = 'done' })
+              return next
+            })
           }
         }
       } catch (e: any) {
         agg.errors.push(`chunk ${ci + 1}/${chunks.length}: ${e?.message || String(e)}`)
+        setQueryStatus(prev => {
+          const next = { ...prev }
+          chunks[ci].forEach(q => { next[q] = 'error' })
+          return next
+        })
       }
       agg.lastChunkDone = ci + 1
       agg.elapsedMs = Date.now() - t0
       setResult({ ...agg })
-      // De-dup: best effort approximation using set tracking on
-      // returned data (we don't have channelIds in the response,
-      // so just trust per-chunk uniques for now).
-      void seenChannels
     }
 
+    setCurrentStage('done')
     setProgress({ current: chunks.length, total: chunks.length })
     setRunning(false)
   }
@@ -288,24 +330,74 @@ export function SeedClient() {
             : `Run ${queryList.length} ${queryList.length === 1 ? 'query' : 'queries'}`}
         </button>
         {running && (
-          <div className="text-xs text-gray-400 flex items-center gap-2">
+          <div className="text-xs text-orange-300 font-mono flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-            Chunked into {Math.ceil(queryList.length / CHUNK_SIZE)}{' '}
-            {Math.ceil(queryList.length / CHUNK_SIZE) === 1 ? 'request' : 'requests'} of ≤{CHUNK_SIZE} queries
-            each — bypasses Vercel&apos;s 60s function timeout.
-          </div>
-        )}
-        {progress && progress.total > 1 && (
-          <div className="w-full max-w-[400px]">
-            <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden">
-              <div
-                className="h-full bg-orange-500 transition-all duration-300"
-                style={{ width: `${(progress.current / progress.total) * 100}%` }}
-              />
-            </div>
+            {currentStage}
           </div>
         )}
       </div>
+
+      {/* PROGRESS BAR + COUNTS */}
+      {(running || result) && (
+        <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-2">
+            <span>Live progress</span>
+            <span className="font-mono normal-case tracking-normal text-gray-400">
+              {Object.values(queryStatus).filter(s => s === 'done').length} / {queryList.length} done
+              {Object.values(queryStatus).filter(s => s === 'error').length > 0 &&
+                ` · ${Object.values(queryStatus).filter(s => s === 'error').length} error`}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-gray-800 overflow-hidden mb-4">
+            <div
+              className="h-full bg-orange-500 transition-all duration-500"
+              style={{
+                width: `${
+                  queryList.length === 0
+                    ? 0
+                    : (Object.values(queryStatus).filter(s => s === 'done' || s === 'error').length / queryList.length) * 100
+                }%`,
+              }}
+            />
+          </div>
+
+          {/* PER-QUERY CHECKLIST — shows every query in a compact grid
+              with a state indicator. The checklist is the answer to
+              "what is it actually doing right now?" */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 max-h-72 overflow-y-auto pr-1">
+            {queryList.map(q => {
+              const state = queryStatus[q] ?? 'pending'
+              return (
+                <div key={q} className="flex items-center gap-2 text-[12px] font-mono py-0.5">
+                  <StateIcon state={state} />
+                  <span
+                    className={
+                      state === 'done'
+                        ? 'text-emerald-300'
+                        : state === 'running'
+                        ? 'text-orange-300'
+                        : state === 'error'
+                        ? 'text-red-400'
+                        : 'text-gray-500'
+                    }
+                  >
+                    {q}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-3 text-[11px] text-gray-500 leading-relaxed">
+            Chunked into {Math.ceil(queryList.length / CHUNK_SIZE)}{' '}
+            {Math.ceil(queryList.length / CHUNK_SIZE) === 1 ? 'request' : 'requests'} of ≤{CHUNK_SIZE} queries each.
+            Each chunk runs server-side with concurrency={concurrency} — when a chunk finishes, all
+            its queries flip from <span className="text-orange-300">running</span> to{' '}
+            <span className="text-emerald-300">done</span>.
+            {enrich && ' Enrichment runs after the search phase per chunk (~10s per channel).'}
+          </div>
+        </section>
+      )}
 
       {/* RESULTS */}
       {result && (
@@ -353,5 +445,51 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
       <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-1">{label}</div>
       <div className={`text-lg font-semibold tabular-nums ${accent ? 'text-orange-400' : 'text-white'}`}>{value}</div>
     </div>
+  )
+}
+
+function StateIcon({ state }: { state: QueryState }) {
+  if (state === 'done') {
+    return (
+      <span aria-hidden className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="5 12 10 17 19 7" />
+        </svg>
+      </span>
+    )
+  }
+  if (state === 'running') {
+    return (
+      <span
+        aria-hidden
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-orange-500/20 text-orange-300 shrink-0"
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+          <line x1="12" y1="2" x2="12" y2="6" />
+          <line x1="12" y1="18" x2="12" y2="22" />
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+          <line x1="2" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="22" y2="12" />
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+        </svg>
+      </span>
+    )
+  }
+  if (state === 'error') {
+    return (
+      <span aria-hidden className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-red-500/20 text-red-400 shrink-0">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </span>
+    )
+  }
+  return (
+    <span aria-hidden className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-800 shrink-0">
+      <span className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+    </span>
   )
 }

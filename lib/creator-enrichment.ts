@@ -278,6 +278,66 @@ export async function listEnrichmentLatest({
 }
 
 /**
+ * Health check — does the creator_enrichment table exist + can the
+ * service-role client write to it? Used by /admin/contacts to
+ * surface a clear error banner when migration 0011 hasn't been
+ * run yet (instead of silently writing nothing and leaving Dylan
+ * wondering where his rows went).
+ */
+export async function checkEnrichmentHealth(): Promise<{
+  ok: boolean
+  tableExists: boolean
+  serviceRoleConfigured: boolean
+  error: string | null
+  /** Total row count (only meaningful when ok=true). */
+  rowCount: number | null
+}> {
+  const sb = getServiceClient()
+  if (!sb) {
+    return {
+      ok: false,
+      tableExists: false,
+      serviceRoleConfigured: false,
+      error: 'SUPABASE_SERVICE_ROLE_KEY not configured — required to write to the cache. Set it in Vercel envs.',
+      rowCount: null,
+    }
+  }
+  try {
+    const { count, error } = await sb
+      .from('creator_enrichment')
+      .select('id', { count: 'exact', head: true })
+    if (error) {
+      const msg = error.message || ''
+      const tableMissing = /relation .* does not exist|table .* (not found|does not exist)/i.test(msg)
+      return {
+        ok: false,
+        tableExists: !tableMissing,
+        serviceRoleConfigured: true,
+        error: tableMissing
+          ? "Table creator_enrichment doesn't exist. Run migration 0011_creator_enrichment.sql in Supabase SQL editor."
+          : msg,
+        rowCount: null,
+      }
+    }
+    return {
+      ok: true,
+      tableExists: true,
+      serviceRoleConfigured: true,
+      error: null,
+      rowCount: count ?? 0,
+    }
+  } catch (e: any) {
+    return {
+      ok: false,
+      tableExists: false,
+      serviceRoleConfigured: true,
+      error: `Health check threw: ${e?.message || e}`,
+      rowCount: null,
+    }
+  }
+}
+
+/**
  * Aggregate stats for the admin dashboard header card.
  */
 export async function getEnrichmentStats(): Promise<{
