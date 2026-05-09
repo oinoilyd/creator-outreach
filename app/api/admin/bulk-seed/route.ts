@@ -52,7 +52,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
   }
 
-  let body: { queries?: string[]; enrich?: boolean; concurrency?: number; maxResults?: number } = {}
+  let body: {
+    queries?: string[]
+    enrich?: boolean
+    concurrency?: number
+    maxResults?: number
+    region?: string
+  } = {}
   try {
     body = await req.json()
   } catch {
@@ -69,6 +75,13 @@ export async function POST(req: NextRequest) {
   }
 
   const enrich = !!body.enrich
+
+  // Region passed through to /api/search via ?gl=. Empty string = no
+  // region targeting (default global YouTube). Sanity-checked
+  // against the alphanumeric ISO-3166 shape the search route
+  // expects; anything else gets dropped silently.
+  const regionRaw = (body.region || '').trim().toUpperCase()
+  const region = /^[A-Z]{2}$/.test(regionRaw) ? regionRaw : ''
   // Lower defaults than before — bulk runs were hitting Vercel's
   // 60s timeout. Concurrency 2 + maxResults 15 gives us headroom
   // to process ~5–8 queries per call before timeout. Client now
@@ -113,6 +126,7 @@ export async function POST(req: NextRequest) {
       // search-results cache. Otherwise re-runs of the same preset
       // would just re-return the same channels.
       url.searchParams.set('fresh', 'true')
+      if (region) url.searchParams.set('gl', region)
       const res = await fetch(url.toString(), {
         method: 'GET',
         headers: { cookie: req.headers.get('cookie') || '' },

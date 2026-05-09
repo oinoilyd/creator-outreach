@@ -3,6 +3,7 @@
 import { useState } from 'react'
 
 import { NICHE_BUCKETS } from '@/lib/format'
+import { REGIONS } from '@/lib/regions'
 
 /**
  * Presets are now sourced from the actual NICHE_BUCKETS in
@@ -56,6 +57,7 @@ export function SeedClient() {
   const [enrich, setEnrich] = useState<boolean>(false)
   const [concurrency, setConcurrency] = useState<number>(2)
   const [maxResults, setMaxResults] = useState<number>(15)
+  const [region, setRegion] = useState<string>('') // '' = global / no targeting
   const [running, setRunning] = useState<boolean>(false)
   const [result, setResult] = useState<AggResult | null>(null)
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null)
@@ -103,6 +105,7 @@ export function SeedClient() {
             enrich,
             concurrency,
             maxResults,
+            region,
           }),
         })
         if (!res.ok) {
@@ -204,7 +207,7 @@ export function SeedClient() {
         <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-bold mb-3">
           Run options
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <label className="flex items-start gap-2.5 cursor-pointer">
             <input
               type="checkbox"
@@ -220,6 +223,27 @@ export function SeedClient() {
               </div>
             </div>
           </label>
+          <label className="block">
+            <div className="text-sm font-semibold text-white mb-1.5">Region · YouTube gl</div>
+            <select
+              value={region}
+              onChange={e => setRegion(e.target.value)}
+              disabled={running}
+              className="w-full px-3 py-2 rounded-md bg-gray-950 border border-gray-800 text-sm font-mono text-gray-200 focus:outline-none focus:border-gray-600"
+            >
+              <option value="">Global · no region targeting</option>
+              {REGIONS.map(r => (
+                <option key={r.code} value={r.code}>
+                  {r.flag} {r.label} ({r.code})
+                </option>
+              ))}
+            </select>
+            <div className="text-xs text-gray-500 mt-1">
+              Targets YouTube&apos;s region-aware search. Localizes to the country&apos;s creator pool — useful for non-US niches.
+            </div>
+          </label>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
             <div className="text-sm font-semibold text-white mb-1.5">Concurrency</div>
             <input

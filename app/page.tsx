@@ -162,6 +162,38 @@ function copyLinkedInMessage(channelName: string) {
   )
 }
 
+/**
+ * Mark a creator's email as bounced/bad in the durable contacts
+ * cache. Fire-and-forget — we don't block the UI on the round-trip.
+ * Posts to /api/contacts/mark-bounced which inserts a new
+ * creator_enrichment snapshot with email_bounced=true. That row
+ * then forces a fresh re-fetch the next time anyone enriches this
+ * channel, so we never serve the bad email again.
+ */
+async function markEmailBounced(channelId: string, email: string, channelName: string): Promise<void> {
+  if (!channelId) {
+    toast.error('No channel ID — can\'t mark this email')
+    return
+  }
+  try {
+    const res = await fetch('/api/contacts/mark-bounced', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ channelId, email }),
+    })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({} as { error?: string }))
+      toast.error(`Couldn't mark email — ${j.error || `HTTP ${res.status}`}`)
+      return
+    }
+    toast.success(`${channelName || 'Email'} marked bad`, {
+      description: 'Cache cleared — next enrichment will re-fetch from scratch.',
+    })
+  } catch (e: any) {
+    toast.error(`Couldn't mark email — ${e?.message || e}`)
+  }
+}
+
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
   const [guidanceView, setGuidanceView] = useState(false)
@@ -692,7 +724,37 @@ function renderOutreachCell(
     case 'email':
       return (
         <div className="flex flex-col gap-1">
-          {e.email && <a href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)} target="_blank" rel="noopener noreferrer" className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all">{e.email}</a>}
+          {e.email && (
+            <div className="flex items-start gap-1.5">
+              <a
+                href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all flex-1"
+              >
+                {e.email}
+              </a>
+              {/* Mark email bad — flips creator_enrichment.email_bounced
+                  so the cache forces a re-fetch next time. Confirms before
+                  firing so we don\\'t flag good emails on a fat-finger. */}
+              <button
+                type="button"
+                title="Mark email bad — clears it from the cache so the next enrichment runs fresh"
+                onClick={() => {
+                  if (!confirm(`Mark ${e.email} as bad?\n\nThe cache will clear and next enrichment will re-fetch from scratch.`)) return
+                  void markEmailBounced(e.channelId, e.email, e.channelName)
+                }}
+                className="shrink-0 mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                aria-label="Mark email bad"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 7l1 13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-13" />
+                  <path d="M8 7V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
+                  <line x1="3" y1="7" x2="21" y2="7" />
+                </svg>
+              </button>
+            </div>
+          )}
           <AutoTextarea value={e.email} onChange={v => onUpdate(e.id, 'email', v)} placeholder="Add email..." className={e.email ? 'text-muted-foreground/70' : 'text-muted-foreground'} />
           {!e.email && (
             <button
