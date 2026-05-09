@@ -19,10 +19,10 @@ export function PlatformDropdown({ activePlatform, onChange }: { activePlatform:
   }, [open])
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={ref} className="relative inline-flex">
       <button
         onClick={() => setOpen(v => !v)}
-        className="inline-flex items-center gap-1.5 text-foreground font-semibold hover:text-foreground transition-colors group"
+        className="inline-flex items-center gap-1.5 h-7 leading-none text-foreground font-semibold hover:text-foreground transition-colors group"
       >
         <PlatformIcon id={activePlatform} className="w-4 h-4" />
         <span>{active.label}</span>

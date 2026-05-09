@@ -2738,7 +2738,13 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                         {!isLocked && <span className="text-muted-foreground/70 text-xs">⠿</span>}
                         {col.label}
                         {col.id === 'status' && (
-                          <span ref={statusTooltipRef} className="relative inline-flex ml-1" data-no-sort>
+                          <span
+                            ref={statusTooltipRef}
+                            className="relative inline-flex ml-1"
+                            data-no-sort
+                            onMouseEnter={() => setShowStatusTooltip(true)}
+                            onMouseLeave={() => setShowStatusTooltip(false)}
+                          >
                             <button
                               type="button"
                               data-no-sort
@@ -2748,7 +2754,7 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                               onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowStatusTooltip(v => !v) }}
                               className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-purple-500/40 text-purple-700 dark:text-purple-400 text-[10px] font-bold hover:bg-purple-500/15 transition-colors leading-none"
                               aria-label="What does Status do?"
-                              title="Status info"
+                              title="Status info — hover or click to see"
                             >i</button>
                             {showStatusTooltip && (
                               <div className="absolute left-0 top-6 z-30 w-80 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal space-y-2">
@@ -2938,6 +2944,19 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
     x: number
     y: number
   } | null>(null)
+  // Fit Score column-header info popover (hover OR click). Same
+  // pattern as OutreachTab's status tooltip.
+  const [showFitScoreTooltip, setShowFitScoreTooltip] = useState(false)
+  const fitScoreTooltipRef = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    function onClick(ev: MouseEvent) {
+      if (fitScoreTooltipRef.current && !fitScoreTooltipRef.current.contains(ev.target as Node)) {
+        setShowFitScoreTooltip(false)
+      }
+    }
+    if (showFitScoreTooltip) document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [showFitScoreTooltip])
 
   function handleColDrop(targetIdx: number) {
     const from = dragIdx.current
@@ -2995,6 +3014,48 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                   <span className="mr-1 text-muted-foreground/70 text-xs">⠿</span>
                   {col.label}
                   {sc && <SortIndicator col={sc} sorts={sorts} />}
+                  {col.id === 'fitScore' && (
+                    <span
+                      ref={fitScoreTooltipRef}
+                      className="relative inline-flex ml-1.5 align-middle"
+                      onMouseEnter={() => setShowFitScoreTooltip(true)}
+                      onMouseLeave={() => setShowFitScoreTooltip(false)}
+                    >
+                      <button
+                        type="button"
+                        draggable={false}
+                        onDragStart={(ev) => ev.preventDefault()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          setShowFitScoreTooltip(v => !v)
+                        }}
+                        className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-purple-500/40 text-purple-700 dark:text-purple-400 text-[10px] font-bold hover:bg-purple-500/15 transition-colors leading-none"
+                        aria-label="What is Fit Score?"
+                        title="Fit score info — hover or click"
+                      >i</button>
+                      {showFitScoreTooltip && (
+                        <div className="absolute left-0 top-6 z-30 w-80 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal space-y-2">
+                          <div>
+                            <strong className="text-foreground">Fit Score (0–100)</strong> is a single number representing how well a creator matches your ideal-lead criteria. Higher = better fit.
+                          </div>
+                          <div className="text-muted-foreground">
+                            Computed from a weighted blend of:
+                          </div>
+                          <ul className="space-y-1 ml-1 text-muted-foreground">
+                            <li>• <span className="text-foreground/90">Audience signals</span> — subscribers, average views, recency of last upload.</li>
+                            <li>• <span className="text-foreground/90">Reachability</span> — has email, has socials (IG / LinkedIn / etc).</li>
+                            <li>• <span className="text-foreground/90">Niche match</span> — keyword overlap between channel name / titles and your search terms.</li>
+                            <li>• <span className="text-foreground/90">Custom guidance</span> — anything you&apos;ve added in the <span className="text-purple-700 dark:text-purple-400">⚡ Lead Criteria</span> panel (e.g. &quot;prefer creators in the US&quot;).</li>
+                          </ul>
+                          <div className="text-[11px] text-muted-foreground italic pt-1 border-t border-border">
+                            Tweak the weights anytime via the <span className="text-purple-700 dark:text-purple-400">⚡ Lead Criteria</span> button next to the search bar — every visible row re-scores live.
+                          </div>
+                        </div>
+                      )}
+                    </span>
+                  )}
                   {col.id === 'email' && (() => {
                     const pending = sorted.filter(c => !c.email && !c.enriching).length
                     if (pending === 0 && !bulkRunning) return null
@@ -4343,15 +4404,16 @@ export default function Home() {
               <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity">
                 <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent leading-none">Creator Outreach</h1>
               </Link>
-              {/* "Find [platform] creators" — items-center keeps the
-                  flex children vertically aligned. Removed the
-                  per-element leading-none overrides that were creating
-                  a half-pixel offset between the text spans (line-height
-                  0) and the dropdown button (line-height inherited from
-                  the icon). All elements now share normal line-height,
-                  flex centers them cleanly. */}
+              {/* "Find [platform] creators" — every child explicitly
+                  uses h-7 + flex items-center so they share the same
+                  vertical metrics. Earlier attempts with just
+                  items-center on the parent + various line-height
+                  combos produced a 1-2px offset because the icon
+                  inside the dropdown button has different intrinsic
+                  height (16px) than the surrounding text x-height.
+                  Locking everyone to 28px tall sidesteps the issue. */}
               <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
-                <span>Find</span>
+                <span className="inline-flex items-center h-7 leading-none">Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                   void savePlatformWeights(activePlatform, scoreWeights)
                   void savePlatformNarrative(activePlatform, scoreNarrative)
@@ -4362,7 +4424,7 @@ export default function Home() {
                   setGuidanceEntries(guidance)
                   setActivePlatform(newPlatform)
                 }} />
-                <span>creators</span>
+                <span className="inline-flex items-center h-7 leading-none">creators</span>
               </div>
             </div>
             <HamburgerMenu
@@ -4797,43 +4859,86 @@ export default function Home() {
             active={activeTab}
             onChange={setActiveTab}
           />
-          {/* Export — small icon-only button next to Customize. Opens
-              a popover with Excel / CSV options. Hooked to the active
-              tab automatically (Results → creators export, Outreach →
-              outreach export). Disabled state mirrors the active tab's
-              empty-data condition. Dismissed currently has no exporter
-              so the button is hidden on that tab. */}
+          {/* Settings — one icon-only button (gear) that combines
+              what used to be two separate buttons (Customize columns +
+              Export). Click → popover with both options. Hidden on
+              Dismissed (no customize, no export configured). The
+              gear icon alone is the universal "settings for this
+              view" affordance, so we don't need the "Customize"
+              text label anymore. */}
           {activeTab !== 'dismissed' && (
             <div className="ml-auto relative">
               <button
                 onClick={() => setShowExport(v => !v)}
-                disabled={activeTab === 'outreach' ? outreach.length === 0 : currentList.length === 0}
-                title="Export this list to Excel or CSV"
-                aria-label="Export"
-                className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 border border-border hover:border-emerald-500/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed mb-1"
+                title="View settings — customize columns or export this list"
+                aria-label="View settings"
+                className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border hover:border-border/80 transition-colors mb-1"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
               {showExport && (
-                <div className="absolute right-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-2xl shadow-black/30 z-30 overflow-hidden">
+                <div className="absolute right-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-2xl shadow-black/30 z-30 overflow-hidden">
+                  {/* Customize columns — only shown on Results
+                      (Outreach has its own customize entrypoint
+                      inside its sub-tab nav). */}
+                  {activeTab === 'results' && (
+                    <button
+                      onClick={() => {
+                        const draft = activePlatform === 'youtube'
+                          ? colConfig
+                          : colConfig.filter(c => !YOUTUBE_ONLY_COL_IDS.includes(c.id))
+                        setDraftCols(draft)
+                        setShowCustomize(true)
+                        setShowExport(false)
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-b border-border/60"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h13M3 12h13M3 18h7" />
+                      </svg>
+                      Customize columns
+                    </button>
+                  )}
+                  {/* Export — disabled when the active list is empty. */}
                   {activeTab === 'outreach' ? (
                     <>
-                      <button onClick={handleExportOutreachExcel} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors">
-                        <BarChart3 className="w-3.5 h-3.5" />Excel (.xlsx)
+                      <button
+                        onClick={handleExportOutreachExcel}
+                        disabled={outreach.length === 0}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        Export Excel
                       </button>
-                      <button onClick={handleExportOutreachCSV} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60">
-                        📄 CSV (Google Sheets)
+                      <button
+                        onClick={handleExportOutreachCSV}
+                        disabled={outreach.length === 0}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <span className="text-base leading-none">📄</span>
+                        Export CSV
                       </button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => handleExportExcel(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors">
-                        📊 Excel (.xlsx)
+                      <button
+                        onClick={() => handleExportExcel(currentList)}
+                        disabled={currentList.length === 0}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <span className="text-base leading-none">📊</span>
+                        Export Excel
                       </button>
-                      <button onClick={() => handleExportCSV(currentList)} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60">
-                        📄 CSV (Google Sheets)
+                      <button
+                        onClick={() => handleExportCSV(currentList)}
+                        disabled={currentList.length === 0}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <span className="text-base leading-none">📄</span>
+                        Export CSV
                       </button>
                     </>
                   )}
@@ -4841,22 +4946,12 @@ export default function Home() {
               )}
             </div>
           )}
-          <button
-            onClick={() => {
-              const draft = activePlatform === 'youtube'
-                ? colConfig
-                : colConfig.filter(c => !YOUTUBE_ONLY_COL_IDS.includes(c.id))
-              setDraftCols(draft)
-              setShowCustomize(true)
-            }}
-            className={`flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors mb-1 ${activeTab === 'outreach' || activeTab === 'dismissed' ? 'invisible' : ''}${activeTab === 'dismissed' ? ' ml-auto' : ''}`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Customize
-          </button>
+          {/* Old standalone Customize button removed (2026-05-09).
+              On Results tab, customize is now an entry inside the
+              Settings gear popover above. On Outreach the in-tab
+              "Customize columns" link in OutreachTab still works.
+              On Dismissed there's nothing to customize (fixed
+              schema). */}
         </div>
 
         {/* Customize drawer */}
