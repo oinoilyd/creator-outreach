@@ -66,6 +66,7 @@ function rowToOutreach(r: any): OutreachEntry {
     dealValue: r.deal_value ?? '',
     contractSent: !!r.contract_sent,
     meetingScheduled: r.meeting_scheduled ?? '',
+    trackingId: r.tracking_id ?? undefined,
   }
 }
 
@@ -104,6 +105,7 @@ function outreachToRow(e: OutreachEntry, uid: string) {
     contract_sent: e.contractSent,
     meeting_scheduled: e.meetingScheduled,
     added_at: e.addedAt,
+    tracking_id: e.trackingId ?? null,
   }
 }
 

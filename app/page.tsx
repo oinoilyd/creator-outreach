@@ -728,9 +728,22 @@ function renderOutreachCell(
           {e.email && (
             <div className="flex items-start gap-1.5">
               <a
-                href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile)}
+                href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile, e.trackingId)}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  // Phase 1 — click-to-track. Clicking the email link is a
+                  // strong signal that the user is sending the outreach
+                  // right now, so flip the entry to "Open" + record the
+                  // date. Idempotent — re-clicking a row that's already
+                  // "Open" / "Successful" doesn't downgrade status.
+                  const today = new Date().toISOString().slice(0, 10)
+                  if (!e.reachedOut) onUpdate(e.id, 'reachedOut', true)
+                  if (!e.dateReachedOut) onUpdate(e.id, 'dateReachedOut', today)
+                  if (e.status === 'Not Outreached' || e.status === '') {
+                    onUpdate(e.id, 'status', 'Open')
+                  }
+                }}
                 className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all flex-1"
               >
                 {e.email}
@@ -2736,6 +2749,10 @@ export default function Home() {
       headerUsed: '',
       status: 'Not Outreached',
       addedAt: Date.now(),
+      // Short opaque ID embedded in outbound email subjects so the
+      // inbound webhook can match replies. 8 chars of base36 ≈ 2.8e12
+      // possible values — collision-free at our scale.
+      trackingId: Math.random().toString(36).slice(2, 10),
       notes: '',
       followUpDate: '',
       dateReachedOut: '',

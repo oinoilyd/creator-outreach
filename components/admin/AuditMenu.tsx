@@ -24,6 +24,13 @@ type AuditItem = {
 
 const AUDIT_ITEMS: AuditItem[] = [
   {
+    href: '/admin/inbound-debug',
+    icon: '📬',
+    label: 'Inbound email debug',
+    description:
+      'Last 50 emails received at the SendGrid inbound webhook. Used to grab Gmail forwarding verification codes + diagnose missed reply detections.',
+  },
+  {
     href: '/admin/test-data',
     icon: '🧪',
     label: 'Test data',

@@ -354,7 +354,15 @@ export function applySubjectPlaceholders(
   return out
 }
 
-export function buildOutreachEmail(c: Creator, profile?: UserProfile | null): string {
+export function buildOutreachEmail(
+  c: Creator,
+  profile?: UserProfile | null,
+  /** Optional. When provided, gets appended to the subject as [CO-#{id}]
+   *  so the inbound-reply webhook can match a forwarded reply back to
+   *  this outreach entry. The Creator type doesn't carry trackingId
+   *  natively; the call site in app/page.tsx passes it through. */
+  trackingId?: string,
+): string {
   const recipientFirst = c.channelName.split(/[\s,|–-]/)[0]
 
   let contentRef = 'your content'
@@ -382,8 +390,15 @@ export function buildOutreachEmail(c: Creator, profile?: UserProfile | null): st
         content: contentRef.replace(/^"|"$/g, ''),
       })
     : ''
-  const subject = userSubject ||
+  const baseSubject = userSubject ||
     `loved ${contentRef.startsWith('"') ? contentRef : 'your content'} — quick question`
+  // Append the tracking tag at the end of the subject. Visible to the
+  // recipient (we don't try to hide it), matching the standard approach
+  // tools like Mixmax / HubSpot use. Reply preserves it via "Re:" prefix
+  // → Gmail filter forwards it → our webhook flips status.
+  const subject = trackingId
+    ? `${baseSubject} [CO-#${trackingId}]`
+    : baseSubject
 
   const lines: string[] = [
     `Hey ${recipientFirst},`,

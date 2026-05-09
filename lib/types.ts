@@ -125,6 +125,11 @@ export interface OutreachEntry {
   dealValue: string
   contractSent: boolean
   meetingScheduled: string
+  /** Short opaque ID embedded in outbound email subjects as [CO-#{id}].
+   *  Used by the inbound webhook (/api/inbound-email) to match a
+   *  forwarded reply back to the originating outreach entry. NULL for
+   *  legacy entries created before the tracking system was wired. */
+  trackingId?: string
 }
 
 export interface OutreachColDef {
