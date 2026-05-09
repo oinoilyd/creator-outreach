@@ -28,6 +28,7 @@ import { useInstagramMetrics, formatFollowers } from '@/lib/hooks/useInstagramMe
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
   pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount, buildOutreachEmail,
+  formatAddedAtRelative,
 } from '@/lib/format'
 import {
   DEFAULT_GUIDANCE_WEIGHT, GUIDANCE_PRESETS,
@@ -817,6 +818,19 @@ function renderOutreachCell(
       const { label, color } = fitScoreMeta(e.fitScore || 0)
       return <span className={`text-xs font-bold ${color}`}>{e.fitScore || 0} <span className="font-normal opacity-70">{label}</span></span>
     }
+    case 'addedAt':
+      // Relative time ("3m ago", "2h ago", "5d ago"), with the full
+      // local timestamp on hover. Empty addedAt (legacy rows) shows
+      // an em-dash so sorting still pushes them to the bottom.
+      return e.addedAt ? (
+        <span
+          className="text-xs text-muted-foreground tabular-nums"
+          title={new Date(e.addedAt).toLocaleString()}
+        >
+          {formatAddedAtRelative(e.addedAt)}
+        </span>
+      ) : <span className="text-muted-foreground/50">—</span>
+
     case 'linkedin':
       // Click LinkedIn → opens profile + copies templated message.
       // Same pattern as Instagram (LinkedIn has no DM deep-link).
@@ -1870,6 +1884,28 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const [sort, setSort] = useState<{ col: keyof OutreachEntry | null; dir: 'asc' | 'desc' }>({ col: null, dir: 'desc' })
+
+  // Recently-added pin (added 2026-05-09):
+  // When a new entry shows up in `entries` that wasn't there before,
+  // its id is pinned to the top of the rendered list — overriding
+  // whatever sort is active — until the user explicitly clicks a
+  // column header to re-sort. The pin is purely visual; the entry's
+  // underlying addedAt timestamp is what drives ordering once the
+  // pin is cleared.
+  const prevEntryIdsRef = useRef<Set<string>>(new Set(entries.map(e => e.id)))
+  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    const currentIds = new Set(entries.map(e => e.id))
+    const prevIds = prevEntryIdsRef.current
+    const additions: string[] = []
+    for (const id of currentIds) {
+      if (!prevIds.has(id)) additions.push(id)
+    }
+    if (additions.length > 0) {
+      setRecentlyAddedIds(s => new Set([...s, ...additions]))
+    }
+    prevEntryIdsRef.current = currentIds
+  }, [entries])
   const [showFavTooltip, setShowFavTooltip] = useState(false)
   const favTooltipRef = useRef<HTMLDivElement>(null)
   const [showStatusTooltip, setShowStatusTooltip] = useState(false)
@@ -1915,33 +1951,55 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
   const totalWidth = visibleCols.reduce((sum, c) => sum + (widths[c.id as string] ?? c.defaultWidth), 0) + 36
 
   // Sort entries by the active column. Empty values always go to the bottom.
+  // After sorting, recently-added rows are hoisted to the top in the order
+  // they were added (regardless of the active sort) — see prevEntryIdsRef
+  // useEffect above. The hoist is cleared whenever the user clicks a
+  // column header.
   const sortedEntries = (() => {
-    if (!sort.col) return entries
-    const col = sort.col
-    const dir = sort.dir === 'asc' ? 1 : -1
-    const numericCols: (keyof OutreachEntry)[] = ['avgViews', 'fitScore', 'addedAt', 'touchpoints']
-    return [...entries].sort((a, b) => {
-      const va = a[col]
-      const vb = b[col]
-      const aEmpty = va == null || va === '' || va === false
-      const bEmpty = vb == null || vb === '' || vb === false
-      if (aEmpty && bEmpty) return 0
-      if (aEmpty) return 1
-      if (bEmpty) return -1
-      if (typeof va === 'boolean' || typeof vb === 'boolean') {
-        return (Number(vb) - Number(va)) * dir
-      }
-      if (numericCols.includes(col) || (!isNaN(Number(va)) && !isNaN(Number(vb)) && va !== '' && vb !== '')) {
-        const na = typeof va === 'number' ? va : parseFloat(String(va).replace(/[^0-9.\-]/g, '')) || 0
-        const nb = typeof vb === 'number' ? vb : parseFloat(String(vb).replace(/[^0-9.\-]/g, '')) || 0
-        return (na - nb) * dir
-      }
-      return String(va).localeCompare(String(vb)) * dir
-    })
+    let result: OutreachEntry[]
+    if (!sort.col) {
+      result = entries
+    } else {
+      const col = sort.col
+      const dir = sort.dir === 'asc' ? 1 : -1
+      const numericCols: (keyof OutreachEntry)[] = ['avgViews', 'fitScore', 'addedAt', 'touchpoints']
+      result = [...entries].sort((a, b) => {
+        const va = a[col]
+        const vb = b[col]
+        const aEmpty = va == null || va === '' || va === false
+        const bEmpty = vb == null || vb === '' || vb === false
+        if (aEmpty && bEmpty) return 0
+        if (aEmpty) return 1
+        if (bEmpty) return -1
+        if (typeof va === 'boolean' || typeof vb === 'boolean') {
+          return (Number(vb) - Number(va)) * dir
+        }
+        if (numericCols.includes(col) || (!isNaN(Number(va)) && !isNaN(Number(vb)) && va !== '' && vb !== '')) {
+          const na = typeof va === 'number' ? va : parseFloat(String(va).replace(/[^0-9.\-]/g, '')) || 0
+          const nb = typeof vb === 'number' ? vb : parseFloat(String(vb).replace(/[^0-9.\-]/g, '')) || 0
+          return (na - nb) * dir
+        }
+        return String(va).localeCompare(String(vb)) * dir
+      })
+    }
+    // Hoist any recently-added rows. Within the pinned group, sort by
+    // addedAt desc so the most recent is at the very top.
+    if (recentlyAddedIds.size > 0) {
+      const pinned = result
+        .filter(e => recentlyAddedIds.has(e.id))
+        .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
+      const rest = result.filter(e => !recentlyAddedIds.has(e.id))
+      return [...pinned, ...rest]
+    }
+    return result
   })()
 
   function handleHeaderClick(colId: keyof OutreachEntry) {
     if (colId === 'favorite') return // Favorite header is the click-tooltip
+    // Clearing the pin here is the "until refiltering happens" half of
+    // the recently-added behavior. Once the user expresses a sort
+    // intent, recently-added rows fall back into normal sort order.
+    if (recentlyAddedIds.size > 0) setRecentlyAddedIds(new Set())
     setSort(prev => {
       if (prev.col !== colId) return { col: colId, dir: 'desc' } // first click
       if (prev.dir === 'desc') return { col: colId, dir: 'asc' } // second click → asc
@@ -2117,8 +2175,18 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
             more "operator dashboard" less "marketing card grid."
           */}
           <tbody className="divide-y divide-border">
-            {sortedEntries.map((e, i) => (
-              <AnimatedRow key={e.id} index={i} className="transition-colors hover:bg-card/40">
+            {sortedEntries.map((e, i) => {
+              // Subtle highlight for newly-added rows so the user can
+              // spot which rows just got pinned. Goes away when the
+              // user clicks any column header (pin clears) or after
+              // the row is no longer in recentlyAddedIds.
+              const isJustAdded = recentlyAddedIds.has(e.id)
+              return (
+              <AnimatedRow
+                key={e.id}
+                index={i}
+                className={`transition-colors hover:bg-card/40 ${isJustAdded ? 'bg-purple-500/10 dark:bg-purple-500/15' : ''}`}
+              >
                 {visibleCols.map(col => (
                   <td key={col.id as string} className="px-3 py-2 align-top" style={{ width: widths[col.id as string] ?? col.defaultWidth }}>
                     {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
@@ -2141,7 +2209,8 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                   </div>
                 </td>
               </AnimatedRow>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

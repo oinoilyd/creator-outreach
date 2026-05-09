@@ -249,6 +249,38 @@ export const NICHE_BUCKETS: { id: string; label: string; emoji: string; occupati
   },
 ]
 
+/**
+ * Format an epoch-ms timestamp as a compact relative string for the
+ * Outreach board's "Added" column.
+ *
+ * Examples: "just now", "3m ago", "2h ago", "5d ago", "Mar 14".
+ *
+ * Beyond 30 days we switch to a calendar date so weeks-old entries
+ * don't show as "47d ago" (harder to scan than "Mar 14").
+ */
+export function formatAddedAtRelative(epochMs: number): string {
+  if (!epochMs || !Number.isFinite(epochMs)) return ''
+  const diffMs = Date.now() - epochMs
+  if (diffMs < 0) return 'just now' // clock skew defensive
+  const s = Math.floor(diffMs / 1000)
+  if (s < 30) return 'just now'
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 30) return `${d}d ago`
+  // > 30 days — show calendar date instead. Year shown only if not
+  // current year so the column stays narrow.
+  const date = new Date(epochMs)
+  const now = new Date()
+  const sameYear = date.getFullYear() === now.getFullYear()
+  return date.toLocaleDateString(undefined, sameYear
+    ? { month: 'short', day: 'numeric' }
+    : { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 export function pickRandom(arr: string[], n: number): string[] {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
 }
