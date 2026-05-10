@@ -1,10 +1,17 @@
 import type { Creator, GuidanceRule, GuidanceEntry, GuidancePreset } from './types'
-import { parseRelativeDays } from './format'
+import { parseRelativeDays, parseSubscriberCount } from './format'
 
 export const DEFAULT_GUIDANCE_WEIGHT = 10 // default pts weight for each new criterion
 
 export function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
-  const subs = Number(c.subscribers) || 0
+  // c.subscribers is a string and can come back as "10K", "1.2M", or
+  // "550 subscribers" depending on the source. Number("10K") is NaN —
+  // we MUST use parseSubscriberCount, not Number, or filters like
+  // "Stays under 500K" silently fail for creators with abbreviated
+  // counts. parseSubscriberCount returns null when truly unknown.
+  const parsedSubs = parseSubscriberCount(c.subscribers)
+  const subs = parsedSubs ?? 0
+  const subsKnown = parsedSubs != null && parsedSubs > 0
   const platforms = [c.instagram, c.tiktok, c.twitter, c.linkedin, c.website].filter(Boolean).length
   switch (rule.condition) {
     case 'has_email':      return !!c.email
@@ -16,7 +23,7 @@ export function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
     case 'has_linkedin':   return !!c.linkedin
     case 'multi_platform': return platforms >= 2
     case 'subs_gte':       return subs >= (rule.value ?? 0)
-    case 'subs_lte':       return subs > 0 && subs <= (rule.value ?? Infinity)
+    case 'subs_lte':       return subsKnown && subs <= (rule.value ?? Infinity)
     case 'views_gte':      return c.avgViews >= (rule.value ?? 0)
     case 'views_lte':      return c.avgViews > 0 && c.avgViews <= (rule.value ?? Infinity)
     case 'posts_recent':   return parseRelativeDays(c.videoDates?.[0] || '') <= 30
@@ -87,7 +94,7 @@ export function getGuidanceRuleEvidence(rule: GuidanceRule, c: Creator): string 
     }
     case 'subs_gte':
     case 'subs_lte': {
-      const s = Number(c.subscribers) || 0
+      const s = parseSubscriberCount(c.subscribers) ?? 0
       return s > 0 ? `${(s / 1000).toFixed(s >= 1000000 ? 1 : 0)}${s >= 1000000 ? 'M' : 'K'} subscribers` : ''
     }
     case 'views_gte':

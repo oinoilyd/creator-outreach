@@ -1,5 +1,5 @@
 import type { Creator, ScoreWeights, GuidanceEntry, SortCol, SortDir, SortKey } from './types'
-import { parseRelativeDays } from './format'
+import { parseRelativeDays, parseSubscriberCount } from './format'
 import { DEFAULT_GUIDANCE_WEIGHT, computeEntryRatio, GUIDANCE_PRESETS } from './guidance'
 
 export const DEFAULT_WEIGHTS: ScoreWeights = { recency: 25, views: 20, reachability: 20, relevance: 15, quality: 10 }
@@ -13,7 +13,9 @@ export const WEIGHT_META: { key: keyof ScoreWeights; label: string; description:
 ]
 
 export function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): number {
-  const subs = Number(c.subscribers)
+  // c.subscribers is a string ("10K", "1.2M", "10000") — Number()
+  // returns NaN for the abbreviated forms. Use parseSubscriberCount.
+  const subs = parseSubscriberCount(c.subscribers) ?? 0
   const penalty = subs >= 750000 ? 20 : subs >= 500000 ? 10 : 0
 
   if (guidanceEntries.length > 0) {
@@ -42,7 +44,7 @@ export function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIG
   if (c.videoTitles?.length > 0) relRatio = Math.min(1, relRatio + 5/15)
 
   let qualRatio = 5/10
-  if (subs > 0 && !isNaN(subs)) {
+  if (subs > 0) {
     const r = c.avgViews / subs
     qualRatio = r >= 0.10 ? 1 : r >= 0.05 ? 7/10 : r >= 0.02 ? 4/10 : 1/10
   }
@@ -60,7 +62,9 @@ export function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIG
 
 export function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEFAULT_WEIGHTS, guidanceEntries: GuidanceEntry[] = []): Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> {
   const items: Array<{ label: string; pts: number; max: number; note: string; isGuidance?: boolean }> = []
-  const subs = Number(c.subscribers)
+  // See computeFitScore — must use parseSubscriberCount, not Number,
+  // because c.subscribers is a string that may be "10K"/"1.2M".
+  const subs = parseSubscriberCount(c.subscribers) ?? 0
 
   if (guidanceEntries.length > 0) {
     const guidanceTotal = guidanceEntries.reduce((sum, e) => sum + (e.weight ?? DEFAULT_GUIDANCE_WEIGHT), 0)
@@ -116,7 +120,7 @@ export function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEF
   items.push({ label: 'Relevance', pts: Math.round(relRatio * weights.relevance * norm), max: Math.round(weights.relevance * norm), note: relNote })
 
   let qRatio = 5/10, qNote = 'No subscriber data'
-  if (subs > 0 && !isNaN(subs)) {
+  if (subs > 0) {
     const ratio = c.avgViews / subs
     if      (ratio >= 0.10) { qRatio = 1;    qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
     else if (ratio >= 0.05) { qRatio = 7/10; qNote = `${(ratio*100).toFixed(0)}% views/subs ratio` }
@@ -164,7 +168,7 @@ function compareByCol(a: Creator, b: Creator, col: SortCol, weights: ScoreWeight
   if (col === 'fitScore')       return computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
   if (col === 'avgViews')       return a.avgViews - b.avgViews
   if (col === 'channelName')    return a.channelName.localeCompare(b.channelName)
-  if (col === 'subscribers')    return (Number(a.subscribers) || 0) - (Number(b.subscribers) || 0)
+  if (col === 'subscribers')    return (parseSubscriberCount(a.subscribers) ?? 0) - (parseSubscriberCount(b.subscribers) ?? 0)
   if (col === 'lastVideo' || col === 'lastShort') {
     const dates = col === 'lastVideo' ? [a.videoDates?.[0] || '', b.videoDates?.[0] || ''] : [a.shortDates?.[0] || '', b.shortDates?.[0] || '']
     const da = parseRelativeDays(dates[0])
