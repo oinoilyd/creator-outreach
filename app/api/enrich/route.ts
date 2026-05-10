@@ -181,11 +181,24 @@ async function fromVideosPage(channelId: string): Promise<{ dates: string[], avg
     if (!isNaN(n) && n >= 0) viewCounts.push(n)
     if (viewCounts.length >= 10) break
   }
-  const avgViews = viewCounts.length > 0
-    ? Math.round(viewCounts.reduce((a, b) => a + b, 0) / viewCounts.length)
-    : NaN
+  // Median, not mean — viral outliers (one 5M-view hit among 9
+  // thirty-K videos) drag the mean to a number that doesn't reflect
+  // the channel's typical performance. Median answers "what does this
+  // creator usually get?" which is the question users actually have
+  // when they look at the avgViews column.
+  const avgViews = viewCounts.length > 0 ? medianOf(viewCounts) : NaN
 
   return { dates, avgViews }
+}
+
+/** Median of a numeric array, rounded to int. Returns NaN for empty. */
+function medianOf(arr: number[]): number {
+  if (arr.length === 0) return NaN
+  const sorted = [...arr].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+    : sorted[mid]
 }
 
 // SOURCE 2: try RSS first (exact dates), fall back to /videos page scrape

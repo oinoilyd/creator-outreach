@@ -4641,7 +4641,14 @@ export default function Home() {
     saveDismissed(dismissed.filter(c => c.channelId !== id))
   }
 
-  const runSearch = useCallback(async (kw: string, keywordsList?: string[]) => {
+  const runSearch = useCallback(async (
+    kw: string,
+    keywordsList?: string[],
+    /** Optional mode override — passed by pill clicks so the search
+     *  uses the freshly-selected mode without waiting for the
+     *  setSearchMode setState to propagate through React's batching. */
+    modeOverride?: SearchMode,
+  ) => {
     if (!kw.trim() && !(keywordsList && keywordsList.length)) return
     const version = ++searchVersion.current
     setLoading(true)
@@ -4654,13 +4661,18 @@ export default function Home() {
     setActiveTab('results')
     setShowSearchSimilar(false) // reset every fresh search
 
+    // Effective mode for this run — caller-passed override wins over
+    // state. Pill clicks pass override so they don't race the state
+    // setter.
+    const effectiveMode: SearchMode = modeOverride ?? searchMode
+
     // Niche-list searches (multiple comma-joined occupations) are always
     // broad keyword searches regardless of the pill state — the niche
     // chips only appear in occupation contexts and shouldn't try to
     // lookup a username.
     const useTargetedLookup =
       !keywordsList?.length &&
-      (searchMode === 'url' || searchMode === 'username')
+      (effectiveMode === 'url' || effectiveMode === 'username')
 
     if (useTargetedLookup) {
       // Build the lookup query based on the selected pill. URL mode
@@ -4671,7 +4683,7 @@ export default function Home() {
       const trimmed = kw.trim()
       let lookupQs: string
       let displayLabel: string
-      if (searchMode === 'url') {
+      if (effectiveMode === 'url') {
         // Try to surface what the URL points at for the status text.
         const cls = classifySearchInput(trimmed)
         if (cls.kind === 'url') {
@@ -4748,7 +4760,7 @@ export default function Home() {
             instagram: '',
             tiktok: '',
             company: '',
-            matchedVia: searchMode === 'url' ? 'url' : 'handle',
+            matchedVia: effectiveMode === 'url' ? 'url' : 'handle',
             videoTitles: [],
             videoDates: [],
             shortDates: [],
@@ -5226,6 +5238,14 @@ export default function Home() {
                   onClick={() => {
                     setSearchMode(p.id)
                     setSearchModeManual(true)
+                    // If there's already a keyword and this is a real
+                    // change, re-fire the search with the new mode so
+                    // the user sees the effect immediately. The mode
+                    // override param sidesteps React's setState batch —
+                    // runSearch sees the new mode this turn.
+                    if (!isActive && keyword.trim()) {
+                      runSearch(keyword, undefined, p.id)
+                    }
                   }}
                   title={`${p.hint}${searchModeManual && isActive ? ' (manual)' : ''}`}
                   aria-pressed={isActive}
@@ -5572,7 +5592,9 @@ export default function Home() {
                     setSearchMode('occupation')
                     setSearchModeManual(true)
                     setShowSearchSimilar(false)
-                    runSearch(keyword)
+                    // Pass override to bypass setSearchMode batching —
+                    // see pill onClick for the same pattern.
+                    runSearch(keyword, undefined, 'occupation')
                   }}
                   className="text-xs px-3 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40 hover:bg-purple-500/25 transition-colors font-medium inline-flex items-center gap-1.5"
                 >

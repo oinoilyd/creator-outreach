@@ -1082,7 +1082,19 @@ export async function GET(req: NextRequest) {
     for (const [channelId, data] of channelMap) {
       if (data.views.length === 0) continue
 
-      const avgViews = Math.round(data.views.reduce((a, b) => a + b, 0) / data.views.length)
+      // Median, not mean — robust to viral-outlier video views that
+      // would otherwise drag the average to a number nowhere near
+      // the channel's typical performance. Same fix shipped in
+      // /api/enrich's fromVideosPage. Enrich overrides this anyway
+      // when it succeeds, but median makes the pre-enrich initial
+      // value also defensible.
+      const sortedViews = [...data.views].sort((a, b) => a - b)
+      const midIdx = Math.floor(sortedViews.length / 2)
+      const avgViews = sortedViews.length === 0
+        ? 0
+        : sortedViews.length % 2 === 0
+          ? Math.round((sortedViews[midIdx - 1] + sortedViews[midIdx]) / 2)
+          : sortedViews[midIdx]
       if (avgViews < minViews || avgViews > maxViews) continue
 
       const channelName = data.name || 'Unknown'
