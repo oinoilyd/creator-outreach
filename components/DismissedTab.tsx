@@ -1,7 +1,8 @@
 'use client'
 
 import type { Creator, UserProfile } from '@/lib/types'
-import { composeUrl, formatSubscribers } from '@/lib/format'
+import { composeUrl, formatSubscribers, recipientIssue } from '@/lib/format'
+import { toast } from 'sonner'
 
 /**
  * Dismissed tab — same visual treatment as the Results table so
@@ -163,6 +164,22 @@ export function DismissedTab({
                         href={composeUrl(profile?.mailClient ?? 'default', c.email, '', '', profile?.userEmail)}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={ev => {
+                          // 2026-05-10 recipient guard — see app/page.tsx
+                          // guardOutreachClick for the full rationale.
+                          // Blocks open-compose when the address is
+                          // empty / invalid / equals the user's own
+                          // signup email (sending-to-self bug).
+                          const issue = recipientIssue(c.email, profile?.userEmail)
+                          if (issue !== null) {
+                            ev.preventDefault()
+                            if (issue === 'self') {
+                              toast.error('Blocked: that email matches your own signup address')
+                            } else if (issue === 'invalid') {
+                              toast.error(`Invalid email: "${(c.email ?? '').slice(0, 60)}"`)
+                            }
+                          }
+                        }}
                         className="text-emerald-700 dark:text-emerald-400 hover:underline break-all"
                       >
                         {c.email}

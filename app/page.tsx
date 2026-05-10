@@ -30,7 +30,7 @@ import { useInstagramMetrics, formatFollowers } from '@/lib/hooks/useInstagramMe
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
   pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount, buildOutreachEmail,
-  formatAddedAtRelative,
+  formatAddedAtRelative, recipientIssue,
 } from '@/lib/format'
 import {
   DEFAULT_GUIDANCE_WEIGHT, GUIDANCE_PRESETS,
@@ -139,6 +139,52 @@ import {
 const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
+
+/**
+ * Guard fired by every outreach email link's onClick before navigation.
+ *
+ * Background: on 2026-05-10 Dylan sent a "test" outreach from an
+ * Outreach row and the email landed in his OWN signup inbox instead
+ * of the creator's — root cause was a missing recipient where Gmail's
+ * compose form auto-filled the To with a recent contact (himself).
+ * Now: any click whose recipient is empty / invalid / equals the
+ * signed-in user's own email is BLOCKED at the click, with an
+ * explanatory toast. The href still resolves to '' from composeUrl
+ * so accidentally bypassing the handler (eg. middle-click) also
+ * fails closed.
+ *
+ * Returns true when the navigation should proceed.
+ */
+function guardOutreachClick(
+  ev: React.MouseEvent<HTMLAnchorElement>,
+  toEmail: string | undefined | null,
+  userEmail: string | null | undefined,
+): boolean {
+  const issue = recipientIssue(toEmail, userEmail)
+  if (issue === null) return true
+  ev.preventDefault()
+  ev.stopPropagation()
+  if (issue === 'self') {
+    toast.error('Blocked: that email is YOUR signup address', {
+      description:
+        "We refused to open compose because the recipient matches your own login email — sending here would email yourself, not the creator. Open the row, check the Email field, and replace it with the creator's real address.",
+      duration: 9000,
+    })
+  } else if (issue === 'empty') {
+    toast.warning('No email on file for this creator', {
+      description:
+        'Click "🔍 Find email" to deep-search, or paste an address into the Email column manually.',
+      duration: 6000,
+    })
+  } else {
+    toast.error(`Invalid recipient: "${(toEmail ?? '').slice(0, 60)}"`, {
+      description:
+        "That doesn't look like a real email address. Edit the Email field on this row to fix it before sending.",
+      duration: 7000,
+    })
+  }
+  return false
+}
 
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
@@ -552,7 +598,13 @@ function renderCell(
     case 'email': return (
       <td key={id} className="px-4 py-3 text-xs">
         {c.email ? (
-          <a href={buildOutreachEmail(c, profile)} target="_blank" rel="noopener noreferrer" className="text-emerald-700 dark:text-green-400 hover:underline">{c.email}</a>
+          <a
+            href={buildOutreachEmail(c, profile)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={ev => guardOutreachClick(ev, c.email, profile?.userEmail)}
+            className="text-emerald-700 dark:text-green-400 hover:underline"
+          >{c.email}</a>
         ) : c.enriching ? (
           <span className="flex items-center gap-1 text-muted-foreground"><Spinner />looking...</span>
         ) : (
@@ -788,7 +840,13 @@ function renderOutreachCell(
                 href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile, e.trackingId)}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => {
+                onClick={ev => {
+                  // 2026-05-10 — recipient guard runs FIRST. If the
+                  // address is empty / invalid / equals the user's
+                  // own login email, we block the navigation and
+                  // skip the click-to-track status flip too — no
+                  // outbound = no status change.
+                  if (!guardOutreachClick(ev, e.email, profile?.userEmail)) return
                   // Phase 1 — click-to-track.
                   //
                   // Status flow (revised 2026-05-09 per Dylan):
@@ -1790,6 +1848,7 @@ function FollowUpDaySheet({
                       href={emailHref}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={ev => guardOutreachClick(ev, e.email, profile?.userEmail)}
                       title="Open compose with template + tracking ID"
                       className="text-[11px] font-medium px-2.5 py-1 rounded border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                     >
@@ -2230,7 +2289,10 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(ev) => ev.stopPropagation()}
+                onClick={(ev) => {
+                  ev.stopPropagation()
+                  guardOutreachClick(ev, e.email, profile?.userEmail)
+                }}
                 title={`Email ${e.email} — opens compose with template`}
                 aria-label={`Email ${e.email}`}
                 className="inline-flex items-center text-emerald-700 dark:text-emerald-400/80 hover:text-emerald-500 transition-colors shrink-0"

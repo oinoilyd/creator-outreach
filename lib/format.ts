@@ -449,6 +449,36 @@ export function buildOutreachEmail(
   )
 }
 
+// Loose-but-strict email validator. Rejects whitespace, missing @,
+// missing TLD, multiple @, anything non-email-shaped. Used as a hard
+// gate before we ever build a compose URL — we'd rather block the
+// click than open a half-formed Gmail compose form that Gmail
+// auto-fills with "frequently emailed" suggestions (which, during
+// testing, is almost always the user themselves).
+const EMAIL_SHAPE = /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/
+
+/**
+ * Classifies why a recipient email is unsafe to use for outreach.
+ * Returns null when the address passes all checks.
+ *
+ *   'empty'   — empty/whitespace-only (would cause Gmail to auto-fill)
+ *   'invalid' — fails the email-shape regex (typo, leftover comma, etc.)
+ *   'self'    — equals the signed-in user's own email; sending here
+ *               would email yourself, which is the bug surfaced on
+ *               2026-05-10 when Dylan's "test" outreach landed in
+ *               his own inbox instead of the creator's
+ */
+export type RecipientIssue = 'empty' | 'invalid' | 'self' | null
+
+export function recipientIssue(to: string | undefined | null, userEmail?: string | null): RecipientIssue {
+  const trimmed = (to ?? '').trim().toLowerCase()
+  if (!trimmed) return 'empty'
+  if (!EMAIL_SHAPE.test(trimmed)) return 'invalid'
+  const self = (userEmail ?? '').trim().toLowerCase()
+  if (self && trimmed === self) return 'self'
+  return null
+}
+
 // Builds a compose URL for whichever mail client the user picked. Each
 // provider has its own web-compose endpoint that pre-fills to/subject/
 // body — except Apple-style mailto: which opens the OS default.
@@ -459,6 +489,13 @@ export function buildOutreachEmail(
 // account that matches their Creator Outreach login. Without this,
 // Gmail picks whichever account was last active — frequent source of
 // "wait, why is it sending from my work account?" surprises.
+//
+// Safety guarantee (added 2026-05-10): returns the empty string when
+// `to` fails recipientIssue() — empty / invalid / equals userEmail.
+// Callers must check for '' before navigating; the UI in app/page.tsx
+// uses this signal to block the click + show a warning toast instead
+// of opening a compose form that would silently end up in the user's
+// own inbox or with the wrong recipient.
 export function composeUrl(
   client: 'default' | 'gmail' | 'outlook' | 'yahoo',
   to: string,
@@ -466,7 +503,14 @@ export function composeUrl(
   body: string,
   userEmail?: string,
 ): string {
-  const t = encodeURIComponent(to)
+  // HARD STOP. Never produce a compose URL with a missing/invalid/self
+  // recipient. Gmail's compose form will happily render `to=` empty
+  // and then auto-suggest your most-recent contact (often yourself
+  // during testing), which is exactly the failure mode we're guarding
+  // against.
+  if (recipientIssue(to, userEmail) !== null) return ''
+
+  const t = encodeURIComponent(to.trim())
   const s = encodeURIComponent(subject)
   const b = encodeURIComponent(body)
   const userEmailEnc = userEmail ? encodeURIComponent(userEmail) : ''
@@ -489,6 +533,6 @@ export function composeUrl(
       // signed into the right account already.
       return `https://compose.mail.yahoo.com/?to=${t}&subject=${s}&body=${b}`
     default:
-      return `mailto:${to}?subject=${s}&body=${b}`
+      return `mailto:${to.trim()}?subject=${s}&body=${b}`
   }
 }
