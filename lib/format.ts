@@ -354,15 +354,29 @@ export function applySubjectPlaceholders(
   return out
 }
 
-export function buildOutreachEmail(
+export interface OutreachContent {
+  subject: string
+  body: string
+  recipient: string
+  recipientFirst: string
+}
+
+/**
+ * Pure builder for the outreach subject + body. Extracted from
+ * buildOutreachEmail so the SendPreviewModal (Phase 2) can render the
+ * exact same content the compose-URL path produced, without needing
+ * to parse it back out of a URL. buildOutreachEmail now wraps this.
+ *
+ * trackingId — when set, appends [CO-#xxxx] to the subject so legacy
+ * SendGrid-Inbound-Parse reply matching keeps working. New sends via
+ * Unipile don't need this (they match via In-Reply-To headers) and
+ * can pass undefined to keep subjects clean.
+ */
+export function buildOutreachContent(
   c: Creator,
   profile?: UserProfile | null,
-  /** Optional. When provided, gets appended to the subject as [CO-#{id}]
-   *  so the inbound-reply webhook can match a forwarded reply back to
-   *  this outreach entry. The Creator type doesn't carry trackingId
-   *  natively; the call site in app/page.tsx passes it through. */
   trackingId?: string,
-): string {
+): OutreachContent {
   const recipientFirst = c.channelName.split(/[\s,|–-]/)[0]
 
   let contentRef = 'your content'
@@ -379,9 +393,6 @@ export function buildOutreachEmail(
   const pitch = (profile?.pitchLine || '').trim()
   const linkedin = (profile?.linkedinUrl || '').trim()
 
-  // Subject — user template wins if set, with placeholder substitution.
-  // Empty/whitespace-only template falls back to the default phrasing
-  // so existing users see no behavior change until they set a template.
   const subjectTemplate = (profile?.subjectTemplate || '').trim()
   const userSubject = subjectTemplate
     ? applySubjectPlaceholders(subjectTemplate, {
@@ -390,34 +401,13 @@ export function buildOutreachEmail(
         content: contentRef.replace(/^"|"$/g, ''),
       })
     : ''
-  // Default outreach template — direct, complimentary, present-tense.
-  // Opens with "Love your content" (Dylan's preferred phrasing —
-  // present tense, warm, not stiff) and pivots into the user's pitch
-  // line as the value proposition. User-set subject_template overrides
-  // the default subject entirely; the body has no per-user template
-  // field yet.
   const baseSubject = userSubject || `Love your content, think I can help`
-  // Append the tracking tag at the end of the subject. Visible to the
-  // recipient (we don't try to hide it), matching the standard approach
-  // tools like Mixmax / HubSpot use. Reply preserves it via "Re:" prefix
-  // → Gmail filter forwards it → our webhook flips status.
-  const subject = trackingId
-    ? `${baseSubject} [CO-#${trackingId}]`
-    : baseSubject
+  const subject = trackingId ? `${baseSubject} [CO-#${trackingId}]` : baseSubject
 
-  // Body composition. Branches on whether contentRef is a quoted video
-  // title or a generic "your content" / description-derived phrase —
-  // "especially {video title}" only makes grammatical sense when we
-  // have an actual title to quote. With a generic ref we drop the
-  // "especially" qualifier so we don't end up with the awkward
-  // "Love your content, especially your fitness coaching content."
   const referenceLine = contentRef.startsWith('"')
     ? `Love your content, especially ${contentRef}.`
     : `Love ${contentRef}.`
 
-  // Strip trailing punctuation from user's pitch so we can reliably
-  // close the sentence — otherwise users who do/don't end with a
-  // period get inconsistent double-period or missing-period output.
   const trimmedPitch = pitch.replace(/[.!?]+\s*$/, '').trim()
   const pitchLine = trimmedPitch
     ? `${trimmedPitch}.`
@@ -439,12 +429,29 @@ export function buildOutreachEmail(
   }
   lines.push(senderFirst)
 
-  const body = lines.join('\n')
+  return {
+    subject,
+    body: lines.join('\n'),
+    recipient: c.email,
+    recipientFirst,
+  }
+}
+
+export function buildOutreachEmail(
+  c: Creator,
+  profile?: UserProfile | null,
+  /** Optional. When provided, gets appended to the subject as [CO-#{id}]
+   *  so the inbound-reply webhook can match a forwarded reply back to
+   *  this outreach entry. The Creator type doesn't carry trackingId
+   *  natively; the call site in app/page.tsx passes it through. */
+  trackingId?: string,
+): string {
+  const content = buildOutreachContent(c, profile, trackingId)
   return composeUrl(
     profile?.mailClient ?? 'default',
     c.email,
-    subject,
-    body,
+    content.subject,
+    content.body,
     profile?.userEmail,
   )
 }

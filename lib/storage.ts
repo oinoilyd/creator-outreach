@@ -67,6 +67,15 @@ function rowToOutreach(r: any): OutreachEntry {
     contractSent: !!r.contract_sent,
     meetingScheduled: r.meeting_scheduled ?? '',
     trackingId: r.tracking_id ?? undefined,
+    unipileMessageId: r.unipile_message_id ?? null,
+    unipileProviderId: r.unipile_provider_id ?? null,
+    unipileThreadId: r.unipile_thread_id ?? null,
+    unipileTrackingId: r.unipile_tracking_id ?? null,
+    unipileSentAt: r.unipile_sent_at ? new Date(r.unipile_sent_at).getTime() : null,
+    openCount: r.open_count ?? 0,
+    lastOpenedAt: r.last_opened_at ? new Date(r.last_opened_at).getTime() : null,
+    autoFollowup: !!r.auto_followup,
+    lastAutoFollowupAt: r.last_auto_followup_at ? new Date(r.last_auto_followup_at).getTime() : null,
   }
 }
 
@@ -106,6 +115,15 @@ function outreachToRow(e: OutreachEntry, uid: string) {
     meeting_scheduled: e.meetingScheduled,
     added_at: e.addedAt,
     tracking_id: e.trackingId ?? null,
+    unipile_message_id: e.unipileMessageId ?? null,
+    unipile_provider_id: e.unipileProviderId ?? null,
+    unipile_thread_id: e.unipileThreadId ?? null,
+    unipile_tracking_id: e.unipileTrackingId ?? null,
+    unipile_sent_at: e.unipileSentAt ? new Date(e.unipileSentAt).toISOString() : null,
+    open_count: e.openCount ?? 0,
+    last_opened_at: e.lastOpenedAt ? new Date(e.lastOpenedAt).toISOString() : null,
+    auto_followup: !!e.autoFollowup,
+    last_auto_followup_at: e.lastAutoFollowupAt ? new Date(e.lastAutoFollowupAt).toISOString() : null,
   }
 }
 

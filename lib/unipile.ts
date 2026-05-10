@@ -174,3 +174,138 @@ export async function disconnectAccount(accountId: string): Promise<void> {
 export function emailFromAccount(account: UnipileAccount): string | null {
   return account.connection_params?.mail?.username ?? null
 }
+
+// ── Send email ─────────────────────────────────────────────────────────────
+
+export interface SendEmailInput {
+  accountId: string
+  /** Recipient. Pass the bare email — we wrap into the {identifier} shape. */
+  to: string
+  /** Optional display name shown to recipient (defaults to the email). */
+  toDisplayName?: string
+  subject: string
+  /** Body — accepts plain text OR HTML. If `bodyType` is 'html' we don't
+   *  escape it; if 'text' we wrap in a minimal HTML shell so the email
+   *  renders correctly in most clients. */
+  body: string
+  bodyType?: 'text' | 'html'
+  /** For threading replies — pass the provider_id of the message we're
+   *  replying to. Unipile threads correctly off this. */
+  replyTo?: string
+  /** Enable open / click tracking. Unipile injects a pixel + wraps
+   *  links; we get tracking events via the webhook. Default off so
+   *  the first cold email doesn't trigger Gmail's "image privacy"
+   *  warnings — toggled on for follow-ups by the cron path. */
+  tracking?: {
+    opens?: boolean
+    links?: boolean
+    /** Free-text label that comes back on tracking webhook events.
+     *  We set it to the outreach entry id so we can attribute opens. */
+    label?: string
+  }
+}
+
+export interface SendEmailResponse {
+  object?: string
+  /** Unipile's internal message id. */
+  id?: string
+  /** Provider-side message id (Gmail's Message-ID header value). */
+  provider_id?: string
+  /** Conversation/thread id — group key for the back-and-forth. */
+  thread_id?: string
+  tracking_id?: string
+  [k: string]: unknown
+}
+
+export async function sendEmail(input: SendEmailInput): Promise<SendEmailResponse> {
+  const body = {
+    account_id: input.accountId,
+    to: [{ display_name: input.toDisplayName ?? input.to, identifier: input.to }],
+    subject: input.subject,
+    body: input.body,
+    ...(input.bodyType ? { body_type: input.bodyType } : {}),
+    ...(input.replyTo ? { reply_to: input.replyTo } : {}),
+    ...(input.tracking
+      ? {
+          tracking_options: {
+            opens: input.tracking.opens ?? false,
+            links: input.tracking.links ?? false,
+            ...(input.tracking.label ? { label: input.tracking.label } : {}),
+          },
+        }
+      : {}),
+  }
+  return request<SendEmailResponse>('POST', '/api/v1/emails', body)
+}
+
+// ── Threads / messages ─────────────────────────────────────────────────────
+
+export interface UnipileEmailMessage {
+  object?: string
+  id?: string
+  provider_id?: string
+  thread_id?: string
+  account_id?: string
+  /** Header date or send-time, ISO. */
+  date?: string
+  subject?: string
+  /** Free-form body — HTML or text depending on the message. */
+  body?: string
+  body_plain?: string
+  from_attendee?: { display_name?: string; identifier?: string }
+  to_attendees?: Array<{ display_name?: string; identifier?: string }>
+  /** Email-thread heritage — In-Reply-To / References headers Unipile
+   *  resolves into the message they reference. */
+  in_reply_to?: string
+  [k: string]: unknown
+}
+
+/**
+ * List the messages in a single email thread, oldest-first when sorted by
+ * date. Used by the conversation-history modal to render the back-and-forth.
+ */
+export async function getThreadMessages(
+  accountId: string,
+  threadId: string,
+): Promise<UnipileEmailMessage[]> {
+  const qs = new URLSearchParams({ account_id: accountId, thread_id: threadId })
+  const resp = await request<{ items?: UnipileEmailMessage[]; object?: string }>(
+    'GET',
+    `/api/v1/emails?${qs.toString()}`,
+  )
+  return resp.items ?? []
+}
+
+/**
+ * Look up a single message by Unipile's internal id. Used by the
+ * webhook handler when a `messaging.new` event fires — payload only
+ * has the id, we fetch the body to feed the AI classifier.
+ */
+export async function getEmailMessage(messageId: string): Promise<UnipileEmailMessage> {
+  return request<UnipileEmailMessage>(
+    'GET',
+    `/api/v1/emails/${encodeURIComponent(messageId)}`,
+  )
+}
+
+// ── LinkedIn (Phase 6) ──────────────────────────────────────────────────────
+
+export interface SendDmInput {
+  accountId: string
+  /** LinkedIn provider id of the target (urn-style id). */
+  toProviderId: string
+  body: string
+}
+
+/**
+ * Send a LinkedIn DM. Same `/api/v1/messages` endpoint Unipile uses for
+ * every non-email chat platform (WhatsApp, Telegram, IG, etc.) — the
+ * recipient resolution is platform-aware via account_id.
+ */
+export async function sendDm(input: SendDmInput): Promise<SendEmailResponse> {
+  return request<SendEmailResponse>('POST', '/api/v1/messages', {
+    account_id: input.accountId,
+    attendees_ids: [input.toProviderId],
+    text: input.body,
+  })
+}

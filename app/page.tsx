@@ -30,6 +30,7 @@ import { useInstagramMetrics, formatFollowers } from '@/lib/hooks/useInstagramMe
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
   pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount, buildOutreachEmail,
+  buildOutreachContent,
   formatAddedAtRelative, recipientIssue,
 } from '@/lib/format'
 import {
@@ -75,6 +76,10 @@ const OnboardingModal = dynamic(
 )
 const ProfileModal = dynamic(
   () => import('@/components/ProfileModal').then(m => m.ProfileModal),
+  { ssr: false },
+)
+const SendPreviewModal = dynamic(
+  () => import('@/components/SendPreviewModal').then(m => m.SendPreviewModal),
   { ssr: false },
 )
 const MigrationPromptModal = dynamic(
@@ -139,6 +144,26 @@ import {
 const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
+
+/**
+ * Phase 2 click interceptor — when the user has a Unipile-connected
+ * Gmail, we route "send email" through our backend (programmatic send,
+ * preview modal, real reply tracking) instead of the compose-URL flow.
+ *
+ * Dispatches a CustomEvent('open-send-modal', { detail }) that Home()
+ * listens for. Returns true if it intercepted (caller should preventDefault).
+ */
+function maybeOpenUnipileSend(
+  ev: React.MouseEvent<HTMLAnchorElement>,
+  profile: UserProfile | null,
+  payload: { entryId: string; to: string; subject: string; body: string; recipientLabel?: string },
+): boolean {
+  if (!profile?.unipileAccountId) return false
+  ev.preventDefault()
+  ev.stopPropagation()
+  window.dispatchEvent(new CustomEvent('open-send-modal', { detail: payload }))
+  return true
+}
 
 /**
  * Guard fired by every outreach email link's onClick before navigation.
@@ -847,21 +872,24 @@ function renderOutreachCell(
                   // skip the click-to-track status flip too — no
                   // outbound = no status change.
                   if (!guardOutreachClick(ev, e.email, profile?.userEmail)) return
-                  // Phase 1 — click-to-track.
-                  //
-                  // Status flow (revised 2026-05-09 per Dylan):
-                  //   click email      → 'No Response' (sent, awaiting reply)
-                  //   reply detected   → 'Open'        (they responded; user
-                  //                                     classifies as
-                  //                                     Successful/Rejected
-                  //                                     after reading)
-                  //
-                  // Idempotent: re-clicking a row already past 'Not Outreached'
-                  // doesn't change status — only the first click matters for
-                  // the auto-flip. The existing updateOutreachEntry logic
-                  // treats 'No Response' as active, so it auto-stamps
-                  // dateReachedOut + touchpoints + followUpDate via the same
-                  // cadence as a manual dropdown change.
+                  // Phase 2 — if the user has connected Gmail via
+                  // Unipile, intercept the click and open the
+                  // SendPreviewModal instead of navigating to a
+                  // compose URL. Sends programmatically with reply
+                  // tracking, eliminating the multi-account bugs.
+                  const content = buildOutreachContent(
+                    { channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator,
+                    profile,
+                    undefined, // No [CO-#xxx] tag — Unipile uses real threading
+                  )
+                  if (maybeOpenUnipileSend(ev, profile, {
+                    entryId: e.id,
+                    to: e.email,
+                    subject: content.subject,
+                    body: content.body,
+                    recipientLabel: e.channelName,
+                  })) return
+                  // Phase 1 — click-to-track (legacy compose-URL path).
                   if (e.status === 'Not Outreached' || e.status === '') {
                     onUpdate(e.id, 'status', 'No Response')
                   }
@@ -1848,8 +1876,22 @@ function FollowUpDaySheet({
                       href={emailHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={ev => guardOutreachClick(ev, e.email, profile?.userEmail)}
-                      title="Open compose with template + tracking ID. Opens in your active Gmail/Outlook session — switch accounts inside Gmail first if you have multiple signed in."
+                      onClick={ev => {
+                        if (!guardOutreachClick(ev, e.email, profile?.userEmail)) return
+                        const content = buildOutreachContent(
+                          { channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator,
+                          profile,
+                          undefined,
+                        )
+                        maybeOpenUnipileSend(ev, profile, {
+                          entryId: e.id,
+                          to: e.email,
+                          subject: content.subject,
+                          body: content.body,
+                          recipientLabel: e.channelName,
+                        })
+                      }}
+                      title="Send outreach. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose."
                       className="text-[11px] font-medium px-2.5 py-1 rounded border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                     >
                       📧 Email
@@ -2291,9 +2333,21 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
                 rel="noopener noreferrer"
                 onClick={(ev) => {
                   ev.stopPropagation()
-                  guardOutreachClick(ev, e.email, profile?.userEmail)
+                  if (!guardOutreachClick(ev, e.email, profile?.userEmail)) return
+                  const content = buildOutreachContent(
+                    { channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator,
+                    profile,
+                    undefined,
+                  )
+                  maybeOpenUnipileSend(ev, profile, {
+                    entryId: e.id,
+                    to: e.email,
+                    subject: content.subject,
+                    body: content.body,
+                    recipientLabel: e.channelName,
+                  })
                 }}
-                title={`Email ${e.email} — opens compose with template. Verify the active Gmail account in the top-right of Gmail before clicking Send.`}
+                title={`Send outreach to ${e.email}. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose.`}
                 aria-label={`Email ${e.email}`}
                 className="inline-flex items-center text-emerald-700 dark:text-emerald-400/80 hover:text-emerald-500 transition-colors shrink-0"
               >
@@ -3926,6 +3980,18 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [hasBackup, setHasBackup] = useState(false)
+  // Phase 2: Send-via-Unipile preview modal. Triggered by a CustomEvent
+  // dispatched from the existing email-link click handlers when the
+  // current user has a Unipile-connected Gmail. Falls back to the
+  // compose-URL flow otherwise.
+  const [sendPreview, setSendPreview] = useState<{
+    entryId: string
+    to: string
+    subject: string
+    body: string
+    recipientLabel: string
+  } | null>(null)
+  const [unipileConnected, setUnipileConnected] = useState(false)
   // Manual migration prompt state
   const [pendingMigration, setPendingMigration] = useState<{ outreach: number; dismissed: number } | null>(null)
   const [showImport, setShowImport] = useState(false)
@@ -4021,7 +4087,7 @@ export default function Home() {
         // Use maybeSingle so missing row returns null instead of erroring
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone')
+          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at')
           .eq('user_id', user.id)
           .maybeSingle()
         console.log('[home-init] profile row:', profileRow, 'error:', profileErr?.message)
@@ -4033,7 +4099,7 @@ export default function Home() {
           const { data: inserted } = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone')
+            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at')
             .single()
           profileRow = inserted
         }
@@ -4082,7 +4148,13 @@ export default function Home() {
             // Auth email — used by composeUrl to pin the Gmail/Outlook
             // compose window to the right multi-account browser session.
             userEmail: user.email ?? undefined,
+            unipileAccountId: profileRow.unipile_account_id ?? null,
+            unipileAccountEmail: profileRow.unipile_account_email ?? null,
+            unipileConnectedAt: profileRow.unipile_connected_at
+              ? new Date(profileRow.unipile_connected_at).getTime()
+              : null,
           })
+          setUnipileConnected(!!profileRow.unipile_account_id)
           if (!profileRow.onboarded) {
             console.log('[home-init] onboarded=false → showing modal')
             setShowOnboarding(true)
@@ -4147,6 +4219,34 @@ export default function Home() {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [loading])
+
+  // Phase 2 send-via-Unipile bridge. Existing email-link click handlers
+  // dispatch a `open-send-modal` CustomEvent with the prebuilt subject /
+  // body / recipient when the user has a connected Unipile account.
+  // We catch it here and open the SendPreviewModal — that way we don't
+  // have to thread an onSendOutreach callback through every component
+  // that renders an email link.
+  useEffect(() => {
+    function onOpenSendModal(ev: Event) {
+      const detail = (ev as CustomEvent).detail as {
+        entryId?: string
+        to?: string
+        subject?: string
+        body?: string
+        recipientLabel?: string
+      } | undefined
+      if (!detail?.entryId || !detail.to || !detail.subject || !detail.body) return
+      setSendPreview({
+        entryId: detail.entryId,
+        to: detail.to,
+        subject: detail.subject,
+        body: detail.body,
+        recipientLabel: detail.recipientLabel ?? detail.to,
+      })
+    }
+    window.addEventListener('open-send-modal', onOpenSendModal)
+    return () => window.removeEventListener('open-send-modal', onOpenSendModal)
+  }, [])
 
   /**
    * Multi-column-sort click handler. Clicking any column header:
@@ -6429,6 +6529,39 @@ export default function Home() {
           initial={profile ?? { fullName: '', linkedinUrl: '', pitchLine: '' }}
           onSave={(next) => setProfile(next)}
           onClose={() => setShowProfile(false)}
+        />
+      )}
+
+      {sendPreview && (
+        <SendPreviewModal
+          entryId={sendPreview.entryId}
+          to={sendPreview.to}
+          initialSubject={sendPreview.subject}
+          initialBody={sendPreview.body}
+          recipientLabel={sendPreview.recipientLabel}
+          onClose={() => setSendPreview(null)}
+          onSent={(result) => {
+            // Optimistically reflect the send in the local outreach state:
+            // bump status to "No Response" if it was untouched, and stamp
+            // the Unipile ids so the conversation view / open tracking
+            // can attribute back. Server already persisted these — we
+            // just mirror to avoid a full refetch.
+            setOutreach(prev => prev.map(e => {
+              if (e.id !== result.entryId) return e
+              const wasUntouched = e.status === 'Not Outreached' || !e.status
+              return {
+                ...e,
+                unipileMessageId: result.messageId,
+                unipileProviderId: result.providerId,
+                unipileThreadId: result.threadId,
+                unipileTrackingId: result.trackingId,
+                unipileSentAt: Date.now(),
+                status: wasUntouched ? 'No Response' : e.status,
+                reachedOut: wasUntouched ? true : e.reachedOut,
+                dateReachedOut: wasUntouched ? new Date().toISOString() : e.dateReachedOut,
+              }
+            }))
+          }}
         />
       )}
 

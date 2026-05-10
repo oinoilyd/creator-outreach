@@ -128,8 +128,31 @@ export interface OutreachEntry {
   /** Short opaque ID embedded in outbound email subjects as [CO-#{id}].
    *  Used by the inbound webhook (/api/inbound-email) to match a
    *  forwarded reply back to the originating outreach entry. NULL for
-   *  legacy entries created before the tracking system was wired. */
+   *  legacy entries created before the tracking system was wired.
+   *  Deprecated path — new sends route via Unipile and match by
+   *  unipileProviderId / unipileThreadId; kept here so legacy
+   *  entries created before the migration still resolve replies. */
   trackingId?: string
+  /** Unipile's internal id for the most recent outbound message. */
+  unipileMessageId?: string | null
+  /** Gmail Message-ID header — what In-Reply-To on replies will reference. */
+  unipileProviderId?: string | null
+  /** Conversation thread id grouping every message in the back-and-forth. */
+  unipileThreadId?: string | null
+  /** Server-side tracking id Unipile labels outbound messages with so
+   *  open/click events can be attributed back to this entry. */
+  unipileTrackingId?: string | null
+  /** Epoch ms when we last sent via Unipile. */
+  unipileSentAt?: number | null
+  /** Number of distinct open events on the most recent outbound. */
+  openCount?: number
+  /** Epoch ms of the most recent open event. */
+  lastOpenedAt?: number | null
+  /** User opt-in: when the entry's follow_up_date hits and no reply
+   *  has been received, the cron auto-fires a follow-up email. */
+  autoFollowup?: boolean
+  /** Epoch ms of the last auto-follow-up send (prevents re-firing). */
+  lastAutoFollowupAt?: number | null
 }
 
 export interface OutreachColDef {
