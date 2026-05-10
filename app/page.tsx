@@ -4772,9 +4772,42 @@ export default function Home() {
       ;(data.channels as Creator[]).forEach((c: Creator) => seenChannelIds.current.add(c.channelId))
 
       // Filter out dismissed and already-outreached channels from results
-      const visible = (data.channels as Creator[]).filter(
+      let visible = (data.channels as Creator[]).filter(
         (c: Creator) => !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
       )
+
+      // Handle-lookup fallback: when the direct /lookup-channel call
+      // missed for a handle-shaped input (e.g. 'TinaHuang1' resolved
+      // 404 because YouTube's @handle page didn't expose the channel
+      // ID, or anti-bot kicked in) we land here with the user's
+      // intended account presumably somewhere in this 100-result
+      // keyword pile. Narrow it to channels whose name fuzzy-matches
+      // the input so the user gets 1–3 plausible accounts instead of
+      // a haystack of unrelated results.
+      if (cls.kind === 'handle') {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const target = norm(cls.handle)
+        const targetCore = target.replace(/\d+$/, '') // drop trailing digits (TinaHuang1 → tinahuang)
+        const matches = visible.filter(c => {
+          const n = norm(c.channelName)
+          if (!n || !target) return false
+          return n === target
+            || n === targetCore
+            || (target.length >= 4 && n.includes(target))
+            || (targetCore.length >= 4 && n.includes(targetCore))
+            || (n.length >= 4 && (target.includes(n) || targetCore.includes(n)))
+        })
+        if (matches.length > 0 && matches.length <= 3) {
+          visible = matches
+          setStatus(`Found ${matches.length} close match${matches.length === 1 ? '' : 'es'} for @${cls.handle}.`)
+        } else if (matches.length > 0) {
+          // Many name-matches — still a win (down from 100), surface them.
+          visible = matches.slice(0, 5)
+          setStatus(`${matches.length} channels match @${cls.handle} — showing the closest 5.`)
+        }
+        // matches.length === 0 → keep the full keyword pile, status
+        // stays "searching as a keyword..." set in the lookup branch.
+      }
 
       const enriched = visible.map(c => ({ ...c, enriching: true }))
       setCreators([...enriched])

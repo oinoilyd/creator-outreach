@@ -182,14 +182,28 @@ export function classifySearchInput(raw: string): SearchClassification {
     return { kind: 'phrase', raw: input }
   }
 
-  // 3) Bare token with handle-ish characters (medium confidence,
-  //    fall through to keyword on miss).
-  if (!input.includes(' ')) {
-    const looksLikeHandle =
-      HANDLE_TOKEN_RE.test(input) &&
-      input.length >= 3 &&
-      /[._\d]/.test(input) // dot, underscore, OR digit somewhere
-    if (looksLikeHandle) {
+  // 3) Bare token that looks like a username (medium confidence,
+  //    fall through to keyword on miss). The signals:
+  //
+  //      a) special chars — `.`, `_`, or a digit anywhere. Common
+  //         in real handles (mr.beast, mr_beast, mrbeast420).
+  //      b) CamelCase / mixed case — has BOTH a lowercase and an
+  //         uppercase letter (TinaHuang, MrBeast, jbalvin → no, but
+  //         JBalvin → yes). Real names jammed into a handle almost
+  //         always show up like this; topic words / occupations are
+  //         lowercase ("marketing", "fitness").
+  //      c) ALL-CAPS length ≥ 4 — initials handles like MKBHD or
+  //         personal brands. Worst case (e.g. ASMR) the lookup falls
+  //         back to keyword search anyway.
+  //
+  //    Plain all-lowercase tokens like `mrbeast` or `pewdiepie` stay
+  //    classified as phrases. They're genuinely ambiguous — the user
+  //    can prepend `@` to force a lookup.
+  if (!input.includes(' ') && HANDLE_TOKEN_RE.test(input) && input.length >= 3) {
+    const hasSpecialChar = /[._\d]/.test(input)
+    const hasMixedCase = /[a-z]/.test(input) && /[A-Z]/.test(input)
+    const isAllCapsAcronym = input.length >= 4 && /^[A-Z]+$/.test(input)
+    if (hasSpecialChar || hasMixedCase || isAllCapsAcronym) {
       return { kind: 'handle', handle: input, explicit: false, raw: input }
     }
   }
