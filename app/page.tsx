@@ -1006,6 +1006,24 @@ function renderOutreachCell(
       return <AutoTextarea value={e.notes || ''} onChange={v => onUpdate(e.id, 'notes', v)} placeholder="Notes..." className="text-foreground/80" />
     case 'followUpDate':
       return <FollowUpDateCell entry={e} onUpdate={onUpdate} />
+    case 'autoFollowup':
+      // Phase 7 — toggle the cron-auto-followup behaviour per row.
+      // Disabled when the user has no Unipile account; the cron skips
+      // those rows anyway but disabling the UI signals why.
+      return (
+        <label className="inline-flex items-center gap-2 text-xs cursor-pointer select-none" title={profile?.unipileAccountId ? 'Auto-send a follow-up when Follow Up Date hits and no reply has been received.' : 'Connect Gmail in Profile to enable auto-follow-ups.'}>
+          <input
+            type="checkbox"
+            checked={!!e.autoFollowup}
+            disabled={!profile?.unipileAccountId}
+            onChange={ev => onUpdate(e.id, 'autoFollowup', ev.target.checked)}
+            className="accent-purple-600 disabled:opacity-40"
+          />
+          <span className={profile?.unipileAccountId ? 'text-foreground/80' : 'text-muted-foreground/60'}>
+            {e.autoFollowup ? 'On' : 'Off'}
+          </span>
+        </label>
+      )
     case 'dateReachedOut':
     case 'responseDate':
     case 'meetingScheduled':
