@@ -5184,7 +5184,7 @@ export default function Home() {
                 placeholder={
                   activeTab === 'outreach'
                     ? 'Filter your outreach by name, email, notes, niche…'
-                    : "Search a topic, paste a YouTube URL, or describe what you're looking for…"
+                    : 'Search a topic, paste a YouTube URL, or @handle to find a specific creator…'
                 }
                 value={keyword}
                 onChange={e => setKeyword(e.target.value)}
@@ -5289,6 +5289,65 @@ export default function Home() {
               section further below. */}
         </div>
         </div>
+
+        {/* Live classification badge — shows what the search classifier
+            sees as the user types. Only on Results tab (Outreach tab's
+            keyword filters local entries, not the classifier). Helps
+            users discover that pasting a URL or @handle does a direct
+            lookup instead of a topic search. The classifier is pure
+            and ~1 ms so calling it on every render is fine. */}
+        {activeTab !== 'outreach' && keyword.trim().length > 0 && !loading && (() => {
+          const cls = classifySearchInput(keyword)
+          if (cls.kind === 'phrase') {
+            return (
+              <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-300">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </span>
+                <span>Searching topic <strong className="text-foreground/90">{keyword.trim()}</strong> across YouTube</span>
+              </div>
+            )
+          }
+          if (cls.kind === 'url') {
+            const target = cls.handle ? `@${cls.handle}` : cls.channelId ? cls.channelId : 'channel'
+            const platform = cls.sourcePlatform === 'youtube' ? 'YouTube' :
+              cls.sourcePlatform === 'instagram' ? 'Instagram' :
+              cls.sourcePlatform === 'tiktok' ? 'TikTok' :
+              cls.sourcePlatform === 'twitter' ? 'X / Twitter' :
+              cls.sourcePlatform === 'linkedin' ? 'LinkedIn' : 'unknown'
+            return (
+              <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                </span>
+                <span>Direct lookup of <strong className="text-foreground/90">{target}</strong> from {platform} URL</span>
+              </div>
+            )
+          }
+          // 'handle'
+          return (
+            <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+              <span>
+                Looking up <strong className="text-foreground/90">@{cls.handle}</strong> on YouTube
+                {!cls.explicit && (
+                  <span className="text-muted-foreground/70"> (falls back to keyword search if no match)</span>
+                )}
+              </span>
+            </div>
+          )
+        })()}
 
         {/* Filter panel — hidden by default */}
         {showFilter && (
@@ -5956,6 +6015,37 @@ export default function Home() {
         >
         {activeTab === 'outreach' ? (
           <>
+            {/* Active-keyword chip — only shown when the user has
+                something typed in the main search bar AND we're on
+                the Outreach tab (where keyword filters the local
+                list, not a YouTube search). Makes the filter state
+                visible so it's clear why the All / Favorites views
+                are narrowed. Click × to clear. Follow-ups + Analytics
+                are unaffected by the filter (action queue / dashboard
+                shouldn't be search-narrowed). */}
+            {keyword.trim() && (
+              <div className="mb-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 text-xs">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700 dark:text-amber-300" aria-hidden>
+                  <line x1="22" y1="3" x2="3" y2="22" />
+                  <path d="M22 3L13 22l-2-9-9-2L22 3z" />
+                </svg>
+                <span className="text-amber-900 dark:text-amber-200">
+                  Filtering Outreach by <strong>&ldquo;{keyword.trim()}&rdquo;</strong>
+                </span>
+                <span className="text-amber-700/70 dark:text-amber-300/70">·</span>
+                <span className="text-[11px] text-amber-700 dark:text-amber-300/80">
+                  Follow-ups &amp; Analytics show all entries
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setKeyword('')}
+                  aria-label="Clear keyword filter"
+                  className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             {(() => {
               const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() })()
               // Sub-tab badge = action-needed count (Open + overdue/today only).
@@ -5987,8 +6077,14 @@ export default function Home() {
                 onExportCsv={handleExportOutreachCSV}
               />
             ) : outreachSubTab === 'followups' ? (
+              // Follow-ups uses UNFILTERED outreach — it's an action
+              // queue (what to do next), not a search view. The
+              // dueCount badge above also reads from unfiltered
+              // outreach, so this keeps badge + view in sync. Keyword
+              // filter on the Outreach tab applies only to All /
+              // Favorites views (which are search-oriented).
               <OutreachFollowUps
-                entries={filterOutreachByKeyword(outreach, keyword)}
+                entries={outreach}
                 onUpdate={updateOutreachEntry}
                 onOpenEntry={(id: string) => setViewingLeadId(id)}
                 profile={profile}
@@ -6012,7 +6108,13 @@ export default function Home() {
                 profile={profile}
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
                 onOpenEntry={(id: string) => setViewingLeadId(id)}
-                recentlyAddedIds={recentlyAddedIds}
+                // Disable recently-added pinning when a keyword
+                // filter is active. Keyword search is a "find specific
+                // entry" workflow; pinning recently-added on top of a
+                // filtered list creates the misleading "only showing
+                // newly added" perception. Browsing (no keyword) keeps
+                // pinning so new entries surface naturally.
+                recentlyAddedIds={keyword.trim() ? new Set() : recentlyAddedIds}
                 onClearRecentlyAdded={() => {
                   setRecentlyAddedIds(new Set())
                   setInteractedNewIds(new Set())
