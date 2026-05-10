@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import * as XLSX from 'xlsx'
 import type { Creator } from '@/lib/types'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 /**
  * Same UX as ImportOutreachModal but for the dismissed-creators list.
@@ -31,6 +32,14 @@ export function ImportDismissedModal({
   const [preview, setPreview] = useState<Creator[] | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(dialogRef, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   function extractChannelId(channelUrl: string): string {
     const m = channelUrl.match(/\/channel\/(UC[\w-]{22})/)
@@ -121,11 +130,22 @@ export function ImportDismissedModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7 focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-xl font-bold text-foreground">Import dismissed creators</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
+          <h2 id={titleId} className="text-xl font-bold text-foreground">Import dismissed creators</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close import dialog"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
+          >✕</button>
         </div>
         <p className="text-muted-foreground text-sm mb-5">
           Upload an <code className="text-muted-foreground">.xlsx</code> file with at least <span className="text-muted-foreground">Channel Name</span> and <span className="text-muted-foreground">YouTube URL</span> columns.

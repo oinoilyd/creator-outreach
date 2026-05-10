@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function MigrationPromptModal({
   outreachCount,
@@ -13,6 +14,17 @@ export function MigrationPromptModal({
   onMigrate: () => Promise<{ ok: boolean; message: string }>
   onSkip: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(dialogRef, true)
+  // Esc-to-close maps to "Skip for now" — same effect as clicking
+  // the secondary action.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onSkip() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onSkip])
+
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState<string | null>(null)
@@ -35,10 +47,17 @@ export function MigrationPromptModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
-        <div className="text-4xl mb-3">📦</div>
-        <h2 className="text-xl font-bold text-foreground mb-1">Import your saved data?</h2>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7 focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="text-4xl mb-3" aria-hidden>📦</div>
+        <h2 id={titleId} className="text-xl font-bold text-foreground mb-1">Import your saved data?</h2>
         <p className="text-muted-foreground text-sm mb-5">
           We found <span className="text-foreground font-semibold">{total}</span> item{total === 1 ? '' : 's'} in this browser
           {outreachCount > 0 && <> — <span className="text-foreground">{outreachCount}</span> outreach{outreachCount === 1 ? ' entry' : ' entries'}</>}

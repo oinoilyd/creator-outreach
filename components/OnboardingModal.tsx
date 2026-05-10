@@ -1,9 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useId, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function OnboardingModal({ userId, onComplete }: { userId: string; onComplete: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  // Focus trap only — no Esc-to-close because the user MUST complete
+  // onboarding before reaching the app. They can submit (or X out
+  // their session entirely) but not dismiss this dialog with Esc.
+  useFocusTrap(dialogRef, true)
+
   const [fullName, setFullName] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [error, setError] = useState('')
@@ -36,9 +44,16 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
-        <h2 className="text-xl font-bold text-foreground mb-1">Welcome 👋</h2>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7 focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 id={titleId} className="text-xl font-bold text-foreground mb-1">Welcome <span aria-hidden>👋</span></h2>
         <p className="text-muted-foreground text-sm mb-6">A couple quick details so your outreach emails sound like you, not a template.</p>
 
         <div className="space-y-4">

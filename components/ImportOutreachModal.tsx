@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import * as XLSX from 'xlsx'
 import type { OutreachEntry } from '@/lib/types'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 /**
  * Lets a user upload an .xlsx file (the format produced by
@@ -34,6 +35,14 @@ export function ImportOutreachModal({
   const [preview, setPreview] = useState<OutreachEntry[] | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(dialogRef, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   function extractChannelId(channelUrl: string): string {
     // YouTube channel URLs: https://www.youtube.com/channel/UCxxxxxxx
@@ -161,11 +170,22 @@ export function ImportOutreachModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7 focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-xl font-bold text-foreground">Import outreach from Excel</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
+          <h2 id={titleId} className="text-xl font-bold text-foreground">Import outreach from Excel</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close import dialog"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
+          >✕</button>
         </div>
         <p className="text-muted-foreground text-sm mb-5">
           Upload an <code className="text-muted-foreground">.xlsx</code> file you downloaded from this app (or from another export with matching columns).

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import type { OutreachEntry } from '@/lib/types'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function ManualAddOutreachModal({
   existingChannelIds,
@@ -12,6 +13,14 @@ export function ManualAddOutreachModal({
   onAdd: (entry: OutreachEntry) => Promise<void> | void
   onClose: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(dialogRef, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -105,11 +114,22 @@ export function ManualAddOutreachModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-6 focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-lg font-bold text-foreground">Add to outreach manually</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
+          <h2 id={titleId} className="text-lg font-bold text-foreground">Add to outreach manually</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close manual add dialog"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
+          >✕</button>
         </div>
         <p className="text-muted-foreground text-xs mb-5">Paste the creator's YouTube URL. We'll look up the channel and (optionally) try to find their email + socials.</p>
 

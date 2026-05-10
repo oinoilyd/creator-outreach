@@ -1,13 +1,25 @@
 'use client'
 
 import { motion } from 'motion/react'
+import { useEffect, useId, useRef } from 'react'
 import type { OutreachEntry } from '@/lib/types'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function LeadDetailModal({ entry, onUpdate, onClose }: {
   entry: OutreachEntry
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onClose: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  // Focus trap + return-focus + escape-to-close. Renders only when
+  // open (controlled by parent), so passing `true` is correct here.
+  useFocusTrap(dialogRef, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   const initials = (entry.channelName || '?')
     .trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() ?? '').join('') || '?'
 
@@ -26,25 +38,30 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <motion.div
+        aria-hidden
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', bounce: 0.18, duration: 0.4 }}
-        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-2xl max-h-[92vh] overflow-y-auto"
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-2xl max-h-[92vh] overflow-y-auto focus:outline-none"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="p-5 border-b border-border flex items-start gap-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 text-white text-sm font-semibold flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 text-white text-sm font-semibold flex items-center justify-center shrink-0" aria-hidden>
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-foreground truncate">{entry.channelName || '(unnamed)'}</h2>
+            <h2 id={titleId} className="text-lg font-bold text-foreground truncate">{entry.channelName || '(unnamed)'}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${statusColor}`}>
                 {entry.status || 'Not Outreached'}
@@ -57,7 +74,11 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
               )}
             </div>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none shrink-0">✕</button>
+          <button
+            onClick={onClose}
+            aria-label="Close lead details"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none shrink-0 w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
+          >✕</button>
         </div>
 
         {/* Channel-level stats */}

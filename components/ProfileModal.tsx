@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { UserProfile } from '@/lib/types'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function ProfileModal({
   userId,
@@ -15,6 +16,14 @@ export function ProfileModal({
   onSave: (next: UserProfile) => void
   onClose: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(dialogRef, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   const [fullName, setFullName] = useState(initial.fullName)
   const [linkedinUrl, setLinkedinUrl] = useState(initial.linkedinUrl)
   const [pitchLine, setPitchLine] = useState(initial.pitchLine)
@@ -69,11 +78,22 @@ export function ProfileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7" onClick={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7 focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-xl font-bold text-foreground">Profile</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
+          <h2 id={titleId} className="text-xl font-bold text-foreground">Profile</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close profile dialog"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
+          >✕</button>
         </div>
         <p className="text-muted-foreground text-sm mb-6">Used in your outreach emails. Edits apply to every future email you send.</p>
 

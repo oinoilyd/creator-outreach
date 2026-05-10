@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useId, useRef } from 'react'
 import type { CustomMetric, MetricFilter, MetricStatusFilter, MetricMediumFilter, MetricTristate, MetricWindow, MetricSumField, OutreachEntry } from '@/lib/types'
 import { EMPTY_METRIC_FILTER } from '@/lib/types'
 import { computeMetric, metricTypeLabel } from '@/lib/metrics'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function CustomMetricModal({
   initial,
@@ -18,6 +19,14 @@ export function CustomMetricModal({
   onClose: () => void
   onDelete?: () => Promise<void> | void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(dialogRef, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   const [label, setLabel] = useState(initial?.label || '')
   const [type, setType] = useState<CustomMetric['type']>(initial?.type || 'count')
   const [filter, setFilter] = useState<MetricFilter>(initial?.filter || EMPTY_METRIC_FILTER)
@@ -57,11 +66,22 @@ export function CustomMetricModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between mb-1">
-          <h2 className="text-lg font-bold text-foreground">{initial ? 'Edit metric' : 'New metric'}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
+          <h2 id={titleId} className="text-lg font-bold text-foreground">{initial ? 'Edit metric' : 'New metric'}</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close metric editor"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
+          >✕</button>
         </div>
         <p className="text-muted-foreground text-xs mb-4">Define what to count. The metric appears as a card on the Analytics tab.</p>
 

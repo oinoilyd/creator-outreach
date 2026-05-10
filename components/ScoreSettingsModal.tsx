@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import type { ScoreWeights, GuidanceEntry, PlatformId, GuidancePreset } from '@/lib/types'
 import { PLATFORM_CONFIGS } from '@/lib/platform'
 import { GUIDANCE_PRESETS, DEFAULT_GUIDANCE_WEIGHT } from '@/lib/guidance'
 import { DEFAULT_WEIGHTS, WEIGHT_META } from '@/lib/scoring'
 import { PlatformIcon } from './ui'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function ScoreSettingsModal({ weights, narrative, guidanceEntries, activePlatform, onAddGuidance, onRemoveGuidance, onUpdateGuidanceWeight, onResetGuidance, onSave, onClose }: {
   weights: ScoreWeights
@@ -19,6 +20,15 @@ export function ScoreSettingsModal({ weights, narrative, guidanceEntries, active
   onSave: (w: ScoreWeights, n: string) => void
   onClose: () => void
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(dialogRef, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   const [showDefaultSliders, setShowDefaultSliders] = useState(false)
   const [draft, setDraft] = useState<ScoreWeights>({ ...weights })
   const lockedPlatform = PLATFORM_CONFIGS.find(p => p.id === activePlatform && p.condition !== null)
@@ -39,17 +49,28 @@ export function ScoreSettingsModal({ weights, narrative, guidanceEntries, active
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60" aria-hidden />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] focus:outline-none"
+        onClick={e => e.stopPropagation()}
+      >
 
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <div>
-            <h2 className="text-foreground font-semibold text-base flex items-center gap-2">
-              <span className="text-purple-400">✨</span> Lead Criteria
+            <h2 id={titleId} className="text-foreground font-semibold text-base flex items-center gap-2">
+              <span className="text-purple-400" aria-hidden>✨</span> Lead Criteria
             </h2>
-            <p className="text-muted-foreground text-xs mt-0.5">Select what makes a great lead — these affect every creator's score</p>
+            <p className="text-muted-foreground text-xs mt-0.5">Select what makes a great lead — these affect every creator&apos;s score</p>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">✕</button>
+          <button
+            onClick={onClose}
+            aria-label="Close lead criteria"
+            className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40"
+          >✕</button>
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
