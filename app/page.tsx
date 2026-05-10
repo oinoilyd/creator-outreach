@@ -82,6 +82,10 @@ const SendPreviewModal = dynamic(
   () => import('@/components/SendPreviewModal').then(m => m.SendPreviewModal),
   { ssr: false },
 )
+const ThreadModal = dynamic(
+  () => import('@/components/ThreadModal').then(m => m.ThreadModal),
+  { ssr: false },
+)
 const MigrationPromptModal = dynamic(
   () => import('@/components/MigrationPromptModal').then(m => m.MigrationPromptModal),
   { ssr: false },
@@ -847,7 +851,22 @@ function renderOutreachCell(
         </button>
       )
     case 'channelName':
-      return <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-800 dark:text-blue-400 font-medium" />
+      return (
+        <div className="flex items-start gap-1.5 w-full">
+          <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-800 dark:text-blue-400 font-medium flex-1" />
+          {e.unipileThreadId && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-thread-modal', { detail: { entryId: e.id, label: e.channelName } }))}
+              title="View full conversation thread"
+              aria-label="View conversation thread"
+              className="mt-0.5 text-muted-foreground/70 hover:text-purple-600 dark:hover:text-purple-300 transition-colors text-sm leading-none"
+            >
+              💬
+            </button>
+          )}
+        </div>
+      )
     case 'channelUrl':
       return (
         <a href={e.channelUrl} target="_blank" className="mt-0.5 block">
@@ -4010,6 +4029,9 @@ export default function Home() {
     recipientLabel: string
   } | null>(null)
   const [unipileConnected, setUnipileConnected] = useState(false)
+  // Phase 4: Conversation thread modal — opened by clicking the
+  // 💬 icon on an outreach row that has a unipile_thread_id.
+  const [threadModal, setThreadModal] = useState<{ entryId: string; label: string } | null>(null)
   // Manual migration prompt state
   const [pendingMigration, setPendingMigration] = useState<{ outreach: number; dismissed: number } | null>(null)
   const [showImport, setShowImport] = useState(false)
@@ -4262,8 +4284,17 @@ export default function Home() {
         recipientLabel: detail.recipientLabel ?? detail.to,
       })
     }
+    function onOpenThreadModal(ev: Event) {
+      const detail = (ev as CustomEvent).detail as { entryId?: string; label?: string } | undefined
+      if (!detail?.entryId) return
+      setThreadModal({ entryId: detail.entryId, label: detail.label ?? '' })
+    }
     window.addEventListener('open-send-modal', onOpenSendModal)
-    return () => window.removeEventListener('open-send-modal', onOpenSendModal)
+    window.addEventListener('open-thread-modal', onOpenThreadModal)
+    return () => {
+      window.removeEventListener('open-send-modal', onOpenSendModal)
+      window.removeEventListener('open-thread-modal', onOpenThreadModal)
+    }
   }, [])
 
   /**
@@ -6547,6 +6578,15 @@ export default function Home() {
           initial={profile ?? { fullName: '', linkedinUrl: '', pitchLine: '' }}
           onSave={(next) => setProfile(next)}
           onClose={() => setShowProfile(false)}
+        />
+      )}
+
+      {threadModal && (
+        <ThreadModal
+          entryId={threadModal.entryId}
+          recipientLabel={threadModal.label}
+          userEmail={userEmail}
+          onClose={() => setThreadModal(null)}
         />
       )}
 
