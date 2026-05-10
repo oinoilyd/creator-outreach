@@ -58,6 +58,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cacheGet, cacheSet } from '@/lib/cache'
+import { classifyReply, classificationToStatus, type ReplyClassification } from '@/lib/inbound-classify'
 
 export const maxDuration = 30
 
@@ -76,6 +77,9 @@ type RecentInboundEntry = {
   trackingId: string | null
   matched: boolean
   matchedEntryId: string | null
+  /** AI-classified verdict for matched replies. Null when no match
+   *  or no classification ran (autoresponder probe / fallback). */
+  classification: ReplyClassification | null
 }
 
 /** Service-role Supabase client. Bypasses RLS — only this webhook
@@ -187,15 +191,21 @@ export async function POST(req: NextRequest) {
 
   let matched = false
   let matchedEntryId: string | null = null
+  let classification: ReplyClassification | null = null
 
-  // If we found a tracking tag, find the entry and mark it responded.
+  // If we found a tracking tag, find the entry, classify the reply,
+  // and update status/response_date based on what the AI says.
   if (trackingId) {
     const sb = getServiceClient()
     if (sb) {
       try {
+        // Pull the fields we need to:
+        //   1. classify (channel_name + subject context)
+        //   2. decide whether to overwrite status (current status)
+        //   3. append classification reasoning (existing notes)
         const { data, error } = await sb
           .from('outreach_entries')
-          .select('id, status')
+          .select('id, status, channel_name, notes')
           .eq('tracking_id', trackingId)
           .maybeSingle()
         if (error) {
@@ -203,27 +213,66 @@ export async function POST(req: NextRequest) {
         } else if (data) {
           matched = true
           matchedEntryId = data.id
-          // Status flow on reply (revised 2026-05-09 per Dylan):
-          //   Click email     → 'No Response' (sent, awaiting reply)
-          //   Reply detected  → status UNCHANGED (just stamp date)
-          //   User reads reply → manually picks Open / Rejected / Successful
+
+          // ── Classify the reply ────────────────────────────────
+          // AI call against Claude Haiku — see lib/inbound-classify.ts
+          // for the prompt + cost notes. Failure mode is graceful:
+          // returns 'unclear', webhook still stamps response_date.
+          const cls = await classifyReply(text, {
+            channelName: data.channel_name as string | null ?? undefined,
+            subject,
+          })
+          classification = cls.classification
+          const targetStatus = classificationToStatus(cls.classification)
+
+          // Build the patch carefully:
           //
-          // Why don't auto-flip: 'Open' in this app means "positive,
-          // open-to-business response" — not a neutral "reply received."
-          // Auto-flipping every reply to Open would over-claim wins
-          // (negative replies, autoresponders, OOO bounces, etc. would
-          // all show as Open). Better to surface the date stamp + leave
-          // classification to the user who's actually reading the
-          // content.
+          // - response_date: stamp on REAL replies. Skip for
+          //   autoresponders so OOO emails don't make a creator
+          //   look responsive in your stats.
           //
-          // We DO stamp reached_out=true defensively in case the user
-          // sent the email outside our app (didn't click the tracked
-          // link) — a reply proves they did send.
+          // - reached_out: defensive flip — a reply proves the
+          //   user sent something, even if outside our tracked
+          //   compose flow.
+          //
+          // - status: only auto-flip when the entry is still in a
+          //   pre-classification state. If the user has manually
+          //   set Open / Successful / Rejected / a custom status,
+          //   the AI should NOT overwrite. The user is in the
+          //   loop and their judgement wins.
+          //
+          // - notes: append a single audit line so the user can
+          //   see what the AI decided + why. Useful when the auto-
+          //   classification disagrees with the user's intuition
+          //   on review.
           const today = new Date().toISOString().slice(0, 10)
           const patch: Record<string, unknown> = {
-            response_date: today,
             reached_out: true,
           }
+          if (cls.classification !== 'autoresponder') {
+            patch.response_date = today
+          }
+          // Only auto-overwrite an "open / unset" status. Anything
+          // the user has already manually classified stays as-is.
+          const currentStatus = (data.status as string | null | undefined) ?? ''
+          const isUnset =
+            currentStatus === '' ||
+            currentStatus === 'No Response' ||
+            currentStatus === 'Not Outreached'
+          if (targetStatus && isUnset) {
+            patch.status = targetStatus
+          }
+
+          // Append a one-line audit trail to notes so the user can
+          // see what the AI decided + why. Newline-separated so
+          // multiple replies per entry build up a thread.
+          const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ')
+          const noteLine = `[${stamp} · auto-classified ${cls.classification.toUpperCase()}] ${cls.reason}`
+          const existing = (data.notes as string | null | undefined) ?? ''
+          patch.notes = existing
+            ? `${existing}\n${noteLine}`
+            : noteLine
+
           const { error: updErr } = await sb
             .from('outreach_entries')
             .update(patch)
@@ -231,7 +280,10 @@ export async function POST(req: NextRequest) {
           if (updErr) {
             console.warn('[inbound-email] entry update failed:', updErr.message)
           } else {
-            console.log(`[inbound-email] flipped entry ${data.id} on reply (trackingId=${trackingId})`)
+            console.log(
+              `[inbound-email] entry ${data.id} reply=${cls.classification} ` +
+              `status=${patch.status ?? '(unchanged)'} response_date=${patch.response_date ?? '(skipped)'}`,
+            )
           }
         }
       } catch (e) {
@@ -254,7 +306,8 @@ export async function POST(req: NextRequest) {
     trackingId,
     matched,
     matchedEntryId,
+    classification,
   })
 
-  return NextResponse.json({ ok: true, matched, matchedEntryId, trackingId })
+  return NextResponse.json({ ok: true, matched, matchedEntryId, trackingId, classification })
 }

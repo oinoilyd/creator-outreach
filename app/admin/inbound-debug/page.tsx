@@ -21,6 +21,9 @@ type RecentInboundEntry = {
   trackingId: string | null
   matched: boolean
   matchedEntryId: string | null
+  /** Auto-classified verdict from lib/inbound-classify.ts. Older entries
+   *  (pre-classification) won't have this field — render gracefully. */
+  classification?: 'positive' | 'successful' | 'negative' | 'autoresponder' | 'unclear' | null
 }
 
 /**
@@ -111,7 +114,7 @@ export default async function InboundDebugPage() {
               >
                 {/* Status pill */}
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {e.matched ? (
                       <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-emerald-700 dark:text-emerald-400">
                         ✓ Matched entry {e.matchedEntryId?.slice(0, 12)}…
@@ -123,6 +126,26 @@ export default async function InboundDebugPage() {
                     ) : (
                       <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
                         No tracking tag — probably Gmail verification or unrelated
+                      </span>
+                    )}
+                    {/* AI classification pill — surfaces what the
+                        webhook decided so you can spot mis-classified
+                        replies during review. */}
+                    {e.classification && (
+                      <span
+                        className={`text-[10px] uppercase tracking-[0.16em] font-bold px-1.5 py-0.5 rounded ${
+                          e.classification === 'successful'
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            : e.classification === 'positive'
+                            ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300'
+                            : e.classification === 'negative'
+                            ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+                            : e.classification === 'autoresponder'
+                            ? 'bg-muted text-muted-foreground'
+                            : 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300'
+                        }`}
+                      >
+                        AI: {e.classification}
                       </span>
                     )}
                   </div>
