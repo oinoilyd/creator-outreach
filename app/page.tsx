@@ -3778,12 +3778,43 @@ export default function Home() {
   const [interactedNewIds, setInteractedNewIds] = useState<Set<string>>(new Set())
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  // Search mode pills (URL / Username / Occupation) on Results tab.
+  // Auto-selected by classifySearchInput as the user types; user
+  // clicks override and stick until keyword is cleared. Drives whether
+  // the next search hits /api/lookup-channel (URL/Username) or
+  // /api/search (Occupation), and powers the "no results → Search
+  // similar" recovery pill.
+  type SearchMode = 'url' | 'username' | 'occupation'
+  const [searchMode, setSearchMode] = useState<SearchMode>('occupation')
+  const [searchModeManual, setSearchModeManual] = useState(false)
+  // Set to true after a targeted (URL/Username) search returns 0 hits
+  // so we can render the "Search similar" recovery pill in the
+  // empty-state spot.
+  const [showSearchSimilar, setShowSearchSimilar] = useState(false)
   const [emailOnly, setEmailOnly] = useState(false)
   // Default sort prioritizes creators with email at the top. User can
   // toggle this off in the filter panel to see the raw column-only sort.
   const [emailFirstSort, setEmailFirstSort] = useState(true)
   const [showExport, setShowExport] = useState(false)
   // Ref + click-outside detection for the tab-nav Settings gear popover.
+  // Auto-update search mode pill based on what the classifier sees
+  // as the user types. Manual override (clicking a pill) sticks until
+  // the keyword is cleared — at which point we drop back to auto.
+  useEffect(() => {
+    const trimmed = keyword.trim()
+    if (!trimmed) {
+      setSearchModeManual(false)
+      setSearchMode('occupation') // default when empty
+      setShowSearchSimilar(false) // clear recovery state on input clear
+      return
+    }
+    if (searchModeManual) return
+    const cls = classifySearchInput(trimmed)
+    if (cls.kind === 'url') setSearchMode('url')
+    else if (cls.kind === 'handle') setSearchMode('username')
+    else setSearchMode('occupation')
+  }, [keyword, searchModeManual])
+
   // Without this, the popover only closed by clicking the gear icon
   // again — clicking anywhere else left it stuck open.
   const exportMenuRef = useRef<HTMLDivElement>(null)
@@ -4621,36 +4652,54 @@ export default function Home() {
     seenChannelIds.current = new Set()
     setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
+    setShowSearchSimilar(false) // reset every fresh search
 
-    // Classify the input. URLs and explicit @handles get a focused
-    // single-channel lookup. Bare handle-ish tokens (mr.beast, mr_beast,
-    // mrbeast420) try the lookup but fall back to keyword search on
-    // miss, so common-word collisions don't dead-end the user.
-    const cls = classifySearchInput(kw)
-    const trimmed = cls.raw
+    // Niche-list searches (multiple comma-joined occupations) are always
+    // broad keyword searches regardless of the pill state — the niche
+    // chips only appear in occupation contexts and shouldn't try to
+    // lookup a username.
+    const useTargetedLookup =
+      !keywordsList?.length &&
+      (searchMode === 'url' || searchMode === 'username')
 
-    if (cls.kind === 'url' || cls.kind === 'handle') {
-      // Build the lookup query. The endpoint resolves everything to a
-      // YouTube channel; for URLs from non-YouTube platforms we hand
-      // it the bare handle and let it synthesize the YouTube URL
-      // server-side. Most cross-platform creators reuse handles.
+    if (useTargetedLookup) {
+      // Build the lookup query based on the selected pill. URL mode
+      // sends the input as ?url=, Username mode strips a leading @ and
+      // sends ?handle=. Both hit /api/lookup-channel which resolves
+      // everything to a YouTube channel (cross-platform handles tend
+      // to match — Instagram URL → user looked up as YouTube handle).
+      const trimmed = kw.trim()
       let lookupQs: string
-      let displayLabel: string // for status messages
-      if (cls.kind === 'url' && cls.sourcePlatform === 'youtube') {
-        lookupQs = `url=${encodeURIComponent(trimmed)}`
-        displayLabel = cls.handle ? `@${cls.handle}` : 'channel'
-      } else if (cls.kind === 'url') {
-        // Non-YouTube URL — extracted handle, look it up on YouTube.
-        const h = cls.handle || ''
-        lookupQs = `handle=${encodeURIComponent(h)}`
-        displayLabel = h ? `@${h}` : 'channel'
+      let displayLabel: string
+      if (searchMode === 'url') {
+        // Try to surface what the URL points at for the status text.
+        const cls = classifySearchInput(trimmed)
+        if (cls.kind === 'url') {
+          // Recognised social URL — pass to the lookup as a URL when
+          // the host is YouTube; otherwise pass the extracted handle
+          // (the route resolves both forms via the YouTube backbone).
+          if (cls.sourcePlatform === 'youtube') {
+            lookupQs = `url=${encodeURIComponent(trimmed)}`
+            displayLabel = cls.handle ? `@${cls.handle}` : 'channel'
+          } else {
+            const h = cls.handle || ''
+            lookupQs = `handle=${encodeURIComponent(h)}`
+            displayLabel = h ? `@${h}` : 'channel'
+          }
+        } else {
+          // User clicked URL pill but typed something that's not a
+          // recognised URL. Pass it through anyway — the server will
+          // 404 it, then the "Search similar" pill recovers.
+          lookupQs = `url=${encodeURIComponent(trimmed)}`
+          displayLabel = trimmed.length > 30 ? trimmed.slice(0, 30) + '…' : trimmed
+        }
       } else {
-        // 'handle' — explicit @ or bare handle-ish token.
-        lookupQs = `handle=${encodeURIComponent(cls.handle)}`
-        displayLabel = `@${cls.handle}`
+        // Username mode — strip a leading @ if present.
+        const handle = trimmed.replace(/^@+/, '')
+        lookupQs = `handle=${encodeURIComponent(handle)}`
+        displayLabel = `@${handle}`
       }
 
-      const allowFallback = cls.kind === 'handle' && !cls.explicit
       setStatus(`Looking up ${displayLabel}...`)
 
       try {
@@ -4659,18 +4708,17 @@ export default function Home() {
         if (version !== searchVersion.current) return
 
         if (!r.ok || !lookup.channelId) {
-          if (allowFallback) {
-            // Bare handle-ish token didn't resolve — fall through to
-            // keyword search rather than dead-end the user.
-            setStatus(`No profile matched ${displayLabel} — searching as a keyword...`)
-            // (continues to the keyword search block below)
-          } else {
-            setStatus(`Couldn't find ${displayLabel} on YouTube. Try a broader search.`)
-            setLoading(false)
-            return
-          }
-        } else {
-          // Resolved to a real channel.
+          // No automatic fallback — user picks "Search similar" pill
+          // explicitly if they want to switch to broad keyword search.
+          // The pill in the UI flips searchMode to 'occupation' and
+          // re-fires runSearch with the same input.
+          setStatus(`No matches for ${displayLabel} on YouTube.`)
+          setShowSearchSimilar(true)
+          setLoading(false)
+          return
+        }
+        // Resolved to a real channel.
+        {
           if (dismissedIds.has(lookup.channelId) || outreachIds.has(lookup.channelId)) {
             setStatus(`${lookup.channelName || displayLabel} is already in your outreach or dismissed list.`)
             setLoading(false)
@@ -4700,7 +4748,7 @@ export default function Home() {
             instagram: '',
             tiktok: '',
             company: '',
-            matchedVia: cls.kind === 'url' ? 'url' : 'handle',
+            matchedVia: searchMode === 'url' ? 'url' : 'handle',
             videoTitles: [],
             videoDates: [],
             shortDates: [],
@@ -4742,23 +4790,18 @@ export default function Home() {
           return
         }
       } catch (err: any) {
-        if (!allowFallback) {
-          setStatus(`Lookup failed: ${err?.message || err}`)
-          setLoading(false)
-          return
-        }
-        // Network error during fallback-eligible lookup — keep going
-        // to keyword search rather than block the user.
-        setStatus(`Lookup hit a snag — searching as a keyword...`)
+        // Targeted lookup failed at the network layer — show the
+        // recovery pill (Search similar) instead of silently falling
+        // through. User chooses whether to broaden.
+        setStatus(`Lookup failed: ${err?.message || err}`)
+        setShowSearchSimilar(true)
+        setLoading(false)
+        return
       }
-      // Falls through to keyword search if allowFallback was true.
     }
 
-    // Phrase classifications hit this directly; lookup-fallback cases
-    // arrive here with a "searching as a keyword..." status set above.
-    // Don't clobber that message — it's the user's only signal that
-    // we tried a profile lookup first.
-    setStatus(s => s.includes('searching as a keyword') ? s : 'Searching...')
+    // Occupation mode (or niche-list search) → broad keyword search.
+    setStatus('Searching...')
 
     try {
       const regionCodes = regions.length > 0 ? regions : ['']
@@ -4789,17 +4832,24 @@ export default function Home() {
         (c: Creator) => !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
       )
 
-      // Handle-lookup fallback: when the direct /lookup-channel call
-      // missed for a handle-shaped input (e.g. 'TinaHuang1' resolved
-      // 404 because YouTube's @handle page didn't expose the channel
-      // ID, or anti-bot kicked in) we land here with the user's
-      // intended account presumably somewhere in this 100-result
-      // keyword pile. Narrow it to channels whose name fuzzy-matches
-      // the input so the user gets 1–3 plausible accounts instead of
-      // a haystack of unrelated results.
-      if (cls.kind === 'handle') {
+      // Name-match narrowing for handle-shaped inputs that landed in
+      // broad-keyword mode. Two ways this fires:
+      //   1. User clicked the "Search similar" pill after a username
+      //      lookup failed — they typed `TinaHuang1`, occupation
+      //      search runs, we narrow to channels whose name matches.
+      //   2. User manually picked occupation mode but typed something
+      //      that looks like a handle/url. We still help.
+      // For pure phrase searches (`fitness`, `productivity coach`)
+      // this doesn't fire — classifier returns 'phrase' and we keep
+      // the full keyword pile.
+      const inputCls = classifySearchInput(kw)
+      const handleHint =
+        inputCls.kind === 'handle' ? inputCls.handle :
+        (inputCls.kind === 'url' && inputCls.handle) ? inputCls.handle :
+        null
+      if (handleHint) {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-        const target = norm(cls.handle)
+        const target = norm(handleHint)
         const targetCore = target.replace(/\d+$/, '') // drop trailing digits (TinaHuang1 → tinahuang)
         const matches = visible.filter(c => {
           const n = norm(c.channelName)
@@ -4812,14 +4862,13 @@ export default function Home() {
         })
         if (matches.length > 0 && matches.length <= 3) {
           visible = matches
-          setStatus(`Found ${matches.length} close match${matches.length === 1 ? '' : 'es'} for @${cls.handle}.`)
+          setStatus(`Found ${matches.length} close match${matches.length === 1 ? '' : 'es'} for @${handleHint}.`)
         } else if (matches.length > 0) {
-          // Many name-matches — still a win (down from 100), surface them.
           visible = matches.slice(0, 5)
-          setStatus(`${matches.length} channels match @${cls.handle} — showing the closest 5.`)
+          setStatus(`${matches.length} channels match @${handleHint} — showing the closest 5.`)
         }
         // matches.length === 0 → keep the full keyword pile, status
-        // stays "searching as a keyword..." set in the lookup branch.
+        // stays "Searching..." from the broad-search step.
       }
 
       const enriched = visible.map(c => ({ ...c, enriching: true }))
@@ -4919,7 +4968,7 @@ export default function Home() {
         setLoading(false)
       }
     }
-  }, [minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
+  }, [minViews, maxViews, maxResults, regions, dismissedIds, outreachIds, searchMode, activePlatform])
 
   async function handleSearch() { await runSearch(keyword) }
 
@@ -5153,6 +5202,56 @@ export default function Home() {
 
       <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} pt-6 pb-16`}>
 
+        {/* Search-mode pills — three modes (URL / Username / Occupation
+            or Field) above the search bar. Auto-selected based on what
+            the classifier sees as you type; clicking a pill overrides
+            and sticks until the input is cleared. Drives whether the
+            next search is a targeted /api/lookup-channel call (URL +
+            Username) or a broad /api/search call (Occupation). Only
+            visible on Results tab — Outreach/Dismissed use the search
+            input as a local filter, not a search trigger. */}
+        {activeTab === 'results' && (
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-semibold">Mode</span>
+            {([
+              { id: 'url' as const, label: 'URL', hint: 'youtube.com/@handle, instagram.com/...' },
+              { id: 'username' as const, label: 'Username', hint: '@mrbeast or just a handle' },
+              { id: 'occupation' as const, label: 'Occupation / Field', hint: 'fitness coach, productivity, etc.' },
+            ]).map(p => {
+              const isActive = searchMode === p.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setSearchMode(p.id)
+                    setSearchModeManual(true)
+                  }}
+                  title={`${p.hint}${searchModeManual && isActive ? ' (manual)' : ''}`}
+                  aria-pressed={isActive}
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                    isActive
+                      ? 'bg-purple-500/15 border-purple-500/50 text-purple-700 dark:text-purple-300 font-medium'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-muted/40'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              )
+            })}
+            {searchModeManual && keyword.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchModeManual(false)}
+                className="text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                title="Reset to auto-detect"
+              >
+                reset auto-detect
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Premium search bar — chunkier sizing + gradient glow on focus.
             The outer wrapper renders an absolute-positioned blur that
             fades in when any child is focused (group-focus-within),
@@ -5290,64 +5389,10 @@ export default function Home() {
         </div>
         </div>
 
-        {/* Live classification badge — shows what the search classifier
-            sees as the user types. Only on Results tab (Outreach tab's
-            keyword filters local entries, not the classifier). Helps
-            users discover that pasting a URL or @handle does a direct
-            lookup instead of a topic search. The classifier is pure
-            and ~1 ms so calling it on every render is fine. */}
-        {activeTab !== 'outreach' && keyword.trim().length > 0 && !loading && (() => {
-          const cls = classifySearchInput(keyword)
-          if (cls.kind === 'phrase') {
-            return (
-              <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-300">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                </span>
-                <span>Searching topic <strong className="text-foreground/90">{keyword.trim()}</strong> across YouTube</span>
-              </div>
-            )
-          }
-          if (cls.kind === 'url') {
-            const target = cls.handle ? `@${cls.handle}` : cls.channelId ? cls.channelId : 'channel'
-            const platform = cls.sourcePlatform === 'youtube' ? 'YouTube' :
-              cls.sourcePlatform === 'instagram' ? 'Instagram' :
-              cls.sourcePlatform === 'tiktok' ? 'TikTok' :
-              cls.sourcePlatform === 'twitter' ? 'X / Twitter' :
-              cls.sourcePlatform === 'linkedin' ? 'LinkedIn' : 'unknown'
-            return (
-              <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
-                </span>
-                <span>Direct lookup of <strong className="text-foreground/90">{target}</strong> from {platform} URL</span>
-              </div>
-            )
-          }
-          // 'handle'
-          return (
-            <div className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="12" r="10" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </span>
-              <span>
-                Looking up <strong className="text-foreground/90">@{cls.handle}</strong> on YouTube
-                {!cls.explicit && (
-                  <span className="text-muted-foreground/70"> (falls back to keyword search if no match)</span>
-                )}
-              </span>
-            </div>
-          )
-        })()}
+        {/* (The previous live classification badge was removed in
+            favor of the explicit search-mode pills above the search
+            bar — pills carry the same affordance with a clearer
+            interaction model.) */}
 
         {/* Filter panel — hidden by default */}
         {showFilter && (
@@ -5510,7 +5555,36 @@ export default function Home() {
             </div>
           )}
 
-          {!loading && status && <p className="text-xs text-muted-foreground mb-4">{status}</p>}
+          {!loading && status && (
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <p className="text-xs text-muted-foreground">{status}</p>
+              {/* Search similar pill — appears when a targeted (URL or
+                  Username) lookup returns no matches. Click to switch
+                  the pill to Occupation/Field mode and re-run the
+                  same input as a broad keyword search. The classifier
+                  inside runSearch's broad-search path will narrow
+                  results to channel-name fuzzy matches when the input
+                  still looks handle-shaped. */}
+              {showSearchSimilar && keyword.trim() && activeTab === 'results' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchMode('occupation')
+                    setSearchModeManual(true)
+                    setShowSearchSimilar(false)
+                    runSearch(keyword)
+                  }}
+                  className="text-xs px-3 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/40 hover:bg-purple-500/25 transition-colors font-medium inline-flex items-center gap-1.5"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  Search similar
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Suggestions bar — niche filter on top, occupations below */}
