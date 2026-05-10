@@ -1856,6 +1856,57 @@ function CollapsibleSection({ title, count, subtitle, open, onToggle, children }
 // appears, type a number, blur or Enter to save. Empty zero shows a
 // faint $ placeholder so the click target is always there.
 /**
+ * Slide-out modal shell with hardened close behavior:
+ *   - Click anywhere on the backdrop (left half of screen) → close.
+ *   - Hit Escape from anywhere → close.
+ *   - Click inside the panel content does NOT close (event stop).
+ *   - Body scroll locked while open so the page underneath doesn't
+ *     jump when the user mouses past the panel.
+ *
+ * Replaces the prior bare `<div onClick={close}>` backdrop pattern
+ * which was missing keyboard support and was vulnerable to click
+ * propagation issues. Used by the Analytics Customize panel; can
+ * wrap other slide-outs the same way.
+ */
+function AnalyticsCustomizeShell({
+  onClose,
+  children,
+}: {
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    // Lock body scroll while the panel is open.
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close panel"
+        className="flex-1 bg-black/50 cursor-pointer"
+      />
+      {/* Stop click propagation INSIDE the panel so the backdrop
+          click doesn't fire when the user interacts with controls. */}
+      <div onClick={e => e.stopPropagation()} className="flex">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Inline email editor that appears as a small "Edit" link by default,
  * then swaps in a textarea on click. Hides itself again on blur or
  * when the user hits Enter / Escape. Keeps the row compact in its
@@ -2509,11 +2560,38 @@ function daysFromNow(iso: string): number {
   return Math.max(0, Math.round((that.getTime() - today.getTime()) / 86_400_000))
 }
 
-function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
+function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onExportExcel, onExportCsv }: {
   entries: OutreachEntry[]
   customMetrics: import('@/lib/types').CustomMetric[]
   onOpenCustomize: () => void
+  /** Export the underlying outreach list — same handlers the Outreach
+   *  table uses, just surfaced from the Analytics tab too so a user
+   *  reading the metrics can export without switching tabs. */
+  onExportExcel: () => void
+  onExportCsv: () => void
 }) {
+  // Settings gear popover state (Customize Analytics + Export entries).
+  // Click-outside / Escape closes — same UX pattern as the Results /
+  // Outreach tab's settings gear.
+  const [showSettings, setShowSettings] = useState(false)
+  const settingsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!showSettings) return
+    function onClick(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false)
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowSettings(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [showSettings])
   if (entries.length === 0) {
     return (
       <div className="border border-dashed border-border rounded-xl py-16 px-6 text-center">
@@ -2581,13 +2659,71 @@ function OutreachAnalytics({ entries, customMetrics, onOpenCustomize }: {
   return (
     <div className="space-y-6">
       <div className="flex justify-end -mt-2">
-        <button
-          onClick={onOpenCustomize}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          Customize Analytics
-        </button>
+        {/* Single Settings gear consolidating Customize + Export.
+            Same pattern as the Results / Outreach tab settings gear:
+            click → small popover; click outside or hit Escape → closes.
+            Click-outside is bulletproof here (no slide-out modal that
+            could trap focus) so this is the smoother UX Dylan wanted. */}
+        <div ref={settingsRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setShowSettings(v => !v)}
+            title="Analytics settings — customize metrics or export"
+            aria-label="Analytics settings"
+            aria-expanded={showSettings}
+            className={`flex items-center justify-center w-8 h-8 rounded-md border transition-colors ${
+              showSettings
+                ? 'border-border bg-muted/60 text-foreground'
+                : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 hover:border-border/80'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          {showSettings && (
+            <div className="absolute right-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-2xl shadow-black/30 z-30 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenCustomize()
+                  setShowSettings(false)
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-b border-border/60"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h13M3 12h13M3 18h7" />
+                </svg>
+                Customize metrics
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onExportExcel()
+                  setShowSettings(false)
+                }}
+                disabled={entries.length === 0}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="text-base leading-none">📊</span>
+                Export Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onExportCsv()
+                  setShowSettings(false)
+                }}
+                disabled={entries.length === 0}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="text-base leading-none">📄</span>
+                Export CSV
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Top stats */}
@@ -5329,8 +5465,7 @@ export default function Home() {
         )}
 
         {showAnalyticsCustomize && (
-          <div className="fixed inset-0 z-50 flex">
-            <div className="flex-1 bg-black/50" onClick={() => setShowAnalyticsCustomize(false)} />
+          <AnalyticsCustomizeShell onClose={() => setShowAnalyticsCustomize(false)}>
             <div className="w-96 bg-card border-l border-border flex flex-col h-full">
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <h2 className="font-semibold text-foreground">Customize Analytics</h2>
@@ -5450,7 +5585,7 @@ export default function Home() {
                 >Save</button>
               </div>
             </div>
-          </div>
+          </AnalyticsCustomizeShell>
         )}
 
         {showOutreachCustomize && (
@@ -5525,6 +5660,8 @@ export default function Home() {
                 entries={outreach}
                 customMetrics={customMetrics}
                 onOpenCustomize={() => { setDraftMetrics(customMetrics); setShowAnalyticsCustomize(true) }}
+                onExportExcel={handleExportOutreachExcel}
+                onExportCsv={handleExportOutreachCSV}
               />
             ) : outreachSubTab === 'followups' ? (
               <OutreachFollowUps
