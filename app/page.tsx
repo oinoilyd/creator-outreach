@@ -55,15 +55,51 @@ import {
 import { DismissedTab } from '@/components/DismissedTab'
 import { PlatformDropdown } from '@/components/PlatformDropdown'
 import { HamburgerMenu } from '@/components/HamburgerMenu'
-import { ScoreSettingsModal } from '@/components/ScoreSettingsModal'
-import { OnboardingModal } from '@/components/OnboardingModal'
-import { ProfileModal } from '@/components/ProfileModal'
-import { MigrationPromptModal } from '@/components/MigrationPromptModal'
-import { ImportOutreachModal } from '@/components/ImportOutreachModal'
-import { ImportDismissedModal } from '@/components/ImportDismissedModal'
-import { CustomMetricModal } from '@/components/CustomMetricModal'
-import { ManualAddOutreachModal } from '@/components/ManualAddOutreachModal'
-import { LeadDetailModal } from '@/components/LeadDetailModal'
+// Lazy-loaded modal mounts (2026-05-09). Each of these only renders
+// after a user click — there's no reason for them to ride along on
+// the initial JS bundle. Switching to next/dynamic with the named-
+// export `.then(m => m.X)` pattern keeps the prop types intact while
+// dropping ~30-60 KB gzipped from the first paint chunk.
+//
+// `ssr: false` because these are interactive client surfaces that
+// only render on user action — SSR would just be wasted work.
+import dynamic from 'next/dynamic'
+const ScoreSettingsModal = dynamic(
+  () => import('@/components/ScoreSettingsModal').then(m => m.ScoreSettingsModal),
+  { ssr: false },
+)
+const OnboardingModal = dynamic(
+  () => import('@/components/OnboardingModal').then(m => m.OnboardingModal),
+  { ssr: false },
+)
+const ProfileModal = dynamic(
+  () => import('@/components/ProfileModal').then(m => m.ProfileModal),
+  { ssr: false },
+)
+const MigrationPromptModal = dynamic(
+  () => import('@/components/MigrationPromptModal').then(m => m.MigrationPromptModal),
+  { ssr: false },
+)
+const ImportOutreachModal = dynamic(
+  () => import('@/components/ImportOutreachModal').then(m => m.ImportOutreachModal),
+  { ssr: false },
+)
+const ImportDismissedModal = dynamic(
+  () => import('@/components/ImportDismissedModal').then(m => m.ImportDismissedModal),
+  { ssr: false },
+)
+const CustomMetricModal = dynamic(
+  () => import('@/components/CustomMetricModal').then(m => m.CustomMetricModal),
+  { ssr: false },
+)
+const ManualAddOutreachModal = dynamic(
+  () => import('@/components/ManualAddOutreachModal').then(m => m.ManualAddOutreachModal),
+  { ssr: false },
+)
+const LeadDetailModal = dynamic(
+  () => import('@/components/LeadDetailModal').then(m => m.LeadDetailModal),
+  { ssr: false },
+)
 import {
   getOutreach, saveOutreach as persistOutreach,
   getDismissed, saveDismissed as persistDismissed,

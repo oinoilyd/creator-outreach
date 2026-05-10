@@ -17,14 +17,20 @@ const geistMono = Geist_Mono({
 });
 
 // Newsreader — display serif used for editorial pull-quote
-// headlines on the landing page (e.g. the "Why this exists" pain
-// statements). Loaded with display: swap so we don't block paint.
+// headlines on the landing page and roadmap (e.g. the "Why this
+// exists" pain statements). Loaded with display: swap so we don't
+// block paint.
+//
+// Trimmed to italic 400 only (was 4 weights × 2 styles = 8 files).
+// Both real usages — WhyThisExists.tsx and app/roadmap/page.tsx —
+// render the serif as `italic font-normal`. The other weights were
+// being preloaded but never rendered.
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
   display: "swap",
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
+  weight: ["400"],
+  style: ["italic"],
 });
 
 /**

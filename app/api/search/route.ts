@@ -881,10 +881,19 @@ async function searchQuery(yt: any, query: string, retry = true): Promise<VideoH
   return hits
 }
 
-// Run query batches with stagger to avoid rate limiting
+// Run query batches with stagger to avoid rate limiting.
+//
+// BATCH bumped 3 → 5 (2026-05-09): with ~30 expanded queries the old
+// BATCH=3 forced 9 inter-batch delays of 300 ms each = ~2.7 s of
+// deliberate sleep in the floor latency, before any network time.
+// At BATCH=5 we drop to ~5 gaps = ~1.5 s saved per cold search.
+// Inter-batch delay kept at 300 ms — empirically the rate limit
+// threshold lives well above 5 parallel queries to youtubei.js,
+// and the searchQuery retry already adds 700 ms back-off on empty
+// results so transient throttles still get absorbed.
 async function runBatched(yt: any, queries: string[]): Promise<VideoHit[]> {
   const all: VideoHit[] = []
-  const BATCH = 3
+  const BATCH = 5
   for (let i = 0; i < queries.length; i += BATCH) {
     const batch = queries.slice(i, i + BATCH)
     const results = await Promise.allSettled(batch.map(q => searchQuery(yt, q)))
@@ -894,6 +903,31 @@ async function runBatched(yt: any, queries: string[]): Promise<VideoHit[]> {
     if (i + BATCH < queries.length) await delay(300)
   }
   return all
+}
+
+// Module-scoped Innertube singleton cache. Was creating a fresh
+// Innertube instance per request (line 966 below), which costs
+// 200-600 ms of session bootstrap time on every cold search. Vercel
+// keeps the function module loaded between warm invocations, so a
+// module-level Map persists across requests. 5-min TTL guards
+// against the YouTube session going stale.
+//
+// Keyed by `gl` (country code or '' for default) since each region
+// gets its own location-bound session.
+type InnertubeCacheEntry = { instance: Awaited<ReturnType<typeof Innertube.create>>; expires: number }
+const ytInstanceCache = new Map<string, InnertubeCacheEntry>()
+const YT_INSTANCE_TTL_MS = 5 * 60 * 1000
+
+async function getInnertubeInstance(gl: string) {
+  const key = gl || 'default'
+  const cached = ytInstanceCache.get(key)
+  if (cached && cached.expires > Date.now()) return cached.instance
+  const instance = await Innertube.create({
+    retrieve_player: false,
+    ...(gl ? { location: gl } : {}),
+  })
+  ytInstanceCache.set(key, { instance, expires: Date.now() + YT_INSTANCE_TTL_MS })
+  return instance
 }
 
 export async function GET(req: NextRequest) {
@@ -963,7 +997,7 @@ export async function GET(req: NextRequest) {
   const terms = (keyword || keywordsList.join(' ')).toLowerCase().split(/\s+/)
 
   try {
-    const yt = await Innertube.create({ retrieve_player: false, ...(gl ? { location: gl } : {}) })
+    const yt = await getInnertubeInstance(gl)
 
     let hits = await runBatched(yt, queries)
 
