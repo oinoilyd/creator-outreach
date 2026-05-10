@@ -82,15 +82,6 @@ export async function POST(req: NextRequest) {
   if (!subject) return NextResponse.json({ error: 'subject is required' }, { status: 400 })
   if (!textBody.trim()) return NextResponse.json({ error: 'body is required' }, { status: 400 })
 
-  // Recipient guard — same logic the client UI runs, re-enforced server-side.
-  const issue = recipientIssue(to, user.email)
-  if (issue !== null) {
-    return NextResponse.json(
-      { error: `Refusing to send: recipient is ${issue}`, code: issue },
-      { status: 400 },
-    )
-  }
-
   // Load the user's Unipile account + verify the entry belongs to them.
   const supabase = await createClient()
   const [{ data: profile }, { data: entry, error: entryErr }] = await Promise.all([
@@ -118,6 +109,20 @@ export async function POST(req: NextRequest) {
         hint: 'Open Profile and click Connect Gmail before sending.',
       },
       { status: 412 },
+    )
+  }
+
+  // Recipient guard — same logic the client UI runs, re-enforced server-side.
+  // 2026-05-10 audit (HIGH-recipient-sender): the "self" check must compare
+  // against the Unipile-connected Gmail (the actual sender), NOT the
+  // Supabase auth email. If a user signed up with personal Gmail but
+  // connected work Gmail, sending to work Gmail should still be blocked.
+  const senderAddress = profile?.unipile_account_email ?? user.email
+  const issue = recipientIssue(to, senderAddress)
+  if (issue !== null) {
+    return NextResponse.json(
+      { error: `Refusing to send: recipient is ${issue}`, code: issue },
+      { status: 400 },
     )
   }
 

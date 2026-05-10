@@ -57,14 +57,19 @@ function constantTimeMatch(a: string, b: string): boolean {
   return timingSafeEqual(ba, bb)
 }
 
-function verifyCronAuth(req: NextRequest): boolean {
+function verifyCronAuth(req: NextRequest): { ok: boolean; reason?: string } {
   const secret = process.env.CRON_SECRET
-  // If no secret configured, only allow when running locally or via Vercel's
-  // own cron header. Vercel cron requests include x-vercel-cron in headers.
-  if (!secret) return req.headers.get('x-vercel-cron') === '1'
+  // 2026-05-10 security audit (H1): CRON_SECRET is REQUIRED. Previous
+  // version had an x-vercel-cron fallback, but that header isn't a
+  // secret — any external caller can spoof it. If CRON_SECRET is
+  // missing we fail closed rather than falling through to an
+  // unauthenticated path.
+  if (!secret) {
+    return { ok: false, reason: 'CRON_SECRET env not set — cron is disabled until configured' }
+  }
   const header = req.headers.get('authorization') ?? ''
   const expected = `Bearer ${secret}`
-  return constantTimeMatch(header, expected)
+  return { ok: constantTimeMatch(header, expected) }
 }
 
 interface CronOutreachRow {
@@ -92,11 +97,21 @@ interface CronProfileRow {
   subject_template: string | null
   email: string | null
   unipile_account_id: string | null
+  /** 2026-05-10 audit (H-recipient): the Unipile-connected Gmail address
+   *  is the actual sender — recipientIssue() must compare against this,
+   *  not the Supabase auth email, otherwise sending to your connected
+   *  Gmail (which differs from your signup email) wouldn't be blocked
+   *  by the self-check. */
+  unipile_account_email: string | null
 }
 
 export async function GET(req: NextRequest) {
-  if (!verifyCronAuth(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authResult = verifyCronAuth(req)
+  if (!authResult.ok) {
+    return NextResponse.json(
+      { error: 'Unauthorized', reason: authResult.reason },
+      { status: 401 },
+    )
   }
 
   const supabase = getServiceClient()
@@ -113,11 +128,26 @@ export async function GET(req: NextRequest) {
   // follow_up_date <= today, has Unipile thread (so we can match reply
   // backstop), wasn't already auto-followed within COOLDOWN_HOURS.
   const cooldownCutoff = new Date(Date.now() - COOLDOWN_HOURS * 3600_000).toISOString()
-  const { data: rawCandidates, error: queryErr } = await supabase
+  const claimedAt = new Date().toISOString()
+
+  // 2026-05-10 audit (CRITICAL #1): Atomic claim instead of read-then-loop.
+  // Previous version read candidates, then sent + stamped last_auto_followup_at
+  // *after* each send completed. If two cron instances overlapped (slow run
+  // racing the next 15-min trigger) they'd both read the same rows and
+  // both fire the send → duplicate emails to the creator. The fix: an
+  // atomic UPDATE … RETURNING claims rows by stamping the cooldown column
+  // BEFORE we process. Only rows the DB hands back made it through the
+  // atomic write — the other instance got an empty set. If our send
+  // subsequently fails, we've burned this row's cooldown for 24h, which is
+  // the right call (fail closed — better to skip one send than double-fire).
+  //
+  // We do this in two steps because PostgREST doesn't expose
+  // SELECT FOR UPDATE SKIP LOCKED directly: first SELECT the ids matching
+  // our filter, then UPDATE … WHERE id = ANY($ids) AND (cooldown clause)
+  // RETURNING the rows we actually claimed.
+  const { data: candidateIdRows, error: idQueryErr } = await supabase
     .from('outreach_entries')
-    .select(
-      'id, user_id, channel_id, channel_name, channel_url, description, email, status, notes, follow_up_date, touchpoints, unipile_thread_id, unipile_provider_id, last_auto_followup_at',
-    )
+    .select('id')
     .eq('auto_followup', true)
     .eq('status', 'No Response')
     .not('unipile_thread_id', 'is', null)
@@ -125,14 +155,37 @@ export async function GET(req: NextRequest) {
     .or(`last_auto_followup_at.is.null,last_auto_followup_at.lt.${cooldownCutoff}`)
     .limit(GLOBAL_CAP_PER_RUN)
 
-  if (queryErr) {
-    console.error('[cron/send-followups] candidate query failed', queryErr)
+  if (idQueryErr) {
+    console.error('[cron/send-followups] candidate id query failed', idQueryErr)
     return NextResponse.json({ error: 'Candidate query failed' }, { status: 500 })
   }
 
-  const candidates = (rawCandidates ?? []) as CronOutreachRow[]
-  if (candidates.length === 0) {
+  const candidateIds = (candidateIdRows ?? []).map(r => r.id as string)
+  if (candidateIds.length === 0) {
     return NextResponse.json({ ok: true, processed: 0, sent: 0, skipped: 0 })
+  }
+
+  // Atomic claim: stamp last_auto_followup_at NOW, but only for rows that
+  // either have no prior stamp or whose stamp is older than cooldownCutoff.
+  // A concurrent instance trying the same UPDATE will get a disjoint
+  // result set or empty — no row is processed twice.
+  const { data: claimedRaw, error: claimErr } = await supabase
+    .from('outreach_entries')
+    .update({ last_auto_followup_at: claimedAt })
+    .in('id', candidateIds)
+    .or(`last_auto_followup_at.is.null,last_auto_followup_at.lt.${cooldownCutoff}`)
+    .select(
+      'id, user_id, channel_id, channel_name, channel_url, description, email, status, notes, follow_up_date, touchpoints, unipile_thread_id, unipile_provider_id, last_auto_followup_at',
+    )
+
+  if (claimErr) {
+    console.error('[cron/send-followups] atomic claim failed', claimErr)
+    return NextResponse.json({ error: 'Claim failed' }, { status: 500 })
+  }
+
+  const candidates = (claimedRaw ?? []) as CronOutreachRow[]
+  if (candidates.length === 0) {
+    return NextResponse.json({ ok: true, processed: 0, sent: 0, skipped: 0, note: 'all candidates claimed by parallel run' })
   }
 
   // Batch-load all the users' profiles so we can build the right
@@ -140,7 +193,7 @@ export async function GET(req: NextRequest) {
   const userIds = Array.from(new Set(candidates.map(c => c.user_id)))
   const { data: profileRows } = await supabase
     .from('user_profile')
-    .select('user_id, full_name, linkedin_url, pitch_line, subject_template, email, unipile_account_id')
+    .select('user_id, full_name, linkedin_url, pitch_line, subject_template, email, unipile_account_id, unipile_account_email')
     .in('user_id', userIds)
   const profileByUser = new Map<string, CronProfileRow>()
   for (const p of (profileRows ?? []) as CronProfileRow[]) {
@@ -180,7 +233,11 @@ export async function GET(req: NextRequest) {
     }
 
     // Defensive recipient guard — same logic the manual send path uses.
-    const issue = recipientIssue(entry.email, profileRow.email)
+    // 2026-05-10 audit (H-recipient): compare against the Unipile-connected
+    // sender Gmail, not the Supabase auth email. Sending to your connected
+    // Gmail from itself is the same "email yourself" bug — guard catches it.
+    const senderAddress = profileRow.unipile_account_email ?? profileRow.email
+    const issue = recipientIssue(entry.email, senderAddress)
     if (issue !== null) {
       skipped += 1
       errors.push({ entryId: entry.id, reason: `recipient ${issue}` })
@@ -239,15 +296,24 @@ export async function GET(req: NextRequest) {
       const auditLine = `[auto · cron] follow-up sent ${nowIso.slice(0, 16)}`
       const newNotes = entry.notes ? `${entry.notes}\n${auditLine}` : auditLine
 
+      // 2026-05-10 audit (HIGH-provider_id): DO NOT overwrite
+      // unipile_provider_id — it's the original outreach email's
+      // Message-ID, used by the inbound webhook's In-Reply-To match
+      // path. If a creator replies to the *original* email (not the
+      // follow-up), we still need the original id to attribute the
+      // reply back. unipile_thread_id is the redundancy; preserve
+      // both. unipile_message_id (Unipile's internal id of the LAST
+      // send) is the only thing that legitimately rotates each send.
+      // last_auto_followup_at was already stamped by the atomic
+      // claim — don't re-stamp here.
       await supabase
         .from('outreach_entries')
         .update({
           unipile_message_id: sentResp.id ?? null,
-          unipile_provider_id: sentResp.provider_id ?? entry.unipile_provider_id,
-          unipile_thread_id: sentResp.thread_id ?? entry.unipile_thread_id,
+          // unipile_provider_id intentionally NOT updated — see comment above.
+          unipile_thread_id: entry.unipile_thread_id ?? sentResp.thread_id ?? null,
           unipile_tracking_id: sentResp.tracking_id ?? null,
           unipile_sent_at: nowIso,
-          last_auto_followup_at: nowIso,
           touchpoints: newTouchpoints,
           follow_up_date: nextFollowUp,
           notes: newNotes,

@@ -163,12 +163,16 @@ export async function POST(req: NextRequest) {
 
   // CREATION_SUCCESS is the happy path. Unipile also emits RECONNECT_SUCCESS
   // for reconnections — treat the same since we just want to (re)point
-  // user_profile.unipile_account_id. OK is sometimes used as a generic
-  // "everything's fine" status.
+  // user_profile.unipile_account_id.
+  //
+  // 2026-05-10 audit (CRITICAL #2): we previously also matched on
+  // `status === 'OK'` as a generic "everything's fine" signal, but
+  // Unipile uses OK for ambient keep-alive events too — accepting it
+  // here would let an unrelated OK event overwrite a user's
+  // unipile_account_id binding mid-session. Dropped from the list.
   const isCreationOrReconnect =
     status === 'CREATION_SUCCESS' ||
-    status === 'RECONNECT_SUCCESS' ||
-    status === 'OK'
+    status === 'RECONNECT_SUCCESS'
 
   if (!isCreationOrReconnect) {
     await pushRecent({ ...baseRecent, error: 'non-creation event (ignored)' })
@@ -190,12 +194,18 @@ export async function POST(req: NextRequest) {
     const account = await getAccount(accountId)
     email = emailFromAccount(account)
     accountType = account.type ?? accountType
-    if (account.name && account.name !== userId) {
-      await pushRecent({ ...baseRecent, error: 'name mismatch with Unipile account' })
+    // 2026-05-10 audit (HIGH-name-bypass): require account.name to be
+    // PRESENT AND equal to the payload's userId. Previously we only
+    // checked when account.name was truthy, so an account returned
+    // without a name field would silently pass — meaning the payload's
+    // unverified `name` field would be trusted as the user_id to
+    // write. Now we hard-require the match.
+    if (!account.name || account.name !== userId) {
+      await pushRecent({ ...baseRecent, error: `name mismatch — account.name=${account.name ?? 'null'}, payload.name=${userId}` })
       console.warn('[unipile/webhook] account.name mismatch', {
         accountId,
         webhookName: userId,
-        accountName: account.name,
+        accountName: account.name ?? null,
       })
       return NextResponse.json({ error: 'Account name mismatch' }, { status: 403 })
     }
@@ -290,6 +300,38 @@ async function handleTrackingEvent(
     return NextResponse.json({ ok: true, ignored: true, reason: 'no tracking_id' })
   }
 
+  // 2026-05-10 audit (MEDIUM-OR-injection): tracking_id arrives unsanitized
+  // from the webhook payload. PostgREST .or() takes raw filter strings so
+  // commas/parens/dots in the value can widen the query. Restrict to the
+  // shape we actually issue ourselves (UUID-style or alphanumeric with
+  // hyphens / underscores). Anything else short-circuits.
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(trackingId)) {
+    await pushRecent({ ...baseRecent, error: `rejected suspicious tracking_id: ${trackingId.slice(0, 60)}` })
+    return NextResponse.json({ ok: true, ignored: true, reason: 'malformed tracking_id' })
+  }
+
+  // 2026-05-10 audit (HIGH H2): require account_id on the payload and
+  // cross-verify it via getAccount() so a forged tracking event can't
+  // attribute opens to entries owned by other accounts.
+  const accountId = (payload.account_id ?? (payload.data?.account_id as string | undefined) ?? '').toString().trim()
+  if (!accountId) {
+    await pushRecent({ ...baseRecent, error: 'tracking event missing account_id' })
+    return NextResponse.json({ ok: true, ignored: true, reason: 'no account_id' })
+  }
+  let verifiedUserId: string | null = null
+  try {
+    const account = await getAccount(accountId)
+    if (!account.name) {
+      await pushRecent({ ...baseRecent, error: 'tracking event: account.name missing' })
+      return NextResponse.json({ error: 'Account verification failed' }, { status: 403 })
+    }
+    verifiedUserId = account.name
+  } catch (err) {
+    const msg = err instanceof UnipileError ? err.message : (err as Error).message
+    await pushRecent({ ...baseRecent, error: `tracking event verify failed: ${msg}` })
+    return NextResponse.json({ error: 'Could not verify account' }, { status: 502 })
+  }
+
   const supabase = getServiceClient()
   if (!supabase) {
     await pushRecent({ ...baseRecent, error: 'service client unavailable' })
@@ -298,16 +340,19 @@ async function handleTrackingEvent(
 
   // We label sends with the outreach entry id, so look up by either
   // unipile_tracking_id (if Unipile generated its own) OR the entry id
-  // (if our label survived as the tracking_id).
+  // (if our label survived as the tracking_id). Scoped to the verified
+  // user_id so a cross-tenant tracking_id leak can't bump someone
+  // else's open counter.
   const { data: entries } = await supabase
     .from('outreach_entries')
     .select('id, open_count')
     .or(`unipile_tracking_id.eq.${trackingId},id.eq.${trackingId}`)
+    .eq('user_id', verifiedUserId)
     .limit(1)
   const matched = entries?.[0]
 
   if (!matched) {
-    await pushRecent({ ...baseRecent, error: `no entry for tracking_id ${trackingId}` })
+    await pushRecent({ ...baseRecent, error: `no entry for tracking_id ${trackingId} (user ${verifiedUserId})` })
     return NextResponse.json({ ok: true, ignored: true, reason: 'no matching entry' })
   }
 
@@ -319,6 +364,7 @@ async function handleTrackingEvent(
       last_opened_at: new Date().toISOString(),
     })
     .eq('id', matched.id)
+    .eq('user_id', verifiedUserId)
 
   if (updateErr) {
     await pushRecent({ ...baseRecent, error: `open update failed: ${updateErr.message}` })
@@ -363,6 +409,28 @@ async function handleIncomingMessage(
     return NextResponse.json({ ok: true, ignored: true, reason: 'no message id' })
   }
 
+  // 2026-05-10 audit (HIGH H2): require account_id on the payload and
+  // cross-verify it via getAccount() so a forged message event can't
+  // attribute a reply to entries owned by other accounts.
+  const accountId = (payload.account_id ?? (payload.data?.account_id as string | undefined) ?? '').toString().trim()
+  if (!accountId) {
+    await pushRecent({ ...baseRecent, error: 'message event missing account_id' })
+    return NextResponse.json({ ok: true, ignored: true, reason: 'no account_id' })
+  }
+  let verifiedUserId: string | null = null
+  try {
+    const account = await getAccount(accountId)
+    if (!account.name) {
+      await pushRecent({ ...baseRecent, error: 'message event: account.name missing' })
+      return NextResponse.json({ error: 'Account verification failed' }, { status: 403 })
+    }
+    verifiedUserId = account.name
+  } catch (err) {
+    const msg = err instanceof UnipileError ? err.message : (err as Error).message
+    await pushRecent({ ...baseRecent, error: `message verify failed: ${msg}` })
+    return NextResponse.json({ error: 'Could not verify account' }, { status: 502 })
+  }
+
   // Fetch the full message — webhook may only give us metadata.
   let providerId = ''
   let threadId = (payload.thread_id ?? (payload.data?.thread_id as string | undefined) ?? '').toString().trim()
@@ -389,20 +457,26 @@ async function handleIncomingMessage(
   }
 
   // Match by thread_id first, fall back to provider_id (In-Reply-To).
+  // 2026-05-10 audit (multi-tenant + HIGH H2): all lookups scoped to
+  // the verified user_id to prevent cross-tenant attribution.
   let matchQuery = threadId
-    ? supabase.from('outreach_entries').select('id, status, notes, channel_name, user_id').eq('unipile_thread_id', threadId).limit(1)
-    : supabase.from('outreach_entries').select('id, status, notes, channel_name, user_id').eq('unipile_provider_id', inReplyTo).limit(1)
+    ? supabase.from('outreach_entries').select('id, status, notes, channel_name, user_id').eq('unipile_thread_id', threadId).eq('user_id', verifiedUserId).limit(1)
+    : supabase.from('outreach_entries').select('id, status, notes, channel_name, user_id').eq('unipile_provider_id', inReplyTo).eq('user_id', verifiedUserId).limit(1)
 
   let { data: entries, error: lookupErr } = await matchQuery
 
   // If neither lookup hit and we had both candidates, try the other one.
+  // 2026-05-10 audit (HIGH-stale-lookupErr): capture and check the fallback
+  // query's error too. Previously only the first query's error was returned.
   if ((!entries || entries.length === 0) && threadId && inReplyTo) {
-    const { data: byProvider } = await supabase
+    const { data: byProvider, error: fallbackErr } = await supabase
       .from('outreach_entries')
       .select('id, status, notes, channel_name, user_id')
       .eq('unipile_provider_id', inReplyTo)
+      .eq('user_id', verifiedUserId)
       .limit(1)
-    entries = byProvider ?? []
+    if (fallbackErr) lookupErr = lookupErr ?? fallbackErr
+    entries = byProvider ?? entries ?? []
   }
 
   if (lookupErr) {
