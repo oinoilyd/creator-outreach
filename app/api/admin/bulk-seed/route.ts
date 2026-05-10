@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
@@ -57,10 +58,16 @@ export async function POST(req: NextRequest) {
   // requests work.
   const internalSecret = req.headers.get('x-internal-bulk-secret')
   const expectedSecret = process.env.INTERNAL_BULK_SECRET
+  // Constant-time compare — JS `===` on strings is not constant-time
+  // and is theoretically vulnerable to timing oracle attacks against
+  // short secrets over a large enough sample size. timingSafeEqual
+  // requires equal-length buffers (it'll throw otherwise), so the
+  // length check below is defensive AND a precondition.
   const isInternal = !!(
     internalSecret &&
     expectedSecret &&
-    internalSecret === expectedSecret
+    internalSecret.length === expectedSecret.length &&
+    timingSafeEqual(Buffer.from(internalSecret), Buffer.from(expectedSecret))
   )
   if (!isInternal) {
     const supabase = await createClient()

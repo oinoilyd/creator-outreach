@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { rateLimit } from '@/lib/api-auth'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 const FROM_ADDRESS = 'Creator Outreach <noreply@creatoroutreach.net>'
@@ -8,7 +9,30 @@ function isEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
 }
 
+/**
+ * Best-effort caller-IP for rate limiting. Vercel sets x-forwarded-for
+ * (comma-separated chain). We take the leftmost entry as the original
+ * client. Falls back to x-real-ip, then a fixed string so the limiter
+ * still applies a global ceiling when the headers are stripped.
+ */
+function callerKey(req: Request): string {
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) return xff.split(',')[0].trim()
+  const realIp = req.headers.get('x-real-ip')
+  if (realIp) return realIp.trim()
+  return 'anon'
+}
+
 export async function POST(req: Request) {
+  // Public form — anyone can submit. Rate-limit by caller IP so a
+  // bot can't spam contact_messages or burn the Resend free-tier
+  // quota. 5 submissions per hour per IP is plenty for a real human;
+  // the in-process bucket is per-Vercel-instance so a determined
+  // attacker can multiply by warm-instance count, but this still
+  // bounds the worst case to a small fraction of Resend's quota.
+  const limited = rateLimit(callerKey(req), 'contact', 5)
+  if (limited) return limited
+
   let body: { name?: string; email?: string; message?: string }
   try {
     body = await req.json()

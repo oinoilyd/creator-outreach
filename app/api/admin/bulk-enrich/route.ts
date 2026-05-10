@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 
@@ -61,10 +62,12 @@ export async function POST(req: NextRequest) {
   //      X-Internal-Bulk-Secret header.
   const internalSecret = req.headers.get('x-internal-bulk-secret')
   const expectedSecret = process.env.INTERNAL_BULK_SECRET
+  // Constant-time compare — see bulk-seed for the rationale.
   const isInternal = !!(
     internalSecret &&
     expectedSecret &&
-    internalSecret === expectedSecret
+    internalSecret.length === expectedSecret.length &&
+    timingSafeEqual(Buffer.from(internalSecret), Buffer.from(expectedSecret))
   )
   if (!isInternal) {
     const supabase = await createClient()
