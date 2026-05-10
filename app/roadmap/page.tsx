@@ -14,9 +14,14 @@ import { createClient } from '@/lib/supabase/server'
  */
 
 export const metadata = {
-  title: 'Creator Outreach — Roadmap',
+  // The root layout title template is "%s · Creator Outreach", so
+  // setting the title to just "Roadmap" here yields the proper
+  // "Roadmap · Creator Outreach" tab — not the double-prefixed
+  // "Creator Outreach — Roadmap · Creator Outreach" we had before.
+  title: 'Roadmap',
   description:
     "What's shipping next. The actual build queue, sorted by what unblocks the most pipeline. Email me to vote on priority.",
+  alternates: { canonical: 'https://creatoroutreach.net/roadmap' },
 }
 
 export default async function RoadmapPage() {

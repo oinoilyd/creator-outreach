@@ -41,6 +41,18 @@ import { createClient } from '@/lib/supabase/server'
 export const metadata = {
   title: 'Creator Outreach — Search, score, and reach out in one queue',
   description: 'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. Free during beta.',
+  // The middleware rewrites "/" → "/landing" server-side, but the
+  // URL stays "/". Pin the canonical to "/" so Google never settles
+  // on "/landing" if anything links there directly.
+  alternates: { canonical: 'https://creatoroutreach.net/' },
+  // Override the OG title so social unfurls show the page-specific
+  // headline instead of inheriting the layout's generic brand line.
+  openGraph: {
+    title: 'Creator Outreach — Search, score, and reach out in one queue',
+    description:
+      'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. Free during beta.',
+    url: 'https://creatoroutreach.net/',
+  },
 }
 
 export default async function LandingPage() {
@@ -48,10 +60,37 @@ export default async function LandingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const isAuthed = !!user
 
+  // SoftwareApplication structured data — eligible for rich results
+  // in Google's app/software search. Server-rendered as inline JSON
+  // so the crawler sees it on first request, no client JS needed.
+  const softwareJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Creator Outreach',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    url: 'https://creatoroutreach.net/',
+    description:
+      'Search YouTube, Instagram, TikTok, X, and LinkedIn in parallel. Score every result against criteria you write in plain English. Reach out from one queue.',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+    },
+    aggregateRating: undefined, // omit until we have real reviews
+  }
+
   return (
     <main
       className="min-h-screen overflow-x-clip text-[#0F1733] dark:text-white font-[family-name:var(--font-geist-sans)] bg-[#FCFAF6] dark:bg-[#0A0E15]"
     >
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger -- structured-data
+        // by design; payload built server-side from a literal object.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+      />
       <LandingTopNav isAuthed={isAuthed} />
 
       {/* HERO — split layout: copy + dual CTA on left, OperatorConsole on right */}
@@ -222,9 +261,9 @@ export default async function LandingPage() {
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">01 / Sourcing</div>
-              <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Lead sourcing by occupation, scored on fit.
-              </h3>
+              </h2>
               <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
                 Search any occupation, industry, or field. Each result
                 comes back with email + social handles attached and a
@@ -252,7 +291,7 @@ export default async function LandingPage() {
               >
                 <Image
                   src="/screenshots/results.png"
-                  alt="Sourcing view"
+                  alt="Creator Outreach lead sourcing — results table with AI fit scores, inline emails, and per-creator social handles"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
                   className="object-contain"
@@ -267,9 +306,9 @@ export default async function LandingPage() {
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div className="md:order-2">
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">02 / Outreach</div>
-              <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Every conversation in one queue.
-              </h3>
+              </h2>
               <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
                 The Outreach board collects every creator you&apos;ve pitched —
                 channel, email, product, status, medium. Status pills track
@@ -296,7 +335,7 @@ export default async function LandingPage() {
               >
                 <Image
                   src="/screenshots/outreach.png"
-                  alt="Outreach view"
+                  alt="Outreach board — every pitched creator in one queue with status pills, medium tracker, and follow-up cadence per row"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
                   className="object-contain"
@@ -311,9 +350,9 @@ export default async function LandingPage() {
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">03 / Analytics</div>
-              <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Win rate, response rate, pipeline value.
-              </h3>
+              </h2>
               <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
                 Seven default KPIs across the top — In Pipeline, Reached
                 Out, Response Received, Response Rate, Win Rate, Pipeline $,
@@ -340,7 +379,7 @@ export default async function LandingPage() {
               >
                 <Image
                   src="/screenshots/analytics.png"
-                  alt="Analytics view"
+                  alt="Outreach analytics dashboard — win rate, response rate, pipeline value KPIs with status breakdown and outreach-by-medium split"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
                   className="object-contain"
@@ -355,9 +394,9 @@ export default async function LandingPage() {
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div className="md:order-2">
               <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">04 / Follow-ups</div>
-              <h3 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Cadenced reminders so silence doesn&apos;t leak pipeline.
-              </h3>
+              </h2>
               <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
                 Set a reminder cadence per creator the moment you reach out.
                 The Follow-ups tab surfaces every contact that&apos;s due
@@ -388,7 +427,7 @@ export default async function LandingPage() {
               >
                 <Image
                   src="/screenshots/followups.png"
-                  alt="Follow-ups view"
+                  alt="Follow-ups queue — overdue and due-today creator contacts sorted by days since last reach-out, with one-click cadence reset"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
                   className="object-contain"
@@ -491,7 +530,10 @@ export default async function LandingPage() {
             </p>
             <div className="mt-6 text-[12px] text-[#0F1733]/50 dark:text-white/50">© 2026 Creator Outreach</div>
           </div>
-          <FooterCol heading="Product"   links={[['Overview','#product'],['Solutions','#solutions'],['Pricing','#pricing'],['Customers','#customers']]} />
+          {/* "Customers" anchor was removed — there's no #customers
+              section on the page, and footer links into nowhere are
+              an SEO/UX dead-link. */}
+          <FooterCol heading="Product"   links={[['Overview','#product'],['Solutions','#solutions'],['Pricing','#pricing']]} />
           {/* Resources column — every entry currently says "Coming
               soon" because none of the long-form content (guides,
               playbooks, changelog) is published yet. Honest framing
