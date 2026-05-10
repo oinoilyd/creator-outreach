@@ -25,7 +25,9 @@ export async function GET() {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('user_profile')
-    .select('unipile_account_id, unipile_account_email, unipile_connected_at')
+    .select(
+      'unipile_account_id, unipile_account_email, unipile_connected_at, unipile_linkedin_account_id, unipile_linkedin_username, unipile_linkedin_connected_at',
+    )
     .eq('user_id', user.id)
     .single()
 
@@ -39,5 +41,9 @@ export async function GET() {
     accountId: data?.unipile_account_id ?? null,
     email: data?.unipile_account_email ?? null,
     connectedAt: data?.unipile_connected_at ?? null,
+    linkedinConnected: !!data?.unipile_linkedin_account_id,
+    linkedinAccountId: data?.unipile_linkedin_account_id ?? null,
+    linkedinUsername: data?.unipile_linkedin_username ?? null,
+    linkedinConnectedAt: data?.unipile_linkedin_connected_at ?? null,
   })
 }

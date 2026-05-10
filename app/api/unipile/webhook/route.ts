@@ -201,13 +201,29 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Route by provider type — Gmail goes into the original columns
+  // (migration 0017), LinkedIn goes into the LinkedIn-specific
+  // columns (migration 0019). Other providers will get their own
+  // pairs in future migrations.
+  const accountTypeUpper = (accountType ?? '').toUpperCase()
+  const isLinkedIn = accountTypeUpper === 'LINKEDIN' || accountTypeUpper === 'LINKED_IN'
+  const update = isLinkedIn
+    ? {
+        unipile_linkedin_account_id: accountId,
+        // For LinkedIn, `email` from the Google-shaped extractor is null;
+        // the connection_params resolution lives in lib/unipile, future
+        // work could surface the LinkedIn vanity username instead.
+        unipile_linkedin_username: email,
+        unipile_linkedin_connected_at: new Date().toISOString(),
+      }
+    : {
+        unipile_account_id: accountId,
+        unipile_account_email: email,
+        unipile_connected_at: new Date().toISOString(),
+      }
   const { error: updateErr } = await supabase
     .from('user_profile')
-    .update({
-      unipile_account_id: accountId,
-      unipile_account_email: email,
-      unipile_connected_at: new Date().toISOString(),
-    })
+    .update(update)
     .eq('user_id', userId)
 
   if (updateErr) {

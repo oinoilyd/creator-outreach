@@ -32,12 +32,15 @@ export function ProfileModal({
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Unipile / "Connect Gmail" state. Decoupled from the save() flow
-  // because the link happens via Unipile's hosted page + webhook,
-  // not the local form. We poll /api/unipile/me on mount to render
-  // the right Connect / Disconnect affordance.
+  // Unipile / "Connect Gmail" + "Connect LinkedIn" state. Decoupled
+  // from the save() flow because the link happens via Unipile's
+  // hosted page + webhook, not the local form. We poll /api/unipile/me
+  // on mount to render the right Connect / Disconnect affordance for
+  // each provider.
   const [unipileEmail, setUnipileEmail] = useState<string | null>(null)
+  const [unipileLinkedInUsername, setUnipileLinkedInUsername] = useState<string | null>(null)
   const [unipileLoading, setUnipileLoading] = useState(false)
+  const [unipileLinkedInLoading, setUnipileLinkedInLoading] = useState(false)
   const [unipileError, setUnipileError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -46,8 +49,14 @@ export function ProfileModal({
       try {
         const resp = await fetch('/api/unipile/me', { cache: 'no-store' })
         if (!resp.ok) return
-        const data = (await resp.json()) as { connected?: boolean; email?: string | null }
+        const data = (await resp.json()) as {
+          connected?: boolean
+          email?: string | null
+          linkedinConnected?: boolean
+          linkedinUsername?: string | null
+        }
         if (!cancelled && data.connected) setUnipileEmail(data.email ?? null)
+        if (!cancelled && data.linkedinConnected) setUnipileLinkedInUsername(data.linkedinUsername ?? null)
       } catch {
         // best-effort — surface only when user clicks the action
       }
@@ -74,6 +83,24 @@ export function ProfileModal({
     } catch (e) {
       setUnipileError((e as Error).message)
       setUnipileLoading(false)
+    }
+  }
+
+  async function handleConnectLinkedIn() {
+    setUnipileError(null)
+    setUnipileLinkedInLoading(true)
+    try {
+      const resp = await fetch('/api/unipile/connect-linkedin', { method: 'POST' })
+      const data = await resp.json()
+      if (!resp.ok || !data.url) {
+        setUnipileError(data.error ?? 'Could not start LinkedIn connect flow')
+        setUnipileLinkedInLoading(false)
+        return
+      }
+      window.location.href = data.url
+    } catch (e) {
+      setUnipileError((e as Error).message)
+      setUnipileLinkedInLoading(false)
     }
   }
 
@@ -317,6 +344,45 @@ export function ProfileModal({
               Sends via Unipile, an email infrastructure provider. They get access to
               messages you send / receive through this connection. Disconnect any time.
             </p>
+          </div>
+
+          {/* Connect LinkedIn (Phase 6) — same hosted-auth flow as
+              Gmail, lets us send connection requests + DMs from your
+              real LinkedIn account. Heavy usage risks LinkedIn flagging
+              the account, so default off and gated per-action. */}
+          <div className="border-t border-border pt-4">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              Connect LinkedIn for outreach DMs
+              <span className="ml-2 text-[10px] uppercase tracking-[0.16em] text-purple-700 dark:text-purple-300 font-bold">Beta</span>
+            </label>
+            {unipileLinkedInUsername ? (
+              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-muted-foreground">LinkedIn connected</div>
+                  <div className="text-sm font-mono text-foreground break-all">{unipileLinkedInUsername}</div>
+                </div>
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-blue-700 dark:text-blue-300">Active</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnectLinkedIn}
+                disabled={unipileLinkedInLoading}
+                className="w-full rounded-lg border border-border bg-card hover:border-blue-500/60 hover:bg-blue-500/5 transition-colors px-4 py-3 text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
+              >
+                <span className="text-xl" aria-hidden>in</span>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground">
+                    {unipileLinkedInLoading ? 'Opening LinkedIn…' : 'Connect LinkedIn'}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-snug">
+                    DMs + connection requests come from your real account.
+                    Heavy usage can trigger LinkedIn flags — keep activity human-paced.
+                  </div>
+                </div>
+                <span className="text-muted-foreground/60" aria-hidden>→</span>
+              </button>
+            )}
           </div>
         </div>
 
