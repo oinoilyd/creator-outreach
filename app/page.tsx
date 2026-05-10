@@ -1849,7 +1849,7 @@ function FollowUpDaySheet({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={ev => guardOutreachClick(ev, e.email, profile?.userEmail)}
-                      title="Open compose with template + tracking ID"
+                      title="Open compose with template + tracking ID. Opens in your active Gmail/Outlook session — switch accounts inside Gmail first if you have multiple signed in."
                       className="text-[11px] font-medium px-2.5 py-1 rounded border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                     >
                       📧 Email
@@ -2293,7 +2293,7 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
                   ev.stopPropagation()
                   guardOutreachClick(ev, e.email, profile?.userEmail)
                 }}
-                title={`Email ${e.email} — opens compose with template`}
+                title={`Email ${e.email} — opens compose with template. Verify the active Gmail account in the top-right of Gmail before clicking Send.`}
                 aria-label={`Email ${e.email}`}
                 className="inline-flex items-center text-emerald-700 dark:text-emerald-400/80 hover:text-emerald-500 transition-colors shrink-0"
               >

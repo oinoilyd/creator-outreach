@@ -483,18 +483,31 @@ export function recipientIssue(to: string | undefined | null, userEmail?: string
 // provider has its own web-compose endpoint that pre-fills to/subject/
 // body — except Apple-style mailto: which opens the OS default.
 //
-// When userEmail is provided, we inject the appropriate "use this
-// account" parameter so multi-account browser users (signed into a
-// work + personal Google, etc.) open the compose window in the
-// account that matches their Creator Outreach login. Without this,
-// Gmail picks whichever account was last active — frequent source of
-// "wait, why is it sending from my work account?" surprises.
+// HISTORY (2026-05-09 → 2026-05-10):
+// We briefly appended `&authuser=` (Gmail) and `&login_hint=` (Outlook)
+// so that multi-account users would land in the account matching their
+// Creator Outreach login. That backfired in real-world setups:
 //
-// Safety guarantee (added 2026-05-10): returns the empty string when
-// `to` fails recipientIssue() — empty / invalid / equals userEmail.
-// Callers must check for '' before navigating; the UI in app/page.tsx
-// uses this signal to block the click + show a warning toast instead
-// of opening a compose form that would silently end up in the user's
+//   • Safari multi-profile + Gmail multi-account: when the active
+//     Safari profile isn't signed into the hinted account, Gmail's
+//     account-switch attempt fails partway through and the `to=`,
+//     `su=` and `body=` URL params get LOST. The compose then opens
+//     in the active (wrong) account with a BLANK form and Gmail's
+//     auto-complete suggests "people you email a lot" in the To —
+//     which during testing is yourself. Result: outreach goes to
+//     your own inbox instead of the creator's.
+//
+// Decision (2026-05-10): drop the account hints entirely. Compose
+// opens in the active Gmail/Outlook session; if that's the wrong
+// account, the user switches accounts in Gmail's own account-switcher
+// (top right) BEFORE clicking Send — that's a visible, fixable mistake
+// rather than a silent one.
+//
+// Safety guarantee: returns the empty string when `to` fails
+// recipientIssue() — empty / invalid / equals userEmail. Callers
+// must check for '' before navigating; the UI in app/page.tsx uses
+// this signal to block the click + show a warning toast instead of
+// opening a compose form that would silently end up in the user's
 // own inbox or with the wrong recipient.
 export function composeUrl(
   client: 'default' | 'gmail' | 'outlook' | 'yahoo',
@@ -507,30 +520,26 @@ export function composeUrl(
   // recipient. Gmail's compose form will happily render `to=` empty
   // and then auto-suggest your most-recent contact (often yourself
   // during testing), which is exactly the failure mode we're guarding
-  // against.
+  // against. userEmail is still threaded through purely for this
+  // safety check (so we know what "self" means); it no longer goes
+  // into the outgoing URL itself.
   if (recipientIssue(to, userEmail) !== null) return ''
 
   const t = encodeURIComponent(to.trim())
   const s = encodeURIComponent(subject)
   const b = encodeURIComponent(body)
-  const userEmailEnc = userEmail ? encodeURIComponent(userEmail) : ''
   switch (client) {
     case 'gmail':
-      // authuser accepts either the email address itself or a numeric
-      // index. Using the address is more reliable across multi-account
-      // setups where the index can shift. fs=1 forces a fresh compose
-      // window even when the user already has Gmail open.
-      // eslint-disable-next-line no-case-declarations
-      const gmailAuth = userEmailEnc ? `&authuser=${userEmailEnc}` : ''
-      return `https://mail.google.com/mail/?view=cm&fs=1&to=${t}&su=${s}&body=${b}${gmailAuth}`
+      // fs=1 forces a fresh compose window even when the user already
+      // has Gmail open. We deliberately do NOT pass authuser= — see
+      // the HISTORY block above for the Safari multi-profile bug that
+      // forced us to drop it.
+      return `https://mail.google.com/mail/?view=cm&fs=1&to=${t}&su=${s}&body=${b}`
     case 'outlook':
-      // Outlook web compose accepts a similar `login_hint` parameter.
-      // eslint-disable-next-line no-case-declarations
-      const outlookHint = userEmailEnc ? `&login_hint=${userEmailEnc}` : ''
-      return `https://outlook.office.com/mail/deeplink/compose?to=${t}&subject=${s}&body=${b}${outlookHint}`
+      // We deliberately do NOT pass login_hint= here for the same
+      // reason as Gmail authuser — see HISTORY above.
+      return `https://outlook.office.com/mail/deeplink/compose?to=${t}&subject=${s}&body=${b}`
     case 'yahoo':
-      // Yahoo doesn't expose an account-hint parameter — user must be
-      // signed into the right account already.
       return `https://compose.mail.yahoo.com/?to=${t}&subject=${s}&body=${b}`
     default:
       return `mailto:${to.trim()}?subject=${s}&body=${b}`
