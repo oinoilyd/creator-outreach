@@ -3801,7 +3801,7 @@ export default function Home() {
         // Use maybeSingle so missing row returns null instead of erroring
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded')
+          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone')
           .eq('user_id', user.id)
           .maybeSingle()
         console.log('[home-init] profile row:', profileRow, 'error:', profileErr?.message)
@@ -3813,9 +3813,30 @@ export default function Home() {
           const { data: inserted } = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded')
+            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone')
             .single()
           profileRow = inserted
+        }
+
+        // Auto-detect + persist the user's IANA timezone. Fires on
+        // every load — cheap (single UPDATE only when it actually
+        // changes), and catches the case where the user signs in from
+        // a different machine in a different TZ. Backed by migration
+        // 0015. Failures here are non-fatal: log + continue.
+        try {
+          const detectedTz =
+            typeof Intl !== 'undefined'
+              ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
+              : null
+          if (detectedTz && detectedTz !== profileRow?.timezone) {
+            await supabase
+              .from('user_profile')
+              .update({ timezone: detectedTz })
+              .eq('user_id', user.id)
+            if (profileRow) profileRow.timezone = detectedTz
+          }
+        } catch (tzErr) {
+          console.warn('[home-init] timezone detect/update failed:', tzErr)
         }
 
         if (profileRow) {

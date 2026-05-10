@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
+import { LocalDateTime } from '@/components/LocalDateTime'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -35,6 +36,18 @@ export default async function AdminPage() {
     .from('contact_messages')
     .select('id', { count: 'exact', head: true })
     .eq('resolved', false)
+
+  // Per-user IANA timezones (auto-detected on each sign-in via
+  // app/page.tsx). admin_user_summary doesn't return this column,
+  // so fetch it separately and merge by user_id at render time.
+  // NULL = pre-migration user / hasn't signed in since 0015.
+  const { data: tzRows } = await supabase
+    .from('user_profile')
+    .select('user_id, timezone')
+  const tzByUserId = new Map<string, string | null>(
+    (tzRows ?? []).map(r => [r.user_id as string, (r.timezone as string | null) ?? null]),
+  )
+  const tzKnownCount = Array.from(tzByUserId.values()).filter(Boolean).length
 
   // ---- Aggregates ----
   const now = Date.now()
@@ -109,10 +122,11 @@ export default async function AdminPage() {
         {!error && (
           <>
             {/* Summary cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-8">
               <Stat label="Total users" value={total} />
               <Stat label="Email verified" value={verified} sub={total > 0 ? `${pct(verified, total)}%` : null} />
               <Stat label="Active last 7d" value={activeLast7} sub={total > 0 ? `${pct(activeLast7, total)}%` : null} />
+              <Stat label="Timezone known" value={tzKnownCount} sub={total > 0 ? `${pct(tzKnownCount, total)}%` : null} />
               <Stat label="Outreach (all)" value={totalOutreach} />
               <Stat label="Dismissed (all)" value={totalDismissed} />
             </div>
@@ -138,6 +152,7 @@ export default async function AdminPage() {
                   <th className="px-4 py-3 text-left font-medium">Email</th>
                   <th className="px-4 py-3 text-left font-medium">Name</th>
                   <th className="px-4 py-3 text-center font-medium">Profile</th>
+                  <th className="px-4 py-3 text-left font-medium">Timezone</th>
                   <th className="px-4 py-3 text-left font-medium">Signed up</th>
                   <th className="px-4 py-3 text-left font-medium">Last sign in</th>
                   <th className="px-4 py-3 text-left font-medium">Idle</th>
@@ -166,8 +181,25 @@ export default async function AdminPage() {
                           : 'bg-gray-700/40 text-muted-foreground/80'
                         }`}>{profileFilled}/3</span>
                       </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(r.created_at)}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{r.last_sign_in_at ? fmtDate(r.last_sign_in_at) : <span className="text-muted-foreground/60">never</span>}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground/90 text-xs">
+                        {(() => {
+                          const tz = tzByUserId.get(r.user_id)
+                          if (!tz) return <span className="text-muted-foreground/50 italic">unknown</span>
+                          // Show last segment for skim-readability — "America/Chicago" → "Chicago".
+                          // Full IANA name is available in the title tooltip.
+                          const parts = tz.split('/')
+                          const short = (parts[parts.length - 1] || tz).replace(/_/g, ' ')
+                          return <span title={tz}>{short}</span>
+                        })()}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        <LocalDateTime variant="datetime-short" iso={r.created_at} />
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {r.last_sign_in_at
+                          ? <LocalDateTime variant="datetime-short" iso={r.last_sign_in_at} />
+                          : <span className="text-muted-foreground/60">never</span>}
+                      </td>
                       <td className="px-4 py-2.5">
                         {idle === null ? <span className="text-muted-foreground/60">—</span>
                          : idle === 0 ? <span className="text-green-400">today</span>
@@ -222,16 +254,6 @@ function FunnelStep({ label, value, ofTotal }: { label: string; value: number; o
       </div>
     </div>
   )
-}
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const sameYear = d.getFullYear() === now.getFullYear()
-  const opts: Intl.DateTimeFormatOptions = sameYear
-    ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
-    : { year: 'numeric', month: 'short', day: 'numeric' }
-  return d.toLocaleString(undefined, opts)
 }
 
 function daysSince(iso: string): number {
