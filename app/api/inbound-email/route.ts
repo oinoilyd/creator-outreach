@@ -25,13 +25,37 @@
  *   - headers        full headers section
  *   - dkim, SPF      auth result strings
  *
- * Auth: this endpoint is publicly reachable but only useful with a
- * URL someone scraped/leaked. We sanity-check the From and reject
- * obvious garbage. SendGrid offers webhook signing but it's an extra
- * setup step — defer until we see evidence of abuse.
+ * Auth: SendGrid Inbound Parse supports HTTP Basic Auth on the
+ * webhook URL (no signature verification — Inbound Parse never had
+ * that feature). We verify Authorization: Basic when the
+ * SENDGRID_INBOUND_BASIC_AUTH env var is configured; without it,
+ * the route logs a warning and accepts the request (so production
+ * doesn't break the moment this code ships — see ENABLE STEPS below).
+ *
+ * ── ENABLE STEPS (one-time, ~3 min) ────────────────────────────────
+ *   1. Pick a shared secret. e.g. `openssl rand -base64 24` →
+ *      something like `inbound:s3cret-r4ndom-string`. Format is
+ *      USERNAME:PASSWORD; the colon is the separator.
+ *   2. Set SENDGRID_INBOUND_BASIC_AUTH=<that string> as a Vercel
+ *      env var (Production scope). Redeploy.
+ *   3. In the SendGrid dashboard → Settings → Inbound Parse →
+ *      edit the existing webhook entry → change the destination
+ *      URL from `https://inbound.creatoroutreach.net/api/inbound-email`
+ *      to `https://USER:PASS@inbound.creatoroutreach.net/api/inbound-email`
+ *      (paste the same USER:PASS from step 1 between https:// and
+ *      the host). Save.
+ *   4. Send yourself a test email to inbound@inbound.creatoroutreach.net.
+ *      It should still appear in /admin/inbound-debug. If you see
+ *      "[inbound-email] basic-auth REJECTED" in the Vercel logs,
+ *      the URL or env var is mismatched — re-paste them.
+ *
+ * Once the env var is set, every unauthenticated POST to this route
+ * returns 401 — closes the spoof-replies attack surface.
+ * ─────────────────────────────────────────────────────────────────
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cacheGet, cacheSet } from '@/lib/cache'
 
@@ -74,6 +98,42 @@ function extractTrackingId(subject: string): string | null {
   return m ? m[1].toLowerCase() : null
 }
 
+/**
+ * Verify HTTP Basic Auth against the configured shared secret. Returns
+ * true when:
+ *   - SENDGRID_INBOUND_BASIC_AUTH is unset (defer enforcement until
+ *     the operator configures it — accepts requests but logs a
+ *     warning so the gap is visible)
+ *   - the Authorization: Basic header decodes to the expected
+ *     "user:pass" string (constant-time compared)
+ *
+ * Returns false when the env var IS set but the request's
+ * Authorization header is missing or wrong — caller responds 401.
+ */
+function verifyInboundAuth(req: NextRequest): boolean {
+  const expected = process.env.SENDGRID_INBOUND_BASIC_AUTH
+  if (!expected) {
+    console.warn(
+      '[inbound-email] SENDGRID_INBOUND_BASIC_AUTH not set — accepting request without auth. ' +
+      'See route header comment for the 3-minute setup to close this gap.',
+    )
+    return true
+  }
+  const header = req.headers.get('authorization') || ''
+  const match = /^Basic\s+(.+)$/i.exec(header.trim())
+  if (!match) return false
+  let decoded: string
+  try {
+    decoded = Buffer.from(match[1], 'base64').toString('utf8')
+  } catch {
+    return false
+  }
+  // Length-pre-check + timingSafeEqual avoids leaking the secret
+  // length via response time.
+  if (decoded.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(decoded), Buffer.from(expected))
+}
+
 /** Push a record into the rolling Redis list of recent inbound emails. */
 async function pushRecentInbound(entry: RecentInboundEntry): Promise<void> {
   try {
@@ -86,6 +146,17 @@ async function pushRecentInbound(entry: RecentInboundEntry): Promise<void> {
 }
 
 export async function POST(req: NextRequest) {
+  // Auth gate (see verifyInboundAuth + the route header comment for
+  // setup). When SENDGRID_INBOUND_BASIC_AUTH isn't set we log + accept
+  // — letting prod keep working until the operator updates the
+  // SendGrid dashboard URL with the basic-auth user/pass.
+  if (!verifyInboundAuth(req)) {
+    console.warn('[inbound-email] basic-auth REJECTED — request denied')
+    // 401 with no body — don't tell unauth scanners anything about
+    // what we expect.
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   // SendGrid posts multipart/form-data. Use req.formData() to parse.
   let form: FormData
   try {
