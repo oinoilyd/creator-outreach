@@ -32,8 +32,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { getAccount, emailFromAccount, UnipileError } from '@/lib/unipile'
+import { getAccount, getEmailMessage, emailFromAccount, UnipileError } from '@/lib/unipile'
 import { cacheGet, cacheSet } from '@/lib/cache'
+import { classifyReply, classificationToStatus } from '@/lib/inbound-classify'
 
 export const runtime = 'nodejs'
 export const maxDuration = 15
@@ -56,11 +57,28 @@ interface RecentWebhookEntry {
 }
 
 interface UnipileWebhookPayload {
+  /** Account-lifecycle event vocabulary (Phase 1). */
   status?: string
   account_id?: string
   name?: string
   account_type?: string
   email?: string
+  /** Phase 3 — message event vocabulary. Unipile sends one of several
+   *  shapes depending on the channel; we tolerate aliases. */
+  event?: string
+  type?: string
+  message_id?: string
+  email_id?: string
+  /** For inbound emails, body fields the AI classifier needs. */
+  subject?: string
+  body?: string
+  body_plain?: string
+  /** Resolved threading reference — for replies, this matches the
+   *  provider_id of the message they're replying to. */
+  in_reply_to?: string
+  thread_id?: string
+  /** Sometimes Unipile sends a nested data envelope; we look there too. */
+  data?: Record<string, unknown>
   [k: string]: unknown
 }
 
@@ -94,16 +112,36 @@ export async function POST(req: NextRequest) {
   }
 
   const status = (payload.status ?? '').toString().toUpperCase()
+  const eventType = (payload.event ?? payload.type ?? '').toString().toLowerCase()
   const accountId = payload.account_id?.toString().trim() ?? ''
   const userId = payload.name?.toString().trim() ?? ''
   const baseRecent: RecentWebhookEntry = {
     receivedAt: new Date().toISOString(),
-    status: status || null,
+    status: status || eventType || null,
     accountId: accountId || null,
     userId: userId || null,
     accountType: payload.account_type ?? null,
     matched: false,
     error: null,
+  }
+
+  // ── Phase 3 — incoming message / reply detection ──────────────────────────
+  // Unipile fires a different event for each new message. We tolerate a few
+  // aliases: 'mail_received', 'message_received', 'new_email', 'messaging.new'.
+  // For every match we look up the message body, find the outreach entry it's
+  // replying to via In-Reply-To / thread_id, run AI classification, and
+  // update status accordingly.
+  const isMessageEvent =
+    eventType === 'mail_received' ||
+    eventType === 'message_received' ||
+    eventType === 'new_email' ||
+    eventType === 'messaging.new' ||
+    eventType === 'email.received' ||
+    status === 'NEW_MESSAGE' ||
+    status === 'MAIL_RECEIVED'
+
+  if (isMessageEvent) {
+    return await handleIncomingMessage(payload, baseRecent)
   }
 
   // CREATION_SUCCESS is the happy path. Unipile also emits RECONNECT_SUCCESS
@@ -117,7 +155,7 @@ export async function POST(req: NextRequest) {
 
   if (!isCreationOrReconnect) {
     await pushRecent({ ...baseRecent, error: 'non-creation event (ignored)' })
-    console.log('[unipile/webhook] non-creation event', { status, accountId, userId })
+    console.log('[unipile/webhook] non-creation event', { status, eventType, accountId, userId })
     return NextResponse.json({ ok: true, ignored: true })
   }
 
@@ -182,4 +220,145 @@ export async function POST(req: NextRequest) {
   console.log('[unipile/webhook] linked account', { userId, accountId, accountType, email })
 
   return NextResponse.json({ ok: true, linked: { accountId, email, accountType } })
+}
+
+/**
+ * Phase 3 — process an incoming email / message event from Unipile.
+ *
+ * Match flow:
+ *   1. Lookup the message by id at Unipile (gets full body + headers).
+ *   2. Try to find the matching outreach entry via either:
+ *      a) thread_id  → outreach_entries.unipile_thread_id  (preferred)
+ *      b) in_reply_to → outreach_entries.unipile_provider_id (fallback)
+ *   3. If no match (could be a forward, a personal email, anything),
+ *      log + return 200 — silently ignoring isn't an error.
+ *   4. Run AI classification on the message body.
+ *   5. Map to status, update outreach_entries.
+ *   6. Append a one-line audit note so the user can see what we did.
+ *
+ * Idempotency: if the same webhook fires twice, the second call still
+ * works — we update status the same way, and the response_date stamp
+ * just gets refreshed. AI cost is the only repeated work; rate-limited
+ * upstream by Unipile's own webhook delivery semantics.
+ */
+async function handleIncomingMessage(
+  payload: UnipileWebhookPayload,
+  baseRecent: RecentWebhookEntry,
+): Promise<NextResponse> {
+  const messageId =
+    (payload.message_id ?? payload.email_id ?? (payload.data?.id as string | undefined) ?? '')
+      .toString()
+      .trim()
+
+  if (!messageId) {
+    await pushRecent({ ...baseRecent, error: 'message event missing id' })
+    return NextResponse.json({ ok: true, ignored: true, reason: 'no message id' })
+  }
+
+  // Fetch the full message — webhook may only give us metadata.
+  let providerId = ''
+  let threadId = (payload.thread_id ?? (payload.data?.thread_id as string | undefined) ?? '').toString().trim()
+  let inReplyTo = (payload.in_reply_to ?? (payload.data?.in_reply_to as string | undefined) ?? '').toString().trim()
+  let subject = (payload.subject ?? (payload.data?.subject as string | undefined) ?? '').toString()
+  let plainBody = (payload.body_plain ?? payload.body ?? (payload.data?.body_plain as string | undefined) ?? (payload.data?.body as string | undefined) ?? '').toString()
+
+  try {
+    const msg = await getEmailMessage(messageId)
+    providerId = msg.provider_id ?? providerId
+    threadId = msg.thread_id ?? threadId
+    inReplyTo = msg.in_reply_to ?? inReplyTo
+    subject = msg.subject ?? subject
+    plainBody = msg.body_plain ?? msg.body ?? plainBody
+  } catch (err) {
+    const detail = err instanceof UnipileError ? err.message : (err as Error).message
+    console.warn('[unipile/webhook] getMessage failed, falling back to webhook payload', detail)
+  }
+
+  const supabase = getServiceClient()
+  if (!supabase) {
+    await pushRecent({ ...baseRecent, error: 'service client unavailable' })
+    return NextResponse.json({ error: 'Service client unavailable' }, { status: 500 })
+  }
+
+  // Match by thread_id first, fall back to provider_id (In-Reply-To).
+  let matchQuery = threadId
+    ? supabase.from('outreach_entries').select('id, status, notes, channel_name, user_id').eq('unipile_thread_id', threadId).limit(1)
+    : supabase.from('outreach_entries').select('id, status, notes, channel_name, user_id').eq('unipile_provider_id', inReplyTo).limit(1)
+
+  let { data: entries, error: lookupErr } = await matchQuery
+
+  // If neither lookup hit and we had both candidates, try the other one.
+  if ((!entries || entries.length === 0) && threadId && inReplyTo) {
+    const { data: byProvider } = await supabase
+      .from('outreach_entries')
+      .select('id, status, notes, channel_name, user_id')
+      .eq('unipile_provider_id', inReplyTo)
+      .limit(1)
+    entries = byProvider ?? []
+  }
+
+  if (lookupErr) {
+    await pushRecent({ ...baseRecent, error: `entry lookup failed: ${lookupErr.message}` })
+    return NextResponse.json({ error: 'Entry lookup failed' }, { status: 500 })
+  }
+
+  const matched = entries?.[0]
+  if (!matched) {
+    await pushRecent({ ...baseRecent, error: 'no matching outreach entry (forward/personal/spam?)' })
+    console.log('[unipile/webhook] no entry match', { messageId, threadId, inReplyTo, subject })
+    return NextResponse.json({ ok: true, ignored: true, reason: 'no matching outreach entry' })
+  }
+
+  // AI classify. Bail on autoresponders so we don't flip status on OOO replies.
+  let classification: 'positive' | 'successful' | 'negative' | 'autoresponder' | 'unclear' = 'unclear'
+  let reason = ''
+  try {
+    const result = await classifyReply(plainBody, { channelName: matched.channel_name, subject })
+    classification = result.classification
+    reason = result.reason
+  } catch (err) {
+    console.warn('[unipile/webhook] AI classify failed, leaving status untouched:', (err as Error).message)
+  }
+
+  const newStatus = classificationToStatus(classification)
+  const updatePatch: Record<string, unknown> = {
+    response_date: new Date().toISOString(),
+  }
+  // Only flip status if AI was confident AND the entry is still in an
+  // active-outreach state. Don't walk Successful/Rejected backwards.
+  if (
+    newStatus &&
+    (matched.status === 'No Response' || matched.status === 'Not Outreached' || !matched.status)
+  ) {
+    updatePatch.status = newStatus
+  }
+  // Append a one-line audit note so the user sees what we did.
+  const noteLine = `[auto · unipile] reply classified ${classification}${reason ? ' — ' + reason : ''}`
+  updatePatch.notes = matched.notes ? `${matched.notes}\n${noteLine}` : noteLine
+
+  const { error: updateErr } = await supabase
+    .from('outreach_entries')
+    .update(updatePatch)
+    .eq('id', matched.id)
+
+  if (updateErr) {
+    await pushRecent({ ...baseRecent, error: `entry update failed: ${updateErr.message}` })
+    return NextResponse.json({ error: 'Entry update failed' }, { status: 500 })
+  }
+
+  await pushRecent({
+    ...baseRecent,
+    matched: true,
+    error: null,
+  })
+  console.log('[unipile/webhook] reply handled', {
+    entryId: matched.id,
+    classification,
+    statusChange: updatePatch.status ?? '(unchanged)',
+  })
+
+  return NextResponse.json({
+    ok: true,
+    matched: { entryId: matched.id, classification, status: updatePatch.status ?? matched.status },
+  })
 }
