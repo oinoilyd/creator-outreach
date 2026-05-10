@@ -1,22 +1,49 @@
 import { ImageResponse } from 'next/og'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 /**
  * Dynamically-generated Open Graph image (1200×630 PNG) served at
- * /opengraph-image. Next.js auto-detects the file location and wires
- * it into the page's <meta property="og:image"> so any URL share
- * (iMessage, Slack, Twitter, LinkedIn, Discord, etc.) gets a branded
- * preview card instead of nothing.
+ * /opengraph-image. Auto-attached by Next.js as the page's
+ * <meta property="og:image"> so URL shares (Slack / iMessage /
+ * Twitter / LinkedIn / Discord / Notion / etc.) get a branded
+ * preview card instead of the default browser-bot fallback.
  *
- * Generated at build/request time using next/og's ImageResponse —
- * pure JSX, no design tool needed. Easy to iterate on the copy or
- * gradient by editing this file.
+ * Design intent: mirror the actual landing page so the share preview
+ * feels like creatoroutreach.net rather than a generic gradient
+ * placeholder. Cream background, navy editorial typography, the
+ * exact headline from the landing hero, and an inset of the real
+ * product (the Results table screenshot) as the supporting visual.
+ *
+ * Build/cache: ImageResponse runs at request time. The screenshot
+ * is read from disk on first request (cached in Vercel's edge
+ * after that). To swap the visual, replace the screenshot path
+ * below — re-deploy auto-invalidates the cache.
  */
 
-export const alt = 'Creator Outreach — Find & email creators worth reaching'
+export const alt =
+  'Creator Outreach — the modern way to source and pitch creators.'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
+/** Read a public file from disk and return a data URL string.
+ *  ImageResponse accepts `<img src>` with data URLs cleanly; using
+ *  a remote URL would require an extra fetch hop at request time. */
+function publicAsDataUrl(relativePath: string, mime: string): string {
+  const buf = readFileSync(join(process.cwd(), 'public', relativePath))
+  return `data:${mime};base64,${buf.toString('base64')}`
+}
+
 export default async function Image() {
+  let screenshotDataUrl: string | null = null
+  try {
+    screenshotDataUrl = publicAsDataUrl('screenshots/results.png', 'image/png')
+  } catch {
+    // If the screenshot file is missing for any reason (renamed,
+    // pruned), the layout falls back to a clean text-only card.
+    screenshotDataUrl = null
+  }
+
   return new ImageResponse(
     (
       <div
@@ -24,126 +51,185 @@ export default async function Image() {
           height: '100%',
           width: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
-          padding: '80px',
-          background:
-            'linear-gradient(135deg, #0A0E15 0%, #1a1530 50%, #0A0E15 100%)',
-          color: 'white',
+          flexDirection: 'row',
+          alignItems: 'stretch',
+          background: '#FCFAF6',
+          color: '#0F1733',
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
-        {/* Subtle radial glow behind the headline */}
+        {/* LEFT — copy column */}
         <div
           style={{
-            position: 'absolute',
-            top: -200,
-            right: -200,
-            width: 700,
-            height: 700,
-            background:
-              'radial-gradient(circle, rgba(124,58,237,0.35) 0%, rgba(124,58,237,0) 60%)',
-            display: 'flex',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -200,
-            left: -200,
-            width: 700,
-            height: 700,
-            background:
-              'radial-gradient(circle, rgba(37,99,235,0.30) 0%, rgba(37,99,235,0) 60%)',
-            display: 'flex',
-          }}
-        />
-
-        {/* Logo block */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 18,
-            marginBottom: 60,
-          }}
-        >
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 14,
-              background: 'linear-gradient(135deg, #7C3AED 0%, #2563EB 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 28,
-              fontWeight: 800,
-              letterSpacing: -1,
-              color: 'white',
-            }}
-          >
-            CO
-          </div>
-          <div
-            style={{
-              fontSize: 32,
-              fontWeight: 700,
-              letterSpacing: -0.5,
-              color: 'rgba(255,255,255,0.95)',
-            }}
-          >
-            Creator Outreach
-          </div>
-        </div>
-
-        {/* Headline — multi-line, big and confident */}
-        <div
-          style={{
-            fontSize: 80,
-            fontWeight: 800,
-            letterSpacing: -2,
-            lineHeight: 1.05,
-            marginBottom: 28,
+            width: 620,
             display: 'flex',
             flexDirection: 'column',
-            color: 'white',
+            justifyContent: 'space-between',
+            padding: '64px 56px',
           }}
         >
-          <span>Find &amp; email creators</span>
-          <span style={{ color: '#A78BFA' }}>worth reaching.</span>
+          {/* Logo block */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 11,
+                background:
+                  'linear-gradient(135deg, #7C3AED 0%, #2563EB 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 22,
+                fontWeight: 800,
+                letterSpacing: -1,
+                color: 'white',
+              }}
+            >
+              CO
+            </div>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: -0.4,
+                color: '#0F1733',
+              }}
+            >
+              Creator Outreach
+            </div>
+          </div>
+
+          {/* Headline + subhead — matches the actual landing hero */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 56,
+                fontWeight: 600,
+                letterSpacing: -2,
+                lineHeight: 1.0,
+                color: '#0F1733',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <span>The modern way</span>
+              <span>to source and pitch</span>
+              <span style={{ color: '#5B3CC4' }}>creators.</span>
+            </div>
+            <div
+              style={{
+                marginTop: 24,
+                fontSize: 19,
+                fontWeight: 400,
+                color: 'rgba(15, 23, 51, 0.62)',
+                lineHeight: 1.4,
+                maxWidth: 460,
+              }}
+            >
+              Lead sourcing by occupation with an AI fit score. Email
+              + social handles inline. Templated outreach + follow-up
+              reminders.
+            </div>
+          </div>
+
+          {/* Footer URL chip */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontSize: 16,
+              fontWeight: 600,
+              color: 'rgba(15, 23, 51, 0.55)',
+            }}
+          >
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                background: '#10B981',
+                display: 'flex',
+              }}
+            />
+            creatoroutreach.net
+            <span
+              style={{
+                marginLeft: 6,
+                color: 'rgba(15, 23, 51, 0.40)',
+              }}
+            >
+              ·
+            </span>
+            <span style={{ color: 'rgba(15, 23, 51, 0.55)' }}>
+              free during beta
+            </span>
+          </div>
         </div>
 
-        {/* Subhead */}
+        {/* RIGHT — product visual.
+            Either a real screenshot of the Results table or, if the
+            screenshot is missing, a clean dark panel with the brand
+            colors so the card still feels intentional. */}
         <div
           style={{
-            fontSize: 30,
-            fontWeight: 400,
-            color: 'rgba(255,255,255,0.7)',
-            lineHeight: 1.35,
-            maxWidth: 950,
-          }}
-        >
-          Search YouTube · IG · TikTok · X · LinkedIn in parallel. Score
-          every result. Reach out from one queue.
-        </div>
-
-        {/* Footer URL chip */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 56,
-            right: 80,
-            fontSize: 22,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.55)',
+            flex: 1,
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            justifyContent: 'center',
+            padding: '48px 48px 48px 0',
+            position: 'relative',
           }}
         >
-          creatoroutreach.net
+          {screenshotDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={screenshotDataUrl}
+              alt=""
+              width={520}
+              height={420}
+              style={{
+                width: 520,
+                height: 420,
+                objectFit: 'cover',
+                objectPosition: 'left top',
+                borderRadius: 14,
+                border: '1px solid rgba(15, 23, 51, 0.08)',
+                boxShadow: '0 24px 60px rgba(15, 23, 51, 0.18)',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 520,
+                height: 420,
+                borderRadius: 14,
+                background:
+                  'linear-gradient(135deg, #1a1530 0%, #0F1733 60%, #1a1530 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: 28,
+                fontWeight: 600,
+                boxShadow: '0 24px 60px rgba(15, 23, 51, 0.20)',
+              }}
+            >
+              creatoroutreach.net
+            </div>
+          )}
         </div>
       </div>
     ),
