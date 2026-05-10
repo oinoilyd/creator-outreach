@@ -40,7 +40,11 @@ export function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIG
 
   const reachRatio = c.email && c.linkedin ? 1 : c.email ? 15/20 : c.linkedin ? 5/20 : 0
 
-  let relRatio = c.matchedVia === 'name' ? 10/15 : 2/15
+  // 'url' / 'handle' = direct lookup. The user typed the exact account
+  // — relevance is by definition perfect, don't drag the score down.
+  let relRatio = (c.matchedVia === 'url' || c.matchedVia === 'handle')
+    ? 1
+    : c.matchedVia === 'name' ? 10/15 : 2/15
   if (c.videoTitles?.length > 0) relRatio = Math.min(1, relRatio + 5/15)
 
   let qualRatio = 5/10
@@ -114,8 +118,19 @@ export function computeFitScoreBreakdown(c: Creator, weights: ScoreWeights = DEF
   else                       { cRatio = 0;     cNote = 'No contact info' }
   items.push({ label: 'Reachability', pts: Math.round(cRatio * weights.reachability * norm), max: Math.round(weights.reachability * norm), note: cNote })
 
-  let relRatio = c.matchedVia === 'name' ? 10/15 : 2/15
-  let relNote = c.matchedVia === 'name' ? 'Channel name matched' : 'Related content match'
+  let relRatio: number
+  let relNote: string
+  if (c.matchedVia === 'url' || c.matchedVia === 'handle') {
+    // Direct lookup — user typed the exact account.
+    relRatio = 1
+    relNote = c.matchedVia === 'url' ? 'Direct URL lookup' : 'Direct handle lookup'
+  } else if (c.matchedVia === 'name') {
+    relRatio = 10/15
+    relNote = 'Channel name matched'
+  } else {
+    relRatio = 2/15
+    relNote = 'Related content match'
+  }
   if (c.videoTitles?.length > 0) { relRatio = Math.min(1, relRatio + 5/15); relNote += ' + video titles' }
   items.push({ label: 'Relevance', pts: Math.round(relRatio * weights.relevance * norm), max: Math.round(weights.relevance * norm), note: relNote })
 

@@ -47,6 +47,7 @@ import {
 } from '@/lib/columns'
 import { PLATFORM_CONFIGS, PLATFORM_LOCK_ID } from '@/lib/platform'
 import { REGIONS } from '@/lib/regions'
+import { classifySearchInput } from '@/lib/search-classify'
 import {
   PlusCircleIcon, DismissIcon, TrashIcon, Spinner, SortIndicator,
   AutoTextarea,
@@ -4608,84 +4609,143 @@ export default function Home() {
     setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
 
-    // If the input looks like a YouTube URL, treat it as a direct channel lookup.
-    const trimmed = kw.trim()
-    const looksLikeUrl = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(trimmed)
-    if (looksLikeUrl) {
-      setStatus('Resolving channel from URL...')
+    // Classify the input. URLs and explicit @handles get a focused
+    // single-channel lookup. Bare handle-ish tokens (mr.beast, mr_beast,
+    // mrbeast420) try the lookup but fall back to keyword search on
+    // miss, so common-word collisions don't dead-end the user.
+    const cls = classifySearchInput(kw)
+    const trimmed = cls.raw
+
+    if (cls.kind === 'url' || cls.kind === 'handle') {
+      // Build the lookup query. The endpoint resolves everything to a
+      // YouTube channel; for URLs from non-YouTube platforms we hand
+      // it the bare handle and let it synthesize the YouTube URL
+      // server-side. Most cross-platform creators reuse handles.
+      let lookupQs: string
+      let displayLabel: string // for status messages
+      if (cls.kind === 'url' && cls.sourcePlatform === 'youtube') {
+        lookupQs = `url=${encodeURIComponent(trimmed)}`
+        displayLabel = cls.handle ? `@${cls.handle}` : 'channel'
+      } else if (cls.kind === 'url') {
+        // Non-YouTube URL — extracted handle, look it up on YouTube.
+        const h = cls.handle || ''
+        lookupQs = `handle=${encodeURIComponent(h)}`
+        displayLabel = h ? `@${h}` : 'channel'
+      } else {
+        // 'handle' — explicit @ or bare handle-ish token.
+        lookupQs = `handle=${encodeURIComponent(cls.handle)}`
+        displayLabel = `@${cls.handle}`
+      }
+
+      const allowFallback = cls.kind === 'handle' && !cls.explicit
+      setStatus(`Looking up ${displayLabel}...`)
+
       try {
-        const r = await fetch(`/api/lookup-channel?url=${encodeURIComponent(trimmed)}`)
+        const r = await fetch(`/api/lookup-channel?${lookupQs}`)
         const lookup = await r.json()
         if (version !== searchVersion.current) return
+
         if (!r.ok || !lookup.channelId) {
-          setStatus(`Could not resolve channel: ${lookup.error || 'unknown'}`)
+          if (allowFallback) {
+            // Bare handle-ish token didn't resolve — fall through to
+            // keyword search rather than dead-end the user.
+            setStatus(`No profile matched ${displayLabel} — searching as a keyword...`)
+            // (continues to the keyword search block below)
+          } else {
+            setStatus(`Couldn't find ${displayLabel} on YouTube. Try a broader search.`)
+            setLoading(false)
+            return
+          }
+        } else {
+          // Resolved to a real channel.
+          if (dismissedIds.has(lookup.channelId) || outreachIds.has(lookup.channelId)) {
+            setStatus(`${lookup.channelName || displayLabel} is already in your outreach or dismissed list.`)
+            setLoading(false)
+            return
+          }
+          seenChannelIds.current.add(lookup.channelId)
+          // The data model is YouTube-centric and the platform tabs
+          // filter results to creators who have that social linked.
+          // Right after a lookup the new creator hasn't been enriched
+          // yet, so an IG/TikTok/X tab would hide the result behind
+          // its filter ("0 of 1 — none have Instagram"). Snap to the
+          // YouTube tab so the result is always visible, then the
+          // user can flip tabs once the social columns populate.
+          if (activePlatform !== 'youtube') {
+            setActivePlatform('youtube')
+          }
+          const baseCreator: Creator = {
+            channelId: lookup.channelId,
+            channelName: lookup.channelName || '',
+            channelUrl: lookup.channelUrl,
+            avgViews: 0,
+            subscribers: '',
+            email: '',
+            website: '',
+            linkedin: '',
+            twitter: '',
+            instagram: '',
+            tiktok: '',
+            company: '',
+            matchedVia: cls.kind === 'url' ? 'url' : 'handle',
+            videoTitles: [],
+            videoDates: [],
+            shortDates: [],
+            description: lookup.description || '',
+            enriching: true,
+          }
+          setCreators([baseCreator])
+          setEnrichProgress({ current: 0, total: 1 })
+          setStatus(`Found ${lookup.channelName || displayLabel}. Enriching contact info...`)
+          try {
+            const params = new URLSearchParams({
+              name: baseCreator.channelName, channelId: baseCreator.channelId,
+              description: baseCreator.description,
+            })
+            const er = await fetch(`/api/enrich?${params}`)
+            const extra = await er.json()
+            if (version !== searchVersion.current) return
+            setCreators([{
+              ...baseCreator,
+              enriching: false,
+              email: extra.email || '',
+              subscribers: extra.subscribers || '',
+              videoDates: extra.videoDates || [],
+              shortDates: extra.shortDates || [],
+              avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : 0,
+              linkedin: extra.linkedin || '',
+              instagram: extra.instagram || '',
+              twitter: extra.twitter || '',
+              tiktok: extra.tiktok || '',
+              website: extra.website || '',
+            }])
+            setEnrichProgress({ current: 1, total: 1 })
+            setStatus(`Done. ${lookup.channelName || displayLabel} ready — click + to add to Outreach.`)
+          } catch {
+            setCreators([{ ...baseCreator, enriching: false }])
+            setStatus('Done (could not fetch extra contact info).')
+          }
+          setLoading(false)
           return
-        }
-        if (dismissedIds.has(lookup.channelId) || outreachIds.has(lookup.channelId)) {
-          setStatus('That channel is already in your outreach or dismissed list.')
-          return
-        }
-        seenChannelIds.current.add(lookup.channelId)
-        const baseCreator: Creator = {
-          channelId: lookup.channelId,
-          channelName: lookup.channelName || '',
-          channelUrl: lookup.channelUrl,
-          avgViews: 0,
-          subscribers: '',
-          email: '',
-          website: '',
-          linkedin: '',
-          twitter: '',
-          instagram: '',
-          tiktok: '',
-          company: '',
-          matchedVia: 'url',
-          videoTitles: [],
-          videoDates: [],
-          shortDates: [],
-          description: lookup.description || '',
-          enriching: true,
-        }
-        setCreators([baseCreator])
-        setEnrichProgress({ current: 0, total: 1 })
-        setStatus('Channel found. Enriching contact info...')
-        try {
-          const params = new URLSearchParams({
-            name: baseCreator.channelName, channelId: baseCreator.channelId,
-            description: baseCreator.description,
-          })
-          const er = await fetch(`/api/enrich?${params}`)
-          const extra = await er.json()
-          if (version !== searchVersion.current) return
-          setCreators([{
-            ...baseCreator,
-            enriching: false,
-            email: extra.email || '',
-            subscribers: extra.subscribers || '',
-            videoDates: extra.videoDates || [],
-            shortDates: extra.shortDates || [],
-            avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : 0,
-            linkedin: extra.linkedin || '',
-            instagram: extra.instagram || '',
-            twitter: extra.twitter || '',
-            tiktok: extra.tiktok || '',
-            website: extra.website || '',
-          }])
-          setEnrichProgress({ current: 1, total: 1 })
-          setStatus('Done. Click + to add to Outreach.')
-        } catch {
-          setCreators([{ ...baseCreator, enriching: false }])
-          setStatus('Done (could not fetch extra contact info).')
         }
       } catch (err: any) {
-        setStatus(`Lookup failed: ${err?.message || err}`)
-      } finally {
-        setLoading(false)
+        if (!allowFallback) {
+          setStatus(`Lookup failed: ${err?.message || err}`)
+          setLoading(false)
+          return
+        }
+        // Network error during fallback-eligible lookup — keep going
+        // to keyword search rather than block the user.
+        setStatus(`Lookup hit a snag — searching as a keyword...`)
       }
-      return
+      // Falls through to keyword search if allowFallback was true.
     }
 
-    setStatus('Searching...')
+    // Phrase classifications hit this directly; lookup-fallback cases
+    // arrive here with a "searching as a keyword..." status set above.
+    // Don't clobber that message — it's the user's only signal that
+    // we tried a profile lookup first.
+    setStatus(s => s.includes('searching as a keyword') ? s : 'Searching...')
 
     try {
       const regionCodes = regions.length > 0 ? regions : ['']

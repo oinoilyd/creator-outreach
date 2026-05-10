@@ -4,15 +4,23 @@ import { requireUser, rateLimit } from '@/lib/api-auth'
 import { clampString } from '@/lib/security'
 
 /**
- * Given a YouTube URL of any common form, resolve it to a channel ID +
- * basic channel metadata. The client uses this when the user pastes a
- * URL into the search box (or the manual-add form in Outreach).
+ * Given a YouTube URL of any common form (or a bare handle), resolve
+ * it to a channel ID + basic channel metadata. The client uses this
+ * when the user pastes a URL or types `@handle` into the search box.
  *
- * Supported URL forms:
+ * Supported inputs (?url= OR ?handle=):
  *   https://www.youtube.com/channel/UC...
  *   https://www.youtube.com/@handle
  *   https://www.youtube.com/c/customname
  *   https://www.youtube.com/user/legacyname
+ *   ?handle=mrbeast → resolves https://www.youtube.com/@mrbeast
+ *
+ * The data model is YouTube-centric, so handles from other platforms
+ * (instagram.com/mrbeast, tiktok.com/@mrbeast) get extracted on the
+ * client and passed in as `handle=mrbeast` — we look them up on
+ * YouTube. Most cross-platform creators reuse handles, so this works
+ * surprisingly often. When it doesn't, the client falls back to the
+ * existing keyword search (which is the failure signal: HTTP 404).
  */
 
 const CHANNEL_ID_RE = /\/channel\/(UC[\w-]{22})/
@@ -59,13 +67,32 @@ export async function GET(req: NextRequest) {
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)
-  const raw = clampString(searchParams.get('url'), 500)
-  if (!raw) return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 })
+  const rawUrl = clampString(searchParams.get('url'), 500)
+  const rawHandle = clampString(searchParams.get('handle'), 100)
 
-  // Normalise: prepend https:// if missing, allow bare youtube.com paths
-  const normalized = raw.startsWith('http') ? raw : `https://${raw.replace(/^\/+/, '')}`
-  if (!isYouTubeUrl(normalized)) {
-    return NextResponse.json({ error: 'Not a YouTube URL' }, { status: 400 })
+  if (!rawUrl && !rawHandle) {
+    return NextResponse.json({ error: 'Missing url or handle parameter' }, { status: 400 })
+  }
+
+  // Resolve the input to a YouTube URL. `?handle=` is the cross-
+  // platform path: caller (the search classifier) extracted a handle
+  // from any social URL or bare token and asks us to try it as a
+  // YouTube handle. We strip a leading `@` and any non-handle chars
+  // so a paste like `@mrbeast420` lands cleanly.
+  let normalized: string
+  if (rawHandle) {
+    const cleaned = rawHandle.replace(/^@+/, '').replace(/[^A-Za-z0-9._-]/g, '')
+    if (cleaned.length < 2 || cleaned.length > 50) {
+      return NextResponse.json({ error: 'Invalid handle' }, { status: 400 })
+    }
+    normalized = `https://www.youtube.com/@${cleaned}`
+  } else {
+    normalized = rawUrl!.startsWith('http')
+      ? rawUrl!
+      : `https://${rawUrl!.replace(/^\/+/, '')}`
+    if (!isYouTubeUrl(normalized)) {
+      return NextResponse.json({ error: 'Not a YouTube URL' }, { status: 400 })
+    }
   }
 
   // Direct channel ID short-circuit — no fetch needed
