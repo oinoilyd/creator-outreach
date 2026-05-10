@@ -19,7 +19,7 @@ import { computeMetric, metricTypeLabel, SUGGESTED_METRICS } from '@/lib/metrics
 import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
 import { NumberTicker } from '@/components/NumberTicker'
-import { AnimatedTabs } from '@/components/AnimatedTabs'
+import { AnimatedTabs, tabId, tabPanelId } from '@/components/AnimatedTabs'
 import { AnimatedRow } from '@/components/AnimatedRow'
 import { BorderBeam } from '@/components/BorderBeam'
 import { motion } from 'motion/react'
@@ -1114,6 +1114,7 @@ function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
       <AnimatedTabs<SubTabId>
         layoutGroup="outreach-subtabs"
         variant="pill"
+        ariaLabel="Outreach view"
         tabs={tabs}
         active={active}
         onChange={onChange}
@@ -5573,6 +5574,7 @@ export default function Home() {
         <div className="flex items-center mb-4 border-b border-border">
           <AnimatedTabs<ActiveTab>
             layoutGroup="main-tabs"
+            ariaLabel="Main view"
             tabs={[
               {
                 id: 'results',
@@ -5967,6 +5969,15 @@ export default function Home() {
         */}
         <motion.div
           key={activeTab}
+          // Tab panel — id + aria-labelledby connect to the
+          // matching <button role="tab"> in AnimatedTabs above.
+          // Single panel that swaps content keyed by activeTab; the
+          // id/labelledby pair updates with the active tab so screen
+          // readers always announce the right relationship.
+          id={tabPanelId('main-tabs', activeTab)}
+          role="tabpanel"
+          aria-labelledby={tabId('main-tabs', activeTab)}
+          tabIndex={0}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
@@ -5986,6 +5997,15 @@ export default function Home() {
               }).length
               return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} dueCount={dueCount} />
             })()}
+            {/* Sub-tab panel — same id/labelledby pattern as the
+                main tabs above. Single wrapping div whose ARIA
+                attributes update with the active sub-tab. */}
+            <div
+              role="tabpanel"
+              id={tabPanelId('outreach-subtabs', outreachSubTab)}
+              aria-labelledby={tabId('outreach-subtabs', outreachSubTab)}
+              tabIndex={0}
+            >
             {outreachSubTab === 'analytics' ? (
               <OutreachAnalytics
                 entries={outreach}
@@ -6034,6 +6054,7 @@ export default function Home() {
                 })}
               />
             )}
+            </div>
           </>
         ) : activeTab === 'dismissed' ? (
           <DismissedTab
