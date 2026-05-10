@@ -117,121 +117,27 @@ import {
   runManualMigration,
 } from '@/lib/storage'
 import { createClient as createSupabaseClient } from '@/lib/supabase/client'
+import {
+  parseLocalDate,
+  todayIso,
+  isoDaysFromNow,
+  daysAgo,
+  daysFromNow,
+} from '@/lib/dates'
+import {
+  composeInstagramDm,
+  copyInstagramDm,
+  composeLinkedInMessage,
+  copyLinkedInMessage,
+  markEmailBounced,
+  filterOutreachByKeyword,
+  nextFollowUpDays,
+  followUpStageLabel,
+} from '@/lib/outreach'
 
 const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
-
-/**
- * Build a copy-pasteable Instagram DM template from a creator/entry's
- * channel name. Instagram doesn't expose a deep-link compose URL with
- * pre-filled text (unlike `mailto:`), so the workflow is:
- *   1. Click the IG handle → opens IG profile in a new tab
- *   2. Same click copies this template to the clipboard
- *   3. User pastes into the DM box manually
- *
- * `[insert specific thing]` and `[your product]` are intentional
- * placeholders the user fills before sending.
- */
-function composeInstagramDm(channelName: string): string {
-  const name = (channelName || '').trim() || 'there'
-  // Take first whitespace-separated word for a "first name"-style
-  // greeting. "Vince Lymburn" → "Vince", "CoinDesk" → "CoinDesk",
-  // "Zebu Live | UK's Flagship Web3 Summit" → "Zebu".
-  const firstName = name.split(/\s+/)[0] || name
-  return `Hey ${firstName},
-
-Just discovered ${name} on Instagram and loved [insert specific thing].
-
-I'm building [your product] and would love to share what we're up to if you're open to a quick chat.
-
-Either way, keep up the great work!`
-}
-
-/**
- * Click handler for Instagram cells: copy the templated DM to the
- * clipboard and toast it. Fires alongside the link's default
- * target="_blank" navigation, so the IG profile opens in a new tab
- * AND the DM template is ready to paste in one click.
- */
-function copyInstagramDm(channelName: string) {
-  const dm = composeInstagramDm(channelName)
-  if (!navigator.clipboard?.writeText) {
-    toast.error('Clipboard not available — copy DM manually from settings')
-    return
-  }
-  navigator.clipboard.writeText(dm).then(
-    () => toast.success('DM template copied', {
-      description: `Paste in Instagram DM to ${channelName || 'creator'}`,
-    }),
-    () => toast.error('Failed to copy DM template'),
-  )
-}
-
-/**
- * LinkedIn-specific message template — slightly more business-formal
- * than the IG DM. Same flow: click the LinkedIn cell → opens profile
- * in a new tab + writes this template to the clipboard so the user
- * can paste it directly into a connection note or DM.
- */
-function composeLinkedInMessage(channelName: string): string {
-  const name = (channelName || '').trim() || 'there'
-  const firstName = name.split(/\s+/)[0] || name
-  return `Hi ${firstName},
-
-Came across ${name} on LinkedIn and really liked [insert specific post/topic].
-
-I'm building [your product] and saw a potential fit for what you do. Would love to connect and share what we're up to if it's of interest.
-
-Best,
-[your name]`
-}
-
-function copyLinkedInMessage(channelName: string) {
-  const msg = composeLinkedInMessage(channelName)
-  if (!navigator.clipboard?.writeText) {
-    toast.error('Clipboard not available — copy message manually')
-    return
-  }
-  navigator.clipboard.writeText(msg).then(
-    () => toast.success('LinkedIn message copied', {
-      description: `Paste in connection note or DM to ${channelName || 'creator'}`,
-    }),
-    () => toast.error('Failed to copy message'),
-  )
-}
-
-/**
- * Mark a creator's email as bounced/bad in the durable contacts
- * cache. Fire-and-forget — we don't block the UI on the round-trip.
- * Posts to /api/contacts/mark-bounced which inserts a new
- * creator_enrichment snapshot with email_bounced=true. That row
- * then forces a fresh re-fetch the next time anyone enriches this
- * channel, so we never serve the bad email again.
- */
-async function markEmailBounced(channelId: string, email: string, channelName: string): Promise<void> {
-  if (!channelId) {
-    toast.error('No channel ID — can\'t mark this email')
-    return
-  }
-  try {
-    const res = await fetch('/api/contacts/mark-bounced', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ channelId, email }),
-    })
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({} as { error?: string }))
-      toast.error(`Couldn't mark email — ${j.error || `HTTP ${res.status}`}`)
-      return
-    }
-    toast.success(`${channelName || 'Email'} marked bad`, {
-      description: 'Cache cleared — next enrichment will re-fetch from scratch.',
-    })
-  } catch (e: any) {
-    toast.error(`Couldn't mark email — ${e?.message || e}`)
-  }
-}
 
 function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
@@ -2529,28 +2435,9 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
   )
 }
 
-// Parse "YYYY-MM-DD" as LOCAL midnight (not UTC midnight, which is what
-// `new Date("YYYY-MM-DD")` does and bumps the bucket by a day in negative
-// timezones). Falls back to native parsing for ISO strings with a time.
-function parseLocalDate(s: string): Date | null {
-  if (!s) return null
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]))
-  const d = new Date(s)
-  return isNaN(d.getTime()) ? null : d
-}
-
-// Today's date as YYYY-MM-DD in local time.
-function todayIso(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-
-// N days from today as YYYY-MM-DD in local time.
-function isoDaysFromNow(days: number): string {
-  const d = new Date(); d.setDate(d.getDate() + days)
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
+// (parseLocalDate / todayIso / isoDaysFromNow / daysAgo / daysFromNow
+//  moved to lib/dates.ts — pure local-time date helpers shared with
+//  follow-up cadence math. See top-of-file imports.)
 
 /**
  * Right-click / two-finger-click context menu rendered when the user
@@ -2699,63 +2586,9 @@ function ColumnContextMenu({
   )
 }
 
-/**
- * Live filter for the Outreach tab. When the user types in the main
- * search bar while on the Outreach tab, we filter their existing list
- * instead of running a YouTube search. Case-insensitive substring
- * match across the most useful fields — name, email, notes, product,
- * niche, channel ID. Whitespace-only / empty query returns the input
- * unchanged so this is cheap to call universally.
- */
-function filterOutreachByKeyword(list: OutreachEntry[], rawKeyword: string): OutreachEntry[] {
-  const q = rawKeyword.trim().toLowerCase()
-  if (!q) return list
-  return list.filter(e =>
-    (e.channelName || '').toLowerCase().includes(q) ||
-    (e.email || '').toLowerCase().includes(q) ||
-    (e.notes || '').toLowerCase().includes(q) ||
-    (e.product || '').toLowerCase().includes(q) ||
-    (e.contentNiche || '').toLowerCase().includes(q) ||
-    (e.headerUsed || '').toLowerCase().includes(q) ||
-    (e.channelId || '').toLowerCase().includes(q),
-  )
-}
-
-// Progressive follow-up cadence — most replies come from touch 2 / 3,
-// not touch 5+. Tighter intervals early, looser later.
-function nextFollowUpDays(touchpoints: number): number {
-  if (touchpoints <= 1) return 3
-  if (touchpoints === 2) return 7
-  if (touchpoints === 3) return 14
-  return 21
-}
-
-// Returns the human label for "what action should this lead trigger?"
-// based on its current touchpoint count.
-function followUpStageLabel(touchpoints: number): string {
-  if (touchpoints <= 1) return 'First follow-up'
-  if (touchpoints === 2) return 'Second follow-up'
-  if (touchpoints === 3) return 'Third follow-up'
-  return 'Final attempt'
-}
-
-function daysAgo(iso: string): string {
-  if (!iso) return '?'
-  const d = parseLocalDate(iso); if (!d) return '?'
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const that = new Date(d); that.setHours(0, 0, 0, 0)
-  const days = Math.round((today.getTime() - that.getTime()) / 86_400_000)
-  if (days <= 0) return 'today'
-  return `${days}d`
-}
-
-function daysFromNow(iso: string): number {
-  if (!iso) return 0
-  const d = parseLocalDate(iso); if (!d) return 0
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const that = new Date(d); that.setHours(0, 0, 0, 0)
-  return Math.max(0, Math.round((that.getTime() - today.getTime()) / 86_400_000))
-}
+// (filterOutreachByKeyword / nextFollowUpDays / followUpStageLabel
+//  moved to lib/outreach.ts; daysAgo + daysFromNow moved to lib/dates.ts.
+//  See top-of-file imports.)
 
 function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onExportExcel, onExportCsv }: {
   entries: OutreachEntry[]
