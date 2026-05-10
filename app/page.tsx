@@ -1025,6 +1025,16 @@ function renderOutreachCell(
       return <AutoTextarea value={e.notes || ''} onChange={v => onUpdate(e.id, 'notes', v)} placeholder="Notes..." className="text-foreground/80" />
     case 'followUpDate':
       return <FollowUpDateCell entry={e} onUpdate={onUpdate} />
+    case 'openCount':
+      return (
+        <span className="text-xs tabular-nums" title={e.lastOpenedAt ? `Last opened ${new Date(e.lastOpenedAt).toLocaleString()}` : 'No opens tracked yet'}>
+          {e.openCount ? (
+            <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{e.openCount}×</span>
+          ) : (
+            <span className="text-muted-foreground/60">—</span>
+          )}
+        </span>
+      )
     case 'autoFollowup':
       // Phase 7 — toggle the cron-auto-followup behaviour per row.
       // Disabled when the user has no Unipile account; the cron skips

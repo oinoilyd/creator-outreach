@@ -125,6 +125,23 @@ export async function POST(req: NextRequest) {
     error: null,
   }
 
+  // ── Phase 5 — open / link-click tracking ──────────────────────────────────
+  // Unipile fires a separate event when their tracking pixel pings back or
+  // a wrapped link is clicked. We attribute by tracking_id → outreach
+  // entry's unipile_tracking_id and increment open_count.
+  const isTrackingEvent =
+    eventType === 'mail_opened' ||
+    eventType === 'email_opened' ||
+    eventType === 'tracking.open' ||
+    eventType === 'tracking.click' ||
+    eventType === 'mail_link_clicked' ||
+    status === 'OPENED' ||
+    status === 'LINK_CLICKED'
+
+  if (isTrackingEvent) {
+    return await handleTrackingEvent(payload, baseRecent)
+  }
+
   // ── Phase 3 — incoming message / reply detection ──────────────────────────
   // Unipile fires a different event for each new message. We tolerate a few
   // aliases: 'mail_received', 'message_received', 'new_email', 'messaging.new'.
@@ -236,6 +253,81 @@ export async function POST(req: NextRequest) {
   console.log('[unipile/webhook] linked account', { userId, accountId, accountType, email })
 
   return NextResponse.json({ ok: true, linked: { accountId, email, accountType } })
+}
+
+/**
+ * Phase 5 — process a tracking event (open or link click) from Unipile.
+ *
+ * Match by:
+ *   tracking_id (label we set on send to outreach entry.id) →
+ *     outreach_entries.unipile_tracking_id
+ *
+ * We increment open_count and stamp last_opened_at. Link clicks count
+ * the same way for the basic counter — a separate click_count column
+ * could be added in a future migration if the analytics get more
+ * sophisticated.
+ *
+ * Tolerant by design: tracking pixels fire reliably ~70% of the time
+ * (Gmail's image proxy delays, mobile clients block them, etc.), so
+ * we don't treat absence-of-opens as signal. Presence of opens is the
+ * useful info.
+ */
+async function handleTrackingEvent(
+  payload: UnipileWebhookPayload,
+  baseRecent: RecentWebhookEntry,
+): Promise<NextResponse> {
+  const trackingId =
+    ((payload as Record<string, unknown>).tracking_id ??
+      (payload as Record<string, unknown>).label ??
+      (payload.data?.tracking_id as string | undefined) ??
+      (payload.data?.label as string | undefined) ??
+      '')
+      .toString()
+      .trim()
+
+  if (!trackingId) {
+    await pushRecent({ ...baseRecent, error: 'tracking event missing tracking_id/label' })
+    return NextResponse.json({ ok: true, ignored: true, reason: 'no tracking_id' })
+  }
+
+  const supabase = getServiceClient()
+  if (!supabase) {
+    await pushRecent({ ...baseRecent, error: 'service client unavailable' })
+    return NextResponse.json({ error: 'Service client unavailable' }, { status: 500 })
+  }
+
+  // We label sends with the outreach entry id, so look up by either
+  // unipile_tracking_id (if Unipile generated its own) OR the entry id
+  // (if our label survived as the tracking_id).
+  const { data: entries } = await supabase
+    .from('outreach_entries')
+    .select('id, open_count')
+    .or(`unipile_tracking_id.eq.${trackingId},id.eq.${trackingId}`)
+    .limit(1)
+  const matched = entries?.[0]
+
+  if (!matched) {
+    await pushRecent({ ...baseRecent, error: `no entry for tracking_id ${trackingId}` })
+    return NextResponse.json({ ok: true, ignored: true, reason: 'no matching entry' })
+  }
+
+  const newCount = (matched.open_count ?? 0) + 1
+  const { error: updateErr } = await supabase
+    .from('outreach_entries')
+    .update({
+      open_count: newCount,
+      last_opened_at: new Date().toISOString(),
+    })
+    .eq('id', matched.id)
+
+  if (updateErr) {
+    await pushRecent({ ...baseRecent, error: `open update failed: ${updateErr.message}` })
+    return NextResponse.json({ error: 'Open update failed' }, { status: 500 })
+  }
+
+  await pushRecent({ ...baseRecent, matched: true })
+  console.log('[unipile/webhook] open tracked', { entryId: matched.id, count: newCount })
+  return NextResponse.json({ ok: true, opened: { entryId: matched.id, count: newCount } })
 }
 
 /**
