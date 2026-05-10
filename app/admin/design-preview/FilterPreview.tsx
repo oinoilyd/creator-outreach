@@ -2,19 +2,20 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Filter, Search, Zap } from 'lucide-react'
+import { Filter, Search, Zap, ChevronRight } from 'lucide-react'
 
 /**
  * Four variants of the search filter top bar:
- *   A. Editorial / magazine — cream + navy, serif accents, hairlines
- *   B. Neo-brutalism — black borders, yellow accent, offset shadows
- *   C. Glass bento — translucent cards, gradient glows, depth layers
+ *   A. Print classified — mono, brackets, hairlines, no color
+ *   B. Linear-style dev tool — compact slate, keyboard-key chips
+ *   C. OS-native refined — generous spacing, restrained, real type
  *   D. Current — reference clone of the live layout
  *
- * Each variant renders the SAME selections (the screenshot Dylan
- * sent: keyword='trading', region='Ireland', recency='Last 6 months',
- * showOnly='Email-first sort', avg views 0–200K). That keeps the
- * comparison about presentation, not state.
+ * Each variant uses the SAME selections so the only thing varying
+ * tab-to-tab is presentation. The "non-AI" goal: avoid gradients,
+ * glassmorphism, soft glow shadows, and the default rounded-2xl
+ * SaaS-template look. Every variant should read as a deliberate
+ * design choice, not a template default.
  */
 
 // ── shared data ─────────────────────────────────────────────────────
@@ -62,9 +63,9 @@ const SHARED = {
 // ── tab shell ──────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'A' as const, label: 'A · Editorial', sub: 'magazine, serif, hairline rules' },
-  { id: 'B' as const, label: 'B · Neo-brutalist', sub: 'hard borders, offset shadows' },
-  { id: 'C' as const, label: 'C · Glass bento', sub: 'translucent cards, gradient glow' },
+  { id: 'A' as const, label: 'A · Print classified', sub: 'mono, brackets, hairlines, no color' },
+  { id: 'B' as const, label: 'B · Linear strip', sub: 'compact slate, keyboard-key chips' },
+  { id: 'C' as const, label: 'C · OS-native refined', sub: 'generous spacing, restrained type' },
   { id: 'D' as const, label: 'D · Current', sub: 'reference clone' },
 ]
 
@@ -88,14 +89,14 @@ export function FilterPreview() {
           </Link>
         </div>
         {/* Tabs */}
-        <div className="max-w-[1400px] mx-auto px-6 flex items-stretch gap-1">
+        <div className="max-w-[1400px] mx-auto px-6 flex items-stretch gap-1 overflow-x-auto">
           {TABS.map(t => {
             const active = tab === t.id
             return (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`relative px-4 pt-3 pb-3.5 text-sm transition-colors ${
+                className={`relative px-4 pt-3 pb-3.5 text-sm transition-colors text-left whitespace-nowrap ${
                   active
                     ? 'text-foreground font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
@@ -115,30 +116,30 @@ export function FilterPreview() {
       </div>
 
       <div className="max-w-[1400px] mx-auto px-6 py-10">
-        {tab === 'A' && <VariantEditorial />}
-        {tab === 'B' && <VariantBrutalist />}
-        {tab === 'C' && <VariantGlassBento />}
+        {tab === 'A' && <VariantPrint />}
+        {tab === 'B' && <VariantLinear />}
+        {tab === 'C' && <VariantNative />}
         {tab === 'D' && <VariantCurrent />}
 
         {/* Notes block — same across all tabs */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-muted-foreground/80">
           <div>
-            <div className="font-semibold text-foreground/90 mb-1">A · Editorial</div>
-            Cream + navy, deep typographic hierarchy, hairline section rules. Reads like a
-            magazine layout — restrained, content-forward, slow rhythm. Best fit if you want the
-            tool to feel premium and considered rather than dashboard-y.
+            <div className="font-semibold text-foreground/90 mb-1">A · Print classified</div>
+            Black ink on warm white. Mono everywhere, brackets around chips, hairline rules
+            between sections. Looks like a Wallpaper-magazine page or a vintage Yellow Pages
+            spread, not a SaaS dashboard. Strong opinion, no color.
           </div>
           <div>
-            <div className="font-semibold text-foreground/90 mb-1">B · Neo-brutalist</div>
-            Hard 2–3px borders, offset shadows, yellow accent on a near-white base. Loud,
-            confident, opinionated — feels like a tool not a SaaS template. Works if you want
-            the brand to be memorable and slightly counterculture.
+            <div className="font-semibold text-foreground/90 mb-1">B · Linear strip</div>
+            Tight, dense, info-rich — single horizontal control strip with keyboard-key chip
+            aesthetic. Slate neutrals with one disciplined blue accent for active state. Reads
+            as a tool a serious operator built, not a marketing page.
           </div>
           <div>
-            <div className="font-semibold text-foreground/90 mb-1">C · Glass bento</div>
-            Each section is a translucent layered card on a dark backdrop with gradient active
-            states. Modern, depth-rich, tech-forward. Works well when paired with motion. Closest
-            to current direction but with real depth.
+            <div className="font-semibold text-foreground/90 mb-1">C · OS-native refined</div>
+            macOS Settings / Vercel dashboard energy. Generous whitespace, real typographic
+            hierarchy, no decorative borders, subtle dividers. The accent is a confident dark
+            green (not the generic SaaS purple-blue). Restrained but considered.
           </div>
         </div>
       </div>
@@ -146,135 +147,187 @@ export function FilterPreview() {
   )
 }
 
-// ── Variant A — Editorial / Magazine ───────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Variant A — Print classified
+//   Inspiration: Wallpaper magazine layout, Yellow Pages, library
+//   catalog cards. Mono everywhere, brackets around chips, hairline
+//   rules between sections, asymmetric numbered headers. No color.
+// ─────────────────────────────────────────────────────────────────────
 
-function VariantEditorial() {
+function VariantPrint() {
   return (
     <div
-      style={{ background: '#FCFAF6', color: '#0F1733' }}
-      className="rounded-2xl p-10 border border-[#E8E2D5]"
+      style={{ background: '#FAF8F2', color: '#1A1A1A' }}
+      className="rounded-none p-12 border border-[#1A1A1A]"
     >
-      {/* Heading + search */}
-      <div className="flex items-start justify-between gap-8 mb-10 pb-8 border-b border-[#0F1733]/15">
-        <div className="flex-1 min-w-0">
-          <div className="text-[11px] uppercase tracking-[0.32em] text-[#0F1733]/50 mb-3 font-medium">
-            № 01 — Sourcing
-          </div>
-          <div className="flex items-baseline gap-4">
-            <span
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-              className="text-[#0F1733]/40 text-5xl italic leading-none"
-            >
-              Find
-            </span>
-            <input
-              defaultValue={SHARED.keyword}
-              className="flex-1 bg-transparent text-4xl font-semibold tracking-tight border-0 border-b-2 border-[#0F1733] pb-2 outline-none placeholder:text-[#0F1733]/30 text-[#0F1733]"
-            />
-          </div>
+      {/* Header rule + masthead */}
+      <div className="flex items-end justify-between border-b-2 border-[#1A1A1A] pb-3 mb-10">
+        <div
+          className="text-[10px] uppercase tracking-[0.4em] font-bold"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          Section I — Sourcing / Filter index
         </div>
-        <div className="flex items-center gap-2 pt-7">
-          <button className="w-11 h-11 inline-flex items-center justify-center border border-[#0F1733]/25 hover:bg-[#0F1733]/5 transition-colors">
-            <Zap className="w-4 h-4" />
-          </button>
-          <button className="w-11 h-11 inline-flex items-center justify-center border border-[#0F1733]/25 hover:bg-[#0F1733]/5 transition-colors">
-            <Filter className="w-4 h-4" />
-          </button>
-          <button
-            style={{ background: '#0F1733', color: '#FCFAF6' }}
-            className="px-7 h-11 text-sm uppercase tracking-[0.18em] font-semibold hover:opacity-90 transition-opacity"
+        <div
+          className="text-[10px] uppercase tracking-[0.4em] text-[#1A1A1A]/60"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          Edition 01 / Page 01
+        </div>
+      </div>
+
+      {/* Search block — asymmetric */}
+      <div className="grid grid-cols-12 gap-6 items-end mb-12 pb-10 border-b border-[#1A1A1A]/30">
+        <div className="col-span-12 lg:col-span-9">
+          <div
+            className="text-[10px] uppercase tracking-[0.32em] mb-3 text-[#1A1A1A]/55"
+            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
           >
-            Search
+            Query —
+          </div>
+          <input
+            defaultValue={SHARED.keyword}
+            className="w-full bg-transparent border-0 border-b-[2px] border-[#1A1A1A] pb-2 outline-none text-5xl font-light tracking-tight text-[#1A1A1A] placeholder:text-[#1A1A1A]/30"
+            style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+          />
+        </div>
+        <div className="col-span-12 lg:col-span-3 flex items-center gap-2 justify-end">
+          <PrintIconBtn>
+            <Zap className="w-3.5 h-3.5" />
+          </PrintIconBtn>
+          <PrintIconBtn>
+            <Filter className="w-3.5 h-3.5" />
+          </PrintIconBtn>
+          <button
+            className="px-6 py-2 bg-[#1A1A1A] text-[#FAF8F2] text-[11px] uppercase tracking-[0.32em] font-bold hover:opacity-85 transition-opacity"
+            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+          >
+            Search →
           </button>
         </div>
       </div>
 
-      {/* Filter rows */}
-      <div className="space-y-7">
-        <EditorialRow label="Avg views">
-          <EditorialInput defaultValue={SHARED.avgViewsMin} />
-          <span className="text-[#0F1733]/40 text-xs italic">to</span>
-          <EditorialInput defaultValue={SHARED.avgViewsMax} />
-          <span className="text-[#0F1733]/30 mx-2">/</span>
+      {/* Numbered filter sections */}
+      <div className="space-y-9">
+        <PrintSection num="01" label="AVG VIEWS">
+          <PrintNumInput defaultValue={SHARED.avgViewsMin} />
+          <span className="text-[#1A1A1A]/40 text-xs">→</span>
+          <PrintNumInput defaultValue={SHARED.avgViewsMax} />
+          <span className="text-[#1A1A1A]/30 mx-1.5">·</span>
           {VIEW_PRESETS.map(v => (
-            <EditorialChip key={v}>{v}</EditorialChip>
+            <PrintChip key={v}>{v}</PrintChip>
           ))}
-        </EditorialRow>
+        </PrintSection>
 
-        <EditorialRow label="Subscribers">
-          <EditorialInput placeholder="Min" />
-          <span className="text-[#0F1733]/40 text-xs italic">to</span>
-          <EditorialInput placeholder="Max" />
-          <span className="text-[#0F1733]/30 mx-2">/</span>
+        <PrintSection num="02" label="SUBSCRIBERS">
+          <PrintNumInput placeholder="min" />
+          <span className="text-[#1A1A1A]/40 text-xs">→</span>
+          <PrintNumInput placeholder="max" />
+          <span className="text-[#1A1A1A]/30 mx-1.5">·</span>
           {SUBS_PRESETS.map(s => (
-            <EditorialChip key={s} active={s === SHARED.subsActive}>
+            <PrintChip key={s} active={s === SHARED.subsActive}>
               {s}
-            </EditorialChip>
+            </PrintChip>
           ))}
-        </EditorialRow>
+        </PrintSection>
 
-        <EditorialRow label="Last posted">
+        <PrintSection num="03" label="LAST POSTED">
           {RECENCY.map(r => (
-            <EditorialChip key={r} active={r === SHARED.recency}>
+            <PrintChip key={r} active={r === SHARED.recency}>
               {r}
-            </EditorialChip>
+            </PrintChip>
           ))}
-        </EditorialRow>
+        </PrintSection>
 
-        <EditorialRow label="Show only">
+        <PrintSection num="04" label="SHOW ONLY">
           {SHOW_ONLY.map(s => (
-            <EditorialChip key={s} active={s === SHARED.showOnlyActive}>
+            <PrintChip key={s} active={s === SHARED.showOnlyActive}>
               {s}
-            </EditorialChip>
+            </PrintChip>
           ))}
-        </EditorialRow>
+        </PrintSection>
 
-        <EditorialRow label="Region">
-          {REGIONS.map(r => (
-            <button
-              key={r.code}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs transition-colors ${
-                r.code === SHARED.region
-                  ? 'bg-[#0F1733] text-[#FCFAF6]'
-                  : 'border border-[#0F1733]/20 hover:border-[#0F1733]/60 text-[#0F1733]/85'
-              }`}
-            >
-              <span className="text-[13px]">{r.flag}</span>
-              <span>{r.label}</span>
-            </button>
-          ))}
-        </EditorialRow>
+        <PrintSection num="05" label="REGION">
+          {REGIONS.map(r => {
+            const active = r.code === SHARED.region
+            return (
+              <button
+                key={r.code}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] transition-colors ${
+                  active
+                    ? 'bg-[#1A1A1A] text-[#FAF8F2]'
+                    : 'text-[#1A1A1A]/85 hover:text-[#1A1A1A]'
+                }`}
+                style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+              >
+                <span className="text-xs">{r.flag}</span>
+                <span>
+                  {active ? r.label : `[ ${r.label} ]`}
+                </span>
+              </button>
+            )
+          })}
+        </PrintSection>
       </div>
 
-      {/* Status */}
-      <div className="mt-10 pt-6 border-t border-[#0F1733]/15 flex items-baseline gap-3 text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/60">
-        <span
-          className="inline-block w-1.5 h-1.5 rounded-full"
-          style={{ background: '#10B981' }}
-        />
-        <span>Done</span>
-        <span className="text-[#0F1733]/30">/</span>
-        <span className="text-[#0F1733]">{SHARED.found} creators found</span>
-      </div>
-    </div>
-  )
-}
-
-function EditorialRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[160px_1fr] gap-6 items-start">
-      <div className="pt-1">
-        <div className="text-[10px] uppercase tracking-[0.32em] text-[#0F1733]/55 font-semibold">
-          {label}
+      {/* Footer rule */}
+      <div className="mt-12 pt-4 border-t-2 border-[#1A1A1A] flex items-center justify-between">
+        <div
+          className="text-[10px] uppercase tracking-[0.32em] font-bold"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          Status — Done · {SHARED.found} entries returned
         </div>
-        <div className="h-px bg-[#0F1733]/15 mt-2" />
+        <div
+          className="text-[10px] uppercase tracking-[0.32em] text-[#1A1A1A]/50"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          End of section I
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   )
 }
 
-function EditorialInput({
+function PrintSection({
+  num,
+  label,
+  children,
+}: {
+  num: string
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-[120px_1fr] gap-8 items-baseline">
+      <div className="flex items-baseline gap-2 pt-0.5">
+        <span
+          className="text-2xl font-light text-[#1A1A1A]/30"
+          style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+        >
+          {num}
+        </span>
+        <span
+          className="text-[10px] uppercase tracking-[0.32em] font-bold"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          {label}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">{children}</div>
+    </div>
+  )
+}
+
+function PrintIconBtn({ children }: { children: React.ReactNode }) {
+  return (
+    <button className="w-9 h-9 inline-flex items-center justify-center border border-[#1A1A1A]/40 hover:border-[#1A1A1A] hover:bg-[#1A1A1A]/5 transition-colors">
+      {children}
+    </button>
+  )
+}
+
+function PrintNumInput({
   defaultValue,
   placeholder,
 }: {
@@ -285,12 +338,274 @@ function EditorialInput({
     <input
       defaultValue={defaultValue}
       placeholder={placeholder}
-      className="w-24 px-3 py-1.5 bg-transparent text-sm text-[#0F1733] border-b border-[#0F1733]/30 focus:border-[#0F1733] outline-none placeholder:text-[#0F1733]/30 tabular-nums"
+      className="w-24 px-2 py-1 bg-transparent border-b border-[#1A1A1A]/40 focus:border-[#1A1A1A] outline-none text-sm text-[#1A1A1A] placeholder:text-[#1A1A1A]/30 tabular-nums"
+      style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
     />
   )
 }
 
-function EditorialChip({
+function PrintChip({ children, active }: { children: React.ReactNode; active?: boolean }) {
+  return (
+    <button
+      className={`px-2.5 py-1 text-[11px] transition-colors ${
+        active
+          ? 'bg-[#1A1A1A] text-[#FAF8F2]'
+          : 'text-[#1A1A1A]/85 hover:text-[#1A1A1A]'
+      }`}
+      style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+    >
+      {active ? children : <>[ {children} ]</>}
+    </button>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Variant B — Linear-style strip
+//   Inspiration: Linear app's filter bar, GitHub Issues filters,
+//   Vercel dashboard headers. Tight, dense, info-rich, single
+//   horizontal strip. Slate neutrals, mono numerics, keyboard-key
+//   chips. One blue accent (Linear's #5E6AD2-ish) for active.
+// ─────────────────────────────────────────────────────────────────────
+
+const LINEAR_BG = '#FBFBFC'
+const LINEAR_PANEL = '#FFFFFF'
+const LINEAR_BORDER = '#E5E5EA'
+const LINEAR_BORDER_HOVER = '#D0D0D7'
+const LINEAR_TEXT = '#1F1F23'
+const LINEAR_MUTED = '#6F6F7A'
+const LINEAR_ACCENT = '#5E6AD2'
+
+function VariantLinear() {
+  return (
+    <div
+      style={{ background: LINEAR_BG, color: LINEAR_TEXT }}
+      className="rounded-xl border p-7"
+    >
+      {/* Top: search + actions in a single row */}
+      <div
+        className="flex items-stretch rounded-lg overflow-hidden border mb-6"
+        style={{ background: LINEAR_PANEL, borderColor: LINEAR_BORDER }}
+      >
+        <div className="flex items-center px-4 flex-1 gap-3">
+          <Search className="w-3.5 h-3.5" style={{ color: LINEAR_MUTED }} strokeWidth={2.25} />
+          <input
+            defaultValue={SHARED.keyword}
+            placeholder="Search creators…"
+            className="flex-1 bg-transparent border-0 outline-none text-[15px] py-3"
+            style={{ color: LINEAR_TEXT, fontVariantNumeric: 'tabular-nums' }}
+          />
+          <kbd
+            className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded border tabular-nums"
+            style={{
+              background: LINEAR_BG,
+              borderColor: LINEAR_BORDER,
+              color: LINEAR_MUTED,
+              fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+            }}
+          >
+            ⌘K
+          </kbd>
+        </div>
+        <div
+          className="flex items-stretch border-l"
+          style={{ borderColor: LINEAR_BORDER }}
+        >
+          <LinearActionBtn label="Quick">
+            <Zap className="w-3.5 h-3.5" strokeWidth={2.25} />
+          </LinearActionBtn>
+          <LinearActionBtn label="Filters" hint="3" active>
+            <Filter className="w-3.5 h-3.5" strokeWidth={2.25} />
+          </LinearActionBtn>
+          <button
+            className="px-5 text-[13px] font-medium text-white hover:opacity-90 transition-opacity flex items-center gap-1.5"
+            style={{ background: LINEAR_ACCENT }}
+          >
+            Search
+            <ChevronRight className="w-3 h-3" strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+
+      {/* Filter strip — labels on left, chips inline */}
+      <div
+        className="rounded-lg border divide-y"
+        style={{ background: LINEAR_PANEL, borderColor: LINEAR_BORDER, borderTop: 'none' }}
+      >
+        <LinearRow label="Avg views">
+          <LinearNum defaultValue={SHARED.avgViewsMin} />
+          <span className="text-[11px]" style={{ color: LINEAR_MUTED }}>—</span>
+          <LinearNum defaultValue={SHARED.avgViewsMax} />
+          <LinearDivider />
+          {VIEW_PRESETS.map(v => (
+            <LinearChip key={v}>{v}</LinearChip>
+          ))}
+        </LinearRow>
+
+        <LinearRow label="Subscribers">
+          <LinearNum placeholder="min" />
+          <span className="text-[11px]" style={{ color: LINEAR_MUTED }}>—</span>
+          <LinearNum placeholder="max" />
+          <LinearDivider />
+          {SUBS_PRESETS.map(s => (
+            <LinearChip key={s} active={s === SHARED.subsActive}>
+              {s}
+            </LinearChip>
+          ))}
+        </LinearRow>
+
+        <LinearRow label="Last posted">
+          {RECENCY.map(r => (
+            <LinearChip key={r} active={r === SHARED.recency}>
+              {r}
+            </LinearChip>
+          ))}
+        </LinearRow>
+
+        <LinearRow label="Show only">
+          {SHOW_ONLY.map(s => (
+            <LinearChip key={s} active={s === SHARED.showOnlyActive}>
+              {s}
+            </LinearChip>
+          ))}
+        </LinearRow>
+
+        <LinearRow label="Region" hint="20 countries">
+          {REGIONS.map(r => {
+            const active = r.code === SHARED.region
+            return (
+              <button
+                key={r.code}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] transition-colors"
+                style={
+                  active
+                    ? {
+                        background: LINEAR_ACCENT,
+                        color: '#fff',
+                        boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.08)',
+                      }
+                    : {
+                        background: LINEAR_BG,
+                        color: LINEAR_TEXT,
+                        border: `1px solid ${LINEAR_BORDER}`,
+                      }
+                }
+              >
+                <span className="text-[12px]">{r.flag}</span>
+                <span>{r.label}</span>
+              </button>
+            )
+          })}
+        </LinearRow>
+      </div>
+
+      {/* Footer status */}
+      <div className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: LINEAR_MUTED }}>
+        <span
+          className="inline-block w-1.5 h-1.5 rounded-full"
+          style={{ background: '#10B981' }}
+        />
+        <span>Done</span>
+        <span style={{ color: '#C4C4CC' }}>·</span>
+        <span style={{ color: LINEAR_TEXT }} className="font-medium tabular-nums">
+          {SHARED.found}
+        </span>
+        <span>creators found</span>
+      </div>
+    </div>
+  )
+}
+
+function LinearActionBtn({
+  children,
+  label,
+  hint,
+  active,
+}: {
+  children: React.ReactNode
+  label: string
+  hint?: string
+  active?: boolean
+}) {
+  return (
+    <button
+      className="px-3 inline-flex items-center gap-1.5 text-[12px] font-medium border-r transition-colors hover:bg-[#F4F4F7]"
+      style={{
+        borderColor: LINEAR_BORDER,
+        color: active ? LINEAR_ACCENT : LINEAR_TEXT,
+      }}
+    >
+      {children}
+      <span>{label}</span>
+      {hint && (
+        <kbd
+          className="px-1 py-0.5 text-[10px] rounded tabular-nums font-medium"
+          style={{ background: LINEAR_BG, color: LINEAR_MUTED }}
+        >
+          {hint}
+        </kbd>
+      )}
+    </button>
+  )
+}
+
+function LinearRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-[140px_1fr] gap-4 px-4 py-3 items-center">
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[12px] font-medium" style={{ color: LINEAR_TEXT }}>
+          {label}
+        </span>
+        {hint && (
+          <span className="text-[10px]" style={{ color: LINEAR_MUTED }}>
+            {hint}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+    </div>
+  )
+}
+
+function LinearDivider() {
+  return (
+    <span
+      className="inline-block w-px h-3 mx-1"
+      style={{ background: LINEAR_BORDER }}
+    />
+  )
+}
+
+function LinearNum({
+  defaultValue,
+  placeholder,
+}: {
+  defaultValue?: string | number
+  placeholder?: string
+}) {
+  return (
+    <input
+      defaultValue={defaultValue}
+      placeholder={placeholder}
+      className="w-20 px-2 py-1 rounded-md text-[12px] outline-none transition-colors focus:border-[#5E6AD2] tabular-nums"
+      style={{
+        background: LINEAR_BG,
+        color: LINEAR_TEXT,
+        border: `1px solid ${LINEAR_BORDER}`,
+        fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+      }}
+    />
+  )
+}
+
+function LinearChip({
   children,
   active,
 }: {
@@ -299,401 +614,227 @@ function EditorialChip({
 }) {
   return (
     <button
-      className={`px-3 py-1 text-xs transition-colors ${
+      className="px-2 py-1 rounded-md text-[12px] transition-colors hover:border-[#D0D0D7]"
+      style={
         active
-          ? 'bg-[#0F1733] text-[#FCFAF6]'
-          : 'border border-[#0F1733]/20 hover:border-[#0F1733]/60 text-[#0F1733]/85'
-      }`}
+          ? {
+              background: LINEAR_ACCENT,
+              color: '#fff',
+              border: `1px solid ${LINEAR_ACCENT}`,
+              boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.08)',
+            }
+          : {
+              background: LINEAR_BG,
+              color: LINEAR_TEXT,
+              border: `1px solid ${LINEAR_BORDER}`,
+            }
+      }
     >
       {children}
     </button>
   )
 }
 
-// ── Variant B — Neo-brutalism ──────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Variant C — OS-native refined
+//   Inspiration: macOS System Settings, Vercel dashboard, Stripe
+//   docs. Generous whitespace, real typographic hierarchy, no
+//   decorative borders, subtle dividers. Single accent: a confident
+//   dark green (#1B4D3E ish), not the SaaS purple-blue.
+// ─────────────────────────────────────────────────────────────────────
 
-function VariantBrutalist() {
+const NATIVE_BG = '#FBFBF9'
+const NATIVE_PANEL = '#FFFFFF'
+const NATIVE_TEXT = '#1F1F1F'
+const NATIVE_MUTED = '#6E6E70'
+const NATIVE_FAINT = '#A0A0A4'
+const NATIVE_DIVIDER = '#ECECEC'
+const NATIVE_FILL = '#F4F4F2'
+const NATIVE_ACCENT = '#1B4D3E'
+const NATIVE_ACCENT_BG = '#E6F0EC'
+
+function VariantNative() {
   return (
     <div
-      style={{ background: '#FAF8F2' }}
-      className="rounded-none p-10 border-[3px] border-black"
+      style={{ background: NATIVE_BG, color: NATIVE_TEXT }}
+      className="rounded-2xl p-10 border"
     >
-      {/* Heading + search */}
-      <div className="flex items-stretch gap-3 mb-10">
-        <div
-          className="flex-1 flex items-center bg-white border-[3px] border-black px-5 py-4"
-          style={{ boxShadow: '6px 6px 0 0 #000' }}
+      {/* Header — single line, no decoration */}
+      <div className="mb-8">
+        <h2
+          className="text-[28px] font-semibold tracking-tight"
+          style={{ letterSpacing: '-0.02em' }}
         >
-          <Search className="w-5 h-5 text-black mr-3" strokeWidth={2.5} />
+          Find creators
+        </h2>
+        <p className="text-[14px] mt-1" style={{ color: NATIVE_MUTED }}>
+          Search across YouTube, then narrow by views, audience size, and where they post from.
+        </p>
+      </div>
+
+      {/* Search input — tall, restrained, single row */}
+      <div
+        className="flex items-stretch mb-7 rounded-xl overflow-hidden border"
+        style={{ background: NATIVE_PANEL, borderColor: NATIVE_DIVIDER }}
+      >
+        <div className="flex items-center px-5 flex-1 gap-3">
+          <Search className="w-4 h-4" style={{ color: NATIVE_FAINT }} strokeWidth={2} />
           <input
             defaultValue={SHARED.keyword}
-            className="flex-1 bg-transparent border-0 outline-none text-2xl font-bold text-black placeholder:text-black/40"
-            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+            className="flex-1 bg-transparent border-0 outline-none text-[16px] py-4"
+            style={{ color: NATIVE_TEXT }}
           />
         </div>
-        <BrutalIconBtn>
-          <Zap className="w-5 h-5" strokeWidth={2.5} />
-        </BrutalIconBtn>
-        <BrutalIconBtn accent>
-          <Filter className="w-5 h-5" strokeWidth={2.5} />
-        </BrutalIconBtn>
         <button
-          className="px-8 bg-black text-[#FFD500] font-black text-base uppercase tracking-wider border-[3px] border-black hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
-          style={{ boxShadow: '6px 6px 0 0 #000', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+          className="px-3.5 inline-flex items-center justify-center border-l hover:bg-[#F4F4F2] transition-colors"
+          style={{ borderColor: NATIVE_DIVIDER, color: NATIVE_MUTED }}
+          title="Quick search"
         >
-          SEARCH
+          <Zap className="w-4 h-4" strokeWidth={2} />
+        </button>
+        <button
+          className="px-3.5 inline-flex items-center justify-center border-l hover:bg-[#F4F4F2] transition-colors"
+          style={{ borderColor: NATIVE_DIVIDER, color: NATIVE_MUTED }}
+          title="Filters"
+        >
+          <Filter className="w-4 h-4" strokeWidth={2} />
+        </button>
+        <button
+          className="px-7 text-[14px] font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: NATIVE_ACCENT }}
+        >
+          Search
         </button>
       </div>
 
-      {/* Filter sections — each is its own bordered card */}
-      <div className="space-y-5">
-        <BrutalSection label="AVG VIEWS">
-          <BrutalNumberInput defaultValue={SHARED.avgViewsMin} />
-          <span className="font-black text-lg text-black">→</span>
-          <BrutalNumberInput defaultValue={SHARED.avgViewsMax} />
-          <span className="text-black/30 mx-1 font-bold text-xl">|</span>
+      {/* Filter sections — generous spacing, dividers not borders */}
+      <div
+        className="rounded-xl border overflow-hidden"
+        style={{ background: NATIVE_PANEL, borderColor: NATIVE_DIVIDER }}
+      >
+        <NativeRow label="Avg views" hint="Range or preset">
+          <NativeNum defaultValue={SHARED.avgViewsMin} />
+          <span className="text-[13px]" style={{ color: NATIVE_FAINT }}>to</span>
+          <NativeNum defaultValue={SHARED.avgViewsMax} />
+          <NativeDivider />
           {VIEW_PRESETS.map(v => (
-            <BrutalChip key={v}>{v}</BrutalChip>
+            <NativeChip key={v}>{v}</NativeChip>
           ))}
-        </BrutalSection>
+        </NativeRow>
 
-        <BrutalSection label="SUBSCRIBERS">
-          <BrutalNumberInput placeholder="MIN" />
-          <span className="font-black text-lg text-black">→</span>
-          <BrutalNumberInput placeholder="MAX" />
-          <span className="text-black/30 mx-1 font-bold text-xl">|</span>
+        <NativeRow label="Subscribers" hint="Min and max">
+          <NativeNum placeholder="Min" />
+          <span className="text-[13px]" style={{ color: NATIVE_FAINT }}>to</span>
+          <NativeNum placeholder="Max" />
+          <NativeDivider />
           {SUBS_PRESETS.map(s => (
-            <BrutalChip key={s} active={s === SHARED.subsActive}>
+            <NativeChip key={s} active={s === SHARED.subsActive}>
               {s}
-            </BrutalChip>
+            </NativeChip>
           ))}
-        </BrutalSection>
+        </NativeRow>
 
-        <BrutalSection label="LAST POSTED">
+        <NativeRow label="Last posted">
           {RECENCY.map(r => (
-            <BrutalChip key={r} active={r === SHARED.recency}>
+            <NativeChip key={r} active={r === SHARED.recency}>
               {r}
-            </BrutalChip>
+            </NativeChip>
           ))}
-        </BrutalSection>
+        </NativeRow>
 
-        <BrutalSection label="SHOW ONLY">
+        <NativeRow label="Show only">
           {SHOW_ONLY.map(s => (
-            <BrutalChip key={s} active={s === SHARED.showOnlyActive}>
+            <NativeChip key={s} active={s === SHARED.showOnlyActive}>
               {s}
-            </BrutalChip>
+            </NativeChip>
           ))}
-        </BrutalSection>
+        </NativeRow>
 
-        <BrutalSection label="REGION">
+        <NativeRow label="Region" hint="Pick countries or go global">
           {REGIONS.map(r => {
             const active = r.code === SHARED.region
             return (
               <button
                 key={r.code}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold border-[2px] border-black transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none ${
-                  active ? 'bg-[#FFD500] text-black' : 'bg-white text-black'
-                }`}
-                style={{ boxShadow: '2px 2px 0 0 #000', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] transition-colors"
+                style={
+                  active
+                    ? {
+                        background: NATIVE_ACCENT_BG,
+                        color: NATIVE_ACCENT,
+                        border: `1px solid ${NATIVE_ACCENT}`,
+                      }
+                    : {
+                        background: 'transparent',
+                        color: NATIVE_TEXT,
+                        border: `1px solid ${NATIVE_DIVIDER}`,
+                      }
+                }
               >
                 <span>{r.flag}</span>
-                <span>{r.label.toUpperCase()}</span>
+                <span>{r.label}</span>
               </button>
             )
           })}
-        </BrutalSection>
+        </NativeRow>
       </div>
 
-      {/* Status */}
-      <div
-        className="mt-10 inline-flex items-center gap-2 bg-[#FFD500] text-black font-black text-xs uppercase px-4 py-2 border-[3px] border-black"
-        style={{ boxShadow: '4px 4px 0 0 #000', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-      >
-        <span className="inline-block w-2 h-2 bg-black" />
-        DONE — {SHARED.found} CREATORS FOUND
+      {/* Footer status */}
+      <div className="mt-5 flex items-center gap-2.5 text-[13px]" style={{ color: NATIVE_MUTED }}>
+        <span
+          className="inline-block w-1.5 h-1.5 rounded-full"
+          style={{ background: NATIVE_ACCENT }}
+        />
+        <span>Done</span>
+        <span style={{ color: NATIVE_FAINT }}>·</span>
+        <span style={{ color: NATIVE_TEXT }} className="font-medium tabular-nums">
+          {SHARED.found}
+        </span>
+        <span>creators found</span>
       </div>
     </div>
   )
 }
 
-function BrutalIconBtn({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
-  return (
-    <button
-      className={`w-14 inline-flex items-center justify-center border-[3px] border-black transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${
-        accent ? 'bg-[#FFD500] text-black' : 'bg-white text-black'
-      }`}
-      style={{ boxShadow: '6px 6px 0 0 #000' }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function BrutalSection({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[140px_1fr] gap-4 items-start">
-      <div
-        className="bg-black text-[#FFD500] px-3 py-1.5 text-[11px] font-black tracking-wider"
-        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-      >
-        {label}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
-    </div>
-  )
-}
-
-function BrutalNumberInput({
-  defaultValue,
-  placeholder,
+function NativeRow({
+  label,
+  hint,
+  children,
 }: {
-  defaultValue?: string | number
-  placeholder?: string
+  label: string
+  hint?: string
+  children: React.ReactNode
 }) {
   return (
-    <input
-      defaultValue={defaultValue}
-      placeholder={placeholder}
-      className="w-24 px-2 py-1.5 bg-white border-[2px] border-black text-sm font-bold text-black placeholder:text-black/40 outline-none focus:bg-[#FFD500]/30 tabular-nums"
-      style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-    />
-  )
-}
-
-function BrutalChip({ children, active }: { children: React.ReactNode; active?: boolean }) {
-  return (
-    <button
-      className={`px-2.5 py-1 text-xs font-bold border-[2px] border-black transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none ${
-        active ? 'bg-[#FFD500] text-black' : 'bg-white text-black'
-      }`}
-      style={{ boxShadow: '2px 2px 0 0 #000', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
-    >
-      {children}
-    </button>
-  )
-}
-
-// ── Variant C — Glass bento ────────────────────────────────────────
-
-function VariantGlassBento() {
-  return (
     <div
-      className="relative rounded-3xl p-10 overflow-hidden"
-      style={{
-        background:
-          'radial-gradient(ellipse at top left, #1a1530 0%, #0a0a1a 50%), radial-gradient(ellipse at bottom right, #2a1a4a 0%, #0a0a1a 50%)',
-      }}
+      className="grid grid-cols-[180px_1fr] gap-6 px-6 py-5 items-start border-b last:border-b-0"
+      style={{ borderColor: NATIVE_DIVIDER }}
     >
-      {/* Decorative blobs */}
-      <div
-        className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-30 blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #7C3AED 0%, transparent 70%)' }}
-      />
-      <div
-        className="absolute -bottom-32 -right-32 w-[420px] h-[420px] rounded-full opacity-25 blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #2563EB 0%, transparent 70%)' }}
-      />
-
-      <div className="relative">
-        {/* Search row — floating glass pill */}
-        <div className="flex items-center gap-3 mb-7">
-          <div
-            className="flex-1 flex items-center backdrop-blur-xl rounded-2xl px-6 py-4 border border-white/15"
-            style={{ background: 'rgba(255,255,255,0.06)', boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}
-          >
-            <Search className="w-5 h-5 text-white/60 mr-3" />
-            <input
-              defaultValue={SHARED.keyword}
-              className="flex-1 bg-transparent border-0 outline-none text-xl font-medium text-white placeholder:text-white/40"
-            />
+      <div>
+        <div className="text-[14px] font-medium leading-tight" style={{ color: NATIVE_TEXT }}>
+          {label}
+        </div>
+        {hint && (
+          <div className="text-[12px] mt-1 leading-tight" style={{ color: NATIVE_MUTED }}>
+            {hint}
           </div>
-          <GlassIconBtn>
-            <Zap className="w-4 h-4" />
-          </GlassIconBtn>
-          <GlassIconBtn active>
-            <Filter className="w-4 h-4" />
-          </GlassIconBtn>
-          <button
-            className="px-7 py-4 rounded-2xl text-white font-semibold text-sm transition-all hover:scale-[1.02]"
-            style={{
-              background: 'linear-gradient(135deg, #7C3AED 0%, #2563EB 100%)',
-              boxShadow: '0 12px 40px rgba(124,58,237,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-            }}
-          >
-            Search
-          </button>
-        </div>
-
-        {/* Bento grid: numeric filters in compact cards, region grid takes the bottom row */}
-        <div className="grid grid-cols-12 gap-4 mb-4">
-          <GlassCard className="col-span-12 lg:col-span-6">
-            <GlassLabel>Avg views</GlassLabel>
-            <div className="flex items-center gap-2 mb-3">
-              <GlassInput defaultValue={SHARED.avgViewsMin} />
-              <span className="text-white/40 text-xs">to</span>
-              <GlassInput defaultValue={SHARED.avgViewsMax} />
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {VIEW_PRESETS.map(v => (
-                <GlassChip key={v}>{v}</GlassChip>
-              ))}
-            </div>
-          </GlassCard>
-
-          <GlassCard className="col-span-12 lg:col-span-6">
-            <GlassLabel>Subscribers</GlassLabel>
-            <div className="flex items-center gap-2 mb-3">
-              <GlassInput placeholder="Min" />
-              <span className="text-white/40 text-xs">to</span>
-              <GlassInput placeholder="Max" />
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {SUBS_PRESETS.map(s => (
-                <GlassChip key={s} active={s === SHARED.subsActive}>
-                  {s}
-                </GlassChip>
-              ))}
-            </div>
-          </GlassCard>
-
-          <GlassCard className="col-span-12 md:col-span-7">
-            <GlassLabel>Last posted</GlassLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {RECENCY.map(r => (
-                <GlassChip key={r} active={r === SHARED.recency}>
-                  {r}
-                </GlassChip>
-              ))}
-            </div>
-          </GlassCard>
-
-          <GlassCard className="col-span-12 md:col-span-5">
-            <GlassLabel>Show only</GlassLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {SHOW_ONLY.map(s => (
-                <GlassChip key={s} active={s === SHARED.showOnlyActive}>
-                  {s}
-                </GlassChip>
-              ))}
-            </div>
-          </GlassCard>
-
-          <GlassCard className="col-span-12">
-            <div className="flex items-baseline justify-between mb-3">
-              <GlassLabel className="mb-0">Region</GlassLabel>
-              <span className="text-[10px] text-white/40 uppercase tracking-wider">
-                Pick countries · go global for all
-              </span>
-            </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-1.5">
-              {REGIONS.map(r => {
-                const active = r.code === SHARED.region
-                return (
-                  <button
-                    key={r.code}
-                    className="relative group rounded-xl px-3 py-2 text-xs text-left transition-all hover:scale-[1.03] flex items-center gap-2"
-                    style={
-                      active
-                        ? {
-                            background: 'linear-gradient(135deg, rgba(124,58,237,0.4) 0%, rgba(37,99,235,0.4) 100%)',
-                            border: '1px solid rgba(255,255,255,0.3)',
-                            boxShadow: '0 8px 24px rgba(124,58,237,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                            color: 'white',
-                          }
-                        : {
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            color: 'rgba(255,255,255,0.85)',
-                          }
-                    }
-                  >
-                    <span className="text-base shrink-0">{r.flag}</span>
-                    <span className="truncate">{r.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </GlassCard>
-        </div>
-
-        {/* Status */}
-        <div
-          className="inline-flex items-center gap-2.5 backdrop-blur-xl rounded-full px-4 py-2 border border-white/15 text-xs text-white/85"
-          style={{ background: 'rgba(255,255,255,0.06)' }}
-        >
-          <span
-            className="inline-block w-1.5 h-1.5 rounded-full"
-            style={{ background: '#10B981', boxShadow: '0 0 8px #10B981' }}
-          />
-          <span className="font-medium">Done</span>
-          <span className="text-white/30">·</span>
-          <span className="text-white/70">{SHARED.found} creators found</span>
-        </div>
+        )}
       </div>
+      <div className="flex flex-wrap items-center gap-2 pt-0.5">{children}</div>
     </div>
   )
 }
 
-function GlassCard({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
+function NativeDivider() {
   return (
-    <div
-      className={`backdrop-blur-xl rounded-2xl p-4 border border-white/10 ${className}`}
-      style={{
-        background:
-          'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
-      }}
-    >
-      {children}
-    </div>
+    <span
+      className="inline-block w-px h-4 mx-1.5"
+      style={{ background: NATIVE_DIVIDER }}
+    />
   )
 }
 
-function GlassLabel({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div
-      className={`text-[10px] uppercase tracking-[0.18em] text-white/55 font-semibold mb-2.5 ${className}`}
-    >
-      {children}
-    </div>
-  )
-}
-
-function GlassIconBtn({ children, active }: { children: React.ReactNode; active?: boolean }) {
-  return (
-    <button
-      className="w-12 h-12 inline-flex items-center justify-center backdrop-blur-xl rounded-2xl border transition-colors text-white/85"
-      style={
-        active
-          ? {
-              background: 'linear-gradient(135deg, rgba(124,58,237,0.4) 0%, rgba(37,99,235,0.4) 100%)',
-              borderColor: 'rgba(255,255,255,0.25)',
-              boxShadow: '0 8px 24px rgba(124,58,237,0.4)',
-            }
-          : {
-              background: 'rgba(255,255,255,0.06)',
-              borderColor: 'rgba(255,255,255,0.12)',
-            }
-      }
-    >
-      {children}
-    </button>
-  )
-}
-
-function GlassInput({
+function NativeNum({
   defaultValue,
   placeholder,
 }: {
@@ -704,28 +845,31 @@ function GlassInput({
     <input
       defaultValue={defaultValue}
       placeholder={placeholder}
-      className="w-24 px-3 py-2 rounded-lg backdrop-blur-xl text-sm text-white outline-none border border-white/10 focus:border-purple-400/50 placeholder:text-white/35 tabular-nums"
-      style={{ background: 'rgba(255,255,255,0.05)' }}
+      className="w-24 px-3 py-1.5 rounded-lg text-[13px] outline-none transition-colors tabular-nums"
+      style={{
+        background: NATIVE_FILL,
+        color: NATIVE_TEXT,
+        border: `1px solid ${NATIVE_DIVIDER}`,
+      }}
     />
   )
 }
 
-function GlassChip({ children, active }: { children: React.ReactNode; active?: boolean }) {
+function NativeChip({ children, active }: { children: React.ReactNode; active?: boolean }) {
   return (
     <button
-      className="px-3 py-1.5 rounded-full text-[11px] transition-all hover:scale-[1.04]"
+      className="px-3 py-1.5 rounded-lg text-[13px] transition-colors"
       style={
         active
           ? {
-              background: 'linear-gradient(135deg, rgba(124,58,237,0.45) 0%, rgba(37,99,235,0.45) 100%)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              color: 'white',
-              boxShadow: '0 4px 16px rgba(124,58,237,0.4)',
+              background: NATIVE_ACCENT_BG,
+              color: NATIVE_ACCENT,
+              border: `1px solid ${NATIVE_ACCENT}`,
             }
           : {
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.85)',
+              background: 'transparent',
+              color: NATIVE_TEXT,
+              border: `1px solid ${NATIVE_DIVIDER}`,
             }
       }
     >
@@ -734,7 +878,9 @@ function GlassChip({ children, active }: { children: React.ReactNode; active?: b
   )
 }
 
-// ── Variant D — Current (reference) ─────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Variant D — Current (reference clone)
+// ─────────────────────────────────────────────────────────────────────
 
 function VariantCurrent() {
   return (
