@@ -3656,6 +3656,27 @@ export default function Home() {
   // toggle this off in the filter panel to see the raw column-only sort.
   const [emailFirstSort, setEmailFirstSort] = useState(true)
   const [showExport, setShowExport] = useState(false)
+  // Ref + click-outside detection for the tab-nav Settings gear popover.
+  // Without this, the popover only closed by clicking the gear icon
+  // again — clicking anywhere else left it stuck open.
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!showExport) return
+    function onMouseDown(ev: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(ev.target as Node)) {
+        setShowExport(false)
+      }
+    }
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === 'Escape') setShowExport(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [showExport])
   const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
   const [showCustomize, setShowCustomize] = useState(false)
   const [draftCols, setDraftCols] = useState<ColConfig[]>(DEFAULT_COLS)
@@ -5290,15 +5311,18 @@ export default function Home() {
             active={activeTab}
             onChange={setActiveTab}
           />
-          {/* Settings — one icon-only button (gear) that combines
-              what used to be two separate buttons (Customize columns +
-              Export). Click → popover with both options. Hidden on
-              Dismissed (no customize, no export configured). The
-              gear icon alone is the universal "settings for this
-              view" affordance, so we don't need the "Customize"
-              text label anymore. */}
-          {activeTab !== 'dismissed' && (
-            <div className="ml-auto relative">
+          {/* Settings gear in the main tab nav — combines Customize
+              columns + Export options. Hidden on:
+                - Dismissed (no customize, no export wired)
+                - Outreach > Analytics (has its OWN dedicated gear
+                  with Customize metrics + Export, see OutreachAnalytics)
+                - Outreach > Follow-ups (no column-customize concept,
+                  no export needed there per Dylan)
+              The remaining surfaces (Results, Outreach > All / Favorites)
+              still get the gear with Export options. */}
+          {activeTab !== 'dismissed' &&
+            !(activeTab === 'outreach' && (outreachSubTab === 'analytics' || outreachSubTab === 'followups')) && (
+            <div ref={exportMenuRef} className="ml-auto relative">
               <button
                 onClick={() => setShowExport(v => !v)}
                 title="View settings — customize columns or export this list"
