@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { EmailTestPanel } from './EmailTestPanel'
 import { BenchmarkPanel } from './BenchmarkPanel'
+import { LocalDateTime } from '@/components/LocalDateTime'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -156,7 +157,9 @@ export default async function EmailTestPage() {
                 <tbody className="divide-y divide-border">
                   {runs.map(r => (
                     <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-2.5 text-muted-foreground text-xs">{fmtDate(r.created_at)}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground text-xs">
+                        <LocalDateTime variant="datetime-short" iso={r.created_at} />
+                      </td>
                       <td className="px-4 py-2.5">
                         <div className="font-medium">{r.query}</div>
                         {r.region && <div className="text-[10px] text-muted-foreground">{r.region}</div>}
@@ -187,10 +190,3 @@ export default async function EmailTestPage() {
   )
 }
 
-function fmtDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  })
-}

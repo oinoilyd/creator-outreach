@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
+import { LocalDateTime } from '@/components/LocalDateTime'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -107,7 +108,7 @@ export default async function AdminContactPage() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground/80 mt-1">
-                      {fmtDate(r.created_at)}
+                      <LocalDateTime variant="datetime-short" iso={r.created_at} />
                     </div>
                   </div>
                   <form action={toggleResolved}>
@@ -142,10 +143,3 @@ export default async function AdminContactPage() {
   )
 }
 
-function fmtDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  })
-}

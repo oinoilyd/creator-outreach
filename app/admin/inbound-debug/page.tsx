@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { cacheGet } from '@/lib/cache'
 import { AuditMenu } from '@/components/admin/AuditMenu'
+import { LocalDateTime } from '@/components/LocalDateTime'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -124,7 +125,7 @@ export default async function InboundDebugPage() {
                     )}
                   </div>
                   <span className="text-[11px] font-mono text-muted-foreground/80 tabular-nums">
-                    {formatRelative(e.receivedAt)}
+                    <LocalDateTime variant="relative" iso={e.receivedAt} />
                   </span>
                 </div>
 
@@ -175,17 +176,3 @@ export default async function InboundDebugPage() {
   )
 }
 
-function formatRelative(iso: string): string {
-  const t = Date.parse(iso)
-  if (!Number.isFinite(t)) return '—'
-  const diff = Date.now() - t
-  const s = Math.floor(diff / 1000)
-  if (s < 60) return `${s}s ago`
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `${d}d ago`
-  return new Date(iso).toLocaleDateString()
-}

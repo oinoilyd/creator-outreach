@@ -3818,25 +3818,38 @@ export default function Home() {
           profileRow = inserted
         }
 
-        // Auto-detect + persist the user's IANA timezone. Fires on
-        // every load — cheap (single UPDATE only when it actually
-        // changes), and catches the case where the user signs in from
-        // a different machine in a different TZ. Backed by migration
-        // 0015. Failures here are non-fatal: log + continue.
+        // Bump last_seen_at + auto-detect timezone on every load.
+        //
+        // last_seen_at: real "user is active" signal — auth's
+        // last_sign_in_at only moves on re-authentication, so a
+        // user with a valid session can be active daily and still
+        // look idle in the admin dashboard. Backed by migration 0016.
+        //
+        // timezone: catches a user signing in from a new machine in a
+        // different TZ. Backed by migration 0015. Cheap to write
+        // unconditionally — it's a single TEXT column and we're
+        // already writing the row.
+        //
+        // Failures non-fatal (e.g. a missing column on a not-yet-
+        // migrated env): log + continue.
         try {
           const detectedTz =
             typeof Intl !== 'undefined'
               ? Intl.DateTimeFormat().resolvedOptions().timeZone || null
               : null
-          if (detectedTz && detectedTz !== profileRow?.timezone) {
-            await supabase
-              .from('user_profile')
-              .update({ timezone: detectedTz })
-              .eq('user_id', user.id)
-            if (profileRow) profileRow.timezone = detectedTz
+          const updates: Record<string, string> = {
+            last_seen_at: new Date().toISOString(),
           }
+          if (detectedTz && detectedTz !== profileRow?.timezone) {
+            updates.timezone = detectedTz
+          }
+          await supabase
+            .from('user_profile')
+            .update(updates)
+            .eq('user_id', user.id)
+          if (profileRow && updates.timezone) profileRow.timezone = updates.timezone
         } catch (tzErr) {
-          console.warn('[home-init] timezone detect/update failed:', tzErr)
+          console.warn('[home-init] last_seen/timezone update failed:', tzErr)
         }
 
         if (profileRow) {

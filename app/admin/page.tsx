@@ -37,17 +37,39 @@ export default async function AdminPage() {
     .select('id', { count: 'exact', head: true })
     .eq('resolved', false)
 
-  // Per-user IANA timezones (auto-detected on each sign-in via
-  // app/page.tsx). admin_user_summary doesn't return this column,
-  // so fetch it separately and merge by user_id at render time.
-  // NULL = pre-migration user / hasn't signed in since 0015.
-  const { data: tzRows } = await supabase
+  // Per-user activity + timezone, fetched from user_profile.
+  // admin_user_summary doesn't return either, so we merge by user_id
+  // at render time.
+  //
+  // last_seen_at: bumped on every page load by app/page.tsx (0016).
+  // We use this — NOT auth.last_sign_in_at — for the Idle and
+  // "Active last 7d" metrics, because last_sign_in_at only moves
+  // when a user re-authenticates, while sessions stay valid for
+  // weeks. A user who logs in once and uses the app daily would
+  // otherwise look "idle" forever.
+  //
+  // timezone: IANA name (0015). NULL = pre-migration user.
+  type ProfileExtras = { timezone: string | null; last_seen_at: string | null }
+  const { data: profileExtraRows } = await supabase
     .from('user_profile')
-    .select('user_id, timezone')
-  const tzByUserId = new Map<string, string | null>(
-    (tzRows ?? []).map(r => [r.user_id as string, (r.timezone as string | null) ?? null]),
+    .select('user_id, timezone, last_seen_at')
+  const profileExtras = new Map<string, ProfileExtras>(
+    (profileExtraRows ?? []).map(r => [
+      r.user_id as string,
+      {
+        timezone: (r.timezone as string | null) ?? null,
+        last_seen_at: (r.last_seen_at as string | null) ?? null,
+      },
+    ]),
   )
-  const tzKnownCount = Array.from(tzByUserId.values()).filter(Boolean).length
+  const tzKnownCount = Array.from(profileExtras.values()).filter(p => !!p.timezone).length
+
+  // Best-available "last active" timestamp per row: prefer the real
+  // page-load bump (last_seen_at), fall back to auth's last_sign_in_at
+  // for users who haven't loaded the app since 0016 was applied.
+  function lastActiveAt(r: UserRow): string | null {
+    return profileExtras.get(r.user_id)?.last_seen_at ?? r.last_sign_in_at
+  }
 
   // ---- Aggregates ----
   const now = Date.now()
@@ -56,9 +78,10 @@ export default async function AdminPage() {
 
   const total = rows.length
   const verified = rows.filter(r => !!r.email_confirmed_at).length
-  const activeLast7 = rows.filter(r =>
-    r.last_sign_in_at && new Date(r.last_sign_in_at).getTime() > sevenDaysAgo
-  ).length
+  const activeLast7 = rows.filter(r => {
+    const seen = lastActiveAt(r)
+    return seen && new Date(seen).getTime() > sevenDaysAgo
+  }).length
   const totalOutreach = rows.reduce((s, r) => s + (r.outreach_count || 0), 0)
   const totalDismissed = rows.reduce((s, r) => s + (r.dismissed_count || 0), 0)
 
@@ -154,7 +177,7 @@ export default async function AdminPage() {
                   <th className="px-4 py-3 text-center font-medium">Profile</th>
                   <th className="px-4 py-3 text-left font-medium">Timezone</th>
                   <th className="px-4 py-3 text-left font-medium">Signed up</th>
-                  <th className="px-4 py-3 text-left font-medium">Last sign in</th>
+                  <th className="px-4 py-3 text-left font-medium">Last seen</th>
                   <th className="px-4 py-3 text-left font-medium">Idle</th>
                   <th className="px-4 py-3 text-left font-medium">Time → 1st outreach</th>
                   <th className="px-4 py-3 text-center font-medium">Conf.</th>
@@ -166,10 +189,12 @@ export default async function AdminPage() {
                 {rows.map(r => {
                   const profileFields = [r.full_name, r.linkedin_url, r.pitch_line].map(s => !!s.trim())
                   const profileFilled = profileFields.filter(Boolean).length
-                  const idle = r.last_sign_in_at ? daysSince(r.last_sign_in_at) : null
+                  const seenAt = lastActiveAt(r)
+                  const idle = seenAt ? daysSince(seenAt) : null
                   const ttv = r.first_outreach_at && r.created_at
                     ? formatDuration(new Date(r.first_outreach_at).getTime() - new Date(r.created_at).getTime())
                     : null
+                  const tz = profileExtras.get(r.user_id)?.timezone ?? null
                   return (
                     <tr key={r.user_id} className="hover:bg-card/40 transition-colors">
                       <td className="px-4 py-2.5 text-foreground">{r.email}</td>
@@ -182,22 +207,23 @@ export default async function AdminPage() {
                         }`}>{profileFilled}/3</span>
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground/90 text-xs">
-                        {(() => {
-                          const tz = tzByUserId.get(r.user_id)
-                          if (!tz) return <span className="text-muted-foreground/50 italic">unknown</span>
-                          // Show last segment for skim-readability — "America/Chicago" → "Chicago".
-                          // Full IANA name is available in the title tooltip.
-                          const parts = tz.split('/')
-                          const short = (parts[parts.length - 1] || tz).replace(/_/g, ' ')
-                          return <span title={tz}>{short}</span>
-                        })()}
+                        {tz
+                          ? (() => {
+                              // Show last segment for skim-readability —
+                              // "America/Chicago" → "Chicago". Full IANA
+                              // name is available in the title tooltip.
+                              const parts = tz.split('/')
+                              const short = (parts[parts.length - 1] || tz).replace(/_/g, ' ')
+                              return <span title={tz}>{short}</span>
+                            })()
+                          : <span className="text-muted-foreground/50 italic">unknown</span>}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
                         <LocalDateTime variant="datetime-short" iso={r.created_at} />
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {r.last_sign_in_at
-                          ? <LocalDateTime variant="datetime-short" iso={r.last_sign_in_at} />
+                        {seenAt
+                          ? <LocalDateTime variant="datetime-short" iso={seenAt} />
                           : <span className="text-muted-foreground/60">never</span>}
                       </td>
                       <td className="px-4 py-2.5">
