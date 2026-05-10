@@ -5649,7 +5649,16 @@ export default function Home() {
               },
             ]}
             active={activeTab}
-            onChange={setActiveTab}
+            onChange={(next) => {
+              // Clear the keyword when changing tabs — the search bar
+              // means different things per tab (YouTube search on
+              // Results, local filter on Outreach / Dismissed) and a
+              // leftover keyword from one context silently filtering
+              // another led to "only newly-added showing" confusion.
+              // Cleaner to start each tab with a blank search.
+              if (next !== activeTab) setKeyword('')
+              setActiveTab(next)
+            }}
           />
           {/* Settings gear in the main tab nav — combines Customize
               columns + Export options. Hidden on:
