@@ -390,8 +390,14 @@ export function buildOutreachEmail(
         content: contentRef.replace(/^"|"$/g, ''),
       })
     : ''
+  // Default subject — simple, conversational. Em dashes were
+  // removed (2026-05-10) because they signal "AI-written" in cold
+  // outreach and made replies feel templated. Comma + lowercase
+  // reads more natural and ties the two clauses together without
+  // the formal pause an em dash creates. User-set subject_template
+  // overrides this entirely.
   const baseSubject = userSubject ||
-    `loved ${contentRef.startsWith('"') ? contentRef : 'your content'} — quick question`
+    `loved ${contentRef.startsWith('"') ? contentRef : 'your content'}, quick question`
   // Append the tracking tag at the end of the subject. Visible to the
   // recipient (we don't try to hide it), matching the standard approach
   // tools like Mixmax / HubSpot use. Reply preserves it via "Re:" prefix
@@ -403,7 +409,7 @@ export function buildOutreachEmail(
   const lines: string[] = [
     `Hey ${recipientFirst},`,
     ``,
-    `Came across your channel and watched ${contentRef} — good stuff.`,
+    `Came across your channel and watched ${contentRef}. Good stuff.`,
     ``,
     senderFull
       ? `I'm ${senderFull}.${pitch ? ' ' + pitch : ''}`
