@@ -2569,7 +2569,11 @@ function ColumnContextMenu({
   y,
   label,
   canHide,
+  canMoveLeft,
+  canMoveRight,
   onHide,
+  onMoveLeft,
+  onMoveRight,
   onCustomize,
   onClose,
 }: {
@@ -2577,7 +2581,11 @@ function ColumnContextMenu({
   y: number
   label: string
   canHide: boolean
+  canMoveLeft: boolean
+  canMoveRight: boolean
   onHide: () => void
+  onMoveLeft: () => void
+  onMoveRight: () => void
   onCustomize: () => void
   onClose: () => void
 }) {
@@ -2603,7 +2611,10 @@ function ColumnContextMenu({
   // overflowing off the right edge when the user right-clicks the
   // last column.
   const MENU_WIDTH = 220
-  const MENU_HEIGHT = 90
+  // Height bumped to fit the new "Move left / Move right" rows. The
+  // viewport-clamp below uses this to keep the menu fully on-screen
+  // when the header is near the bottom edge.
+  const MENU_HEIGHT = 180
   const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024
   const viewportH = typeof window !== 'undefined' ? window.innerHeight : 768
   const left = Math.min(x, viewportW - MENU_WIDTH - 8)
@@ -2621,13 +2632,48 @@ function ColumnContextMenu({
       </div>
       <button
         type="button"
+        role="menuitem"
+        onClick={() => {
+          if (!canMoveLeft) return
+          onMoveLeft()
+          onClose()
+        }}
+        disabled={!canMoveLeft}
+        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        Move left
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          if (!canMoveRight) return
+          onMoveRight()
+          onClose()
+        }}
+        disabled={!canMoveRight}
+        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 border-t border-border"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <polyline points="12 5 19 12 12 19" />
+        </svg>
+        Move right
+      </button>
+      <button
+        type="button"
+        role="menuitem"
         onClick={() => {
           if (!canHide) return
           onHide()
           onClose()
         }}
         disabled={!canHide}
-        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+        className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 border-t border-border"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
@@ -3251,9 +3297,23 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                 const colId = col.id as string
                 const isLocked = idx === 0
                 const isOver = dragOverIdx === idx && !isLocked
+                const ariaSort: 'ascending' | 'descending' | 'none' =
+                  sort.col === col.id
+                    ? (sort.dir === 'asc' ? 'ascending' : 'descending')
+                    : 'none'
                 return (
                   <th
                     key={colId}
+                    scope="col"
+                    aria-sort={ariaSort}
+                    // Keyboard reachable. Tab moves through headers;
+                    // Enter/Space sorts; Shift+F10 / ContextMenu key
+                    // opens the column menu (Move left/right/Hide/
+                    // Customize) — keyboard alternative to drag-to-
+                    // reorder, satisfies WCAG 2.5.7. Locked column
+                    // ('favorite') is not focusable since its menu
+                    // would be no-op for everything but Hide-disabled.
+                    tabIndex={isLocked ? -1 : 0}
                     style={{ width: widths[colId] ?? col.defaultWidth }}
                     draggable={!isLocked}
                     onDragStart={() => { if (!isLocked) dragIdx.current = idx }}
@@ -3266,6 +3326,25 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
                       const target = e.target as HTMLElement
                       if (target.closest('[data-no-sort]')) return
                       handleHeaderClick(col.id)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        const target = e.target as HTMLElement
+                        if (target.closest('[data-no-sort]')) return
+                        e.preventDefault()
+                        handleHeaderClick(col.id)
+                        return
+                      }
+                      if (!isLocked && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) {
+                        e.preventDefault()
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setHeaderMenu({
+                          colId: col.id,
+                          label: col.label,
+                          x: rect.left + 12,
+                          y: rect.bottom + 4,
+                        })
+                      }
                     }}
                     onContextMenu={(e) => {
                       // Right-click / two-finger-click → "Hide column"
@@ -3448,23 +3527,49 @@ function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, 
       </div>
 
       {/* Context menu — right-click on any column header opens this. */}
-      {headerMenu && (
-        <ColumnContextMenu
-          x={headerMenu.x}
-          y={headerMenu.y}
-          label={headerMenu.label}
-          // 'favorite' is the locked leftmost column — can't hide it.
-          canHide={headerMenu.colId !== 'favorite'}
-          onHide={() => {
-            const newConfig = colConfig.map(c =>
-              c.id === headerMenu.colId ? { ...c, visible: false } : c,
-            )
-            onReorderCols(newConfig)
-          }}
-          onCustomize={onOpenCustomize}
-          onClose={() => setHeaderMenu(null)}
-        />
-      )}
+      {headerMenu && (() => {
+        // Compute move-left/right enablement against the visible
+        // column ordering (the locked 'favorite' column stays at
+        // index 0; user-visible columns start at index 1).
+        const visibleIds = colConfig.filter(c => c.visible).map(c => c.id)
+        const idx = visibleIds.indexOf(headerMenu.colId)
+        const canMoveLeft = idx > 1 // can't move past the locked col 0
+        const canMoveRight = idx >= 0 && idx < visibleIds.length - 1
+        const swap = (delta: -1 | 1) => {
+          const target = idx + delta
+          if (target < 1 || target >= visibleIds.length) return
+          const reordered = [...visibleIds]
+          ;[reordered[idx], reordered[target]] = [reordered[target], reordered[idx]]
+          // Rebuild full colConfig: visible columns in new order, then hidden columns at the end.
+          const visibleSet = new Set(reordered)
+          const newConfig = [
+            ...reordered.map(id => colConfig.find(c => c.id === id)!),
+            ...colConfig.filter(c => !visibleSet.has(c.id)),
+          ]
+          onReorderCols(newConfig)
+        }
+        return (
+          <ColumnContextMenu
+            x={headerMenu.x}
+            y={headerMenu.y}
+            label={headerMenu.label}
+            // 'favorite' is the locked leftmost column — can't hide it.
+            canHide={headerMenu.colId !== 'favorite'}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
+            onMoveLeft={() => swap(-1)}
+            onMoveRight={() => swap(1)}
+            onHide={() => {
+              const newConfig = colConfig.map(c =>
+                c.id === headerMenu.colId ? { ...c, visible: false } : c,
+              )
+              onReorderCols(newConfig)
+            }}
+            onCustomize={onOpenCustomize}
+            onClose={() => setHeaderMenu(null)}
+          />
+        )
+      })()}
     </div>
   )
 }
@@ -3566,9 +3671,25 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
             {visibleCols.map((col, idx) => {
               const sc = COL_SORT[col.id]
               const isOver = dragOverIdx === idx
+              // Current sort direction for this column, if any — drives
+              // aria-sort so screen readers announce "ascending /
+              // descending / none" alongside the column label.
+              const currentSort = sc ? sorts.find(s => s.col === sc) : undefined
+              const ariaSort: 'ascending' | 'descending' | 'none' = currentSort
+                ? (currentSort.dir === 'asc' ? 'ascending' : 'descending')
+                : 'none'
               return (
                 <th
                   key={col.id}
+                  scope="col"
+                  aria-sort={sc ? ariaSort : undefined}
+                  // Keyboard-reachable. Tab moves focus through column
+                  // headers; Enter/Space sorts (when sortable);
+                  // Shift+F10 or the ContextMenu key opens the column
+                  // menu (Move left / right / Hide / Customize) —
+                  // keyboard alternative to drag-to-reorder, satisfies
+                  // WCAG 2.5.7.
+                  tabIndex={0}
                   draggable
                   onDragStart={() => { dragIdx.current = idx }}
                   onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
@@ -3576,6 +3697,23 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                   onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
                   onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
                   onClick={() => sc && onSort(sc)}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && sc) {
+                      e.preventDefault()
+                      onSort(sc)
+                      return
+                    }
+                    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+                      e.preventDefault()
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setHeaderMenu({
+                        colId: col.id,
+                        label: col.label,
+                        x: rect.left + 12,
+                        y: rect.bottom + 4,
+                      })
+                    }
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault()
                     setHeaderMenu({
@@ -3707,23 +3845,47 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
       </table>
 
       {/* Right-click context menu — same shared component used by
-          OutreachTab. Hides the column or opens the customize modal. */}
-      {headerMenu && (
-        <ColumnContextMenu
-          x={headerMenu.x}
-          y={headerMenu.y}
-          label={headerMenu.label}
-          canHide={true}
-          onHide={() => {
-            const newConfig = colConfig.map(c =>
-              c.id === headerMenu.colId ? { ...c, visible: false } : c,
-            )
-            onReorderCols(newConfig)
-          }}
-          onCustomize={onOpenCustomize ?? (() => {})}
-          onClose={() => setHeaderMenu(null)}
-        />
-      )}
+          OutreachTab. Hides the column, moves it left/right, or
+          opens the customize modal. The Move-left/right entries are
+          the keyboard alternative to drag-to-reorder (WCAG 2.5.7). */}
+      {headerMenu && (() => {
+        const visibleIds = colConfig.filter(c => c.visible).map(c => c.id)
+        const idx = visibleIds.indexOf(headerMenu.colId)
+        const canMoveLeft = idx > 0
+        const canMoveRight = idx >= 0 && idx < visibleIds.length - 1
+        const swap = (delta: -1 | 1) => {
+          const target = idx + delta
+          if (target < 0 || target >= visibleIds.length) return
+          const reordered = [...visibleIds]
+          ;[reordered[idx], reordered[target]] = [reordered[target], reordered[idx]]
+          const visibleSet = new Set(reordered)
+          const newConfig = [
+            ...reordered.map(id => colConfig.find(c => c.id === id)!),
+            ...colConfig.filter(c => !visibleSet.has(c.id)),
+          ]
+          onReorderCols(newConfig)
+        }
+        return (
+          <ColumnContextMenu
+            x={headerMenu.x}
+            y={headerMenu.y}
+            label={headerMenu.label}
+            canHide={true}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
+            onMoveLeft={() => swap(-1)}
+            onMoveRight={() => swap(1)}
+            onHide={() => {
+              const newConfig = colConfig.map(c =>
+                c.id === headerMenu.colId ? { ...c, visible: false } : c,
+              )
+              onReorderCols(newConfig)
+            }}
+            onCustomize={onOpenCustomize ?? (() => {})}
+            onClose={() => setHeaderMenu(null)}
+          />
+        )
+      })()}
       {/* Fit Score info popover — fixed-position so it escapes the
           table's overflow-x-auto clipping. Hover-on / hover-off via
           the icon's onMouseEnter / onMouseLeave; click toggles
