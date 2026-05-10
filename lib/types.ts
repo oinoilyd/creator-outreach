@@ -184,6 +184,20 @@ export interface UserProfile {
    *  compose URL so multi-account browser users open the compose
    *  window in the right account. */
   userEmail?: string
+  /** Unipile account identifier for the user's connected Gmail.
+   *  Populated after the user completes the hosted-auth flow at
+   *  /api/unipile/connect → Unipile-hosted OAuth → webhook callback.
+   *  When non-null, outreach can be sent programmatically via
+   *  Unipile's API instead of opening a Gmail compose URL. NULL =
+   *  user hasn't connected Gmail yet. */
+  unipileAccountId?: string | null
+  /** Display-only — the Gmail address the user authorized. Cached
+   *  here so the profile UI can show "Connected as: foo@gmail.com"
+   *  without an extra round-trip to Unipile. */
+  unipileAccountEmail?: string | null
+  /** When the user first completed OAuth (epoch ms). Useful for
+   *  analytics + detecting stale connections. */
+  unipileConnectedAt?: number | null
 }
 
 // ── Custom analytics metrics (Outreach > Analytics tab) ─────────────────────

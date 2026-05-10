@@ -32,6 +32,71 @@ export function ProfileModal({
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Unipile / "Connect Gmail" state. Decoupled from the save() flow
+  // because the link happens via Unipile's hosted page + webhook,
+  // not the local form. We poll /api/unipile/me on mount to render
+  // the right Connect / Disconnect affordance.
+  const [unipileEmail, setUnipileEmail] = useState<string | null>(null)
+  const [unipileLoading, setUnipileLoading] = useState(false)
+  const [unipileError, setUnipileError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const resp = await fetch('/api/unipile/me', { cache: 'no-store' })
+        if (!resp.ok) return
+        const data = (await resp.json()) as { connected?: boolean; email?: string | null }
+        if (!cancelled && data.connected) setUnipileEmail(data.email ?? null)
+      } catch {
+        // best-effort — surface only when user clicks the action
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleConnectGmail() {
+    setUnipileError(null)
+    setUnipileLoading(true)
+    try {
+      const resp = await fetch('/api/unipile/connect', { method: 'POST' })
+      const data = await resp.json()
+      if (!resp.ok || !data.url) {
+        setUnipileError(data.error ?? 'Could not start Gmail connect flow')
+        setUnipileLoading(false)
+        return
+      }
+      // Whole-page navigation — Unipile's hosted page redirects back
+      // to /unipile/connected once OAuth finishes.
+      window.location.href = data.url
+    } catch (e) {
+      setUnipileError((e as Error).message)
+      setUnipileLoading(false)
+    }
+  }
+
+  async function handleDisconnectGmail() {
+    setUnipileError(null)
+    setUnipileLoading(true)
+    try {
+      const resp = await fetch('/api/unipile/disconnect', { method: 'POST' })
+      const data = await resp.json()
+      if (!resp.ok) {
+        setUnipileError(data.error ?? 'Could not disconnect')
+        setUnipileLoading(false)
+        return
+      }
+      setUnipileEmail(null)
+      if (data.warning) setUnipileError(`Disconnected locally. Note: ${data.warning}`)
+    } catch (e) {
+      setUnipileError((e as Error).message)
+    } finally {
+      setUnipileLoading(false)
+    }
+  }
+
   // Reset form if the initial prop changes (e.g. user re-opens after editing)
   useEffect(() => {
     setFullName(initial.fullName)
@@ -195,6 +260,62 @@ export function ProfileModal({
             </div>
             <p className="text-[11px] text-muted-foreground/70 mt-1.5">
               Web providers open in a new tab with the recipient + subject + body pre-filled.
+            </p>
+          </div>
+
+          {/* Connect Gmail (Unipile) — the path forward. When connected
+              we send programmatically via Unipile's API, eliminating
+              the multi-account / wrong-To bugs entirely. Existing
+              "Email link opens in" preference above stays as the
+              fallback for users who don't connect. */}
+          <div className="border-t border-border pt-4">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              Connect Gmail for one-click sending
+              <span className="ml-2 text-[10px] uppercase tracking-[0.16em] text-purple-700 dark:text-purple-300 font-bold">Beta</span>
+            </label>
+            {unipileEmail ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-muted-foreground">Connected as</div>
+                  <div className="text-sm font-mono text-foreground break-all">{unipileEmail}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDisconnectGmail}
+                  disabled={unipileLoading}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-red-700 dark:hover:text-red-400 hover:border-red-400/60 transition-colors disabled:opacity-50"
+                >
+                  {unipileLoading ? 'Working…' : 'Disconnect'}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnectGmail}
+                disabled={unipileLoading}
+                className="w-full rounded-lg border border-border bg-card hover:border-purple-500/60 hover:bg-purple-500/5 transition-colors px-4 py-3 text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
+              >
+                <span className="text-xl" aria-hidden>✉️</span>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground">
+                    {unipileLoading ? 'Opening Google…' : 'Connect Gmail'}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-snug">
+                    One-time Google sign-in. After that, &quot;Send&quot; in our app sends from
+                    your Gmail — no compose tab, no account confusion.
+                  </div>
+                </div>
+                <span className="text-muted-foreground/60" aria-hidden>→</span>
+              </button>
+            )}
+            {unipileError && (
+              <div className="mt-2 text-[11px] text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-2.5 py-1.5 leading-relaxed">
+                {unipileError}
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground/70 mt-1.5 leading-relaxed">
+              Sends via Unipile, an email infrastructure provider. They get access to
+              messages you send / receive through this connection. Disconnect any time.
             </p>
           </div>
         </div>
