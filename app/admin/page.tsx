@@ -105,13 +105,13 @@ export default async function AdminPage() {
               href="/admin/contacts"
               className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
             >
-              📇 Contacts
+              <span aria-hidden>📇</span>Contacts
             </Link>
             <Link
               href="/admin/email-test"
               className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
             >
-              📧 Email-test
+              <span aria-hidden>📧</span>Email-test
             </Link>
             <Link
               href="/admin/contact"
@@ -121,9 +121,9 @@ export default async function AdminPage() {
                   : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
-              <span>📨 Contact</span>
+              <span><span aria-hidden>📨</span> Contact</span>
               {(unresolvedContact ?? 0) > 0 && (
-                <span className="text-xs font-mono bg-yellow-500/20 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">{unresolvedContact}</span>
+                <span className="text-xs font-mono bg-yellow-500/20 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded" aria-label={`${unresolvedContact} unresolved`}>{unresolvedContact}</span>
               )}
             </Link>
             <AuditMenu />

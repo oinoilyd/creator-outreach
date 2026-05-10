@@ -104,9 +104,12 @@ function SignUpForm() {
 
       <form onSubmit={signUpWithPassword} className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
+          <label htmlFor="signup-email" className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
           <input
+            id="signup-email"
+            name="email"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
@@ -115,9 +118,12 @@ function SignUpForm() {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Password</label>
+          <label htmlFor="signup-password" className="block text-xs font-medium text-muted-foreground mb-1">Password</label>
           <input
+            id="signup-password"
+            name="password"
             type="password"
+            autoComplete="new-password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
@@ -126,7 +132,15 @@ function SignUpForm() {
           <PasswordChecklist password={password} />
         </div>
 
-        {error && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">{error}</div>}
+        {error && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2"
+          >
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"

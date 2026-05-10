@@ -64,9 +64,12 @@ export default function ForgotPasswordPage() {
         {!sent && (
           <form onSubmit={submit} className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
+              <label htmlFor="forgot-email" className="block text-xs font-medium text-muted-foreground mb-1">Email</label>
               <input
+                id="forgot-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
@@ -75,7 +78,15 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            {error && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">{error}</div>}
+            {error && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2"
+              >
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"

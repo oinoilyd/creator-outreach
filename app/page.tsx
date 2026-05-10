@@ -3647,6 +3647,8 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 <button
                   onClick={() => onDismiss(c)}
                   title="Dismiss — hide this creator from results"
+                  aria-label={dismissedIds.has(c.channelId) ? `Undismiss ${c.channelName}` : `Dismiss ${c.channelName}`}
+                  aria-pressed={dismissedIds.has(c.channelId)}
                   className={`transition-colors ${dismissedIds.has(c.channelId) ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground hover:text-red-700 dark:text-red-400'}`}
                 >
                   <DismissIcon active={dismissedIds.has(c.channelId)} />
@@ -3656,12 +3658,14 @@ function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutreach, on
                 <button
                   onClick={() => onAddToOutreach(c)}
                   title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
+                  aria-label={outreachIds.has(c.channelId) ? `Remove ${c.channelName} from outreach` : `Add ${c.channelName} to outreach`}
+                  aria-pressed={outreachIds.has(c.channelId)}
                   className={`transition-colors ${outreachIds.has(c.channelId) ? 'text-purple-700 dark:text-purple-400' : 'text-muted-foreground hover:text-purple-700 dark:text-purple-400'}`}
                 >
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
               </td>
-              <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
+              <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
               {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
             </AnimatedRow>
           ))}
@@ -5198,6 +5202,11 @@ export default function Home() {
                 </svg>
               </div>
               <input
+                aria-label={
+                  activeTab === 'outreach'
+                    ? 'Filter outreach by name, email, notes, or niche'
+                    : 'Search creators — by topic, YouTube URL, handle, or natural-language description'
+                }
                 className="w-full bg-card/70 backdrop-blur-sm border border-border/80 rounded-xl pl-11 pr-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-purple-500/60 focus:ring-4 focus:ring-purple-500/15 focus:bg-card hover:border-border transition-all duration-200 shadow-sm"
                 placeholder={
                   activeTab === 'outreach'
@@ -5219,14 +5228,18 @@ export default function Home() {
           <button
             onClick={() => setShowScoreSettings(true)}
             title="Lead Criteria"
+            aria-label="Lead criteria — configure AI fit score"
             className={`px-3.5 py-3 rounded-xl border transition-all flex items-center gap-1.5 ${JSON.stringify(scoreWeights) !== JSON.stringify(DEFAULT_WEIGHTS) || scoreNarrative || effectiveGuidanceEntries.length > 0 ? 'bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500/60 text-white shadow-md shadow-purple-500/20' : 'bg-card/70 backdrop-blur-sm border-border/80 text-muted-foreground hover:text-foreground hover:border-border'}`}
           >
-            <span className="text-sm">⚡</span>
+            <span className="text-sm" aria-hidden>⚡</span>
           </button>
           {/* Filter icon */}
           <button
             onClick={() => setShowFilter(v => !v)}
             title={regions.length === 0 ? 'Filters — English-language search (no regional filter)' : regions.length === REGIONS.length ? 'Filters — Global (all regions)' : `Filters — searching: ${regions.map(code => REGIONS.find(r => r.code === code)?.label).join(', ')}`}
+            aria-label={regions.length === 0 ? 'Filters — English-language search, no region selected' : regions.length === REGIONS.length ? 'Filters — searching globally across all regions' : `Filters — searching ${regions.map(code => REGIONS.find(r => r.code === code)?.label).join(', ')}`}
+            aria-expanded={showFilter}
+            aria-pressed={regions.length > 0}
             className={`px-3.5 py-3 rounded-xl border transition-all flex items-center gap-1.5 ${showFilter || regions.length > 0 ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500/60 text-white shadow-md shadow-blue-500/20' : 'bg-card/70 backdrop-blur-sm border-border/80 text-muted-foreground hover:text-foreground hover:border-border'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -5391,32 +5404,36 @@ export default function Home() {
                 <span className="text-xs text-muted-foreground">Region:</span>
                 <span className="text-[10px] text-muted-foreground/70 leading-snug">Pick countries or go Global for all</span>
               </div>
-              <div className="flex flex-wrap gap-1.5 flex-1">
+              <div className="flex flex-wrap gap-1.5 flex-1" role="group" aria-label="Region filter">
                 {/* English = no region filter (default) */}
                 <button
                   onClick={() => setRegions([])}
                   title="No regional filter — English-language creators only"
+                  aria-pressed={regions.length === 0}
                   className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === 0 ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                 >
-                  <span>🌐</span>
+                  <span aria-hidden>🌐</span>
                   <span>English</span>
                 </button>
                 {/* Global = all countries */}
                 <button
                   onClick={() => setRegions(REGIONS.map(r => r.code))}
                   title="Search across all countries simultaneously — slower but surfaces creators from every region"
+                  aria-pressed={regions.length === REGIONS.length}
                   className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.length === REGIONS.length ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                 >
-                  <span>🗺️</span>
+                  <span aria-hidden>🗺️</span>
                   <span>Global</span>
                 </button>
                 {REGIONS.map(r => (
                   <button
                     key={r.code}
                     onClick={() => setRegions(prev => regions.includes(r.code) ? prev.filter(c => c !== r.code) : [...prev, r.code])}
+                    aria-pressed={regions.includes(r.code)}
+                    aria-label={`${r.label}${regions.includes(r.code) ? ' (selected)' : ''}`}
                     className={`text-xs px-2.5 py-1 rounded border transition-colors flex items-center gap-1 ${regions.includes(r.code) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
                   >
-                    <span>{r.flag}</span>
+                    <span aria-hidden>{r.flag}</span>
                     <span>{r.label}</span>
                   </button>
                 ))}
@@ -5425,30 +5442,44 @@ export default function Home() {
           </div>
         )}
 
-        {/* Loading progress */}
-        {loading && (
-          <div className="mb-4">
-            <div className="flex items-center gap-3 mb-1.5">
-              <Spinner />
-              <span className="text-sm text-foreground/80">
-                {enrichProgress.total === 0
-                  ? 'Searching...'
-                  : `Enriching ${enrichProgress.current} / ${enrichProgress.total} creators`}
-              </span>
-              <span className="text-xs text-muted-foreground ml-auto">{elapsed}s elapsed</span>
-            </div>
-            {enrichProgress.total > 0 && (
-              <div className="w-full bg-muted rounded-full h-1.5">
-                <div
-                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
+        {/* Loading progress — wrapped in role=status + aria-live=polite
+            so screen readers announce the search/enrich progress
+            without interrupting the user. Both the loading and idle
+            status share the same live region so transitions read
+            naturally ("Searching..." → "Enriching 12 / 100 creators"
+            → "Done — 100 creators found"). */}
+        <div role="status" aria-live="polite" aria-atomic="true" className="contents">
+          {loading && (
+            <div className="mb-4">
+              <div className="flex items-center gap-3 mb-1.5">
+                <Spinner />
+                <span className="text-sm text-foreground/80">
+                  {enrichProgress.total === 0
+                    ? 'Searching...'
+                    : `Enriching ${enrichProgress.current} / ${enrichProgress.total} creators`}
+                </span>
+                <span className="text-xs text-muted-foreground ml-auto">{elapsed}s elapsed</span>
               </div>
-            )}
-          </div>
-        )}
+              {enrichProgress.total > 0 && (
+                <div
+                  className="w-full bg-muted rounded-full h-1.5"
+                  role="progressbar"
+                  aria-valuenow={enrichProgress.current}
+                  aria-valuemin={0}
+                  aria-valuemax={enrichProgress.total}
+                  aria-label="Enrichment progress"
+                >
+                  <div
+                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
-        {!loading && status && <p className="text-xs text-muted-foreground mb-4">{status}</p>}
+          {!loading && status && <p className="text-xs text-muted-foreground mb-4">{status}</p>}
+        </div>
 
         {/* Suggestions bar — niche filter on top, occupations below */}
         <div className="mb-5">
@@ -5462,8 +5493,8 @@ export default function Home() {
             {/* Refresh chips — always available when the suggestion list
                 is not narrowed to a specific niche. */}
             {showSuggestions && !(showNiches && selectedNiche) && (
-              <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} title="Shuffle suggestions" className="text-muted-foreground hover:text-foreground/80 border border-border rounded p-0.5 hover:border-border transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <button onClick={() => setSuggestions(pickRandom(ALL_OCCUPATIONS, 25))} title="Shuffle suggestions" aria-label="Shuffle suggested searches" className="text-muted-foreground hover:text-foreground/80 border border-border rounded p-0.5 hover:border-border transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </button>

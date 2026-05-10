@@ -140,9 +140,12 @@ function ResetPasswordForm() {
         {hasSession && !done && (
           <form onSubmit={submit} className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">New password</label>
+              <label htmlFor="reset-new-password" className="block text-xs font-medium text-muted-foreground mb-1">New password</label>
               <input
+                id="reset-new-password"
+                name="new-password"
                 type="password"
+                autoComplete="new-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
@@ -152,20 +155,31 @@ function ResetPasswordForm() {
               <PasswordChecklist password={password} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Confirm password</label>
+              <label htmlFor="reset-confirm-password" className="block text-xs font-medium text-muted-foreground mb-1">Confirm password</label>
               <input
+                id="reset-confirm-password"
+                name="confirm-password"
                 type="password"
+                autoComplete="new-password"
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
                 required
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-colors dark:bg-white/[0.04] dark:border-white/10"
               />
               {confirm && password !== confirm && (
-                <p className="text-[11px] text-red-500 mt-1">Passwords don&apos;t match</p>
+                <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">Passwords don&apos;t match</p>
               )}
             </div>
 
-            {error && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">{error}</div>}
+            {error && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="text-xs text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2"
+              >
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"
