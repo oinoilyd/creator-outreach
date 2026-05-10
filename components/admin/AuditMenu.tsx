@@ -37,6 +37,13 @@ const AUDIT_ITEMS: AuditItem[] = [
     description:
       'Synthetic cache rows from smoke checks + automated tests (UC_TEST_, mock_, fake_ prefixes). Excluded from the main contacts view.',
   },
+  {
+    href: '/admin/design-preview',
+    icon: '🎨',
+    label: 'Filter design preview',
+    description:
+      'Four candidate visual directions for the search filter top bar (editorial, neo-brutalist, glass bento, current). Pick one and I\'ll wire it into prod.',
+  },
   // Future entries land here — e.g. cache health probe, recent error
   // log, service-role connectivity test. Keep them compact (one
   // sentence in description) so the popover stays readable.
