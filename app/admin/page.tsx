@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
 import { LocalDateTime } from '@/components/LocalDateTime'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -116,16 +117,17 @@ export default async function AdminPage() {
               href="/admin/contact"
               className={`text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border ${
                 (unresolvedContact ?? 0) > 0
-                  ? 'border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/10'
+                  ? 'border-yellow-500/50 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-500/10'
                   : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               <span>📨 Contact</span>
               {(unresolvedContact ?? 0) > 0 && (
-                <span className="text-xs font-mono bg-yellow-500/20 px-1.5 py-0.5 rounded">{unresolvedContact}</span>
+                <span className="text-xs font-mono bg-yellow-500/20 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">{unresolvedContact}</span>
               )}
             </Link>
             <AuditMenu />
+            <ThemeToggle />
             <Link href="/" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors">
               Back to app
             </Link>
@@ -185,7 +187,7 @@ export default async function AdminPage() {
                   <th className="px-4 py-3 text-right font-medium">Dismissed</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/60">
+              <tbody className="divide-y divide-border">
                 {rows.map(r => {
                   const profileFields = [r.full_name, r.linkedin_url, r.pitch_line].map(s => !!s.trim())
                   const profileFilled = profileFields.filter(Boolean).length
@@ -201,9 +203,9 @@ export default async function AdminPage() {
                       <td className="px-4 py-2.5 text-foreground/90">{r.full_name || <span className="text-muted-foreground/60">—</span>}</td>
                       <td className="px-4 py-2.5 text-center" title={`Name ${profileFields[0] ? '✓' : '✗'} · LinkedIn ${profileFields[1] ? '✓' : '✗'} · Pitch ${profileFields[2] ? '✓' : '✗'}`}>
                         <span className={`inline-flex items-center justify-center w-9 h-6 rounded text-[11px] font-mono ${
-                          profileFilled === 3 ? 'bg-green-500/15 text-green-400'
-                          : profileFilled >= 1 ? 'bg-yellow-500/15 text-yellow-400'
-                          : 'bg-gray-700/40 text-muted-foreground/80'
+                          profileFilled === 3 ? 'bg-green-500/15 text-green-700 dark:text-green-400'
+                          : profileFilled >= 1 ? 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300'
+                          : 'bg-muted text-muted-foreground/80'
                         }`}>{profileFilled}/3</span>
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground/90 text-xs">
@@ -228,14 +230,18 @@ export default async function AdminPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         {idle === null ? <span className="text-muted-foreground/60">—</span>
-                         : idle === 0 ? <span className="text-green-400">today</span>
-                         : <span className={idle > 30 ? 'text-red-400' : idle > 7 ? 'text-yellow-400' : 'text-foreground/90'}>{idle}d</span>}
+                         : idle === 0 ? <span className="text-green-700 dark:text-green-400 font-medium">today</span>
+                         : <span className={
+                              idle > 30 ? 'text-red-700 dark:text-red-400'
+                              : idle > 7 ? 'text-yellow-700 dark:text-yellow-300'
+                              : 'text-foreground/90'
+                            }>{idle}d</span>}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{ttv ?? <span className="text-muted-foreground/60">—</span>}</td>
                       <td className="px-4 py-2.5 text-center">
                         {r.email_confirmed_at
-                          ? <span className="text-green-400">✓</span>
-                          : <span className="text-yellow-500">·</span>}
+                          ? <span className="text-green-700 dark:text-green-400 font-bold">✓</span>
+                          : <span className="text-yellow-600 dark:text-yellow-400 font-bold">·</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.outreach_count}</td>
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.dismissed_count}</td>

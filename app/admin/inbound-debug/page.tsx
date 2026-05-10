@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { cacheGet } from '@/lib/cache'
 import { AuditMenu } from '@/components/admin/AuditMenu'
 import { LocalDateTime } from '@/components/LocalDateTime'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -73,6 +74,7 @@ export default async function InboundDebugPage() {
               ← Admin home
             </Link>
             <AuditMenu />
+            <ThemeToggle />
             <Link
               href="/"
               className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
@@ -111,11 +113,11 @@ export default async function InboundDebugPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                   <div className="flex items-center gap-2">
                     {e.matched ? (
-                      <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-emerald-400">
+                      <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-emerald-700 dark:text-emerald-400">
                         ✓ Matched entry {e.matchedEntryId?.slice(0, 12)}…
                       </span>
                     ) : e.trackingId ? (
-                      <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-yellow-400">
+                      <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-yellow-700 dark:text-yellow-400">
                         ⚠ Tag found but no matching entry (trackingId={e.trackingId})
                       </span>
                     ) : (

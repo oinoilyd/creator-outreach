@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { EmailTestPanel } from './EmailTestPanel'
 import { BenchmarkPanel } from './BenchmarkPanel'
 import { LocalDateTime } from '@/components/LocalDateTime'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -78,6 +79,7 @@ export default async function EmailTestPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border/80 rounded-lg px-4 py-2 transition-colors">← Users</Link>
+            <ThemeToggle />
             <Link href="/" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border/80 rounded-lg px-4 py-2 transition-colors">Back to app</Link>
           </div>
         </div>

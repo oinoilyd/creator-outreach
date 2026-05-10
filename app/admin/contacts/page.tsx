@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AuditMenu } from '@/components/admin/AuditMenu'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import {
   getEnrichmentStats,
   listEnrichmentLatest,
@@ -113,6 +114,7 @@ export default async function AdminContactsPage({
               ← Admin home
             </Link>
             <AuditMenu />
+            <ThemeToggle />
             <Link
               href="/"
               className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
@@ -126,29 +128,29 @@ export default async function AdminContactsPage({
             (migration not run, service-role missing) loudly so they
             don't cause silent zero-rows behavior. */}
         {!health.ok && (
-          <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 mb-6 flex items-start gap-3">
+          <div className="rounded-xl border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-500/10 p-4 mb-6 flex items-start gap-3">
             <span className="mt-0.5 text-xl" aria-hidden>⚠️</span>
             <div className="flex-1">
-              <div className="text-sm font-bold text-red-300 mb-1">
+              <div className="text-sm font-bold text-red-800 dark:text-red-300 mb-1">
                 Cache is broken — writes are failing silently
               </div>
-              <div className="text-sm text-red-200/90 leading-relaxed mb-2">{health.error}</div>
+              <div className="text-sm text-red-700 dark:text-red-200/90 leading-relaxed mb-2">{health.error}</div>
               {!health.tableExists && health.serviceRoleConfigured && (
-                <div className="text-xs text-red-200/70 mt-2">
+                <div className="text-xs text-red-700/80 dark:text-red-200/70 mt-2">
                   Fix:&nbsp;
-                  <span className="font-mono text-red-100">
+                  <span className="font-mono text-red-800 dark:text-red-100">
                     Supabase dashboard → SQL editor → paste contents of{' '}
-                    <code className="px-1 py-0.5 rounded bg-red-500/20">supabase/migrations/0011_creator_enrichment.sql</code>{' '}
+                    <code className="px-1 py-0.5 rounded bg-red-200/60 dark:bg-red-500/20">supabase/migrations/0011_creator_enrichment.sql</code>{' '}
                     → run.
                   </span>
                 </div>
               )}
               {!health.serviceRoleConfigured && (
-                <div className="text-xs text-red-200/70 mt-2">
+                <div className="text-xs text-red-700/80 dark:text-red-200/70 mt-2">
                   Fix:&nbsp;
-                  <span className="font-mono text-red-100">
+                  <span className="font-mono text-red-800 dark:text-red-100">
                     Vercel project → settings → environment variables → add{' '}
-                    <code className="px-1 py-0.5 rounded bg-red-500/20">SUPABASE_SERVICE_ROLE_KEY</code>{' '}
+                    <code className="px-1 py-0.5 rounded bg-red-200/60 dark:bg-red-500/20">SUPABASE_SERVICE_ROLE_KEY</code>{' '}
                     → redeploy.
                   </span>
                 </div>
@@ -157,13 +159,13 @@ export default async function AdminContactsPage({
           </div>
         )}
         {health.ok && health.rowCount === 0 && (
-          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 mb-6 flex items-start gap-3">
+          <div className="rounded-xl border border-yellow-300 dark:border-yellow-500/30 bg-yellow-50 dark:bg-yellow-500/5 p-4 mb-6 flex items-start gap-3">
             <span className="mt-0.5 text-xl" aria-hidden>ℹ️</span>
             <div className="flex-1">
-              <div className="text-sm font-semibold text-yellow-200 mb-1">
+              <div className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-1">
                 Cache is healthy but empty
               </div>
-              <div className="text-xs text-yellow-200/75 leading-relaxed">
+              <div className="text-xs text-yellow-700/85 dark:text-yellow-200/75 leading-relaxed">
                 Table exists, service role configured, just no rows yet. Run a bulk-seed batch or
                 do a few searches in the app to start populating.
               </div>
@@ -483,8 +485,8 @@ function Row({ r }: { r: EnrichmentLatest }) {
             href={`mailto:${r.email}`}
             className={
               r.email_bounced
-                ? 'text-red-400 line-through hover:no-underline'
-                : 'text-emerald-300 hover:underline break-all'
+                ? 'text-red-600 dark:text-red-400 line-through hover:no-underline'
+                : 'text-emerald-700 dark:text-emerald-300 hover:underline break-all'
             }
             title={r.email_bounced ? 'Marked bounced — needs re-fetch' : 'Open in mail client'}
           >
@@ -565,9 +567,9 @@ function StatBox({
   tone?: 'warn'
 }) {
   const valueClass = tone === 'warn'
-    ? 'text-yellow-300'
+    ? 'text-yellow-700 dark:text-yellow-300'
     : accent
-    ? 'text-orange-400'
+    ? 'text-orange-600 dark:text-orange-400'
     : 'text-foreground'
   return (
     <div className="rounded-lg border border-border bg-card/40 px-4 py-3">

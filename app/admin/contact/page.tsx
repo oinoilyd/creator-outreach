@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { LocalDateTime } from '@/components/LocalDateTime'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -51,13 +52,14 @@ export default async function AdminContactPage() {
             <h1 className="text-2xl font-bold">Admin · Contact inbox</h1>
             <p className="text-muted-foreground/80 text-sm mt-1">
               {rows.length} total message{rows.length === 1 ? '' : 's'}
-              {unresolved > 0 && <span className="ml-2 text-yellow-400">· {unresolved} unresolved</span>}
+              {unresolved > 0 && <span className="ml-2 text-yellow-700 dark:text-yellow-400 font-medium">· {unresolved} unresolved</span>}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors">
               ← Users
             </Link>
+            <ThemeToggle />
             <Link href="/" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors">
               Back to app
             </Link>
@@ -65,9 +67,9 @@ export default async function AdminContactPage() {
         </div>
 
         {error && (
-          <div className="bg-red-900/20 border border-red-900/40 rounded-lg p-4 mb-6">
-            <div className="text-sm text-red-300 font-medium mb-1">Could not load messages</div>
-            <div className="text-xs text-red-400/80 mb-2">{error.message}</div>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg p-4 mb-6">
+            <div className="text-sm text-red-800 dark:text-red-300 font-medium mb-1">Could not load messages</div>
+            <div className="text-xs text-red-700/80 dark:text-red-400/80 mb-2">{error.message}</div>
             <div className="text-xs text-muted-foreground">
               Run <code className="text-foreground/90">supabase/migrations/0006_contact_messages.sql</code> in the Supabase SQL editor to create the table.
             </div>

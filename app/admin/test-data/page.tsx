@@ -9,6 +9,7 @@ import {
 } from '@/lib/creator-enrichment'
 import { formatSubscribers } from '@/lib/format'
 import { LocalDateTime } from '@/components/LocalDateTime'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -76,6 +77,7 @@ export default async function AdminTestDataPage({
             >
               ← Admin home
             </Link>
+            <ThemeToggle />
             <Link
               href="/"
               className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors"
@@ -209,10 +211,10 @@ function Row({ r }: { r: EnrichmentLatest }) {
     TEST_CHANNEL_PREFIXES.find(p => r.yt_channel_id?.startsWith(p)) ?? '?'
   const prefixTone =
     prefix === 'UC_TEST_'
-      ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+      ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
       : prefix === 'mock_'
-      ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-      : 'bg-gray-700/40 text-foreground/90 border-border/30'
+      ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+      : 'bg-muted text-foreground/90 border-border/30'
 
   return (
     <tr className="border-b border-border/60 hover:bg-card/40 transition-colors">
@@ -237,8 +239,8 @@ function Row({ r }: { r: EnrichmentLatest }) {
           <span
             className={
               r.email_bounced
-                ? 'text-red-400 line-through'
-                : 'text-emerald-300 break-all'
+                ? 'text-red-600 dark:text-red-400 line-through'
+                : 'text-emerald-700 dark:text-emerald-300 break-all'
             }
           >
             {r.email}

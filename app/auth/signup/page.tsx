@@ -135,6 +135,14 @@ function SignUpForm() {
         >
           {loading ? 'Creating account…' : 'Create account'}
         </button>
+
+        {/* Tiny pre-submit hint — sets expectations so the user knows
+            to look in spam BEFORE they're stranded on /check-email.
+            Quiet on purpose: not an alert, just a footnote. */}
+        <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed pt-1">
+          You&apos;ll get a sign-in link by email — check your spam folder if
+          you don&apos;t see it.
+        </p>
       </form>
 
       <p className="text-xs text-muted-foreground text-center mt-5">
