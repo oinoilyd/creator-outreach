@@ -390,14 +390,17 @@ export function buildOutreachEmail(
         content: contentRef.replace(/^"|"$/g, ''),
       })
     : ''
-  // Default subject — simple, conversational. Em dashes were
-  // removed (2026-05-10) because they signal "AI-written" in cold
-  // outreach and made replies feel templated. Comma + lowercase
-  // reads more natural and ties the two clauses together without
-  // the formal pause an em dash creates. User-set subject_template
-  // overrides this entirely.
-  const baseSubject = userSubject ||
-    `loved ${contentRef.startsWith('"') ? contentRef : 'your content'}, quick question`
+  // Default subject + body rewritten 2026-05-10 to drop the
+  // AI-templated feel. Three concrete tells in the old version:
+  //   1. "loved your content" — generic AI praise opener
+  //   2. "Came across your channel and watched X. Good stuff." —
+  //      stock LLM cold-outreach cliché
+  //   3. "Worth a quick chat to see if there's anything I could help
+  //      with?" — long, salesy, AI-favored phrasing
+  // Replaced with shorter, less performative phrasing that lets the
+  // user's own pitch line carry their voice. User-set subject_template
+  // overrides the default entirely.
+  const baseSubject = userSubject || `quick question on your latest`
   // Append the tracking tag at the end of the subject. Visible to the
   // recipient (we don't try to hide it), matching the standard approach
   // tools like Mixmax / HubSpot use. Reply preserves it via "Re:" prefix
@@ -406,20 +409,25 @@ export function buildOutreachEmail(
     ? `${baseSubject} [CO-#${trackingId}]`
     : baseSubject
 
+  // Body construction. Strip trailing punctuation from the user's
+  // pitch line so we can reliably end the sentence ourselves —
+  // otherwise users who do/don't end with a period get inconsistent
+  // double-period or missing-period sentences.
+  const trimmedPitch = pitch.replace(/[.!?]+\s*$/, '').trim()
+  const referenceLine = trimmedPitch
+    ? `Watched ${contentRef}. ${trimmedPitch}.`
+    : `Watched ${contentRef}. Wanted to reach out about a possible collab.`
+
   const lines: string[] = [
     `Hey ${recipientFirst},`,
     ``,
-    `Came across your channel and watched ${contentRef}. Good stuff.`,
+    referenceLine,
     ``,
-    senderFull
-      ? `I'm ${senderFull}.${pitch ? ' ' + pitch : ''}`
-      : pitch || `Quick reach-out from a fan of your work.`,
-    ``,
-    `Worth a quick chat to see if there's anything I could help with?`,
+    `Worth a quick chat?`,
     ``,
   ]
   if (linkedin) {
-    lines.push(`Feel free to connect on LinkedIn too: ${linkedin}`)
+    lines.push(`Also on LinkedIn: ${linkedin}`)
     lines.push(``)
   }
   lines.push(senderFirst)
