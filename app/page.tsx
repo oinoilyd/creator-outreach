@@ -5214,6 +5214,18 @@ export default function Home() {
 
       <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} pt-6 pb-16`}>
 
+        {/* Search-area wrapper — groups the mode pills + the search row
+            so the pills can fade in/out based on whether the wrapper
+            has hover/focus-within. Pills stay visible while:
+              · any child of this wrapper is focused (input, pill button,
+                action button, search button)
+              · the user is hovering anywhere in the wrapper
+            They hide ~150 ms after focus leaves AND hover leaves —
+            so clicking out of the search area smoothly collapses the
+            pills, but the user can quickly hover back in to see them
+            again without re-focusing. */}
+        <div className="group/searchgroup">
+
         {/* Search-mode pills — three modes (URL / Username / Occupation
             or Field) above the search bar. Auto-selected based on what
             the classifier sees as you type; clicking a pill overrides
@@ -5223,52 +5235,54 @@ export default function Home() {
             visible on Results tab — Outreach/Dismissed use the search
             input as a local filter, not a search trigger. */}
         {activeTab === 'results' && (
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-semibold">Mode</span>
-            {([
-              { id: 'url' as const, label: 'URL', hint: 'youtube.com/@handle, instagram.com/...' },
-              { id: 'username' as const, label: 'Username', hint: '@mrbeast or just a handle' },
-              { id: 'occupation' as const, label: 'Occupation / Field', hint: 'fitness coach, productivity, etc.' },
-            ]).map(p => {
-              const isActive = searchMode === p.id
-              return (
+          <div className="overflow-hidden transition-all duration-150 ease-out opacity-0 max-h-0 group-focus-within/searchgroup:opacity-100 group-focus-within/searchgroup:max-h-12 group-hover/searchgroup:opacity-100 group-hover/searchgroup:max-h-12">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-semibold">Mode</span>
+              {([
+                { id: 'url' as const, label: 'URL', hint: 'youtube.com/@handle, instagram.com/...' },
+                { id: 'username' as const, label: 'Username', hint: '@mrbeast or just a handle' },
+                { id: 'occupation' as const, label: 'Occupation / Field', hint: 'fitness coach, productivity, etc.' },
+              ]).map(p => {
+                const isActive = searchMode === p.id
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setSearchMode(p.id)
+                      setSearchModeManual(true)
+                      // If there's already a keyword and this is a real
+                      // change, re-fire the search with the new mode so
+                      // the user sees the effect immediately. The mode
+                      // override param sidesteps React's setState batch —
+                      // runSearch sees the new mode this turn.
+                      if (!isActive && keyword.trim()) {
+                        runSearch(keyword, undefined, p.id)
+                      }
+                    }}
+                    title={`${p.hint}${searchModeManual && isActive ? ' (manual)' : ''}`}
+                    aria-pressed={isActive}
+                    className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                      isActive
+                        ? 'bg-purple-500/15 border-purple-500/50 text-purple-700 dark:text-purple-300 font-medium'
+                        : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-muted/40'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
+              {searchModeManual && keyword.trim() && (
                 <button
-                  key={p.id}
                   type="button"
-                  onClick={() => {
-                    setSearchMode(p.id)
-                    setSearchModeManual(true)
-                    // If there's already a keyword and this is a real
-                    // change, re-fire the search with the new mode so
-                    // the user sees the effect immediately. The mode
-                    // override param sidesteps React's setState batch —
-                    // runSearch sees the new mode this turn.
-                    if (!isActive && keyword.trim()) {
-                      runSearch(keyword, undefined, p.id)
-                    }
-                  }}
-                  title={`${p.hint}${searchModeManual && isActive ? ' (manual)' : ''}`}
-                  aria-pressed={isActive}
-                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                    isActive
-                      ? 'bg-purple-500/15 border-purple-500/50 text-purple-700 dark:text-purple-300 font-medium'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-muted/40'
-                  }`}
+                  onClick={() => setSearchModeManual(false)}
+                  className="text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                  title="Reset to auto-detect"
                 >
-                  {p.label}
+                  reset auto-detect
                 </button>
-              )
-            })}
-            {searchModeManual && keyword.trim() && (
-              <button
-                type="button"
-                onClick={() => setSearchModeManual(false)}
-                className="text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors underline-offset-2 hover:underline"
-                title="Reset to auto-detect"
-              >
-                reset auto-detect
-              </button>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -5408,6 +5422,8 @@ export default function Home() {
               section further below. */}
         </div>
         </div>
+        </div>{/* /group/searchgroup — closes the focus/hover scope
+                  that drives the smooth-hide of the mode pills above */}
 
         {/* (The previous live classification badge was removed in
             favor of the explicit search-mode pills above the search
