@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
 import { NumberTicker } from '@/components/NumberTicker'
 import { AnimatedTabs, tabId, tabPanelId } from '@/components/AnimatedTabs'
+import { OutreachSubTabs } from '@/components/outreach/OutreachSubTabs'
 import { AnimatedRow } from '@/components/AnimatedRow'
 import { BorderBeam } from '@/components/BorderBeam'
 import { motion } from 'motion/react'
@@ -1002,32 +1003,8 @@ function renderOutreachCell(
   }
 }
 
-function OutreachSubTabs({ active, onChange, favCount, dueCount }: {
-  active: 'all' | 'favorites' | 'analytics' | 'followups'
-  onChange: (v: 'all' | 'favorites' | 'analytics' | 'followups') => void
-  favCount: number
-  dueCount: number
-}) {
-  type SubTabId = 'all' | 'favorites' | 'analytics' | 'followups'
-  const tabs: { id: SubTabId; label: React.ReactNode }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'favorites', label: <span className="inline-flex items-center gap-1.5"><Star className="w-3.5 h-3.5" />Favorites {favCount > 0 && <span className="ml-0.5 text-amber-700 dark:text-yellow-400/70">({favCount})</span>}</span> },
-    { id: 'followups', label: <span className="inline-flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />Follow-ups {dueCount > 0 && <span className="ml-0.5 text-red-700 dark:text-red-400/80">({dueCount})</span>}</span> },
-    { id: 'analytics', label: <span className="inline-flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" />Analytics</span> },
-  ]
-  return (
-    <div className="mb-4 border-b border-border pb-2">
-      <AnimatedTabs<SubTabId>
-        layoutGroup="outreach-subtabs"
-        variant="pill"
-        ariaLabel="Outreach view"
-        tabs={tabs}
-        active={active}
-        onChange={onChange}
-      />
-    </div>
-  )
-}
+// (OutreachSubTabs moved to components/outreach/OutreachSubTabs.tsx —
+//  pure presentational, no state. See top-of-file imports.)
 
 // Priority bucketing — derived from how close the follow-up date is.
 // High = overdue or due today. Medium = 1-7 days out. Low = 8+ days out.
