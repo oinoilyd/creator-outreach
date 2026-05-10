@@ -390,17 +390,13 @@ export function buildOutreachEmail(
         content: contentRef.replace(/^"|"$/g, ''),
       })
     : ''
-  // Default subject + body rewritten 2026-05-10 to drop the
-  // AI-templated feel. Three concrete tells in the old version:
-  //   1. "loved your content" — generic AI praise opener
-  //   2. "Came across your channel and watched X. Good stuff." —
-  //      stock LLM cold-outreach cliché
-  //   3. "Worth a quick chat to see if there's anything I could help
-  //      with?" — long, salesy, AI-favored phrasing
-  // Replaced with shorter, less performative phrasing that lets the
-  // user's own pitch line carry their voice. User-set subject_template
-  // overrides the default entirely.
-  const baseSubject = userSubject || `quick question on your latest`
+  // Default outreach template — direct, complimentary, present-tense.
+  // Opens with "Love your content" (Dylan's preferred phrasing —
+  // present tense, warm, not stiff) and pivots into the user's pitch
+  // line as the value proposition. User-set subject_template overrides
+  // the default subject entirely; the body has no per-user template
+  // field yet.
+  const baseSubject = userSubject || `Love your content, think I can help`
   // Append the tracking tag at the end of the subject. Visible to the
   // recipient (we don't try to hide it), matching the standard approach
   // tools like Mixmax / HubSpot use. Reply preserves it via "Re:" prefix
@@ -409,19 +405,30 @@ export function buildOutreachEmail(
     ? `${baseSubject} [CO-#${trackingId}]`
     : baseSubject
 
-  // Body construction. Strip trailing punctuation from the user's
-  // pitch line so we can reliably end the sentence ourselves —
-  // otherwise users who do/don't end with a period get inconsistent
-  // double-period or missing-period sentences.
+  // Body composition. Branches on whether contentRef is a quoted video
+  // title or a generic "your content" / description-derived phrase —
+  // "especially {video title}" only makes grammatical sense when we
+  // have an actual title to quote. With a generic ref we drop the
+  // "especially" qualifier so we don't end up with the awkward
+  // "Love your content, especially your fitness coaching content."
+  const referenceLine = contentRef.startsWith('"')
+    ? `Love your content, especially ${contentRef}.`
+    : `Love ${contentRef}.`
+
+  // Strip trailing punctuation from user's pitch so we can reliably
+  // close the sentence — otherwise users who do/don't end with a
+  // period get inconsistent double-period or missing-period output.
   const trimmedPitch = pitch.replace(/[.!?]+\s*$/, '').trim()
-  const referenceLine = trimmedPitch
-    ? `Watched ${contentRef}. ${trimmedPitch}.`
-    : `Watched ${contentRef}. Wanted to reach out about a possible collab.`
+  const pitchLine = trimmedPitch
+    ? `${trimmedPitch}.`
+    : `I think I can support what you're building.`
 
   const lines: string[] = [
     `Hey ${recipientFirst},`,
     ``,
     referenceLine,
+    ``,
+    pitchLine,
     ``,
     `Worth a quick chat?`,
     ``,
