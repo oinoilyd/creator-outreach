@@ -153,11 +153,17 @@ export async function cacheReadCounterRange(metric: string, days: number): Promi
  * Build a stable cache key from a search query + filters. Sorts
  * filter object keys before stringifying so {a:1,b:2} and {b:2,a:1}
  * produce the same key.
+ *
+ * Version bumps invalidate every prior cached search response —
+ * use when changing the result shape or post-search filters that
+ * affect which channels return.
+ *   v1 → v2 (2026-05-09): added per-region post-filter so v1
+ *         results contained region-leaked channels for IN/JP/KR/etc.
  */
 export function searchCacheKey(query: string, filters: Record<string, unknown> = {}): string {
   const normalized = query.trim().toLowerCase()
   const filterString = JSON.stringify(filters, Object.keys(filters).sort())
-  return `search:v1:${normalized}|${filterString}`
+  return `search:v2:${normalized}|${filterString}`
 }
 
 /** Per-creator cache key — channelId is the natural unique identifier. */

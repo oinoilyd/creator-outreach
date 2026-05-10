@@ -4,6 +4,7 @@ import { cacheGet, cacheSet, searchCacheKey, CACHE_TTL } from '@/lib/cache'
 import { bulkSaveSearchResults } from '@/lib/creator-enrichment'
 import { clampString, clampInt } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
+import { regionConfidence, hasForeignSignal, REGION_SIGNALS } from '@/lib/region-signals'
 
 const TOPIC_MAP: Record<string, string[]> = {
   basketball: ['basketball coach', 'basketball trainer', 'basketball analyst', 'NBA agent', 'basketball recruiter', 'basketball content creator', 'basketball skills trainer', 'youth basketball coach', 'basketball player'],
@@ -1079,6 +1080,77 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    // ── REGION FILTER ────────────────────────────────────────────
+    // Restored 2026-05-09 after Dylan reported India searches were
+    // pulling global creators. The old behavior sent India-tagged
+    // queries to YouTube and trusted the rankings — but YouTube's
+    // ranking blends global English content into any region with
+    // strong English-language overlap, so generic creators leaked in.
+    //
+    // Now we post-score every candidate against the gl's regional
+    // signal (channel name + video titles vs cities, regulators,
+    // currency, scripts — see lib/region-signals.ts). Two strategies:
+    //
+    //   English-dominant regions (US/GB/CA/AU/NZ/IE):
+    //     Most English channels ARE valid. Drop only those with
+    //     STRONG signal from a *different* region (e.g. all-Hindi
+    //     titles when user picked US).
+    //
+    //   Non-English-dominant regions (IN/JP/KR/BR/MX/JP/SG/...):
+    //     Strict — every kept channel must have at least a WEAK
+    //     regional signal. Adaptive relax: if the strict pass leaves
+    //     < SOFT_TARGET_REGION channels, allow weak-signal-only;
+    //     if still thin, allow keyword-relevance-only as a fallback
+    //     so the user never sees a dead-end empty page.
+    //
+    // English-only Indian creators (e.g. "Pranjal Kamra") still
+    // pass because their video titles routinely mention RBI, NSE,
+    // Mumbai, etc. — the WEAK tier picks those up.
+    let regionFiltered: Candidate[] = candidates
+    let regionTier = 'off'
+    if (gl && REGION_SIGNALS[gl]) {
+      const sig = REGION_SIGNALS[gl]
+      const SOFT_TARGET_REGION = 20
+
+      // Pre-compute confidence + foreign-signal flag once per candidate.
+      const annotated = candidates.map(c => ({
+        c,
+        conf: regionConfidence(c.channelName, c.videoTitles, gl),
+        foreign: hasForeignSignal(c.channelName, c.videoTitles, gl),
+      }))
+
+      if (sig.englishDominant) {
+        // Drop channels that look strongly tied to a different region.
+        regionFiltered = annotated.filter(a => !a.foreign).map(a => a.c)
+        regionTier = `english-dominant (kept ${regionFiltered.length}/${candidates.length})`
+      } else {
+        // Strict pass: confidence >= 2 (strong signal in name or
+        // titles, or native script anywhere).
+        let kept = annotated.filter(a => a.conf >= 2).map(a => a.c)
+        regionTier = `strict-2 (${kept.length})`
+        if (kept.length < SOFT_TARGET_REGION) {
+          // Tier 1: also include weak signals (keyword in titles
+          // or weak keyword anywhere). This is where most English-
+          // language Indian/etc. creators land.
+          kept = annotated.filter(a => a.conf >= 1).map(a => a.c)
+          regionTier = `weak-1 (${kept.length})`
+        }
+        if (kept.length < 5) {
+          // Tier 2 (fallback): also include zero-confidence channels
+          // that name-matched the keyword. Keeps thin niches usable
+          // even when there's almost no regional signal — better than
+          // empty.
+          kept = annotated
+            .filter(a => a.conf >= 1 || a.c.matchedVia === 'name')
+            .map(a => a.c)
+          regionTier = `name-fallback (${kept.length})`
+        }
+        regionFiltered = kept
+      }
+      console.log(`[search] gl=${gl} candidates=${candidates.length} after-region=${regionFiltered.length} regionTier=${regionTier}`)
+    }
+    // ─────────────────────────────────────────────────────────────
+
     // Adaptive news/mega-network filter (rewritten 2026-05-09):
     //
     // The earlier hard rule "drop relevance=0 AND subs>1M" was too
@@ -1104,7 +1176,7 @@ export async function GET(req: NextRequest) {
     let filtered: Candidate[] = []
     let chosenTier = tiers[0].label
     for (const tier of tiers) {
-      filtered = candidates.filter(c => !(c.relevanceScore === 0 && c._subsCount > tier.subsCap))
+      filtered = regionFiltered.filter(c => !(c.relevanceScore === 0 && c._subsCount > tier.subsCap))
       chosenTier = tier.label
       if (filtered.length >= SOFT_TARGET) break
       // If even unfiltered is thin, that's fine — return what we have.
