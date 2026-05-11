@@ -4329,8 +4329,8 @@ export default function Home() {
   // AND by the manual Spotlight button so a Fireworks/Tornado pick
   // gets the show length it expects.
   function spotlightDurationFor(theme: BackdropTheme): number {
-    if (theme === 'fireworks') return 16_500 // 12-15s show + text hold + buffer
-    if (theme === 'tornado')   return 14_000 // 11.5s show + text hold
+    if (theme === 'fireworks') return 11_500 // trimmed 5s — finale 7-9s + text fades by 11.5s
+    if (theme === 'tornado')   return 11_500 // 11.5s two-pass funnel
     return 15_000
   }
   // Wrapper around setBackdropTheme — Fireworks + Tornado are

@@ -201,27 +201,32 @@ function DriftLayer({ color, iconPath, spotlight }: { color: string; iconPath: s
  * point and the whole layer returns null (gate at top of component).
  */
 function FireworksShow({ color, iconPath }: { color: string; iconPath: string }) {
+  // 2026-05-10 v2 per Dylan: shortened total by 5s. Build-up was
+  // dragging — compressed scattered + ramp from 11s → 6.5s. Finale
+  // and easter-egg ending are unchanged (same bursts, same text
+  // animation, just sliding earlier on the timeline).
   const bursts = useMemo(
     () => [
-      // Act 1 — scattered (0–9s)
-      { id: 's1', cx: 25, cy: 30, delay: 0.4, scale: 1.0 },
-      { id: 's2', cx: 70, cy: 45, delay: 1.9, scale: 1.0 },
-      { id: 's3', cx: 45, cy: 22, delay: 3.4, scale: 1.0 },
-      { id: 's4', cx: 80, cy: 60, delay: 5.0, scale: 1.0 },
-      { id: 's5', cx: 20, cy: 65, delay: 6.6, scale: 1.0 },
-      { id: 's6', cx: 55, cy: 50, delay: 8.0, scale: 1.05 },
-      // Act 2 — ramp (9–12s)
-      { id: 'r1', cx: 35, cy: 35, delay: 9.2,  scale: 1.15 },
-      { id: 'r2', cx: 65, cy: 38, delay: 9.9,  scale: 1.15 },
-      { id: 'r3', cx: 50, cy: 60, delay: 10.6, scale: 1.2  },
-      { id: 'r4', cx: 28, cy: 50, delay: 11.3, scale: 1.2  },
-      // Act 3 — grand finale (12–14s) — overlapping mega-bursts
-      { id: 'f1', cx: 25, cy: 40, delay: 12.5, scale: 1.5  },
-      { id: 'f2', cx: 75, cy: 40, delay: 12.6, scale: 1.5  },
-      { id: 'f3', cx: 35, cy: 70, delay: 12.8, scale: 1.45 },
-      { id: 'f4', cx: 65, cy: 70, delay: 12.9, scale: 1.45 },
-      { id: 'f5', cx: 50, cy: 22, delay: 13.1, scale: 1.5  },
-      { id: 'f6', cx: 50, cy: 50, delay: 13.4, scale: 1.85 }, // dead-center capper
+      // Act 1 — scattered (0–4s, was 0–9s)
+      { id: 's1', cx: 25, cy: 30, delay: 0.3, scale: 1.0 },
+      { id: 's2', cx: 70, cy: 45, delay: 1.0, scale: 1.0 },
+      { id: 's3', cx: 45, cy: 22, delay: 1.7, scale: 1.0 },
+      { id: 's4', cx: 80, cy: 60, delay: 2.4, scale: 1.0 },
+      { id: 's5', cx: 20, cy: 65, delay: 3.1, scale: 1.0 },
+      { id: 's6', cx: 55, cy: 50, delay: 3.8, scale: 1.05 },
+      // Act 2 — ramp (4–7s, was 9–12s)
+      { id: 'r1', cx: 35, cy: 35, delay: 4.2, scale: 1.15 },
+      { id: 'r2', cx: 65, cy: 38, delay: 4.9, scale: 1.15 },
+      { id: 'r3', cx: 50, cy: 60, delay: 5.6, scale: 1.2  },
+      { id: 'r4', cx: 28, cy: 50, delay: 6.3, scale: 1.2  },
+      // Act 3 — grand finale (7–9s, was 12–14s) — UNCHANGED RELATIVE
+      // SPACING, just shifted earlier. Same climactic feel.
+      { id: 'f1', cx: 25, cy: 40, delay: 7.5, scale: 1.5  },
+      { id: 'f2', cx: 75, cy: 40, delay: 7.6, scale: 1.5  },
+      { id: 'f3', cx: 35, cy: 70, delay: 7.8, scale: 1.45 },
+      { id: 'f4', cx: 65, cy: 70, delay: 7.9, scale: 1.45 },
+      { id: 'f5', cx: 50, cy: 22, delay: 8.1, scale: 1.5  },
+      { id: 'f6', cx: 50, cy: 50, delay: 8.4, scale: 1.85 }, // dead-center capper
     ],
     [],
   )
@@ -279,10 +284,11 @@ function FireworksShow({ color, iconPath }: { color: string; iconPath: string })
       {/* Easter-egg text — drops in during the finale, gentle spring
           rise, holds visible for ~1.8s, then fades. x/y translate
           stays at -50% throughout so framer's `scale` keyframes don't
-          clobber the centering. Per Dylan 2026-05-10 v2: much smoother
-          rise (gentler overshoot 1.08 vs 1.18) and a long hold so the
-          words are unmistakably readable. */}
-      <CreatorOutreachEasterEgg color={color} delay={13.0} />
+          clobber the centering. Per Dylan 2026-05-10 v2: gentler
+          overshoot (1.08 vs 1.18) + long hold for readability. v3:
+          delay slid 13.0 → 8.0 to match the trimmed timeline; ends
+          at 11.5s just as spotlight clears. */}
+      <CreatorOutreachEasterEgg color={color} delay={8.0} />
     </>
   )
 }
@@ -334,69 +340,73 @@ function CreatorOutreachEasterEgg({ color, delay }: { color: string; delay: numb
   )
 }
 
-// ── Tornado (one-shot two-pass swirl, NO easter egg) ────────────────
+// ── Tornado (one-shot two-pass funnel, NO easter egg) ───────────────
 
 /**
- * Cone-shaped swirling column of platform icons sweeps the page in
- * two passes: left→right, brief pause at the right edge, then
- * right→left, then fades. No easter-egg text — that's Fireworks-only.
+ * Iconic tornado: WIDE funnel cloud at the top, taper down to a
+ * narrow tail at the bottom. Sweeps the page L→R, pause, R→L, fade.
+ * No easter-egg text — that's Fireworks-only.
  *
  * Timeline (~11.5s):
- *   0.0–4.5s   pass 1 (L→R), easing in/out
- *   4.5–5.5s   pause at the right edge (swirl keeps going)
+ *   0.0–4.5s   pass 1 (L→R)
+ *   4.5–5.5s   pause at the right edge
  *   5.5–10.5s  pass 2 (R→L)
- *   10.5–11.5s fade out at the left edge
+ *   10.5–11.5s fade out at the left
  *
- * Shape: narrow funnel at the top (orbit radius ~5px), wide gusty
- * base (~85px). Bias toward the bottom so the cone reads with weight.
+ * Shape (per Dylan 2026-05-10 v3 — flipped from v2):
+ *   • Top (5vh):  orbit radius ~110px → wide funnel cloud
+ *   • Middle:     tapers steeply via power curve
+ *   • Bottom (83vh): orbit radius ~10px → narrow tail
+ *   • Density bias toward the top so the cloud has visual weight.
  *
- * Effects (per Dylan 2026-05-10 v2):
- *   • Per-icon drop-shadow in platform color → depth
- *   • Subtle blur(0.3px) → motion smear
- *   • Orbital sweep (x + y oscillate together) → real 3-D swirl feel
- *   • Ground shadow ellipse breathing at the base → weight
- *   • Vertical wind streak with pulsing opacity → motion blur trail
- *   • Debris particles drifting up + away from the spine → gust feel
+ * Effects:
+ *   • Rotating cloud blob at the top (radial gradient, scales)
+ *   • TWO vertical wind-streak layers at different blurs for depth
+ *   • Per-icon drop-shadow + 0.3px blur → motion smear / depth
+ *   • Orbital sweep (cos + sin) → real circular motion, not wobble
+ *   • Pulsing ground shadow ellipse + dust cloud
+ *   • Debris streaming out + upward from the spine
  */
 function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
   const icons = useMemo(() => {
-    const N = 44
+    const N = 62
     return Array.from({ length: N }, (_, i) => {
-      // Distribute biased toward the bottom — gives the cone a heavy
-      // base. Linear-by-squared so density increases downward.
+      // Cubic bias toward the top — funnel cloud volume sits up top.
       const r = Math.random()
-      const yT = 1 - r * r // bias toward 1 (bottom)
-      const y = 8 + yT * 82 // 8–90vh
-      // Cone taper — power curve so the top stays really tight and
-      // the base flares out aggressively.
-      const taper = (y - 8) / 82 // 0 at top, 1 at bottom
-      const orbitRadius = 5 + Math.pow(taper, 1.3) * 78 // 5–83px
+      const yT = r * r * r // small → small (concentrated at top)
+      const y = 5 + yT * 78 // 5–83vh
+      // Taper: 0 at top (WIDE), 1 at bottom (NARROW). Power curve for
+      // dramatic flare in the upper portion (the funnel cloud).
+      const taper = (y - 5) / 78
+      const orbitRadius = 10 + Math.pow(1 - taper, 1.3) * 105 // 10–115px
       // Vertical wobble — small fraction of orbit radius so swirl
-      // reads as orbital, not just horizontal.
+      // reads as 3-D orbital, not just horizontal.
       const yWobble = orbitRadius * 0.28
-      // Size taper — bigger at the wide base.
-      const size = 11 + taper * 18 + Math.floor(Math.random() * 4) // 11–33px
-      // Swirl period — faster at top (tight orbit), slower at bottom
-      // (slow majestic sweep) — matches real tornado dynamics.
-      const period = 0.5 + (1 - taper) * 0.4 + Math.random() * 0.25
+      // Size taper — bigger at the wide top.
+      const size = 12 + (1 - taper) * 20 + Math.floor(Math.random() * 5)
+      // Swirl period — top sweeps slower (majestic cloud roll), bottom
+      // spins faster (tight tail whip).
+      const period = 0.5 + taper * 0.5 + Math.random() * 0.25
       const phase = Math.random() * Math.PI * 2
-      // Opacity bias — bottom more solid, top a bit ghosted.
-      const op = 0.5 + taper * 0.45
+      // Opacity — top more solid (visible cloud), bottom ghostier.
+      const op = 0.55 + (1 - taper) * 0.4
       return { key: i, y, orbitRadius, yWobble, size, period, phase, op }
     })
   }, [])
 
-  // Debris — small icons getting flung off the spine upward and out.
+  // Debris — small icons flung from the spine + drifting upward,
+  // distributed across the mid-section where the tornado interacts
+  // with its surroundings.
   const debris = useMemo(() => {
-    return Array.from({ length: 16 }, (_, i) => ({
+    return Array.from({ length: 22 }, (_, i) => ({
       key: `d${i}`,
-      y: 18 + Math.random() * 62, // 18–80vh — mid-tornado where it would shed
-      offsetX: -45 + Math.random() * 90, // -45 to +45px from spine
-      size: 7 + Math.random() * 6, // 7–13px (smaller than core icons)
-      period: 1.0 + Math.random() * 0.8,
-      verticalDrift: 28 + Math.random() * 60,
+      y: 25 + Math.random() * 58, // mid-to-bottom of the column
+      offsetX: -60 + Math.random() * 120,
+      size: 8 + Math.random() * 7,
+      period: 0.9 + Math.random() * 0.8,
+      verticalDrift: 35 + Math.random() * 75,
       delay: Math.random() * 1.5,
-      op: 0.25 + Math.random() * 0.25,
+      op: 0.28 + Math.random() * 0.3,
     }))
   }, [])
 
@@ -419,7 +429,7 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
       //   0.92   arrived back at left
       //   1.0    faded out
       animate={{
-        x: ['-14vw', '-14vw', '108vw', '108vw', '-14vw', '-14vw'],
+        x: ['-16vw', '-16vw', '108vw', '108vw', '-16vw', '-16vw'],
         opacity: [0, 1, 1, 1, 1, 0],
       }}
       transition={{
@@ -428,20 +438,58 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
         ease: ['linear', 'easeInOut', 'linear', 'easeInOut', 'easeOut'],
       }}
     >
-      {/* Wind streak — vertical gradient column behind the icons,
-          blurred so it reads as motion-smear. Pulsing opacity gives
-          a 'gusting' feel. */}
+      {/* Funnel cloud — rotating ellipsoidal blob at the top, blurred
+          heavily so it reads as a cloud. Scales with the gust pulse. */}
       <motion.div
-        animate={{ opacity: [0.18, 0.35, 0.22, 0.32, 0.18] }}
-        transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+        animate={{ rotate: [0, 360], scale: [1, 1.08, 1] }}
+        transition={{
+          rotate: { duration: 2.4, repeat: Infinity, ease: 'linear' },
+          scale: { duration: 1.6, repeat: Infinity, ease: 'easeInOut' },
+        }}
+        style={{
+          position: 'absolute',
+          left: '-120px',
+          top: '0vh',
+          width: '240px',
+          height: '18vh',
+          background: `radial-gradient(ellipse at 50% 70%, ${color}55 0%, ${color}28 35%, ${color}12 60%, transparent 85%)`,
+          filter: 'blur(18px)',
+          transformOrigin: 'center 80%',
+          willChange: 'transform',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Wide soft streak — outer layer, very blurred, low opacity,
+          gives depth behind the column. */}
+      <motion.div
+        animate={{ opacity: [0.12, 0.22, 0.14, 0.20, 0.12] }}
+        transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute',
+          left: '-18px',
+          top: '8vh',
+          width: '36px',
+          height: '78vh',
+          background: `linear-gradient(to bottom, ${color}80 0%, ${color}60 50%, transparent 100%)`,
+          filter: 'blur(22px)',
+          willChange: 'opacity',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Tight inner streak — sharper line down the spine. */}
+      <motion.div
+        animate={{ opacity: [0.25, 0.45, 0.28, 0.42, 0.25] }}
+        transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
         style={{
           position: 'absolute',
           left: '-3px',
           top: '12vh',
           width: '6px',
-          height: '76vh',
-          background: `linear-gradient(to bottom, transparent 0%, ${color}80 35%, ${color} 70%, ${color}80 100%)`,
-          filter: 'blur(10px)',
+          height: '72vh',
+          background: `linear-gradient(to bottom, transparent 0%, ${color} 30%, ${color} 70%, transparent 100%)`,
+          filter: 'blur(8px)',
           willChange: 'opacity',
           pointerEvents: 'none',
         }}
@@ -450,23 +498,41 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
       {/* Ground shadow — wide ellipse at the base. Scales horizontally
           on a loop so the base looks like it's pulsing with the gust. */}
       <motion.div
-        animate={{ scaleX: [1, 1.18, 0.92, 1.18, 1] }}
+        animate={{ scaleX: [1, 1.22, 0.88, 1.22, 1] }}
         transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut' }}
         style={{
           position: 'absolute',
-          left: '-75px',
-          top: '88vh',
-          width: '150px',
-          height: '22px',
-          background: `radial-gradient(ellipse at center, ${color}55 0%, ${color}22 45%, transparent 75%)`,
-          filter: 'blur(6px)',
+          left: '-100px',
+          top: '83vh',
+          width: '200px',
+          height: '28px',
+          background: `radial-gradient(ellipse at center, ${color}66 0%, ${color}30 40%, transparent 75%)`,
+          filter: 'blur(8px)',
           transformOrigin: 'center',
           willChange: 'transform',
           pointerEvents: 'none',
         }}
       />
 
-      {/* Core swirl — icons orbiting the spine. */}
+      {/* Dust cloud at base — rises slowly, fades to transparent. */}
+      <motion.div
+        animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.18, 0.32, 0.18] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute',
+          left: '-70px',
+          top: '78vh',
+          width: '140px',
+          height: '10vh',
+          background: `radial-gradient(ellipse at 50% 90%, ${color}40 0%, ${color}18 50%, transparent 80%)`,
+          filter: 'blur(14px)',
+          transformOrigin: 'center bottom',
+          willChange: 'transform, opacity',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Core swirl — 62 icons orbiting the spine. */}
       {icons.map(ic => {
         // Start positions on the orbit (cos/sin of phase).
         const sx = Math.cos(ic.phase) * ic.orbitRadius
@@ -506,8 +572,7 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
       })}
 
       {/* Debris — small icons shedding off the tornado, drifting up
-          and outward like dust caught in the gust. Each one fades
-          out as it rises. */}
+          and outward. Each one fades as it rises. */}
       {debris.map(d => (
         <motion.svg
           key={d.key}
