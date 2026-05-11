@@ -16,6 +16,7 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { promises as dns } from 'dns'
+import { withScrapeBackoff } from './scrape-politeness'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
 
@@ -50,14 +51,22 @@ const FREE_DOMAINS = new Set([
 ])
 
 async function safeFetch(url: string, timeoutMs = 5000): Promise<string> {
+  // Wrapped in withScrapeBackoff (2026-05-10) so 429 / 5xx don't
+  // silently produce empty corpora that suppress real email finds.
   try {
-    const resp = await axios.get(url, {
-      timeout: timeoutMs,
-      maxRedirects: 3,
-      validateStatus: () => true,
-      headers: { 'User-Agent': UA, Accept: 'text/html,*/*' },
-      responseType: 'text',
-    })
+    const resp = await withScrapeBackoff(
+      async () => axios.get(url, {
+        timeout: timeoutMs,
+        maxRedirects: 3,
+        validateStatus: () => true,
+        headers: { 'User-Agent': UA, Accept: 'text/html,*/*' },
+        responseType: 'text',
+      }),
+      {
+        maxRetries: 2,
+        retryStatuses: [429, 503, 504],
+      },
+    )
     if (typeof resp.data === 'string') return resp.data
     return ''
   } catch {

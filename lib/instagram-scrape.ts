@@ -37,7 +37,8 @@
  */
 
 import axios from 'axios'
-import { shouldSkip, recordFailure, recordSuccess, delay } from './scrape-circuit-breaker'
+import { shouldSkip, recordFailure, recordSuccess } from './scrape-circuit-breaker'
+import { politeJitter, withScrapeBackoff } from './scrape-politeness'
 
 export interface ScrapedInstagramProfile {
   username: string
@@ -116,20 +117,33 @@ interface IgWebProfileInfoResponse {
 async function tryJsonStrategy(handle: string): Promise<ScrapedInstagramProfile | null> {
   const url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`
   try {
-    const { data, status } = await axios.get<IgWebProfileInfoResponse>(url, {
-      timeout: 8000,
-      headers: {
-        'User-Agent': UAS.desktop,
-        'x-ig-app-id': IG_APP_ID,
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'Referer': `https://www.instagram.com/${handle}/`,
+    // withScrapeBackoff retries on 429 / 5xx with exponential delay so
+    // a brief IG rate-limit hiccup doesn't tombstone the handle.
+    // 403 (login wall) is intentionally NOT in the retry list — same IP
+    // hitting the same wall just wastes time. Better to fall through
+    // to the HTML strategy.
+    const { data, status } = await withScrapeBackoff(
+      async () => axios.get<IgWebProfileInfoResponse>(url, {
+        timeout: 8000,
+        headers: {
+          'User-Agent': UAS.desktop,
+          'x-ig-app-id': IG_APP_ID,
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-origin',
+          'Referer': `https://www.instagram.com/${handle}/`,
+        },
+        validateStatus: (s) => s < 500,
+      }),
+      {
+        maxRetries: 2,
+        retryStatuses: [429, 503, 504],
+        onRetry: (attempt, reason, delayMs) =>
+          console.log(`[ig-scrape json] @${handle} retry ${attempt} (${reason}) in ${delayMs}ms`),
       },
-      validateStatus: (s) => s < 500,
-    })
+    )
     if (status !== 200) {
       console.log(`[ig-scrape json] status=${status} for @${handle}`)
       return null
@@ -184,15 +198,23 @@ function parseOgDescription(desc: string): { followers: number; follows: number;
 async function tryHtmlStrategy(handle: string): Promise<ScrapedInstagramProfile | null> {
   for (const ua of [UAS.mobile, UAS.desktop]) {
     try {
-      const { data, status } = await axios.get(`https://www.instagram.com/${handle}/`, {
-        timeout: 8000,
-        headers: {
-          'User-Agent': ua,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
+      const { data, status } = await withScrapeBackoff(
+        async () => axios.get(`https://www.instagram.com/${handle}/`, {
+          timeout: 8000,
+          headers: {
+            'User-Agent': ua,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          validateStatus: (s) => s < 500,
+        }),
+        {
+          maxRetries: 2,
+          retryStatuses: [429, 503, 504],
+          onRetry: (attempt, reason, delayMs) =>
+            console.log(`[ig-scrape html] @${handle} retry ${attempt} (${reason}) in ${delayMs}ms`),
         },
-        validateStatus: (s) => s < 500,
-      })
+      )
       if (status === 404) return null
       if (typeof data !== 'string') continue
 
@@ -228,15 +250,23 @@ async function tryHtmlStrategy(handle: string): Promise<ScrapedInstagramProfile 
 
 async function tryEmbedStrategy(handle: string): Promise<ScrapedInstagramProfile | null> {
   try {
-    const { data, status } = await axios.get(`https://www.instagram.com/${handle}/embed/`, {
-      timeout: 8000,
-      headers: {
-        'User-Agent': UAS.desktop,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+    const { data, status } = await withScrapeBackoff(
+      async () => axios.get(`https://www.instagram.com/${handle}/embed/`, {
+        timeout: 8000,
+        headers: {
+          'User-Agent': UAS.desktop,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        validateStatus: (s) => s < 500,
+      }),
+      {
+        maxRetries: 2,
+        retryStatuses: [429, 503, 504],
+        onRetry: (attempt, reason, delayMs) =>
+          console.log(`[ig-scrape embed] @${handle} retry ${attempt} (${reason}) in ${delayMs}ms`),
       },
-      validateStatus: (s) => s < 500,
-    })
+    )
     if (status !== 200 || typeof data !== 'string') return null
 
     // Embed pages don't include follower count directly, but they do
@@ -287,16 +317,17 @@ export async function scrapeInstagramProfile(handle: string): Promise<ScrapedIns
     recordSuccess('ig-scrape')
     return json
   }
-  // 200ms inter-strategy delay — gives IG a beat between consecutive
-  // hits from the same datacenter IP.
-  await delay(200)
+  // Jittered inter-strategy delay (500-2000ms randomly) per Dylan
+  // 2026-05-10. Tight 200ms beats were predictable; random spacing
+  // defeats simple anti-bot heuristics that key off rhythmic timing.
+  await politeJitter()
   const html  = await tryHtmlStrategy(cleaned)
   if (html && html.followers > 0) {
     console.log(`[ig-scrape] @${cleaned} resolved via HTML: ${html.followers} followers`)
     recordSuccess('ig-scrape')
     return html
   }
-  await delay(200)
+  await politeJitter()
   // Last-ditch: embed only gives username + photo, but it's better
   // than tombstoning the row entirely.
   const embed = await tryEmbedStrategy(cleaned)

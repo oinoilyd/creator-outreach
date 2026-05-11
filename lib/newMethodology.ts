@@ -22,6 +22,7 @@ import * as cheerio from 'cheerio'
 import { promises as dns } from 'dns'
 import { Innertube } from 'youtubei.js'
 import Anthropic from '@anthropic-ai/sdk'
+import { withScrapeBackoff } from './scrape-politeness'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
 
@@ -104,14 +105,24 @@ export interface MethodologyOutput {
 }
 
 async function safeFetch(url: string, timeoutMs = 5000): Promise<string> {
+  // Wrapped in withScrapeBackoff (2026-05-10) so 429 / 5xx from the
+  // corpus targets (creator websites, biolinks) trigger exponential
+  // retries instead of silently returning empty strings. validateStatus
+  // returns true for all codes so we can inspect status ourselves.
   try {
-    const resp = await axios.get(url, {
-      timeout: timeoutMs,
-      maxRedirects: 3,
-      validateStatus: () => true,
-      headers: { 'User-Agent': UA, Accept: 'text/html,application/xml,*/*' },
-      responseType: 'text',
-    })
+    const resp = await withScrapeBackoff(
+      async () => axios.get(url, {
+        timeout: timeoutMs,
+        maxRedirects: 3,
+        validateStatus: () => true,
+        headers: { 'User-Agent': UA, Accept: 'text/html,application/xml,*/*' },
+        responseType: 'text',
+      }),
+      {
+        maxRetries: 2,
+        retryStatuses: [429, 503, 504],
+      },
+    )
     return typeof resp.data === 'string' ? resp.data : ''
   } catch {
     return ''

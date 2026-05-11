@@ -3,6 +3,7 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { shouldSkip, recordFailure, recordSuccess, delay } from '@/lib/scrape-circuit-breaker'
+import { withScrapeBackoff } from '@/lib/scrape-politeness'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL, cacheBumpCounter } from '@/lib/cache'
 import { saveEnrichmentSnapshot, getLatestEnrichment } from '@/lib/creator-enrichment'
@@ -13,14 +14,25 @@ import { extractInstagramHandle, isInstagramGraphConfigured } from '@/lib/instag
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 async function fetchHtml(url: string, timeout = 8000): Promise<string> {
-  const { data } = await axios.get(url, {
-    timeout,
-    headers: {
-      'User-Agent': UA,
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
+  // Wrapped in withScrapeBackoff (2026-05-10) so transient 429 / 5xx
+  // from YouTube About pages, RSS feeds, /videos / /shorts tabs, and
+  // DuckDuckGo HTML search don't silently return empty strings.
+  // Empties cascade into missing emails, missing recency data, and
+  // missing socials — visible quality regressions for the user.
+  const { data } = await withScrapeBackoff(
+    async () => axios.get(url, {
+      timeout,
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    }),
+    {
+      maxRetries: 2,
+      retryStatuses: [429, 503, 504],
     },
-  })
+  )
   return data as string
 }
 
