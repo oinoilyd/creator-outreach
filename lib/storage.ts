@@ -236,8 +236,7 @@ export async function saveDismissed(items: Creator[]): Promise<void> {
 export async function saveDismissedRow(c: Creator): Promise<void> {
   const uid = await userId()
   if (!uid) {
-    console.warn('[saveDismissedRow] no user; skipping')
-    return
+    throw new Error('[saveDismissedRow] no authenticated user — sign in first')
   }
   const supabase = createClient()
   const { error } = await supabase
@@ -246,7 +245,14 @@ export async function saveDismissedRow(c: Creator): Promise<void> {
       { user_id: uid, channel_id: c.channelId, data: c },
       { onConflict: 'user_id,channel_id' },
     )
-  if (error) console.error('[saveDismissedRow] upsert failed:', error.message, error)
+  if (error) {
+    console.error('[saveDismissedRow] upsert failed:', error.message, error)
+    // 2026-05-10: throw so the caller surfaces the error visibly
+    // instead of silently swallowing. Dylan reported deep-searched
+    // emails not persisting; the old version logged to console only,
+    // so we never knew if the save was actually failing.
+    throw new Error(`Save failed: ${error.message}`)
+  }
 }
 
 // ── Column configurations ───────────────────────────────────────────────────

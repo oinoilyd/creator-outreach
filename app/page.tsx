@@ -4832,8 +4832,24 @@ export default function Home() {
         avgViews: c.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
       }
       setDismissed(prev => prev.map(x => (x.channelId === channelId ? merged : x)))
-      await saveDismissedRow(merged)
-      if (cleanEmail && !c.email) toast.success(`Found email for ${c.channelName}`)
+      // 2026-05-10: separate try/catch around the save so a Supabase
+      // error surfaces as a toast Dylan can see, rather than silently
+      // failing. Earlier attempts at fixing the 'doesn't persist on
+      // refresh' bug assumed the save was reaching the DB cleanly —
+      // need to verify that with visible error reporting.
+      try {
+        await saveDismissedRow(merged)
+        if (cleanEmail && !c.email) toast.success(`Found email for ${c.channelName}`, {
+          description: `Saved to dismissed_creators for ${merged.channelName}`,
+        })
+      } catch (saveErr) {
+        const msg = (saveErr as Error).message
+        console.error('[deepSearchDismissedEmail] save threw:', msg)
+        toast.error(`Found email but save failed: ${msg}`, {
+          description: 'The UI is showing the new email but it won\'t persist a refresh. Check console + RLS.',
+          duration: 10000,
+        })
+      }
     } catch (err: any) {
       toast.error(`Search failed: ${err?.message || err}`)
     } finally {
