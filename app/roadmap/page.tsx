@@ -90,7 +90,7 @@ export default async function PipelinePage() {
         <div className="max-w-[1180px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
           {[
             { n: '7', label: 'Shipped this week' },
-            { n: '5', label: 'Up next · 1–4 weeks' },
+            { n: '6', label: 'Up next · 1–4 weeks' },
             { n: '6', label: 'On the radar' },
             { n: '9', label: 'Security &amp; tech debt' },
           ].map(s => (
@@ -156,10 +156,14 @@ export default async function PipelinePage() {
             />
             <RoadmapLane
               label="Up next"
-              count={5}
+              count={6}
               accent="#E85D2F"
               caption="Queued behind validation of the Unipile shipment. ETA 1–4 weeks."
               items={[
+                {
+                  title: 'Meta Graph API setup (one-time, 30 min)',
+                  body: 'Integration code in lib/instagram-graph.ts already exists and is wired into /api/instagram-status. Just needs four env vars (META_APP_ID, META_APP_SECRET, META_LONG_LIVED_TOKEN, META_IG_BUSINESS_ID) and a Meta Business Manager + Facebook App setup. Replaces the public-scrape fallback with official Meta-sourced IG follower/post counts for test users immediately (200 calls/hour); full production scale needs Meta App Review (~1-2 weeks) when ready to onboard non-allowlisted users.',
+                },
                 {
                   title: 'LinkedIn DM send UI on outreach rows',
                   body: 'Same SendPreviewModal flavor but for LinkedIn. Send connection requests with custom note. Reply detection already works via the same webhook — just need the click target.',
