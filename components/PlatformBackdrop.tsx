@@ -209,32 +209,33 @@ function DriftLayer({ color, iconPath, boosted }: { color: string; iconPath: str
  * point and the whole layer returns null (gate at top of component).
  */
 function FireworksShow({ color, iconPath }: { color: string; iconPath: string }) {
-  // 2026-05-10 v2 per Dylan: shortened total by 5s. Build-up was
-  // dragging — compressed scattered + ramp from 11s → 6.5s. Finale
-  // and easter-egg ending are unchanged (same bursts, same text
-  // animation, just sliding earlier on the timeline).
+  // 2026-05-10 v3 per Dylan: another 3s off the build-up. Scattered
+  // tightened from 4s → 1.5s, ramp from 3s → 1.5s. Finale shape +
+  // easter-egg ending unchanged — same 6 bursts at the same relative
+  // spacing, just sliding earlier again. Total now 8.5s (was 11.5,
+  // originally 16.5).
   const bursts = useMemo(
     () => [
-      // Act 1 — scattered (0–4s, was 0–9s)
-      { id: 's1', cx: 25, cy: 30, delay: 0.3, scale: 1.0 },
-      { id: 's2', cx: 70, cy: 45, delay: 1.0, scale: 1.0 },
-      { id: 's3', cx: 45, cy: 22, delay: 1.7, scale: 1.0 },
-      { id: 's4', cx: 80, cy: 60, delay: 2.4, scale: 1.0 },
-      { id: 's5', cx: 20, cy: 65, delay: 3.1, scale: 1.0 },
-      { id: 's6', cx: 55, cy: 50, delay: 3.8, scale: 1.05 },
-      // Act 2 — ramp (4–7s, was 9–12s)
-      { id: 'r1', cx: 35, cy: 35, delay: 4.2, scale: 1.15 },
-      { id: 'r2', cx: 65, cy: 38, delay: 4.9, scale: 1.15 },
-      { id: 'r3', cx: 50, cy: 60, delay: 5.6, scale: 1.2  },
-      { id: 'r4', cx: 28, cy: 50, delay: 6.3, scale: 1.2  },
-      // Act 3 — grand finale (7–9s, was 12–14s) — UNCHANGED RELATIVE
-      // SPACING, just shifted earlier. Same climactic feel.
-      { id: 'f1', cx: 25, cy: 40, delay: 7.5, scale: 1.5  },
-      { id: 'f2', cx: 75, cy: 40, delay: 7.6, scale: 1.5  },
-      { id: 'f3', cx: 35, cy: 70, delay: 7.8, scale: 1.45 },
-      { id: 'f4', cx: 65, cy: 70, delay: 7.9, scale: 1.45 },
-      { id: 'f5', cx: 50, cy: 22, delay: 8.1, scale: 1.5  },
-      { id: 'f6', cx: 50, cy: 50, delay: 8.4, scale: 1.85 }, // dead-center capper
+      // Act 1 — scattered (0.2–1.7s)
+      { id: 's1', cx: 25, cy: 30, delay: 0.2, scale: 1.0 },
+      { id: 's2', cx: 70, cy: 45, delay: 0.5, scale: 1.0 },
+      { id: 's3', cx: 45, cy: 22, delay: 0.8, scale: 1.0 },
+      { id: 's4', cx: 80, cy: 60, delay: 1.1, scale: 1.0 },
+      { id: 's5', cx: 20, cy: 65, delay: 1.4, scale: 1.0 },
+      { id: 's6', cx: 55, cy: 50, delay: 1.7, scale: 1.05 },
+      // Act 2 — ramp (2.0–3.5s)
+      { id: 'r1', cx: 35, cy: 35, delay: 2.0, scale: 1.15 },
+      { id: 'r2', cx: 65, cy: 38, delay: 2.5, scale: 1.15 },
+      { id: 'r3', cx: 50, cy: 60, delay: 3.0, scale: 1.2  },
+      { id: 'r4', cx: 28, cy: 50, delay: 3.5, scale: 1.2  },
+      // Act 3 — grand finale (4.5–5.4s) — UNCHANGED RELATIVE SPACING,
+      // just shifted earlier. Same climactic feel.
+      { id: 'f1', cx: 25, cy: 40, delay: 4.5, scale: 1.5  },
+      { id: 'f2', cx: 75, cy: 40, delay: 4.6, scale: 1.5  },
+      { id: 'f3', cx: 35, cy: 70, delay: 4.8, scale: 1.45 },
+      { id: 'f4', cx: 65, cy: 70, delay: 4.9, scale: 1.45 },
+      { id: 'f5', cx: 50, cy: 22, delay: 5.1, scale: 1.5  },
+      { id: 'f6', cx: 50, cy: 50, delay: 5.4, scale: 1.85 }, // dead-center capper
     ],
     [],
   )
@@ -293,10 +294,10 @@ function FireworksShow({ color, iconPath }: { color: string; iconPath: string })
           rise, holds visible for ~1.8s, then fades. x/y translate
           stays at -50% throughout so framer's `scale` keyframes don't
           clobber the centering. Per Dylan 2026-05-10 v2: gentler
-          overshoot (1.08 vs 1.18) + long hold for readability. v3:
-          delay slid 13.0 → 8.0 to match the trimmed timeline; ends
-          at 11.5s just as spotlight clears. */}
-      <CreatorOutreachEasterEgg color={color} delay={8.0} />
+          overshoot (1.08 vs 1.18) + long hold for readability. v4:
+          delay slid 8.0 → 5.0 to match the further-trimmed timeline;
+          ends at 8.5s just as spotlight clears. */}
+      <CreatorOutreachEasterEgg color={color} delay={5.0} />
     </>
   )
 }
