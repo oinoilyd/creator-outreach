@@ -33,6 +33,10 @@ export function HamburgerMenu({
    *  dark/light toggle since both are visual settings. */
   backdropTheme?: BackdropTheme
   onBackdropThemeChange?: (theme: BackdropTheme) => void
+  /** Spotlight: 15-second foreground burst of the active theme at
+   *  full saturation. One-shot trigger; parent owns the timer. */
+  onTriggerSpotlight?: () => void
+  spotlightActive?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
@@ -290,6 +294,28 @@ export function HamburgerMenu({
                       )
                     })}
                   </div>
+                  {/* Spotlight — 15-second foreground burst at full
+                      saturation. Per Dylan 2026-05-10. Disabled when
+                      theme is Off (nothing to spotlight). */}
+                  {onTriggerSpotlight && (
+                    <button
+                      type="button"
+                      disabled={spotlightActive || (backdropTheme ?? 'off') === 'off'}
+                      onClick={(e) => { e.stopPropagation(); onTriggerSpotlight() }}
+                      title={(backdropTheme ?? 'off') === 'off'
+                        ? 'Pick a backdrop theme first.'
+                        : 'Show the effect in front of everything else at full saturation for 15 seconds.'}
+                      className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+                        spotlightActive
+                          ? 'bg-purple-500/20 border-purple-500/50 text-purple-700 dark:text-purple-200 cursor-wait'
+                          : (backdropTheme ?? 'off') === 'off'
+                            ? 'border-border text-muted-foreground/40 cursor-not-allowed'
+                            : 'border-border text-foreground hover:bg-muted/60 hover:border-foreground/40'
+                      }`}
+                    >
+                      {spotlightActive ? '✨ Showing… (15s)' : '✨ Spotlight (15s)'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

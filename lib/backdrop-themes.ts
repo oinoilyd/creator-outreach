@@ -34,22 +34,29 @@ export const BACKDROP_THEMES: { id: BackdropTheme; label: string; description: s
   { id: 'fireworks', label: 'Fireworks', description: 'Bursts of the platform icon explode outward from random points. Bold.' },
 ]
 
-/** Per-platform brand hue tokens — feed the animations + glows. */
+/** Per-platform brand hue tokens — feed the animations + shades. */
 export interface PlatformHues {
   /** Hex for inline SVG strokes / fills. */
   color: string
-  /** Translucent rgba for radial gradients / glows. */
+  /** Translucent rgba — used by theme glow/aura layers (mid opacity). */
   glow: string
   /** Slightly more saturated rgba for ring/edge highlights. */
   glowStrong: string
+  /**
+   * VERY subtle tint for the always-on PlatformShade.
+   * 2026-05-10 per Dylan: 'WAY more subtle, just a tiny easter-egg
+   *  tint, not distracting.' Dropped from ~10% to ~3% opacity so
+   *  it's basically a hint of color, not a wash.
+   */
+  shade: string
 }
 
 export const PLATFORM_HUES: Record<PlatformId, PlatformHues> = {
-  youtube:   { color: '#ef4444', glow: 'rgba(239, 68, 68, 0.10)',  glowStrong: 'rgba(239, 68, 68, 0.20)'  },
-  instagram: { color: '#ec4899', glow: 'rgba(236, 72, 153, 0.10)', glowStrong: 'rgba(236, 72, 153, 0.22)' },
-  tiktok:    { color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.10)',  glowStrong: 'rgba(6, 182, 212, 0.22)'  },
-  twitter:   { color: '#94a3b8', glow: 'rgba(148, 163, 184, 0.10)', glowStrong: 'rgba(148, 163, 184, 0.22)' },
-  linkedin:  { color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.10)', glowStrong: 'rgba(59, 130, 246, 0.22)' },
+  youtube:   { color: '#ef4444', glow: 'rgba(239, 68, 68, 0.10)',   glowStrong: 'rgba(239, 68, 68, 0.20)',   shade: 'rgba(239, 68, 68, 0.028)'  },
+  instagram: { color: '#ec4899', glow: 'rgba(236, 72, 153, 0.10)',  glowStrong: 'rgba(236, 72, 153, 0.22)',  shade: 'rgba(236, 72, 153, 0.028)' },
+  tiktok:    { color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.10)',   glowStrong: 'rgba(6, 182, 212, 0.22)',   shade: 'rgba(6, 182, 212, 0.028)'  },
+  twitter:   { color: '#94a3b8', glow: 'rgba(148, 163, 184, 0.10)', glowStrong: 'rgba(148, 163, 184, 0.22)', shade: 'rgba(148, 163, 184, 0.028)' },
+  linkedin:  { color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.10)',  glowStrong: 'rgba(59, 130, 246, 0.22)',  shade: 'rgba(59, 130, 246, 0.028)' },
 }
 
 /**

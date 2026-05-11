@@ -4284,6 +4284,29 @@ export default function Home() {
     }
   }, [backdropTheme])
 
+  // Spotlight mode — 15-second foreground burst per Dylan 2026-05-10.
+  // Triggered manually from the hamburger menu. When true, the
+  // PlatformBackdrop renders ABOVE all content at full saturation
+  // for exactly 15s, then auto-clears.
+  const [spotlight, setSpotlight] = useState(false)
+  const spotlightTimer = useRef<NodeJS.Timeout | null>(null)
+  function triggerSpotlight() {
+    setSpotlight(true)
+    setBackdropVisible(true) // make sure it's actually visible during the burst
+    if (spotlightTimer.current) clearTimeout(spotlightTimer.current)
+    spotlightTimer.current = setTimeout(() => {
+      setSpotlight(false)
+      // Don't auto-fade backdropVisible — let the normal rules
+      // (30s timer / activity triggers) take it from here.
+    }, 15_000)
+  }
+  useEffect(() => {
+    // Cleanup on unmount.
+    return () => {
+      if (spotlightTimer.current) clearTimeout(spotlightTimer.current)
+    }
+  }, [])
+
   // 2026-05-10 per Dylan: backdrop should show briefly on switch
   // / initial load, then fade out so it doesn't distract during work.
   // Fade triggers (any one fires):
@@ -5800,10 +5823,12 @@ export default function Home() {
           Results, tied to the social media color.' Static, no
           animation, just presence. */}
       <PlatformShade platform={activePlatform} visible={activeTab === 'results'} />
-      {/* Animated backdrop — Rain / Drift / Aura layered on TOP of the
-          shade. User opt-in via the hamburger menu. Fades after 30s
-          or on first work-action; the shade underneath stays. */}
-      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} />
+      {/* Animated backdrop — Rain / Drift / Fireworks layered on top
+          of the shade. User opt-in via the hamburger menu. Fades
+          after 30s or on first work-action; the shade underneath
+          stays. Spotlight=true pushes this layer ABOVE content at
+          full saturation for 15 seconds (Dylan 2026-05-10). */}
+      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} spotlight={spotlight} />
       {/* Sticky glass top bar — same width-feel as the page below */}
       {/* Sticky glass nav — heavy backdrop-blur was hiding the
           backdrop animation at the top of the page (Dylan
@@ -5859,6 +5884,8 @@ export default function Home() {
               onSeedTestData={seedTestData}
               backdropTheme={backdropTheme}
               onBackdropThemeChange={setBackdropTheme}
+              onTriggerSpotlight={triggerSpotlight}
+              spotlightActive={spotlight}
             />
           </div>
         </div>
