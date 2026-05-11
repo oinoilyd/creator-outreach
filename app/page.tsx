@@ -4319,33 +4319,11 @@ export default function Home() {
     }
   }
 
-  // 2026-05-10 per Dylan: backdrop should show briefly on switch
-  // / initial load, then fade out so it doesn't distract during work.
-  // Fade triggers (any one fires):
-  //   1) 30 seconds since last theme switch
-  //   2) User initiated a search (currentKeyword goes from empty → set)
-  //   3) User switched to Outreach or Dismissed tab
-  // Setting theme back to 'off' just hides it; the visibility-fade
-  // applies only when a theme is actively selected.
+  // Backdrop visibility state — single source of truth. The driving
+  // effect lives further down the file, right after activePlatform
+  // is declared (temporal-dead-zone guard, same pattern as the
+  // currentKeyword watcher).
   const [backdropVisible, setBackdropVisible] = useState<boolean>(false)
-  // Show on theme switch (and on initial load if a theme is persisted)
-  useEffect(() => {
-    if (backdropTheme === 'off') {
-      setBackdropVisible(false)
-      return
-    }
-    setBackdropVisible(true)
-    const timer = setTimeout(() => setBackdropVisible(false), 30_000)
-    return () => clearTimeout(timer)
-  }, [backdropTheme])
-  // Fade when user starts working
-  useEffect(() => {
-    if (activeTab === 'outreach' || activeTab === 'dismissed') {
-      setBackdropVisible(false)
-    }
-  }, [activeTab])
-  // (currentKeyword watcher lives further down in the file, right
-  // after currentKeyword is declared — temporal-dead-zone guard.)
   const [showExport, setShowExport] = useState(false)
   // Ref + click-outside detection for the tab-nav Settings gear popover.
   // Auto-update search mode pill based on what the classifier sees
@@ -4430,6 +4408,45 @@ export default function Home() {
       window.localStorage.setItem('active-platform', activePlatform)
     }
   }, [activePlatform])
+
+  // Backdrop visibility driver.
+  //
+  // 2026-05-10 v2 per Dylan: bug was that the wave only fired on
+  // theme switch. Changing platforms while on Outreach/Dismissed
+  // meant the wave was "spent" and never re-triggered when the user
+  // came back to Results. Now the wave fires on ANY meaningful
+  // change: theme switch, platform switch (while on Results), OR
+  // returning to the Results tab.
+  //
+  // Rules (spotlight bypasses):
+  //   • spotlight active            → bail out, spotlight manages itself
+  //   • theme === 'off'             → hide
+  //   • activeTab !== 'results'     → hide (backdrop is Results-only)
+  //   • else                        → show, auto-fade after 30s
+  //
+  // The currentKeyword watcher further down adds a one-way "hide on
+  // search" so the backdrop doesn't distract while reviewing results.
+  //
+  // Placement note: this effect references activePlatform, which is
+  // declared just above — keeps the temporal-dead-zone clean.
+  useEffect(() => {
+    // Don't fight the spotlight — it has its own 15s visibility window
+    // managed by triggerSpotlight(). When spotlight goes back to false,
+    // this effect re-runs and applies the normal rules.
+    if (spotlight) return
+    if (backdropTheme === 'off') {
+      setBackdropVisible(false)
+      return
+    }
+    if (activeTab !== 'results') {
+      setBackdropVisible(false)
+      return
+    }
+    setBackdropVisible(true)
+    const timer = setTimeout(() => setBackdropVisible(false), 30_000)
+    return () => clearTimeout(timer)
+  }, [backdropTheme, activePlatform, activeTab, spotlight])
+
   const seenChannelIds = useRef<Set<string>>(new Set())
 
   // Auth + profile
