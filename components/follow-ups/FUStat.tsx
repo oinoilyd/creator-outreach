@@ -1,11 +1,14 @@
 'use client'
 
-import React from 'react'
+import React, { memo } from 'react'
 import { motion } from 'motion/react'
 import { NumberTicker } from '@/components/NumberTicker'
 import { BorderBeam } from '@/components/BorderBeam'
 
-export function FUStat({ label, value, accent, sub, onClick, active }: {
+// memo'd in Phase 3a — primitives + a stable onClick callback (parent
+// passes useCallback'd setter). Re-renders only when the displayed
+// number or active state actually changes.
+export const FUStat = memo(function FUStat({ label, value, accent, sub, onClick, active }: {
   label: string
   value: number | string
   accent: 'red' | 'yellow' | 'blue' | 'green' | 'gray'
@@ -55,4 +58,4 @@ export function FUStat({ label, value, accent, sub, onClick, active }: {
       </Wrapper>
     </motion.div>
   )
-}
+})

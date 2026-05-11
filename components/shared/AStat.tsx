@@ -5,11 +5,16 @@
  * on numeric values. Used by the Outreach analytics dashboard.
  *
  * Extracted from app/page.tsx in Phase 2a refactor.
+ *
+ * memo'd in Phase 3a — props are primitives (label/value/sub/highlight)
+ * so reference equality is sufficient; component only re-renders when
+ * its actual displayed values change.
  */
+import { memo } from 'react'
 import { motion } from 'motion/react'
 import { NumberTicker } from '@/components/NumberTicker'
 
-export function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
+export const AStat = memo(function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -25,4 +30,4 @@ export function AStat({ label, value, sub, highlight }: { label: string; value: 
       {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
     </motion.div>
   )
-}
+})

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { memo, useRef, useState } from 'react'
 import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { Star, Mail } from 'lucide-react'
 import {
@@ -47,7 +47,11 @@ function maybeOpenUnipileSend(
   return true
 }
 
-export function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, onOpen, profile }: {
+// memo'd in Phase 3a — biggest perf win. FollowUpRow is rendered in a
+// list and re-renders on every parent state change (typing in search,
+// hovering, theme tick) unless memoized. Parent must useCallback the
+// handler props for memo to be effective.
+export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, onOpen, profile }: {
   entry: OutreachEntry
   bucket: FUBucket
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -381,4 +385,4 @@ export function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollow
       </div>
     </div>
   )
-}
+})

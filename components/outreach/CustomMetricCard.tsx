@@ -1,10 +1,14 @@
 'use client'
 
-import React from 'react'
+import React, { memo } from 'react'
 import type { OutreachEntry } from '@/lib/types'
 import { computeMetric, metricTypeLabel } from '@/lib/metrics'
 
-export function CustomMetricCard({ metric, entries }: {
+// memo'd in Phase 3a — only re-renders when its specific `metric` config
+// or the `entries` reference changes. Parent (OutreachAnalytics) wraps
+// the entries array in useMemo so reference stays stable across other
+// re-renders.
+export const CustomMetricCard = memo(function CustomMetricCard({ metric, entries }: {
   metric: import('@/lib/types').CustomMetric
   entries: OutreachEntry[]
 }) {
@@ -16,4 +20,4 @@ export function CustomMetricCard({ metric, entries }: {
       <div className="text-[11px] text-muted-foreground mt-1 capitalize">{metricTypeLabel(metric)}</div>
     </div>
   )
-}
+})

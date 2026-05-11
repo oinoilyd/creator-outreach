@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, useContext } from 'react'
+import React, { memo, useState, useEffect, useCallback, useLayoutEffect, useRef, useContext } from 'react'
 import { createPortal } from 'react-dom'
 import { Sparkles } from 'lucide-react'
 import type { Creator, ScoreWeights, GuidanceEntry, GuidanceContextType } from '@/lib/types'
@@ -24,7 +24,11 @@ export const GuidanceContext = React.createContext<GuidanceContextType>({
   entries: [], addEntry: () => {}, removeEntry: () => {}, updateEntryWeight: () => {}, resetAll: () => {},
 })
 
-export function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
+// memo'd in Phase 3a — rendered once per row in CreatorTable. Without
+// memo, every parent state change in page.tsx re-runs the full body
+// (~400 lines) for every visible row. With memo, only the affected
+// rows re-render (when `c`, `weights`, or `narrative` actually change).
+export const FitScoreCell = memo(function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: ScoreWeights; narrative: string }) {
   const [open, setOpen] = useState(false)
   const [guidanceView, setGuidanceView] = useState(false)
   // Position is computed in viewport coords (position: fixed) so the
@@ -401,4 +405,4 @@ export function FitScoreCell({ c, weights, narrative }: { c: Creator; weights: S
       )}
     </td>
   )
-}
+})

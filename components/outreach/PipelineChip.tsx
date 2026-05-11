@@ -1,8 +1,10 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { memo, useEffect, useState } from 'react'
 
-export function PipelineChip({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+// memo'd in Phase 3a — value is a primitive string, onChange should
+// be useCallback'd by parent so memo stays effective.
+export const PipelineChip = memo(function PipelineChip({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const num = parseFloat(String(value || '').replace(/[^0-9.]/g, '')) || 0
@@ -40,4 +42,4 @@ export function PipelineChip({ value, onChange }: { value: string; onChange: (v:
       {num > 0 ? `$${num.toLocaleString()}` : '$0'}
     </button>
   )
-}
+})

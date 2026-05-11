@@ -6,9 +6,15 @@
  * pipeline distribution (Drafted / Sent / Replied / Won, etc).
  *
  * Extracted from app/page.tsx in Phase 2a refactor.
+ *
+ * memo'd in Phase 3a — `segments` is always a freshly-built array
+ * but the parent (OutreachAnalytics) usually wraps it in useMemo,
+ * so reference equality is usually preserved. Even when it does
+ * re-render, this is a small pure component so the cost is low.
  */
+import { memo } from 'react'
 
-export function StackedBar({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
+export const StackedBar = memo(function StackedBar({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
   return (
     <div>
       <div className="flex h-3 rounded-full overflow-hidden bg-muted">
@@ -27,4 +33,4 @@ export function StackedBar({ segments, total }: { segments: { label: string; val
       </div>
     </div>
   )
-}
+})
