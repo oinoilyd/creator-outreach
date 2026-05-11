@@ -127,7 +127,7 @@ const LeadDetailModal = dynamic(
 )
 import {
   getOutreach, saveOutreach as persistOutreach,
-  getDismissed, saveDismissed as persistDismissed,
+  getDismissed, saveDismissed as persistDismissed, saveDismissedRow,
   saveColConfig,
   getOutreachColConfig, saveOutreachColConfig,
   getCustomMetrics, saveCustomMetrics,
@@ -4808,12 +4808,21 @@ export default function Home() {
       // Functional updater so we always merge against the latest
       // dismissed array — guards against state having moved between
       // when the function was called and when the fetch resolved.
+      //
+      // 2026-05-10 fix: per-row save instead of full-snapshot save.
+      // Previously each concurrent search captured the FULL state and
+      // called persistDismissed(snapshot), which does "delete missing
+      // rows + upsert remaining." Three concurrent saves would race —
+      // the slowest one's snapshot (with fewer updates) could
+      // overwrite the faster ones' added emails. Now we upsert just
+      // the one row per resolution; concurrent calls write different
+      // rows independently, no race.
       const cleanEmail = String(extra.email || '').trim()
-      let persistedSnapshot: Creator[] | null = null
+      let updatedRow: Creator | null = null
       setDismissed(prev => {
         const next = prev.map(x => {
           if (x.channelId !== channelId) return x
-          return {
+          const merged: Creator = {
             ...x,
             email: x.email || cleanEmail,
             linkedin: x.linkedin || extra.linkedin || '',
@@ -4824,14 +4833,14 @@ export default function Home() {
             subscribers: x.subscribers || extra.subscribers || '',
             avgViews: x.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
           }
+          updatedRow = merged
+          return merged
         })
-        persistedSnapshot = next
         return next
       })
-      // Persist the snapshot we just committed to state (not the
-      // pre-update closure-captured `dismissed`, which could miss
-      // concurrent updates).
-      if (persistedSnapshot) void persistDismissed(persistedSnapshot)
+      // Persist ONLY this row. Concurrent calls touch different rows
+      // and never clobber each other.
+      if (updatedRow) void saveDismissedRow(updatedRow)
       if (cleanEmail && !c.email) toast.success(`Found email for ${c.channelName}`)
     } catch (err: any) {
       toast.error(`Search failed: ${err?.message || err}`)

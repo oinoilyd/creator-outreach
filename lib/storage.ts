@@ -222,6 +222,33 @@ export async function saveDismissed(items: Creator[]): Promise<void> {
   }
 }
 
+/**
+ * Persist a SINGLE dismissed-creator row by channel id. Used by the
+ * deep-email-search path where multiple lookups can resolve
+ * concurrently — calling the full-snapshot saveDismissed() per
+ * resolution would race (each saver captures a snapshot, the slowest
+ * one wins, found emails for other creators get clobbered). This
+ * upserts just the one row so concurrent calls don't compete.
+ *
+ * 2026-05-10 — added after Dylan reported "dismissed emails I deep-
+ * search and were found didn't save when I refreshed the page."
+ */
+export async function saveDismissedRow(c: Creator): Promise<void> {
+  const uid = await userId()
+  if (!uid) {
+    console.warn('[saveDismissedRow] no user; skipping')
+    return
+  }
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('dismissed_creators')
+    .upsert(
+      { user_id: uid, channel_id: c.channelId, data: c },
+      { onConflict: 'user_id,channel_id' },
+    )
+  if (error) console.error('[saveDismissedRow] upsert failed:', error.message, error)
+}
+
 // ── Column configurations ───────────────────────────────────────────────────
 
 export async function getColConfig(): Promise<ColConfig[] | null> {
