@@ -4238,7 +4238,21 @@ export default function Home() {
   const [emailOnly, setEmailOnly] = useState(false)
   // Default sort prioritizes creators with email at the top. User can
   // toggle this off in the filter panel to see the raw column-only sort.
-  const [emailFirstSort, setEmailFirstSort] = useState(true)
+  // Per Dylan 2026-05-10: 'emails should default at the top of results
+  // unless someone clicks a different filter.' Already the default on
+  // first load — now persisted to localStorage so the choice survives
+  // sessions, AND a fresh user / fresh storage still gets true.
+  const [emailFirstSort, setEmailFirstSort] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    const saved = window.localStorage.getItem('email-first-sort')
+    if (saved === null) return true // never touched → default on
+    return saved === '1'
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('email-first-sort', emailFirstSort ? '1' : '0')
+    }
+  }, [emailFirstSort])
   const [showExport, setShowExport] = useState(false)
   // Ref + click-outside detection for the tab-nav Settings gear popover.
   // Auto-update search mode pill based on what the classifier sees
@@ -6796,6 +6810,27 @@ export default function Home() {
           />
         ) : (
           <>
+            {/* Small badge — surfaces the currently-active sort behavior
+                so 'Emails first' isn't hidden inside the filter panel.
+                Click to toggle off; when off, also shows so you can flip
+                back on. */}
+            {!!currentKeyword && (
+              <button
+                type="button"
+                onClick={() => setEmailFirstSort(v => !v)}
+                title={emailFirstSort
+                  ? 'Emails-first sort is ON — creators with an email always rank above those without, regardless of column sort. Click to turn off.'
+                  : 'Emails-first sort is OFF — pure column sort. Click to turn back on.'}
+                className={`mb-3 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] font-bold px-2 py-1 rounded border transition-colors ${
+                  emailFirstSort
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : 'border-border bg-muted/30 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <span aria-hidden>{emailFirstSort ? '✓' : '○'}</span>
+                <span>{emailFirstSort ? 'Emails first' : 'Emails first — off'}</span>
+              </button>
+            )}
             <CreatorTable
               creators={currentList} outreachIds={outreachIds}
               dismissedIds={dismissedIds}
