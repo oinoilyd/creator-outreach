@@ -5462,15 +5462,11 @@ export default function Home() {
       <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} pt-6 pb-16`}>
 
         {/* Search-area wrapper — groups the mode pills + the search row
-            so the pills can fade in/out based on whether the wrapper
-            has hover/focus-within. Pills stay visible while:
-              · any child of this wrapper is focused (input, pill button,
-                action button, search button)
-              · the user is hovering anywhere in the wrapper
-            They hide ~150 ms after focus leaves AND hover leaves —
-            so clicking out of the search area smoothly collapses the
-            pills, but the user can quickly hover back in to see them
-            again without re-focusing. */}
+            so the pills can fade in/out based on whether anything inside
+            has focus. Per Dylan 2026-05-10: hover trigger removed —
+            clicking into the search bar is the only way to surface the
+            pills. Hover was too easy to trip on mouseover, making the
+            UI feel jumpy. */}
         <div className="group/searchgroup">
 
         {/* Search-mode pills — three modes (URL / Username / Occupation
@@ -5482,7 +5478,7 @@ export default function Home() {
             visible on Results tab — Outreach/Dismissed use the search
             input as a local filter, not a search trigger. */}
         {activeTab === 'results' && (
-          <div className="overflow-hidden transition-all duration-150 ease-out opacity-0 max-h-0 group-focus-within/searchgroup:opacity-100 group-focus-within/searchgroup:max-h-12 group-hover/searchgroup:opacity-100 group-hover/searchgroup:max-h-12">
+          <div className="overflow-hidden transition-all duration-150 ease-out opacity-0 max-h-0 group-focus-within/searchgroup:opacity-100 group-focus-within/searchgroup:max-h-12">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-semibold">Mode</span>
               {([
