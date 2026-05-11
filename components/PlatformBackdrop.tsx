@@ -1,18 +1,18 @@
 'use client'
 
 /**
- * PlatformBackdrop — full-viewport animated background driven by the
- * user's selected backdrop theme + the currently-active platform.
+ * PlatformBackdrop — animated theme layer (Rain / Drift / Aura).
  *
- * Renders as a fixed, pointer-events-none layer BEHIND every app
- * surface (z-index: 0; chrome lives at z-30+). Transform + opacity
- * only — no layout reflow, GPU-composited animations. Caps element
- * counts so the heaviest theme (rain) stays at ~24 elements and
- * 60fps even on modest hardware.
- *
- * Re-rendering: keyed by `theme:platform` so changing either
- * remounts the underlying motion divs cleanly and the new animation
- * starts from frame 0 rather than mid-cycle.
+ * 2026-05-10 v3:
+ *   • Dropped 'pulse' — the static color tint that pulse produced
+ *     graduated into the always-on PlatformShade layer.
+ *   • Key on THEME only (not theme:platform). Changing the platform
+ *     no longer remounts the layer — the existing icons stay
+ *     mid-animation and just adopt the new color + shape. No more
+ *     "stops" when the user switches platforms.
+ *   • Icon position memo decoupled from iconPath. Positions are
+ *     keyed on theme alone, so randomization stays stable across
+ *     platform swaps. Color + path are live props.
  */
 
 import { useMemo } from 'react'
@@ -27,9 +27,6 @@ import {
 interface Props {
   theme: BackdropTheme
   platform: PlatformId
-  /** 2026-05-10 — controls a smooth opacity fade. Layer stays
-   *  mounted (animations keep running) so toggling back on snaps
-   *  to full speed instantly. Defaults true for backwards-compat. */
   visible?: boolean
 }
 
@@ -40,44 +37,47 @@ export function PlatformBackdrop({ theme, platform, visible = true }: Props) {
 
   return (
     <div
-      key={`${theme}:${platform}`}
+      // Key on THEME only — platform changes update color/path via
+      // props, NOT a remount. That keeps existing icons mid-animation
+      // and avoids the "stops and restarts" feel when switching
+      // platforms.
+      key={theme}
       aria-hidden
       className="fixed inset-0 pointer-events-none overflow-hidden transition-opacity ease-out"
       style={{
         zIndex: 0,
         opacity: visible ? 1 : 0,
-        // Slow fade-out reads as deliberate; faster fade-in feels
-        // responsive when the user just changed themes.
         transitionDuration: visible ? '300ms' : '1500ms',
       }}
     >
       {theme === 'rain' && <RainLayer color={hue.color} iconPath={iconPath} />}
       {theme === 'drift' && <DriftLayer color={hue.color} iconPath={iconPath} />}
-      {theme === 'pulse' && <PulseLayer glow={hue.glow} glowStrong={hue.glowStrong} />}
       {theme === 'aura' && <AuraLayer glow={hue.glow} glowStrong={hue.glowStrong} />}
     </div>
   )
 }
 
 // ── Rain ─────────────────────────────────────────────────────────────
-// N icons fall from above the viewport to below, randomized x, varied
-// duration + delay so the field never looks rhythmic.
+// N icons fall from above viewport to below. Positions memoized on
+// theme only (NOT iconPath) so swapping platforms keeps the same
+// drops mid-flight — they just change color + shape live.
 
 function RainLayer({ color, iconPath }: { color: string; iconPath: string }) {
-  // useMemo so randomization is stable across re-renders (re-randomized
-  // only when the platform changes — the key on the parent triggers
-  // a remount, which builds a fresh array).
   const drops = useMemo(() => {
     const N = 22
     return Array.from({ length: N }, (_, i) => ({
       key: i,
-      left: Math.random() * 100, // %
-      size: 14 + Math.floor(Math.random() * 18), // 14-32 px
-      delay: Math.random() * 12, // seconds — staggers entry
-      duration: 12 + Math.random() * 16, // 12-28s top→bottom
-      opacity: 0.05 + Math.random() * 0.07, // 5-12% so it stays atmospheric
+      left: Math.random() * 100,
+      size: 14 + Math.floor(Math.random() * 18),
+      delay: Math.random() * 12,
+      duration: 12 + Math.random() * 16,
+      opacity: 0.05 + Math.random() * 0.07,
     }))
-  }, [iconPath])
+    // Empty deps: regenerate ONLY on mount (which is once per theme
+    // session). Platform changes don't re-randomize. The deliberate
+    // disable on react-hooks/exhaustive-deps is the right call here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <>
@@ -107,8 +107,6 @@ function RainLayer({ color, iconPath }: { color: string; iconPath: string }) {
 }
 
 // ── Drift ────────────────────────────────────────────────────────────
-// Larger, fewer icons floating UPWARD slowly — bubble-like. Each has
-// a tiny horizontal sway so they don't read as a rigid column.
 
 function DriftLayer({ color, iconPath }: { color: string; iconPath: string }) {
   const bubbles = useMemo(() => {
@@ -119,10 +117,11 @@ function DriftLayer({ color, iconPath }: { color: string; iconPath: string }) {
       size: 24 + Math.floor(Math.random() * 22),
       delay: Math.random() * 22,
       duration: 22 + Math.random() * 18,
-      sway: 30 + Math.random() * 50, // px horizontal wobble
+      sway: 30 + Math.random() * 50,
       opacity: 0.04 + Math.random() * 0.06,
     }))
-  }, [iconPath])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <>
@@ -155,39 +154,7 @@ function DriftLayer({ color, iconPath }: { color: string; iconPath: string }) {
   )
 }
 
-// ── Pulse ────────────────────────────────────────────────────────────
-// Two layered radial gradients in the brand color — anchored to
-// top-center and bottom-right, breathing out of sync so the room
-// feels alive but never thumping.
-
-function PulseLayer({ glow, glowStrong }: { glow: string; glowStrong: string }) {
-  return (
-    <>
-      <motion.div
-        className="absolute inset-0"
-        animate={{ opacity: [0.6, 1, 0.6] }}
-        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          background: `radial-gradient(circle 60vw at 50% -10%, ${glowStrong}, ${glow} 40%, transparent 70%)`,
-          willChange: 'opacity',
-        }}
-      />
-      <motion.div
-        className="absolute inset-0"
-        animate={{ opacity: [0.4, 0.9, 0.4] }}
-        transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 2.5 }}
-        style={{
-          background: `radial-gradient(circle 50vw at 85% 95%, ${glow}, transparent 60%)`,
-          willChange: 'opacity',
-        }}
-      />
-    </>
-  )
-}
-
 // ── Aura ─────────────────────────────────────────────────────────────
-// Conic gradient sweep — feels like a slow rotating spotlight in the
-// brand color. Single layer, full screen, very low opacity.
 
 function AuraLayer({ glow, glowStrong }: { glow: string; glowStrong: string }) {
   return (

@@ -91,6 +91,10 @@ const PlatformBackdrop = dynamic(
   () => import('@/components/PlatformBackdrop').then(m => m.PlatformBackdrop),
   { ssr: false },
 )
+const PlatformShade = dynamic(
+  () => import('@/components/PlatformShade').then(m => m.PlatformShade),
+  { ssr: false },
+)
 const FollowUpWeekStrip = dynamic(
   () => import('@/components/FollowUpWeekStrip').then(m => m.FollowUpWeekStrip),
   { ssr: false },
@@ -5787,18 +5791,23 @@ export default function Home() {
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      {/* Backdrop — animated platform-themed background. Rendered at
-          z-index: 0 underneath all chrome. Off by default; user
-          opts in via Profile → Theme. Re-keys on theme:platform
-          change so the new animation starts at frame 0.
-          `visible` controls a smooth opacity fade — per Dylan: show
-          for ~30s on theme switch / initial load, fade out once the
-          user starts working (search runs, or switches to Outreach /
-          Dismissed). Animations keep running internally so when the
-          user re-toggles a theme, it's already at speed. */}
+      {/* Always-on platform shade — subtle radial tint in the active
+          platform color, ONLY on the Results tab. Per Dylan 2026-05-10:
+          this is the 'shade I LOVE that stays on the entire time on
+          Results, tied to the social media color.' Static, no
+          animation, just presence. */}
+      <PlatformShade platform={activePlatform} visible={activeTab === 'results'} />
+      {/* Animated backdrop — Rain / Drift / Aura layered on TOP of the
+          shade. User opt-in via the hamburger menu. Fades after 30s
+          or on first work-action; the shade underneath stays. */}
       <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} />
       {/* Sticky glass top bar — same width-feel as the page below */}
-      <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
+      {/* Sticky glass nav — bg opacity reduced 80% → 55% (Dylan
+          2026-05-10) so the platform shade + animated backdrop bleed
+          through from the top of the page. Backdrop-blur keeps text
+          readable; the slight tint pickup gives the nav a hint of
+          the active platform color without being noisy. */}
+      <div className="sticky top-0 z-30 border-b border-border bg-background/55 backdrop-blur-xl">
         <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">

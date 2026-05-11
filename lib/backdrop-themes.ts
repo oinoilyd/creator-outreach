@@ -20,13 +20,17 @@
 
 import type { PlatformId } from './types'
 
-export type BackdropTheme = 'off' | 'rain' | 'drift' | 'pulse' | 'aura'
+// 2026-05-10 v2: dropped 'pulse' from the togglable themes. The
+// quiet color-shade effect that pulse had become the always-on
+// PlatformShade layer (see components/PlatformShade.tsx) — Dylan
+// loved that tint and wanted it permanent on the Results tab tied
+// to the active platform color, not buried inside a theme.
+export type BackdropTheme = 'off' | 'rain' | 'drift' | 'aura'
 
 export const BACKDROP_THEMES: { id: BackdropTheme; label: string; description: string }[] = [
-  { id: 'off',   label: 'Off',    description: 'No backdrop — clean utility default.' },
+  { id: 'off',   label: 'Off',    description: 'No animation — color shade stays on by default.' },
   { id: 'rain',  label: 'Rain',   description: 'Platform logos fall from the top, slow + sparse.' },
   { id: 'drift', label: 'Drift',  description: 'Logos float upward like bubbles. Subtle.' },
-  { id: 'pulse', label: 'Pulse',  description: 'Soft radial glow in the platform color, breathing.' },
   { id: 'aura',  label: 'Aura',   description: 'Conic gradient sweep, slow rotation. Almost ambient.' },
 ]
 
