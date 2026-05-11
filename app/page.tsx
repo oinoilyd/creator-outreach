@@ -1166,11 +1166,16 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   const DAY = 86_400_000
   // 2026-05-10 per Dylan: "no response after immediate outreach isn't
   // low priority — it just puts the next follow-up a little bit out.
-  // Stay medium until 2 weeks pass with no reply, THEN demote to
-  // ghosted." So entries flip into the ghosted bucket only after this
+  // Stay in active priority until ~a month passes with no reply, THEN
+  // demote to ghosted. Some creators take weeks to respond, and the
+  // in-between time should trigger another follow-up instead of writing
+  // them off." So entries flip into the ghosted bucket only after this
   // many days since the original outreach. Before that, they bucket by
   // follow-up date like a normal Open row.
-  const GHOSTED_THRESHOLD_DAYS = 14
+  //
+  // Pipeline item: lift this to a per-user setting (some users prefer
+  // 21 days, some 45). 30 is the current default.
+  const GHOSTED_THRESHOLD_DAYS = 30
 
   // Helper — true when a 'No Response' entry has aged past the
   // ghosted threshold (or is missing dateReachedOut, which we treat
@@ -1548,7 +1553,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
         <CollapsibleSection
           title="Ghosted"
           count={groups.ghosted.length}
-          subtitle="No reply 14+ days after outreach. Optional re-engagement."
+          subtitle="No reply 30+ days after outreach. Optional re-engagement."
           open={showGhosted}
           onToggle={() => setShowGhosted(v => !v)}
         >
