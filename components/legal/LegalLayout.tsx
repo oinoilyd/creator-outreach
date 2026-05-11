@@ -19,20 +19,25 @@ export function LegalLayout({
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Top bar — minimal, with wordmark + back link */}
+      {/* Top bar — minimal, with wordmark + back link.
+          Per Dylan 2026-05-11: both links go to "/" (NOT /landing).
+          Middleware handles the auth-aware routing — authed users see
+          the app at "/", unauthed users get rewritten to /landing.
+          This way clicking back from a legal page sends an authed
+          user straight to the app interface, not the marketing site. */}
       <header className="border-b border-border/60 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link
-            href="/landing"
+            href="/"
             className="text-lg font-bold tracking-[-0.02em] bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
             Creator Outreach
           </Link>
           <Link
-            href="/landing"
+            href="/"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← Back to site
+            ← Back
           </Link>
         </div>
       </header>

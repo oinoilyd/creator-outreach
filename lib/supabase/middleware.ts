@@ -6,7 +6,15 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
 // /roadmap intentionally NOT public — Dylan wants signin/signup to
 // access it. Unauthed visit → middleware redirects to /auth/signin.
-const PUBLIC_PATHS = ['/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback', '/auth/confirm', '/auth/forgot-password', '/auth/reset-password', '/landing']
+// Legal pages (/terms, /privacy, /refunds, /cookies, /support) ARE
+// public — they're referenced from the landing-page footer + must
+// be reachable for compliance.
+const PUBLIC_PATHS = [
+  '/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback',
+  '/auth/confirm', '/auth/forgot-password', '/auth/reset-password',
+  '/landing',
+  '/terms', '/privacy', '/refunds', '/cookies', '/support',
+]
 
 /**
  * Refreshes the user's session on every request and gates protected routes.
