@@ -4302,14 +4302,8 @@ export default function Home() {
       setBackdropVisible(false)
     }
   }, [activeTab])
-  // Fade once an actual search has happened. currentKeyword goes
-  // from '' to the search query when runSearch fires — that's the
-  // "user is now in working mode, get out of the way" signal.
-  useEffect(() => {
-    if (currentKeyword) {
-      setBackdropVisible(false)
-    }
-  }, [currentKeyword])
+  // (currentKeyword watcher lives further down in the file, right
+  // after currentKeyword is declared — temporal-dead-zone guard.)
   const [showExport, setShowExport] = useState(false)
   // Ref + click-outside detection for the tab-nav Settings gear popover.
   // Auto-update search mode pill based on what the classifier sees
@@ -4361,6 +4355,14 @@ export default function Home() {
   const [loadMoreCreators, setLoadMoreCreators] = useState<Creator[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [currentKeyword, setCurrentKeyword] = useState('')
+  // Backdrop fade-on-first-search trigger. Lives here (right after the
+  // currentKeyword declaration) because the corresponding state setter
+  // (setBackdropVisible) is declared earlier in this function, but
+  // currentKeyword itself is in scope only from this line onward —
+  // temporal dead zone otherwise.
+  useEffect(() => {
+    if (currentKeyword) setBackdropVisible(false)
+  }, [currentKeyword])
   // For niche-style searches, hold the underlying occupation list so
   // Load More can keep using the same multi-keyword expansion.
   const [currentKeywordsList, setCurrentKeywordsList] = useState<string[]>([])
