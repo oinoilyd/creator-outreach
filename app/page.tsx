@@ -4776,6 +4776,10 @@ export default function Home() {
   const [outreachBulkRunning, setOutreachBulkRunning] = useState(false)
   const [resultsBulkRunning, setResultsBulkRunning] = useState(false)
   const [dismissedBulkRunning, setDismissedBulkRunning] = useState(false)
+  /** Inline progress for the bulk dismissed-email search. NULL = no
+   *  search active or banner already faded. Replaces the prior toast-
+   *  based progress per Dylan 2026-05-10 (sticky 'Done.' was annoying). */
+  const [dismissedBulkProgress, setDismissedBulkProgress] = useState<{ current: number; total: number } | null>(null)
   const [dismissedSearchingIds, setDismissedSearchingIds] = useState<Set<string>>(new Set())
 
   // Aggressive single-row email search for a Dismissed creator. Saves the
@@ -4838,12 +4842,17 @@ export default function Home() {
 
   // Bulk aggressive search across every Dismissed creator missing an email.
   // Keeps running in the background as the user navigates other tabs (the
-  // SPA stays mounted, the toast tracks progress globally).
+  // SPA stays mounted).
+  //
+  // 2026-05-10 per Dylan: replaced the toast-based progress + sticky
+  // 'Done.' success message with an inline subtle status banner in the
+  // DismissedTab itself. Progress state lives on this component and is
+  // passed down; nothing renders to a toast.
   async function deepSearchAllDismissed() {
     const targets = dismissed.filter(c => !c.email).map(c => c.channelId)
     if (targets.length === 0 || dismissedBulkRunning) return
     setDismissedBulkRunning(true)
-    const toastId = toast.loading(`Deep-searching emails: 0 / ${targets.length} dismissed`, { duration: 600_000 })
+    setDismissedBulkProgress({ current: 0, total: targets.length })
     try {
       const CONCURRENCY = 3
       let done = 0
@@ -4851,9 +4860,12 @@ export default function Home() {
         const batch = targets.slice(i, i + CONCURRENCY)
         await Promise.all(batch.map(id => deepSearchDismissedEmail(id)))
         done += batch.length
-        toast.loading(`Deep-searching emails: ${done} / ${targets.length} dismissed`, { id: toastId, duration: 600_000 })
+        setDismissedBulkProgress({ current: done, total: targets.length })
       }
-      toast.success(`Done. ${done} dismissed creators rechecked.`, { id: toastId })
+      // Auto-clear the progress banner ~2.5s after completion so the
+      // 'Found N emails' final tally is visible briefly but doesn't
+      // stick. No popup, no toast — just the banner fading.
+      setTimeout(() => setDismissedBulkProgress(null), 2500)
     } finally {
       setDismissedBulkRunning(false)
     }
@@ -6766,6 +6778,7 @@ export default function Home() {
             deepSearchingIds={dismissedSearchingIds}
             onSearchAll={deepSearchAllDismissed}
             bulkRunning={dismissedBulkRunning}
+            bulkProgress={dismissedBulkProgress}
             profile={profile}
           />
         ) : (

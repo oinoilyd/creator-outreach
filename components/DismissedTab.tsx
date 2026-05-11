@@ -22,6 +22,7 @@ export function DismissedTab({
   deepSearchingIds,
   onSearchAll,
   bulkRunning,
+  bulkProgress,
   profile,
 }: {
   dismissed: Creator[]
@@ -30,6 +31,10 @@ export function DismissedTab({
   deepSearchingIds?: Set<string>
   onSearchAll?: () => void
   bulkRunning?: boolean
+  /** Live progress for the bulk deep-email search. NULL = idle or
+   *  banner already faded. Drives the subtle inline banner that
+   *  replaces the previous toast-based progress UX (Dylan 2026-05-10). */
+  bulkProgress?: { current: number; total: number } | null
   profile?: UserProfile | null
 }) {
   // Empty state — matches the Outreach empty state shape so the
@@ -102,6 +107,45 @@ export function DismissedTab({
           </button>
         )}
       </div>
+
+      {/* Inline bulk-search progress banner — subtle, replaces the
+          previous toast.loading + sticky toast.success notification
+          (Dylan 2026-05-10: "do a more subtle searching loading
+          with updates rather than a popup"). Fades out 2.5s after
+          completion via the bulkProgress prop going null. */}
+      {bulkProgress && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-purple-500/30 bg-purple-500/5 px-4 py-2.5 transition-opacity duration-300"
+        >
+          <div className="flex items-center justify-between text-xs gap-3 mb-1.5">
+            <span className="text-foreground/85 inline-flex items-center gap-2">
+              {bulkRunning && (
+                <svg className="w-3 h-3 animate-spin opacity-80" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
+                  <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+              )}
+              <span>
+                {bulkRunning
+                  ? <>Deep-searching emails — <span className="tabular-nums font-medium">{bulkProgress.current} / {bulkProgress.total}</span></>
+                  : <>Done. <span className="tabular-nums font-medium">{bulkProgress.total}</span> rechecked.</>
+                }
+              </span>
+            </span>
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {Math.round((bulkProgress.current / Math.max(1, bulkProgress.total)) * 100)}%
+            </span>
+          </div>
+          <div className="w-full h-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-purple-500 transition-all duration-500"
+              style={{ width: `${Math.round((bulkProgress.current / Math.max(1, bulkProgress.total)) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Table — same border + bg treatment as the Results table for
           visual continuity when switching tabs. */}
