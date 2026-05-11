@@ -5495,6 +5495,14 @@ export default function Home() {
                   <button
                     key={p.id}
                     type="button"
+                    // 2026-05-10 per Dylan: clicking a pill made it disappear
+                    // before the click registered, because Safari/Firefox
+                    // don't grant focus to buttons on click — focus left
+                    // the input, group-focus-within flipped false, the
+                    // container collapsed. preventDefault on mousedown
+                    // stops the input from losing focus so the pill row
+                    // stays visible through the entire click cycle.
+                    onMouseDown={(ev) => ev.preventDefault()}
                     onClick={() => {
                       setSearchMode(p.id)
                       setSearchModeManual(true)
@@ -5522,6 +5530,7 @@ export default function Home() {
               {searchModeManual && keyword.trim() && (
                 <button
                   type="button"
+                  onMouseDown={(ev) => ev.preventDefault()}
                   onClick={() => setSearchModeManual(false)}
                   className="text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors underline-offset-2 hover:underline"
                   title="Reset to auto-detect"
