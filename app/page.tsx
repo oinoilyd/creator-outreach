@@ -4273,7 +4273,7 @@ export default function Home() {
   const [backdropTheme, setBackdropTheme] = useState<BackdropTheme>(() => {
     if (typeof window === 'undefined') return 'off'
     const saved = window.localStorage.getItem('backdrop-theme')
-    if (saved === 'rain' || saved === 'drift' || saved === 'aura' || saved === 'off') {
+    if (saved === 'rain' || saved === 'drift' || saved === 'fireworks' || saved === 'off') {
       return saved
     }
     return 'off'
@@ -5805,12 +5805,14 @@ export default function Home() {
           or on first work-action; the shade underneath stays. */}
       <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} />
       {/* Sticky glass top bar — same width-feel as the page below */}
-      {/* Sticky glass nav — bg opacity reduced 80% → 55% (Dylan
-          2026-05-10) so the platform shade + animated backdrop bleed
-          through from the top of the page. Backdrop-blur keeps text
-          readable; the slight tint pickup gives the nav a hint of
-          the active platform color without being noisy. */}
-      <div className="sticky top-0 z-30 border-b border-border bg-background/55 backdrop-blur-xl">
+      {/* Sticky glass nav — heavy backdrop-blur was hiding the
+          backdrop animation at the top of the page (Dylan
+          2026-05-10: 'top header doesn't have them'). Switched to
+          backdrop-blur-sm + lower bg opacity so the rain/drift/
+          fireworks animations stay visible through the nav while
+          text remains readable thanks to the slight bg-background
+          tint. */}
+      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/40 backdrop-blur-sm">
         <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">

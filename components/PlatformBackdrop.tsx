@@ -52,7 +52,7 @@ export function PlatformBackdrop({ theme, platform, visible = true }: Props) {
     >
       {theme === 'rain' && <RainLayer color={hue.color} iconPath={iconPath} />}
       {theme === 'drift' && <DriftLayer color={hue.color} iconPath={iconPath} />}
-      {theme === 'aura' && <AuraLayer glow={hue.glow} glowStrong={hue.glowStrong} />}
+      {theme === 'fireworks' && <FireworksLayer color={hue.color} iconPath={iconPath} />}
     </div>
   )
 }
@@ -154,18 +154,80 @@ function DriftLayer({ color, iconPath }: { color: string; iconPath: string }) {
   )
 }
 
-// ── Aura ─────────────────────────────────────────────────────────────
+// ── Fireworks ────────────────────────────────────────────────────────
+// 5 burst centers across the screen. Each burst spawns 10 platform
+// icons that fan out radially, scaling up + fading. Each burst
+// repeats on a 4-6s cycle, staggered so the screen always has at
+// least one burst in flight. Bolder than rain/drift — meant for
+// users who want a real moment when they switch platforms.
 
-function AuraLayer({ glow, glowStrong }: { glow: string; glowStrong: string }) {
+function FireworksLayer({ color, iconPath }: { color: string; iconPath: string }) {
+  // Burst centers — random per session, stable across platform swaps
+  // (positions don't re-randomize when the iconPath changes).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const bursts = useMemo(() => {
+    return Array.from({ length: 5 }, (_, b) => ({
+      cx: 15 + Math.random() * 70, // 15-85% so bursts stay onscreen
+      cy: 15 + Math.random() * 70,
+      delay: b * 0.9 + Math.random() * 0.4, // stagger bursts ~1s apart
+      cycle: 4 + Math.random() * 2.5, // 4-6.5s between bursts at this point
+    }))
+  }, [])
+
+  // 10 particles per burst, fanning out at evenly-spaced angles
+  // (with a touch of jitter so the pattern isn't a perfect snowflake).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const particles = useMemo(() => {
+    return bursts.flatMap((burst, bi) =>
+      Array.from({ length: 10 }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.35
+        const distance = 16 + Math.random() * 14 // 16-30vmin radius
+        return {
+          key: `${bi}-${i}`,
+          burst,
+          dx: Math.cos(angle) * distance,
+          dy: Math.sin(angle) * distance,
+          size: 16 + Math.floor(Math.random() * 10),
+        }
+      }),
+    )
+  }, [bursts])
+
   return (
-    <motion.div
-      className="absolute inset-0"
-      animate={{ rotate: [0, 360] }}
-      transition={{ duration: 90, repeat: Infinity, ease: 'linear' }}
-      style={{
-        background: `conic-gradient(from 0deg at 50% 50%, transparent 0deg, ${glow} 60deg, ${glowStrong} 120deg, ${glow} 180deg, transparent 240deg, transparent 360deg)`,
-        willChange: 'transform',
-      }}
-    />
+    <>
+      {particles.map(p => (
+        <motion.svg
+          key={p.key}
+          viewBox="0 0 24 24"
+          width={p.size}
+          height={p.size}
+          fill={color}
+          initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+          animate={{
+            x: `${p.dx}vmin`,
+            y: `${p.dy}vmin`,
+            scale: [0, 1.15, 0.85, 0],
+            opacity: [0, 0.45, 0.25, 0],
+          }}
+          transition={{
+            duration: 1.5,
+            delay: p.burst.delay,
+            repeat: Infinity,
+            repeatDelay: p.burst.cycle - 1.5,
+            ease: 'easeOut',
+            times: [0, 0.18, 0.55, 1],
+          }}
+          style={{
+            position: 'absolute',
+            left: `${p.burst.cx}%`,
+            top: `${p.burst.cy}%`,
+            transformOrigin: 'center',
+            willChange: 'transform, opacity',
+          }}
+        >
+          <path d={iconPath} />
+        </motion.svg>
+      ))}
+    </>
   )
 }

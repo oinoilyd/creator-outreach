@@ -20,18 +20,18 @@
 
 import type { PlatformId } from './types'
 
-// 2026-05-10 v2: dropped 'pulse' from the togglable themes. The
-// quiet color-shade effect that pulse had become the always-on
-// PlatformShade layer (see components/PlatformShade.tsx) — Dylan
-// loved that tint and wanted it permanent on the Results tab tied
-// to the active platform color, not buried inside a theme.
-export type BackdropTheme = 'off' | 'rain' | 'drift' | 'aura'
+// 2026-05-10 v3: dropped Aura, added Fireworks. The two ambient
+// themes (Pulse / Aura) both felt either flat or hokey; Fireworks
+// gives the logos a real moment — bursts of the platform icon
+// scatter outward from random points across the screen, repeat on
+// staggered cycles. Static color shade still always-on (PlatformShade).
+export type BackdropTheme = 'off' | 'rain' | 'drift' | 'fireworks'
 
 export const BACKDROP_THEMES: { id: BackdropTheme; label: string; description: string }[] = [
-  { id: 'off',   label: 'Off',    description: 'No animation — color shade stays on by default.' },
-  { id: 'rain',  label: 'Rain',   description: 'Platform logos fall from the top, slow + sparse.' },
-  { id: 'drift', label: 'Drift',  description: 'Logos float upward like bubbles. Subtle.' },
-  { id: 'aura',  label: 'Aura',   description: 'Conic gradient sweep, slow rotation. Almost ambient.' },
+  { id: 'off',       label: 'Off',       description: 'No animation — color shade stays on by default.' },
+  { id: 'rain',      label: 'Rain',      description: 'Platform logos fall from the top, slow + sparse.' },
+  { id: 'drift',     label: 'Drift',     description: 'Logos float upward like bubbles. Subtle.' },
+  { id: 'fireworks', label: 'Fireworks', description: 'Bursts of the platform icon explode outward from random points. Bold.' },
 ]
 
 /** Per-platform brand hue tokens — feed the animations + glows. */
