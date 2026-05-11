@@ -6,6 +6,12 @@ const doc: LegalDoc = {
   lastUpdated: 'May 11, 2026',
   summary: 'How Creator Outreach collects, uses, shares, and protects your personal data.',
   isPublic: true,
+  docType: 'Policy',
+  docNumber: 'POL-002',
+  version: '1.0',
+  effectiveDate: 'May 11, 2026',
+  owner: 'Founder / CEO',
+  status: 'Active',
   intro:
     'This Privacy Policy describes how **[LLC LEGAL NAME]** ("Creator Outreach," "we," or "us") collects, uses, and shares information when you use our website and Service at creatoroutreach.net.\n\nWe follow GDPR (European Union) and CCPA (California) principles regardless of where you live: we collect only what we need, we tell you what we do with it, and we let you delete it.',
   blocks: [

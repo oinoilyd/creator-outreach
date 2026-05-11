@@ -6,6 +6,12 @@ const doc: LegalDoc = {
   lastUpdated: 'May 11, 2026',
   summary: 'How to reach Creator Outreach support and the response times you can expect.',
   isPublic: true,
+  docType: 'Policy',
+  docNumber: 'POL-005',
+  version: '1.0',
+  effectiveDate: 'May 11, 2026',
+  owner: 'Founder / CEO',
+  status: 'Active',
   intro:
     'We want every Creator Outreach customer to know exactly how to reach us and what to expect when they do. This policy sets out our contact channels, response-time commitments, and the small set of rules that keep support fair for everyone.',
   blocks: [

@@ -6,6 +6,12 @@ const doc: LegalDoc = {
   lastUpdated: 'May 11, 2026',
   summary: 'Signature verification, replay protection, and incident response for inbound webhooks.',
   isPublic: false,
+  docType: 'Procedure',
+  docNumber: 'PRO-002',
+  version: '1.0',
+  effectiveDate: 'May 11, 2026',
+  owner: 'Founder / CEO',
+  status: 'Active',
   intro:
     'This procedure defines how Creator Outreach receives, verifies, and processes inbound webhooks from third-party services. Forged webhook events are a high-impact attack vector — a single unsigned endpoint can let an attacker grant themselves a paid subscription, mark messages as delivered, or bypass billing entirely. Every webhook endpoint MUST follow the controls below.',
   blocks: [

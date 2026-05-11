@@ -6,6 +6,12 @@ const doc: LegalDoc = {
   lastUpdated: 'May 11, 2026',
   summary: 'Trial, monthly, annual, and chargeback refund rules for Creator Outreach.',
   isPublic: true,
+  docType: 'Policy',
+  docNumber: 'POL-003',
+  version: '1.0',
+  effectiveDate: 'May 11, 2026',
+  owner: 'Founder / CEO',
+  status: 'Active',
   intro: 'We want you to be happy with Creator Outreach. Here’s how refunds work.',
   blocks: [
     { type: 'h2', text: 'Free trial' },

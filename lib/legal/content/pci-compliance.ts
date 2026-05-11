@@ -6,6 +6,12 @@ const doc: LegalDoc = {
   lastUpdated: 'May 11, 2026',
   summary: 'Internal procedure for maintaining PCI DSS SAQ A compliance via Stripe.',
   isPublic: false,
+  docType: 'Procedure',
+  docNumber: 'PRO-001',
+  version: '1.0',
+  effectiveDate: 'May 11, 2026',
+  owner: 'Founder / CEO',
+  status: 'Active',
   intro:
     'This procedure defines how Creator Outreach maintains Payment Card Industry Data Security Standard (PCI DSS) compliance. We qualify for **Self-Assessment Questionnaire A (SAQ A)** because we fully outsource card processing to Stripe and never see, store, process, or transmit raw cardholder data on our own systems.',
   blocks: [

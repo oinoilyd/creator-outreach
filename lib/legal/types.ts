@@ -37,4 +37,16 @@ export interface LegalDoc {
   intro?: string
   /** Body content as an ordered list of blocks. */
   blocks: Block[]
+  /** "Policy" or "Procedure" classification — standard corporate P&P. */
+  docType: 'Policy' | 'Procedure'
+  /** Document number, e.g. "POL-001", "PRO-002". */
+  docNumber: string
+  /** Semantic version, e.g. "1.0". */
+  version: string
+  /** Effective date (when the doc became active). */
+  effectiveDate: string
+  /** Owner — title or role, not a person's name. */
+  owner: string
+  /** Current status. */
+  status: 'Active' | 'Draft' | 'Archived'
 }

@@ -5,7 +5,14 @@ import {
   TextRun,
   HeadingLevel,
   ExternalHyperlink,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  ShadingType,
   type ParagraphChild,
+  type ITableRowOptions,
 } from 'docx'
 import type { Block, LegalDoc } from './types'
 import { parseInline, type Run } from './parse-inline'
@@ -18,7 +25,17 @@ import { parseInline, type Run } from './parse-inline'
  * so the resulting Word doc is self-contained.
  */
 export async function renderDocx(doc: LegalDoc): Promise<Buffer> {
-  const children: Paragraph[] = []
+  const children: (Paragraph | Table)[] = []
+
+  // Standard P&P header table at the very top.
+  children.push(buildHeaderTable(doc))
+  // Spacer paragraph so the title doesn't butt up against the table.
+  children.push(
+    new Paragraph({
+      children: [new TextRun({ text: '' })],
+      spacing: { after: 240 },
+    }),
+  )
 
   // Title page-ish (we don't bother with a real cover page — just
   // a big title + last-updated stamp at the top of the body).
@@ -56,6 +73,64 @@ export async function renderDocx(doc: LegalDoc): Promise<Buffer> {
 
   // Packer.toBuffer returns a Node Buffer when run server-side.
   return Packer.toBuffer(docx) as Promise<Buffer>
+}
+
+interface HeaderRowSpec {
+  label: string
+  value: string
+}
+
+function buildHeaderTable(doc: LegalDoc): Table {
+  const rows: HeaderRowSpec[] = [
+    { label: 'Document Title', value: doc.title },
+    { label: 'Document Number', value: doc.docNumber },
+    { label: 'Type', value: doc.docType },
+    { label: 'Version', value: doc.version },
+    { label: 'Effective Date', value: doc.effectiveDate },
+    { label: 'Last Revised', value: doc.lastUpdated },
+    { label: 'Owner', value: doc.owner },
+    { label: 'Status', value: doc.status },
+  ]
+
+  const thinBorder = { style: BorderStyle.SINGLE, size: 4, color: '000000' }
+
+  const tableRows: ITableRowOptions[] = rows.map((row) => ({
+    children: [
+      new TableCell({
+        width: { size: 35, type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'F3F4F6' },
+        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: row.label, bold: true, size: 20 })],
+          }),
+        ],
+      }),
+      new TableCell({
+        width: { size: 65, type: WidthType.PERCENTAGE },
+        shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'FFFFFF' },
+        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: row.value, size: 20 })],
+          }),
+        ],
+      }),
+    ],
+  }))
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: thinBorder,
+      bottom: thinBorder,
+      left: thinBorder,
+      right: thinBorder,
+      insideHorizontal: thinBorder,
+      insideVertical: thinBorder,
+    },
+    rows: tableRows.map((opts) => new TableRow(opts)),
+  })
 }
 
 function blockToParagraphs(block: Block): Paragraph[] {

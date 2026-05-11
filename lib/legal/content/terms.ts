@@ -6,6 +6,12 @@ const doc: LegalDoc = {
   lastUpdated: 'May 11, 2026',
   summary: 'Terms governing access to and use of the Creator Outreach service.',
   isPublic: true,
+  docType: 'Policy',
+  docNumber: 'POL-001',
+  version: '1.0',
+  effectiveDate: 'May 11, 2026',
+  owner: 'Founder / CEO',
+  status: 'Active',
   intro:
     'Welcome to Creator Outreach. These Terms of Service (the "Terms") govern your access to and use of the Creator Outreach website, applications, APIs, and related services (collectively, the "Service"), operated by **[LLC LEGAL NAME]** ("Creator Outreach," "we," "us," or "our"). By creating an account or using the Service, you agree to these Terms and to our [Privacy Policy](/privacy). If you do not agree, do not use the Service.',
   blocks: [

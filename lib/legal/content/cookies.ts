@@ -6,6 +6,12 @@ const doc: LegalDoc = {
   lastUpdated: 'May 11, 2026',
   summary: 'Which cookies and storage technologies Creator Outreach uses and how to manage them.',
   isPublic: true,
+  docType: 'Policy',
+  docNumber: 'POL-004',
+  version: '1.0',
+  effectiveDate: 'May 11, 2026',
+  owner: 'Founder / CEO',
+  status: 'Active',
   intro:
     'This Cookie Policy explains how Creator Outreach uses cookies and similar technologies on our website. Cookies are small text files that a website stores in your browser. They help us keep you signed in, remember your preferences, and understand how the Service is used.\n\nBy using the Service, you consent to our use of essential cookies. You can manage other categories via the cookie banner that appears on your first visit, or by clearing your browser’s storage.',
   blocks: [
