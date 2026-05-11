@@ -23,6 +23,8 @@ export function HamburgerMenu({
   spotlightActive,
   backdropDurationSec,
   onBackdropDurationChange,
+  spotlightAlwaysOn,
+  onSpotlightAlwaysOnChange,
 }: {
   userEmail: string | null
   userFullName: string | null
@@ -44,6 +46,10 @@ export function HamburgerMenu({
   /** User-configurable wave duration. 0 means 'always on' (no fade). */
   backdropDurationSec?: number
   onBackdropDurationChange?: (sec: number) => void
+  /** Always-on visual intensity boost. When true (default), Rain/Drift
+   *  render at boosted opacity always. Doesn't affect one-shot themes. */
+  spotlightAlwaysOn?: boolean
+  onSpotlightAlwaysOnChange?: (on: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
@@ -320,7 +326,37 @@ export function HamburgerMenu({
                         transition={{ duration: 0.2, ease: 'easeOut' }}
                         className="overflow-hidden mb-2"
                       >
-                        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 space-y-2">
+                        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 space-y-2.5">
+                          {/* Always-on intensity toggle — per Dylan
+                              2026-05-10 v6: spotlight defaults ON so
+                              Rain/Drift render at full saturation. */}
+                          {onSpotlightAlwaysOnChange && (
+                            <label className="flex items-center justify-between gap-2 cursor-pointer group">
+                              <span className="text-[11px] text-muted-foreground group-hover:text-foreground/80 transition-colors">
+                                Always full saturation
+                              </span>
+                              <span
+                                role="switch"
+                                aria-checked={spotlightAlwaysOn ?? true}
+                                className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors ${
+                                  (spotlightAlwaysOn ?? true)
+                                    ? 'bg-purple-500'
+                                    : 'bg-muted-foreground/30'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onSpotlightAlwaysOnChange(!(spotlightAlwaysOn ?? true))
+                                }}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                                    (spotlightAlwaysOn ?? true) ? 'translate-x-3.5' : 'translate-x-0.5'
+                                  } mt-0.5`}
+                                />
+                              </span>
+                            </label>
+                          )}
+
                           <div className="flex items-center justify-between gap-2">
                             <label htmlFor="backdrop-duration" className="text-[11px] text-muted-foreground">
                               Fade after

@@ -4306,6 +4306,25 @@ export default function Home() {
   // for exactly 15s, then auto-clears.
   const [spotlight, setSpotlight] = useState(false)
   const spotlightTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // 2026-05-10 v6 per Dylan: spotlight defaults ON — but as a
+  // persistent VISUAL INTENSITY boost, not a foreground burst.
+  // Rain/Drift now render bright (boosted opacity) at all times
+  // unless the user toggles it off in the theme settings popover.
+  // Fireworks/Tornado are unaffected — they still only PLAY on
+  // theme-pick / platform-switch / manual button (the one-shot
+  // gate uses the momentary `spotlight` boolean, not this one,
+  // so it doesn't auto-fire on hard refresh).
+  const [spotlightAlwaysOn, setSpotlightAlwaysOn] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    const saved = window.localStorage.getItem('spotlight-always-on')
+    return saved === 'false' ? false : true // default true
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('spotlight-always-on', String(spotlightAlwaysOn))
+    }
+  }, [spotlightAlwaysOn])
   // Optional durationMs override — Fireworks/Tornado pass their own
   // show length so the spotlight clears right when the show ends.
   // Manual Spotlight button defaults to 15s.
@@ -5938,7 +5957,7 @@ export default function Home() {
           after 30s or on first work-action; the shade underneath
           stays. Spotlight=true pushes this layer ABOVE content at
           full saturation for 15 seconds (Dylan 2026-05-10). */}
-      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} spotlight={spotlight} />
+      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} spotlight={spotlight} intense={spotlightAlwaysOn} />
       {/* Sticky glass top bar — same width-feel as the page below */}
       {/* Sticky glass nav — Dylan 2026-05-10 v2: dark mode's
           bg-background/40 was still too opaque against the near-black
@@ -5998,6 +6017,8 @@ export default function Home() {
               spotlightActive={spotlight}
               backdropDurationSec={backdropDurationSec}
               onBackdropDurationChange={setBackdropDurationSec}
+              spotlightAlwaysOn={spotlightAlwaysOn}
+              onSpotlightAlwaysOnChange={setSpotlightAlwaysOn}
             />
           </div>
         </div>

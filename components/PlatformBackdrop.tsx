@@ -36,9 +36,16 @@ interface Props {
   theme: BackdropTheme
   platform: PlatformId
   visible?: boolean
-  /** When true: render IN FRONT of content (z-index 50) at full
-   *  saturation. Parent times the 15s window and flips back. */
+  /** Momentary burst — render IN FRONT of content (z-50) at full
+   *  saturation. Parent times the window and flips back. This is
+   *  also the gate for one-shot themes (Fireworks/Tornado) — they
+   *  only mount + animate when this is true. */
   spotlight?: boolean
+  /** Persistent visual intensity boost. When true (without `spotlight`),
+   *  Rain/Drift render at boosted opacity but stay BEHIND content
+   *  (z-0). Doesn't affect one-shot themes' play behavior. Default
+   *  enabled via the theme settings popover. */
+  intense?: boolean
 }
 
 // Opacity multipliers — spotlight cranks every icon's visibility
@@ -46,15 +53,16 @@ interface Props {
 const SPOTLIGHT_OPACITY_MULT = 6
 const SPOTLIGHT_SCALE = 1.15
 
-export function PlatformBackdrop({ theme, platform, visible = true, spotlight = false }: Props) {
+export function PlatformBackdrop({ theme, platform, visible = true, spotlight = false, intense = false }: Props) {
   if (theme === 'off') return null
-  // Fireworks + Tornado are one-shot spotlight-only shows. When
-  // spotlight ends, the layer returns null. Re-pick the theme or
-  // hit the spotlight button to replay. Idle CPU is zero between
-  // shows because nothing renders.
+  // Fireworks + Tornado are one-shot spotlight-only shows. Gate ONLY
+  // on `spotlight` (momentary burst), not `intense` — so the always-on
+  // visual boost doesn't auto-mount the show on every render.
   if ((theme === 'fireworks' || theme === 'tornado') && !spotlight) return null
   const hue = PLATFORM_HUES[platform]
   const iconPath = PLATFORM_ICON_PATH[platform]
+  // Effective visual intensity — burst OR persistent always-on.
+  const boosted = spotlight || intense
 
   return (
     <div
@@ -75,8 +83,8 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
           change is subtle (especially in dark mode where the brand
           hues read more similar). */}
       <div key={platform}>
-        {theme === 'rain' && <RainLayer color={hue.color} iconPath={iconPath} spotlight={spotlight} />}
-        {theme === 'drift' && <DriftLayer color={hue.color} iconPath={iconPath} spotlight={spotlight} />}
+        {theme === 'rain' && <RainLayer color={hue.color} iconPath={iconPath} boosted={boosted} />}
+        {theme === 'drift' && <DriftLayer color={hue.color} iconPath={iconPath} boosted={boosted} />}
         {theme === 'fireworks' && <FireworksShow color={hue.color} iconPath={iconPath} />}
         {theme === 'tornado' && <TornadoShow color={hue.color} iconPath={iconPath} />}
       </div>
@@ -86,7 +94,7 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
 
 // ── Rain ─────────────────────────────────────────────────────────────
 
-function RainLayer({ color, iconPath, spotlight }: { color: string; iconPath: string; spotlight: boolean }) {
+function RainLayer({ color, iconPath, boosted }: { color: string; iconPath: string; boosted: boolean }) {
   const drops = useMemo(() => {
     const N = 36 // bumped from 22 — denser feel per Dylan
     return Array.from({ length: N }, (_, i) => ({
@@ -102,8 +110,8 @@ function RainLayer({ color, iconPath, spotlight }: { color: string; iconPath: st
   return (
     <>
       {drops.map(d => {
-        const op = Math.min(1, d.opacity * (spotlight ? SPOTLIGHT_OPACITY_MULT : 1))
-        const size = d.size * (spotlight ? SPOTLIGHT_SCALE : 1)
+        const op = Math.min(1, d.opacity * (boosted ? SPOTLIGHT_OPACITY_MULT : 1))
+        const size = d.size * (boosted ? SPOTLIGHT_SCALE : 1)
         return (
           <motion.svg
             key={d.key}
@@ -132,7 +140,7 @@ function RainLayer({ color, iconPath, spotlight }: { color: string; iconPath: st
 
 // ── Drift ────────────────────────────────────────────────────────────
 
-function DriftLayer({ color, iconPath, spotlight }: { color: string; iconPath: string; spotlight: boolean }) {
+function DriftLayer({ color, iconPath, boosted }: { color: string; iconPath: string; boosted: boolean }) {
   const bubbles = useMemo(() => {
     const N = 20 // bumped from 12 — denser feel
     return Array.from({ length: N }, (_, i) => ({
@@ -149,8 +157,8 @@ function DriftLayer({ color, iconPath, spotlight }: { color: string; iconPath: s
   return (
     <>
       {bubbles.map(b => {
-        const op = Math.min(1, b.opacity * (spotlight ? SPOTLIGHT_OPACITY_MULT : 1))
-        const size = b.size * (spotlight ? SPOTLIGHT_SCALE : 1)
+        const op = Math.min(1, b.opacity * (boosted ? SPOTLIGHT_OPACITY_MULT : 1))
+        const size = b.size * (boosted ? SPOTLIGHT_SCALE : 1)
         return (
           <motion.svg
             key={b.key}
