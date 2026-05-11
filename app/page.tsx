@@ -5843,6 +5843,8 @@ export default function Home() {
                 if (result.ok) window.location.reload()
               }}
               onSeedTestData={seedTestData}
+              backdropTheme={backdropTheme}
+              onBackdropThemeChange={setBackdropTheme}
             />
           </div>
         </div>
@@ -7036,8 +7038,6 @@ export default function Home() {
           initial={profile ?? { fullName: '', linkedinUrl: '', pitchLine: '' }}
           onSave={(next) => setProfile(next)}
           onClose={() => setShowProfile(false)}
-          backdropTheme={backdropTheme}
-          onBackdropThemeChange={setBackdropTheme}
         />
       )}
 

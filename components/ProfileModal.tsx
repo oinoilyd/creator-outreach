@@ -4,26 +4,17 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { UserProfile } from '@/lib/types'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import { BACKDROP_THEMES, type BackdropTheme } from '@/lib/backdrop-themes'
 
 export function ProfileModal({
   userId,
   initial,
   onSave,
   onClose,
-  backdropTheme,
-  onBackdropThemeChange,
 }: {
   userId: string
   initial: UserProfile
   onSave: (next: UserProfile) => void
   onClose: () => void
-  /** Per Dylan 2026-05-10: user picks one of 5 backdrop themes
-   *  ('off' / 'rain' / 'drift' / 'pulse' / 'aura') here; the page's
-   *  PlatformBackdrop renders accordingly behind the rest of the
-   *  app. Persisted to localStorage at the page level. */
-  backdropTheme?: BackdropTheme
-  onBackdropThemeChange?: (theme: BackdropTheme) => void
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -299,49 +290,9 @@ export function ProfileModal({
             </p>
           </div>
 
-          {/* Backdrop theme picker — added 2026-05-10 per Dylan. 5
-              ambient effects parameterized by the currently-active
-              platform (YouTube → red, IG → pink, etc.). Off by
-              default. Each option lives at z-index 0 behind the
-              chrome; no interactive impact. */}
-          {onBackdropThemeChange && (
-            <div className="border-t border-border pt-4">
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Backdrop theme
-                <span className="ml-2 text-[10px] uppercase tracking-[0.16em] text-purple-700 dark:text-purple-300 font-bold">New</span>
-              </label>
-              <div className="grid grid-cols-5 gap-2">
-                {BACKDROP_THEMES.map(t => {
-                  const isActive = (backdropTheme ?? 'off') === t.id
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => onBackdropThemeChange(t.id)}
-                      title={t.description}
-                      className={`text-center rounded-lg border px-2 py-2 transition-colors ${
-                        isActive
-                          ? 'bg-purple-500/10 border-purple-500/40 text-purple-700 dark:text-purple-200'
-                          : 'bg-muted border-border text-foreground/80 hover:border-foreground/40'
-                      }`}
-                    >
-                      {/* Theme thumbnail — abstract preview of what the
-                          theme does, no platform brand-color yet (the
-                          real backdrop picks up the active platform's
-                          hue at render time). */}
-                      <ThemeThumbnail theme={t.id} active={isActive} />
-                      <div className="mt-1.5 text-[11px] font-semibold">{t.label}</div>
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="text-[10px] text-muted-foreground/70 mt-1.5 leading-relaxed">
-                Picks up whichever platform is selected in the &quot;Find ___ creators&quot; pill —
-                so each theme has a YouTube / IG / X / TikTok / LinkedIn variant automatically.
-                All animations are GPU-composited; off by default.
-              </p>
-            </div>
-          )}
+          {/* Backdrop theme picker moved to the hamburger menu next to
+              the dark/light toggle (Dylan 2026-05-10): both are visual
+              settings, they belong together. */}
 
           {/* Connect Gmail (Unipile) — the path forward. When connected
               we send programmatically via Unipile's API, eliminating
@@ -456,63 +407,3 @@ export function ProfileModal({
   )
 }
 
-/**
- * Tiny abstract thumbnail used inside the backdrop-theme picker.
- * Each thumbnail hints at what the theme animation looks like
- * without using a specific platform's brand color — kept neutral so
- * the picker reads as theme-picker, not platform-picker.
- */
-function ThemeThumbnail({ theme, active }: { theme: BackdropTheme; active: boolean }) {
-  const fg = active ? 'currentColor' : 'rgb(120,120,120)'
-  if (theme === 'off') {
-    return (
-      <div className="h-10 rounded-md bg-muted/40 border border-border/40 flex items-center justify-center">
-        <span className="text-[16px] opacity-50">∅</span>
-      </div>
-    )
-  }
-  if (theme === 'rain') {
-    return (
-      <svg viewBox="0 0 60 40" className="h-10 w-full">
-        {[8, 22, 36, 50].map((x, i) => (
-          <line key={i} x1={x} y1={2 + i * 3} x2={x} y2={38 - i * 2} stroke={fg} strokeWidth="1.2" strokeLinecap="round" opacity={0.4 + i * 0.15} />
-        ))}
-      </svg>
-    )
-  }
-  if (theme === 'drift') {
-    return (
-      <svg viewBox="0 0 60 40" className="h-10 w-full">
-        {[
-          { cx: 12, cy: 30 },
-          { cx: 28, cy: 18 },
-          { cx: 44, cy: 26 },
-          { cx: 50, cy: 10 },
-        ].map((c, i) => (
-          <circle key={i} cx={c.cx} cy={c.cy} r={2 + i * 0.6} fill={fg} opacity={0.4 + i * 0.12} />
-        ))}
-      </svg>
-    )
-  }
-  if (theme === 'pulse') {
-    return (
-      <svg viewBox="0 0 60 40" className="h-10 w-full">
-        <circle cx="30" cy="20" r="4" fill={fg} opacity="0.85" />
-        <circle cx="30" cy="20" r="10" fill="none" stroke={fg} strokeWidth="1" opacity="0.45" />
-        <circle cx="30" cy="20" r="16" fill="none" stroke={fg} strokeWidth="0.8" opacity="0.22" />
-      </svg>
-    )
-  }
-  // aura
-  return (
-    <svg viewBox="0 0 60 40" className="h-10 w-full">
-      <defs>
-        <linearGradient id="aura-thumb" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={fg} stopOpacity="0.7" />
-          <stop offset="1" stopColor={fg} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="30" cy="20" rx="22" ry="14" fill="url(#aura-thumb)" />
-    </svg>
-  )
-}

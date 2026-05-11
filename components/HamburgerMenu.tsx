@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTheme } from 'next-themes'
+import { BACKDROP_THEMES, type BackdropTheme } from '@/lib/backdrop-themes'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -16,6 +17,8 @@ export function HamburgerMenu({
   showRetryMigration,
   onRetryMigration,
   onSeedTestData,
+  backdropTheme,
+  onBackdropThemeChange,
 }: {
   userEmail: string | null
   userFullName: string | null
@@ -26,6 +29,10 @@ export function HamburgerMenu({
   showRetryMigration?: boolean
   onRetryMigration?: () => void
   onSeedTestData?: () => void
+  /** Per Dylan 2026-05-10: backdrop theme picker lives next to the
+   *  dark/light toggle since both are visual settings. */
+  backdropTheme?: BackdropTheme
+  onBackdropThemeChange?: (theme: BackdropTheme) => void
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
@@ -244,6 +251,48 @@ export function HamburgerMenu({
                 <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Switch interface theme</div>
               </div>
             </button>
+          )}
+
+          {/* Backdrop theme picker — sits next to dark/light because
+              both are visual settings (Dylan 2026-05-10). Inline pill
+              row, no thumbnails — the hamburger menu is narrow so
+              keeping it compact reads better than the 5-thumbnail
+              picker that lived in ProfileModal. */}
+          {onBackdropThemeChange && (
+            <div className="px-4 py-3 border-t border-border/60">
+              <div className="flex items-start gap-3">
+                <span className="text-muted-foreground mt-0.5 shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="9" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-foreground font-medium leading-tight mb-1">Backdrop</div>
+                  <div className="text-[11px] text-muted-foreground mb-2 leading-snug">Picks up the active platform&apos;s color. Fades after 30s or on first action.</div>
+                  <div className="flex flex-wrap gap-1">
+                    {BACKDROP_THEMES.map(t => {
+                      const isActive = (backdropTheme ?? 'off') === t.id
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onBackdropThemeChange(t.id) }}
+                          title={t.description}
+                          className={`text-[11px] px-2 py-1 rounded border transition-colors ${
+                            isActive
+                              ? 'bg-purple-500/15 border-purple-500/40 text-foreground font-medium'
+                              : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="mx-4 my-1 border-t border-border" />
