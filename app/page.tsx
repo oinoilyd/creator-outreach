@@ -4306,6 +4306,18 @@ export default function Home() {
       if (spotlightTimer.current) clearTimeout(spotlightTimer.current)
     }
   }, [])
+  // Wrapper around setBackdropTheme — when user picks Fireworks,
+  // auto-trigger spotlight per Dylan 2026-05-10. Fireworks is the
+  // 'one-shot 15s show' theme; picking it should immediately start
+  // the show, not just queue it for the Spotlight button.
+  function handleBackdropThemeChange(theme: BackdropTheme) {
+    setBackdropTheme(theme)
+    if (theme === 'fireworks') {
+      // Fire on next tick so the theme state has committed before
+      // spotlight reads it.
+      setTimeout(() => triggerSpotlight(), 0)
+    }
+  }
 
   // 2026-05-10 per Dylan: backdrop should show briefly on switch
   // / initial load, then fade out so it doesn't distract during work.
@@ -4401,7 +4413,23 @@ export default function Home() {
   const [scoreNarrative, setScoreNarrative] = useState('')
   const [showScoreSettings, setShowScoreSettings] = useState(false)
   const [guidanceEntries, setGuidanceEntries] = useState<GuidanceEntry[]>([])
-  const [activePlatform, setActivePlatform] = useState<PlatformId>('youtube')
+  // 2026-05-10 per Dylan: persist activePlatform across refresh so
+  // a filter selection survives reload. localStorage source of
+  // truth; fall back to 'youtube' for first-time users / invalid
+  // values.
+  const [activePlatform, setActivePlatform] = useState<PlatformId>(() => {
+    if (typeof window === 'undefined') return 'youtube'
+    const saved = window.localStorage.getItem('active-platform')
+    if (saved === 'youtube' || saved === 'instagram' || saved === 'tiktok' || saved === 'twitter' || saved === 'linkedin') {
+      return saved
+    }
+    return 'youtube'
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('active-platform', activePlatform)
+    }
+  }, [activePlatform])
   const seenChannelIds = useRef<Set<string>>(new Set())
 
   // Auth + profile
@@ -5883,7 +5911,7 @@ export default function Home() {
               }}
               onSeedTestData={seedTestData}
               backdropTheme={backdropTheme}
-              onBackdropThemeChange={setBackdropTheme}
+              onBackdropThemeChange={handleBackdropThemeChange}
               onTriggerSpotlight={triggerSpotlight}
               spotlightActive={spotlight}
             />
