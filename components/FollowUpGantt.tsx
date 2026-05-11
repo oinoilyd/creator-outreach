@@ -129,7 +129,7 @@ export function FollowUpGantt({ entries, onOpenEntry }: Props) {
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" /> Overdue/today</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" /> Due this week</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500" /> Future</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500" /> Ghosted (30+d no reply)</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500" /> Ghosted — no reply in 30+ days</span>
       </div>
     </div>
   )

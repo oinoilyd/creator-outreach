@@ -86,11 +86,17 @@ export function FollowUpWeekStrip({ entries, onOpenEntry }: Props) {
                 {d.getDate()}
               </div>
               {dayEntries.length > 0 && (
-                <div className="mt-auto flex flex-col gap-0.5">
+                <div className="mt-auto flex flex-col gap-0.5 min-w-0">
                   {dayEntries.slice(0, 3).map(e => (
-                    <div key={e.id} className="flex items-center gap-1 text-[10px] truncate">
+                    // Per Dylan 2026-05-10: was splitting on space and
+                    // taking only the first word, which produced cards
+                    // reading "The" / "You" / "Andy" instead of useful
+                    // names. Now show the full channel name and let
+                    // CSS truncate with ellipsis at the tile's edge —
+                    // gives "The Andy Show" / "Marques Brow…" / etc.
+                    <div key={e.id} className="flex items-center gap-1 text-[10px] min-w-0">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${priColor(e).dot}`} />
-                      <span className="truncate text-foreground/80">{e.channelName.split(' ')[0]}</span>
+                      <span className="truncate text-foreground/80" title={e.channelName}>{e.channelName}</span>
                     </div>
                   ))}
                   {dayEntries.length > 3 && (
