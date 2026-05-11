@@ -19,6 +19,8 @@ export function HamburgerMenu({
   onSeedTestData,
   backdropTheme,
   onBackdropThemeChange,
+  onTriggerSpotlight,
+  spotlightActive,
 }: {
   userEmail: string | null
   userFullName: string | null
