@@ -17,25 +17,21 @@
  * components/FollowUpCalendar inside the real Follow-ups tab.
  */
 
-import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import CalendarPreviewClient from './CalendarPreviewClient'
 
-const ADMIN_EMAIL = 'dmeehanj@gmail.com'
-
+// 2026-05-10: dropped the ADMIN_EMAIL gate on this page so Dylan
+// can preview from any of his test accounts (5 emails / 2 unique
+// users currently signed in for multi-tenant testing). The page
+// is a sandbox with mock data and zero real-data exposure — no
+// reason to admin-gate it. The middleware still requires the
+// visitor to be authenticated, which is plenty.
 export const metadata = {
-  title: 'Admin · Calendar previews',
+  title: 'Calendar design previews',
   robots: { index: false, follow: false },
 }
 
 export const dynamic = 'force-dynamic'
 
-export default async function CalendarPreviewPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user || user.email !== ADMIN_EMAIL) notFound()
-
+export default function CalendarPreviewPage() {
   return <CalendarPreviewClient />
 }
