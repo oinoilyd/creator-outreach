@@ -4306,10 +4306,6 @@ export default function Home() {
   // for exactly 15s, then auto-clears.
   const [spotlight, setSpotlight] = useState(false)
   const spotlightTimer = useRef<NodeJS.Timeout | null>(null)
-  // Dedupe key for auto-spotlight (Fireworks/Tornado) so spotlight
-  // cleanup (spotlight true → false) doesn't immediately re-fire the
-  // show in an infinite loop. Updated by the visibility effect.
-  const lastAutoSpotlightKey = useRef<string>('')
   // Optional durationMs override — Fireworks/Tornado pass their own
   // show length so the spotlight clears right when the show ends.
   // Manual Spotlight button defaults to 15s.
@@ -4451,21 +4447,20 @@ export default function Home() {
 
   // Backdrop visibility driver.
   //
-  // 2026-05-10 v4 per Dylan: the wave fires on ANY meaningful change:
-  //   • initial page load (effect runs once on mount)
+  // 2026-05-10 v5 per Dylan — reverted auto-fire for one-shot themes:
+  // Fireworks + Tornado are loud 14–16s shows. Auto-firing them on
+  // load / platform switch / tab return felt like constant
+  // interruption, so they're back to event-only behavior. They fire
+  // ONLY when the user picks them (via handleBackdropThemeChange)
+  // or hits the Spotlight button. Dormant otherwise.
+  //
+  // Continuous themes (Rain / Drift) still fire on every meaningful
+  // change:
+  //   • initial page load
   //   • theme switch
   //   • platform switch (while on Results)
   //   • returning to the Results tab from Outreach/Dismissed
   //   • clicking 'Find creators' (via runSearch → triggerBackdropWave)
-  //
-  // Rules:
-  //   • spotlight active            → bail out, spotlight manages itself
-  //   • theme === 'off'             → hide
-  //   • activeTab !== 'results'     → hide + reset dedupe key
-  //   • theme is fireworks/tornado  → auto-fire spotlight (dedup'd so
-  //                                   spotlight cleanup doesn't loop)
-  //   • theme is rain/drift         → show continuously, fade after
-  //                                   backdropDurationSec (0 = never)
   //
   // Placement note: this effect references activePlatform, which is
   // declared just above — keeps the temporal-dead-zone clean.
@@ -4476,29 +4471,17 @@ export default function Home() {
     if (spotlight) return
     if (backdropTheme === 'off') {
       setBackdropVisible(false)
-      lastAutoSpotlightKey.current = ''
       return
     }
     if (activeTab !== 'results') {
       setBackdropVisible(false)
-      // Reset the dedupe key so returning to Results re-fires the show.
-      lastAutoSpotlightKey.current = ''
       return
     }
-    // Fireworks + Tornado are one-shot spotlight shows. Auto-fire on
-    // load / platform switch / tab return so they behave like other
-    // themes from the user's POV. Dedupe by a state-tuple key so the
-    // spotlight-ending state change (spotlight true → false) doesn't
-    // immediately re-fire the show.
-    if (backdropTheme === 'fireworks' || backdropTheme === 'tornado') {
-      const key = `${backdropTheme}|${activePlatform}|${activeTab}|${waveCounter}`
-      if (lastAutoSpotlightKey.current === key) return
-      lastAutoSpotlightKey.current = key
-      triggerSpotlight(spotlightDurationFor(backdropTheme))
-      return
-    }
-    // Rain / Drift — continuous themes. Show the layer and let the
-    // configurable timer fade it (0 = always on).
+    // One-shot themes — visibility is entirely owned by spotlight.
+    // Bail out so we don't toggle visibility on continuous events; the
+    // layer stays null between explicit triggers.
+    if (backdropTheme === 'fireworks' || backdropTheme === 'tornado') return
+    // Continuous themes (Rain / Drift) — show + auto-fade.
     setBackdropVisible(true)
     if (backdropDurationSec === 0) return
     const timer = setTimeout(() => setBackdropVisible(false), backdropDurationSec * 1000)
