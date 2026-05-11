@@ -130,7 +130,7 @@ export function HamburgerMenu({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.96 }}
           transition={{ type: 'spring', bounce: 0.18, duration: 0.3 }}
-          className="absolute right-0 top-11 w-64 bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden py-1"
+          className="absolute right-0 top-11 w-64 max-h-[calc(100vh-5rem)] bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl shadow-black/40 z-50 overflow-y-auto overflow-x-hidden overscroll-contain py-1"
         >
           {(userEmail || userFullName) && (
             <>
