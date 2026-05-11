@@ -20,18 +20,23 @@
 
 import type { PlatformId } from './types'
 
-// 2026-05-10 v3: dropped Aura, added Fireworks. The two ambient
-// themes (Pulse / Aura) both felt either flat or hokey; Fireworks
-// gives the logos a real moment — bursts of the platform icon
-// scatter outward from random points across the screen, repeat on
-// staggered cycles. Static color shade still always-on (PlatformShade).
-export type BackdropTheme = 'off' | 'rain' | 'drift' | 'fireworks'
+// 2026-05-10 v4 per Dylan: added Tornado — a one-shot spotlight
+// theme like Fireworks. A vertical swirling column of platform
+// icons sweeps L→R then R→L across the page, twice, then fades.
+// Both Fireworks and Tornado are spotlight-only (auto-trigger when
+// picked; layer returns null when spotlight is off).
+//
+// v3 history: dropped Aura, added Fireworks. The two ambient themes
+// (Pulse / Aura) both felt either flat or hokey; Fireworks gives the
+// logos a real moment.
+export type BackdropTheme = 'off' | 'rain' | 'drift' | 'fireworks' | 'tornado'
 
 export const BACKDROP_THEMES: { id: BackdropTheme; label: string; description: string }[] = [
   { id: 'off',       label: 'Off',       description: 'No animation — color shade stays on by default.' },
   { id: 'rain',      label: 'Rain',      description: 'Platform logos fall from the top, slow + sparse.' },
   { id: 'drift',     label: 'Drift',     description: 'Logos float upward like bubbles. Subtle.' },
-  { id: 'fireworks', label: 'Fireworks', description: 'Bursts of the platform icon explode outward from random points. Bold.' },
+  { id: 'fireworks', label: 'Fireworks', description: 'Bursts of the platform icon explode outward. Ends with a Creator Outreach finale. Bold.' },
+  { id: 'tornado',   label: 'Tornado',   description: 'A swirling column of platform logos sweeps the page twice, then disappears.' },
 ]
 
 /** Per-platform brand hue tokens — feed the animations + shades. */

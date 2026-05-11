@@ -21,6 +21,8 @@ export function HamburgerMenu({
   onBackdropThemeChange,
   onTriggerSpotlight,
   spotlightActive,
+  backdropDurationSec,
+  onBackdropDurationChange,
 }: {
   userEmail: string | null
   userFullName: string | null
@@ -39,9 +41,16 @@ export function HamburgerMenu({
    *  full saturation. One-shot trigger; parent owns the timer. */
   onTriggerSpotlight?: () => void
   spotlightActive?: boolean
+  /** User-configurable wave duration. 0 means 'always on' (no fade). */
+  backdropDurationSec?: number
+  onBackdropDurationChange?: (sec: number) => void
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
+  // Themes-section gear popover. Per Dylan 2026-05-10 v2: replaces
+  // the inline subtitle ("Picks up the active platform's color...")
+  // with a gear icon that toggles a small controls panel.
+  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const { theme, setTheme } = useTheme()
   const [themeMounted, setThemeMounted] = useState(false)
@@ -259,11 +268,13 @@ export function HamburgerMenu({
             </button>
           )}
 
-          {/* Backdrop theme picker — sits next to dark/light because
-              both are visual settings (Dylan 2026-05-10). Inline pill
-              row, no thumbnails — the hamburger menu is narrow so
-              keeping it compact reads better than the 5-thumbnail
-              picker that lived in ProfileModal. */}
+          {/* Themes picker — sits next to dark/light because both are
+              visual settings (Dylan 2026-05-10). Renamed from
+              'Backdrop' → 'Themes' in v3 to reflect the broader set of
+              effects (Rain/Drift/Fireworks/Tornado). The descriptive
+              subtitle is now hidden behind a small gear icon that
+              opens a settings panel (duration etc.) so the menu stays
+              compact. */}
           {onBackdropThemeChange && (
             <div className="px-4 py-3 border-t border-border/60">
               <div className="flex items-start gap-3">
@@ -274,8 +285,76 @@ export function HamburgerMenu({
                   </svg>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm text-foreground font-medium leading-tight mb-1">Backdrop</div>
-                  <div className="text-[11px] text-muted-foreground mb-2 leading-snug">Picks up the active platform&apos;s color. Fades after 30s or on first action.</div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="text-sm text-foreground font-medium leading-tight">Themes</div>
+                    {onBackdropDurationChange && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setThemeSettingsOpen(v => !v) }}
+                        title="Theme settings — change how long the wave stays before fading."
+                        aria-label="Theme settings"
+                        aria-expanded={themeSettingsOpen}
+                        className={`p-1 rounded transition-colors ${
+                          themeSettingsOpen
+                            ? 'text-foreground bg-muted/60'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                        }`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Theme-settings panel — collapsible under the gear.
+                      Per Dylan: duration is the main knob; 0s = always on. */}
+                  <AnimatePresence initial={false}>
+                    {themeSettingsOpen && onBackdropDurationChange && (
+                      <motion.div
+                        key="theme-settings"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        className="overflow-hidden mb-2"
+                      >
+                        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <label htmlFor="backdrop-duration" className="text-[11px] text-muted-foreground">
+                              Fade after
+                            </label>
+                            <span className="text-[11px] font-medium text-foreground tabular-nums">
+                              {(backdropDurationSec ?? 30) === 0
+                                ? 'Always on'
+                                : `${backdropDurationSec ?? 30}s`}
+                            </span>
+                          </div>
+                          <input
+                            id="backdrop-duration"
+                            type="range"
+                            min={0}
+                            max={120}
+                            step={5}
+                            value={backdropDurationSec ?? 30}
+                            onChange={(e) => { e.stopPropagation(); onBackdropDurationChange(parseInt(e.target.value, 10)) }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full accent-purple-500"
+                          />
+                          <div className="flex justify-between text-[10px] text-muted-foreground/80 -mt-1">
+                            <span>Always</span>
+                            <span>30s</span>
+                            <span>2m</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground/80 leading-snug pt-1 border-t border-border/40">
+                            Wave picks up the active platform&apos;s color and re-fires on theme/platform change, returning to Results, or hitting Find creators.
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div className="flex flex-wrap gap-1">
                     {BACKDROP_THEMES.map(t => {
                       const isActive = (backdropTheme ?? 'off') === t.id
@@ -296,17 +375,18 @@ export function HamburgerMenu({
                       )
                     })}
                   </div>
-                  {/* Spotlight — 15-second foreground burst at full
-                      saturation. Per Dylan 2026-05-10. Disabled when
-                      theme is Off (nothing to spotlight). */}
+                  {/* Spotlight — foreground burst at full saturation.
+                      Duration is theme-aware (parent supplies the
+                      correct length for one-shot themes like
+                      Fireworks/Tornado). Disabled when theme is Off. */}
                   {onTriggerSpotlight && (
                     <button
                       type="button"
                       disabled={spotlightActive || (backdropTheme ?? 'off') === 'off'}
                       onClick={(e) => { e.stopPropagation(); onTriggerSpotlight() }}
                       title={(backdropTheme ?? 'off') === 'off'
-                        ? 'Pick a backdrop theme first.'
-                        : 'Show the effect in front of everything else at full saturation for 15 seconds.'}
+                        ? 'Pick a theme first.'
+                        : 'Show the effect in front of everything else at full saturation.'}
                       className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
                         spotlightActive
                           ? 'bg-purple-500/20 border-purple-500/50 text-purple-700 dark:text-purple-200 cursor-wait'
@@ -315,7 +395,7 @@ export function HamburgerMenu({
                             : 'border-border text-foreground hover:bg-muted/60 hover:border-foreground/40'
                       }`}
                     >
-                      {spotlightActive ? '✨ Showing… (15s)' : '✨ Spotlight (15s)'}
+                      {spotlightActive ? '✨ Showing…' : '✨ Spotlight'}
                     </button>
                   )}
                 </div>

@@ -4273,7 +4273,7 @@ export default function Home() {
   const [backdropTheme, setBackdropTheme] = useState<BackdropTheme>(() => {
     if (typeof window === 'undefined') return 'off'
     const saved = window.localStorage.getItem('backdrop-theme')
-    if (saved === 'rain' || saved === 'drift' || saved === 'fireworks' || saved === 'off') {
+    if (saved === 'rain' || saved === 'drift' || saved === 'fireworks' || saved === 'tornado' || saved === 'off') {
       return saved
     }
     return 'off'
@@ -4284,21 +4284,40 @@ export default function Home() {
     }
   }, [backdropTheme])
 
+  // 2026-05-10 per Dylan: user-configurable backdrop fade duration.
+  // Lives in the theme settings popover (gear icon next to "Themes"
+  // in the hamburger menu). Range 5–120s; default 30s; 0 means
+  // 'always on' (no auto-fade).
+  const [backdropDurationSec, setBackdropDurationSec] = useState<number>(() => {
+    if (typeof window === 'undefined') return 30
+    const saved = window.localStorage.getItem('backdrop-duration-sec')
+    const n = saved == null ? NaN : parseInt(saved, 10)
+    return Number.isFinite(n) && n >= 0 && n <= 120 ? n : 30
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('backdrop-duration-sec', String(backdropDurationSec))
+    }
+  }, [backdropDurationSec])
+
   // Spotlight mode — 15-second foreground burst per Dylan 2026-05-10.
   // Triggered manually from the hamburger menu. When true, the
   // PlatformBackdrop renders ABOVE all content at full saturation
   // for exactly 15s, then auto-clears.
   const [spotlight, setSpotlight] = useState(false)
   const spotlightTimer = useRef<NodeJS.Timeout | null>(null)
-  function triggerSpotlight() {
+  // Optional durationMs override — Fireworks/Tornado pass their own
+  // show length so the spotlight clears right when the show ends.
+  // Manual Spotlight button defaults to 15s.
+  function triggerSpotlight(durationMs: number = 15_000) {
     setSpotlight(true)
     setBackdropVisible(true) // make sure it's actually visible during the burst
     if (spotlightTimer.current) clearTimeout(spotlightTimer.current)
     spotlightTimer.current = setTimeout(() => {
       setSpotlight(false)
       // Don't auto-fade backdropVisible — let the normal rules
-      // (30s timer / activity triggers) take it from here.
-    }, 15_000)
+      // (configurable duration / activity triggers) take it from here.
+    }, durationMs)
   }
   useEffect(() => {
     // Cleanup on unmount.
@@ -4306,17 +4325,37 @@ export default function Home() {
       if (spotlightTimer.current) clearTimeout(spotlightTimer.current)
     }
   }, [])
-  // Wrapper around setBackdropTheme — when user picks Fireworks,
-  // auto-trigger spotlight per Dylan 2026-05-10. Fireworks is the
-  // 'one-shot 15s show' theme; picking it should immediately start
-  // the show, not just queue it for the Spotlight button.
+  // Per-theme spotlight duration. Used by auto-trigger (theme pick)
+  // AND by the manual Spotlight button so a Fireworks/Tornado pick
+  // gets the show length it expects.
+  function spotlightDurationFor(theme: BackdropTheme): number {
+    if (theme === 'fireworks') return 16_500 // 12-15s show + text hold + buffer
+    if (theme === 'tornado')   return 14_000 // 11.5s show + text hold
+    return 15_000
+  }
+  // Wrapper around setBackdropTheme — Fireworks + Tornado are
+  // one-shot themes that auto-trigger spotlight when picked, with
+  // theme-specific durations.
   function handleBackdropThemeChange(theme: BackdropTheme) {
     setBackdropTheme(theme)
-    if (theme === 'fireworks') {
+    if (theme === 'fireworks' || theme === 'tornado') {
       // Fire on next tick so the theme state has committed before
       // spotlight reads it.
-      setTimeout(() => triggerSpotlight(), 0)
+      setTimeout(() => triggerSpotlight(spotlightDurationFor(theme)), 0)
     }
+  }
+  // Manual-spotlight wrapper used by the menu button — respects the
+  // active theme's natural show length.
+  function handleManualSpotlight() {
+    triggerSpotlight(spotlightDurationFor(backdropTheme))
+  }
+
+  // Wave trigger counter — increment to re-fire the wave on demand.
+  // Used by runSearch so the 'Find creators' click re-triggers the
+  // backdrop even if no theme/platform/tab change occurred.
+  const [waveCounter, setWaveCounter] = useState(0)
+  function triggerBackdropWave() {
+    setWaveCounter(c => c + 1)
   }
 
   // Backdrop visibility state — single source of truth. The driving
@@ -4375,14 +4414,11 @@ export default function Home() {
   const [loadMoreCreators, setLoadMoreCreators] = useState<Creator[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [currentKeyword, setCurrentKeyword] = useState('')
-  // Backdrop fade-on-first-search trigger. Lives here (right after the
-  // currentKeyword declaration) because the corresponding state setter
-  // (setBackdropVisible) is declared earlier in this function, but
-  // currentKeyword itself is in scope only from this line onward —
-  // temporal dead zone otherwise.
-  useEffect(() => {
-    if (currentKeyword) setBackdropVisible(false)
-  }, [currentKeyword])
+  // (Old behavior: the backdrop used to HIDE when a search started.
+  // Per Dylan 2026-05-10 v3 that flipped — the search button now
+  // TRIGGERS the wave via triggerBackdropWave() in runSearch. So the
+  // hide-on-search watcher is gone; the wave plays out for its
+  // configured duration, then fades.)
   // For niche-style searches, hold the underlying occupation list so
   // Load More can keep using the same multi-keyword expansion.
   const [currentKeywordsList, setCurrentKeywordsList] = useState<string[]>([])
@@ -4411,26 +4447,23 @@ export default function Home() {
 
   // Backdrop visibility driver.
   //
-  // 2026-05-10 v2 per Dylan: bug was that the wave only fired on
-  // theme switch. Changing platforms while on Outreach/Dismissed
-  // meant the wave was "spent" and never re-triggered when the user
-  // came back to Results. Now the wave fires on ANY meaningful
-  // change: theme switch, platform switch (while on Results), OR
-  // returning to the Results tab.
+  // 2026-05-10 v3 per Dylan: the wave fires on ANY meaningful change:
+  //   • theme switch
+  //   • platform switch (while on Results)
+  //   • returning to the Results tab from Outreach/Dismissed
+  //   • clicking 'Find creators' (via runSearch → triggerBackdropWave)
   //
   // Rules (spotlight bypasses):
   //   • spotlight active            → bail out, spotlight manages itself
   //   • theme === 'off'             → hide
   //   • activeTab !== 'results'     → hide (backdrop is Results-only)
-  //   • else                        → show, auto-fade after 30s
-  //
-  // The currentKeyword watcher further down adds a one-way "hide on
-  // search" so the backdrop doesn't distract while reviewing results.
+  //   • backdropDurationSec === 0   → stay on permanently (no fade)
+  //   • else                        → show, auto-fade after duration
   //
   // Placement note: this effect references activePlatform, which is
   // declared just above — keeps the temporal-dead-zone clean.
   useEffect(() => {
-    // Don't fight the spotlight — it has its own 15s visibility window
+    // Don't fight the spotlight — it has its own visibility window
     // managed by triggerSpotlight(). When spotlight goes back to false,
     // this effect re-runs and applies the normal rules.
     if (spotlight) return
@@ -4443,9 +4476,11 @@ export default function Home() {
       return
     }
     setBackdropVisible(true)
-    const timer = setTimeout(() => setBackdropVisible(false), 30_000)
+    // Duration = 0 means 'always on' — no fade timer.
+    if (backdropDurationSec === 0) return
+    const timer = setTimeout(() => setBackdropVisible(false), backdropDurationSec * 1000)
     return () => clearTimeout(timer)
-  }, [backdropTheme, activePlatform, activeTab, spotlight])
+  }, [backdropTheme, activePlatform, activeTab, spotlight, waveCounter, backdropDurationSec])
 
   const seenChannelIds = useRef<Set<string>>(new Set())
 
@@ -5360,6 +5395,10 @@ export default function Home() {
     setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
     setShowSearchSimilar(false) // reset every fresh search
+    // Per Dylan 2026-05-10 v3: kicking off a search re-triggers the
+    // backdrop wave so the user sees a visual confirmation. Plays for
+    // the configured duration, then fades.
+    triggerBackdropWave()
 
     // Effective mode for this run — caller-passed override wins over
     // state. Pill clicks pass override so they don't race the state
@@ -5875,14 +5914,14 @@ export default function Home() {
           full saturation for 15 seconds (Dylan 2026-05-10). */}
       <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} spotlight={spotlight} />
       {/* Sticky glass top bar — same width-feel as the page below */}
-      {/* Sticky glass nav — heavy backdrop-blur was hiding the
-          backdrop animation at the top of the page (Dylan
-          2026-05-10: 'top header doesn't have them'). Switched to
-          backdrop-blur-sm + lower bg opacity so the rain/drift/
-          fireworks animations stay visible through the nav while
-          text remains readable thanks to the slight bg-background
-          tint. */}
-      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/40 backdrop-blur-sm">
+      {/* Sticky glass nav — Dylan 2026-05-10 v2: dark mode's
+          bg-background/40 was still too opaque against the near-black
+          --background token, so animations couldn't read at the top.
+          Reduced dark-mode opacity to 10% (light mode unchanged) and
+          relying on backdrop-blur-sm + the border for visual
+          separation. The wordmark + nav text are still readable
+          because the blur softens what's behind. */}
+      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/40 dark:bg-background/10 backdrop-blur-sm">
         <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
@@ -5929,8 +5968,10 @@ export default function Home() {
               onSeedTestData={seedTestData}
               backdropTheme={backdropTheme}
               onBackdropThemeChange={handleBackdropThemeChange}
-              onTriggerSpotlight={triggerSpotlight}
+              onTriggerSpotlight={handleManualSpotlight}
               spotlightActive={spotlight}
+              backdropDurationSec={backdropDurationSec}
+              onBackdropDurationChange={setBackdropDurationSec}
             />
           </div>
         </div>

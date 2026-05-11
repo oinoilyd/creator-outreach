@@ -48,11 +48,11 @@ const SPOTLIGHT_SCALE = 1.15
 
 export function PlatformBackdrop({ theme, platform, visible = true, spotlight = false }: Props) {
   if (theme === 'off') return null
-  // Fireworks is a one-shot 15s show — only renders during spotlight.
-  // When spotlight ends (parent clears it after 15s), the layer
-  // returns null. Re-pick Fireworks or hit the spotlight button to
-  // replay. Keeps idle CPU at zero between shows.
-  if (theme === 'fireworks' && !spotlight) return null
+  // Fireworks + Tornado are one-shot spotlight-only shows. When
+  // spotlight ends, the layer returns null. Re-pick the theme or
+  // hit the spotlight button to replay. Idle CPU is zero between
+  // shows because nothing renders.
+  if ((theme === 'fireworks' || theme === 'tornado') && !spotlight) return null
   const hue = PLATFORM_HUES[platform]
   const iconPath = PLATFORM_ICON_PATH[platform]
 
@@ -78,6 +78,7 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
         {theme === 'rain' && <RainLayer color={hue.color} iconPath={iconPath} spotlight={spotlight} />}
         {theme === 'drift' && <DriftLayer color={hue.color} iconPath={iconPath} spotlight={spotlight} />}
         {theme === 'fireworks' && <FireworksShow color={hue.color} iconPath={iconPath} />}
+        {theme === 'tornado' && <TornadoShow color={hue.color} iconPath={iconPath} />}
       </div>
     </div>
   )
@@ -275,45 +276,191 @@ function FireworksShow({ color, iconPath }: { color: string; iconPath: string })
         </motion.svg>
       ))}
 
-      {/* Easter-egg text — drops in during the finale, peaks at ~14s,
-          fades out by 15s. x/y translate stays at -50% throughout so
-          framer's `scale` keyframes don't clobber the centering. */}
-      <motion.div
-        initial={{ x: '-50%', y: '-50%', scale: 0.3, opacity: 0 }}
-        animate={{
-          x: '-50%',
-          y: '-50%',
-          scale: [0.3, 1.18, 1.0, 1.0, 0.96],
-          opacity: [0, 1, 1, 1, 0],
-        }}
-        transition={{
-          duration: 2.0,
-          delay: 13.0,
-          ease: [0.16, 1, 0.3, 1],
-          times: [0, 0.22, 0.42, 0.85, 1],
-        }}
+      {/* Easter-egg text — drops in during the finale, gentle spring
+          rise, holds visible for ~1.8s, then fades. x/y translate
+          stays at -50% throughout so framer's `scale` keyframes don't
+          clobber the centering. Per Dylan 2026-05-10 v2: much smoother
+          rise (gentler overshoot 1.08 vs 1.18) and a long hold so the
+          words are unmistakably readable. */}
+      <CreatorOutreachEasterEgg color={color} delay={13.0} />
+    </>
+  )
+}
+
+// ── Easter-egg text component (shared by Fireworks + Tornado) ───────
+
+function CreatorOutreachEasterEgg({ color, delay }: { color: string; delay: number }) {
+  return (
+    <motion.div
+      aria-hidden
+      initial={{ x: '-50%', y: '-50%', scale: 0.35, opacity: 0 }}
+      animate={{
+        x: '-50%',
+        y: '-50%',
+        scale: [0.35, 1.08, 1.0, 1.0, 0.98],
+        opacity: [0, 1, 1, 1, 0],
+      }}
+      transition={{
+        duration: 3.5,
+        delay,
+        // Per-segment easing — soft overshoot, gentle settle, linear
+        // hold (no drift), easeIn for the fade so it 'closes' rather
+        // than evaporates.
+        ease: ['easeOut', 'easeInOut', 'linear', 'easeIn'],
+        times: [0, 0.18, 0.32, 0.85, 1],
+      }}
+      style={{
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        willChange: 'transform, opacity',
+        pointerEvents: 'none',
+      }}
+    >
+      <div
         style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          willChange: 'transform, opacity',
-          pointerEvents: 'none',
+          fontSize: 'clamp(2.5rem, 7vw, 5.5rem)',
+          fontWeight: 800,
+          letterSpacing: '-0.03em',
+          color,
+          textShadow: `0 0 24px ${color}, 0 0 56px ${color}, 0 0 96px ${color}`,
+          whiteSpace: 'nowrap',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
-        <div
-          style={{
-            fontSize: 'clamp(2.5rem, 7vw, 5.5rem)',
-            fontWeight: 800,
-            letterSpacing: '-0.03em',
-            color,
-            textShadow: `0 0 24px ${color}, 0 0 56px ${color}, 0 0 96px ${color}`,
-            whiteSpace: 'nowrap',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-          }}
-        >
-          Creator Outreach
-        </div>
+        Creator Outreach
+      </div>
+    </motion.div>
+  )
+}
+
+// ── Tornado (one-shot ~13s two-pass swirl + easter-egg finale) ──────
+
+/**
+ * Vertical swirling column of platform icons sweeps the page in two
+ * passes: left→right, brief pause at the right edge, then right→left,
+ * and finally fades at the left. After both passes complete, the
+ * "Creator Outreach" easter-egg text pops up — same one used by the
+ * Fireworks finale.
+ *
+ * Timeline:
+ *   0.0–4.5s   pass 1 (L→R), easing in/out
+ *   4.5–5.5s   pause at the right edge (spin keeps going)
+ *   5.5–10.5s  pass 2 (R→L)
+ *   10.5–11.5s fade out at the left edge
+ *   10.5–14.0s "Creator Outreach" easter egg
+ *
+ * Spotlight total: ~14s (parent passes durationMs explicitly).
+ *
+ * Each icon orbits the column spine via its own swirl + spin loop, so
+ * the cluster reads as 'tornado-like' even though the outer container
+ * just translates linearly. Taper: icons at the bottom orbit wider
+ * and are larger; icons at the top stay tighter and smaller.
+ */
+function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
+  const icons = useMemo(() => {
+    const N = 34
+    return Array.from({ length: N }, (_, i) => {
+      // Distribute vertically across ~70vh, biased toward the middle
+      // for a denser core.
+      const y = 12 + Math.random() * 76 // 12–88vh
+      // Taper factor: 0 at top, 1 at bottom. Wider orbits at the
+      // bottom give the tornado its cone shape.
+      const taper = (y - 12) / 76
+      const orbitRadius = 14 + taper * 46 // 14–60px
+      // Icons at the bottom are larger.
+      const size = 14 + taper * 12 + Math.floor(Math.random() * 6) // 14–32px
+      // Swirl period — small variation so they don't lock-step.
+      const period = 0.7 + Math.random() * 0.5 // 0.7–1.2s
+      // Random phase so each icon starts at a different point on its
+      // orbit.
+      const phase = Math.random() * Math.PI * 2
+      // Opacity bias — bottom icons slightly more visible.
+      const op = 0.55 + taper * 0.4
+      return { key: i, y, orbitRadius, size, period, phase, op }
+    })
+  }, [])
+
+  return (
+    <>
+      {/* Outer container — translates the whole tornado horizontally
+          in a two-pass back-and-forth. Width is narrow so the column
+          reads as a vertical structure. */}
+      <motion.div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: 0,
+          height: '100vh',
+          willChange: 'transform, opacity',
+        }}
+        // Unified 6-keyframe timeline so x and opacity share `times`.
+        //   0       fade in, still at left (off-screen)
+        //   0.04    visible, beginning pass 1
+        //   0.42    arrived at right edge
+        //   0.50    pause at right
+        //   0.92    arrived back at left
+        //   1.0     faded out
+        animate={{
+          x: ['-12vw', '-12vw', '108vw', '108vw', '-12vw', '-12vw'],
+          opacity: [0, 1, 1, 1, 1, 0],
+        }}
+        transition={{
+          duration: 11.5,
+          times: [0, 0.04, 0.42, 0.50, 0.92, 1],
+          ease: ['linear', 'easeInOut', 'linear', 'easeInOut', 'easeOut'],
+        }}
+      >
+        {icons.map(ic => {
+          // Pre-compute base x from phase so the icon doesn't snap
+          // when the swirl loop starts.
+          const baseX = Math.cos(ic.phase) * ic.orbitRadius
+          return (
+            <motion.svg
+              key={ic.key}
+              viewBox="0 0 24 24"
+              width={ic.size}
+              height={ic.size}
+              fill={color}
+              animate={{
+                // Sinusoidal swirl around the spine — three keyframes
+                // make a 'wobble' that reads as orbital motion when
+                // combined with continuous rotation.
+                x: [
+                  baseX,
+                  baseX + ic.orbitRadius,
+                  baseX,
+                  baseX - ic.orbitRadius,
+                  baseX,
+                ],
+                rotate: [0, 360],
+              }}
+              transition={{
+                duration: ic.period,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: `${ic.y}vh`,
+                opacity: ic.op,
+                transformOrigin: 'center',
+                willChange: 'transform',
+              }}
+            >
+              <path d={iconPath} />
+            </motion.svg>
+          )
+        })}
       </motion.div>
+
+      {/* Easter-egg text — same animation language as the Fireworks
+          finale. Lands AFTER the tornado has cleared, so the words
+          are the visual punctuation. */}
+      <CreatorOutreachEasterEgg color={color} delay={10.5} />
     </>
   )
 }
