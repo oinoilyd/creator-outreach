@@ -3947,8 +3947,56 @@ export default function Home() {
   // To remove a column from the chain, click it past its second
   // direction (asc → desc → off). Default: fit score desc.
   const [sorts, setSorts] = useState<SortKey[]>([{ col: 'fitScore', dir: 'desc' }])
-  const [activeTab, setActiveTab] = useState<ActiveTab>('results')
-  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups'>('all')
+
+  /**
+   * activeTab + outreachSubTab — persisted in the URL (`?tab=outreach&sub=followups`)
+   * so refreshing the page keeps you on the same view. URL is source of
+   * truth, lazily seeded on first read. We also sync back on every change
+   * (replaceState — no extra history entry per click).
+   *
+   * Why URL over localStorage:
+   *   • Shareable — a link to ?tab=outreach&sub=analytics takes someone
+   *     directly to that view
+   *   • Survives incognito + cross-device when you copy-paste
+   *   • Plays nice with the browser's back/forward buttons
+   */
+  function readTabFromUrl(): { tab: ActiveTab; sub: 'all' | 'favorites' | 'analytics' | 'followups' } {
+    if (typeof window === 'undefined') return { tab: 'results', sub: 'all' }
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get('tab')
+    const s = params.get('sub')
+    const tab: ActiveTab =
+      t === 'outreach' || t === 'dismissed' || t === 'results' ? t : 'results'
+    const sub: 'all' | 'favorites' | 'analytics' | 'followups' =
+      s === 'favorites' || s === 'analytics' || s === 'followups' || s === 'all' ? s : 'all'
+    return { tab, sub }
+  }
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => readTabFromUrl().tab)
+  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups'>(
+    () => readTabFromUrl().sub,
+  )
+
+  // Sync state → URL on every change. replaceState (not pushState) so the
+  // user's back button still goes back to where they came from on this site
+  // rather than walking through every tab click.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    // Don't pollute the URL when on the default tab — only set the param
+    // when the user has navigated to something other than the default.
+    if (activeTab === 'results') params.delete('tab')
+    else params.set('tab', activeTab)
+    if (activeTab === 'outreach' && outreachSubTab !== 'all') {
+      params.set('sub', outreachSubTab)
+    } else {
+      params.delete('sub')
+    }
+    const qs = params.toString()
+    const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
+    if (window.location.pathname + window.location.search !== next) {
+      window.history.replaceState(null, '', next)
+    }
+  }, [activeTab, outreachSubTab])
   const [customMetrics, setCustomMetrics] = useState<import('@/lib/types').CustomMetric[]>([])
   const [editingMetric, setEditingMetric] = useState<import('@/lib/types').CustomMetric | null>(null)
   const [showAddMetric, setShowAddMetric] = useState(false)
