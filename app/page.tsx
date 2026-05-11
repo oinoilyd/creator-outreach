@@ -16,6 +16,7 @@ import type {
 } from '@/lib/types'
 import { EMPTY_METRIC_FILTER } from '@/lib/types'
 import { computeMetric, metricTypeLabel, SUGGESTED_METRICS } from '@/lib/metrics'
+import type { BackdropTheme } from '@/lib/backdrop-themes'
 import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
 import { NumberTicker } from '@/components/NumberTicker'
@@ -84,6 +85,10 @@ const SendPreviewModal = dynamic(
 )
 const ThreadModal = dynamic(
   () => import('@/components/ThreadModal').then(m => m.ThreadModal),
+  { ssr: false },
+)
+const PlatformBackdrop = dynamic(
+  () => import('@/components/PlatformBackdrop').then(m => m.PlatformBackdrop),
   { ssr: false },
 )
 const FollowUpWeekStrip = dynamic(
@@ -4253,6 +4258,24 @@ export default function Home() {
       window.localStorage.setItem('email-first-sort', emailFirstSort ? '1' : '0')
     }
   }, [emailFirstSort])
+
+  // Backdrop theme — 5 options ('off' / 'rain' / 'drift' / 'pulse' /
+  // 'aura'), each parameterized by the currently-active platform.
+  // Defaults 'off' so the app stays minimal until the user opts in.
+  // Persisted to localStorage so the chosen vibe survives sessions.
+  const [backdropTheme, setBackdropTheme] = useState<BackdropTheme>(() => {
+    if (typeof window === 'undefined') return 'off'
+    const saved = window.localStorage.getItem('backdrop-theme')
+    if (saved === 'rain' || saved === 'drift' || saved === 'pulse' || saved === 'aura' || saved === 'off') {
+      return saved
+    }
+    return 'off'
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('backdrop-theme', backdropTheme)
+    }
+  }, [backdropTheme])
   const [showExport, setShowExport] = useState(false)
   // Ref + click-outside detection for the tab-nav Settings gear popover.
   // Auto-update search mode pill based on what the classifier sees
@@ -5728,6 +5751,11 @@ export default function Home() {
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
+      {/* Backdrop — animated platform-themed background. Rendered at
+          z-index: 0 underneath all chrome. Off by default; user
+          opts in via Profile → Theme. Re-keys on theme:platform
+          change so the new animation starts at frame 0. */}
+      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} />
       {/* Sticky glass top bar — same width-feel as the page below */}
       <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
@@ -6967,6 +6995,8 @@ export default function Home() {
           initial={profile ?? { fullName: '', linkedinUrl: '', pitchLine: '' }}
           onSave={(next) => setProfile(next)}
           onClose={() => setShowProfile(false)}
+          backdropTheme={backdropTheme}
+          onBackdropThemeChange={setBackdropTheme}
         />
       )}
 
