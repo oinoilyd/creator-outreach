@@ -334,133 +334,211 @@ function CreatorOutreachEasterEgg({ color, delay }: { color: string; delay: numb
   )
 }
 
-// ── Tornado (one-shot ~13s two-pass swirl + easter-egg finale) ──────
+// ── Tornado (one-shot two-pass swirl, NO easter egg) ────────────────
 
 /**
- * Vertical swirling column of platform icons sweeps the page in two
- * passes: left→right, brief pause at the right edge, then right→left,
- * and finally fades at the left. After both passes complete, the
- * "Creator Outreach" easter-egg text pops up — same one used by the
- * Fireworks finale.
+ * Cone-shaped swirling column of platform icons sweeps the page in
+ * two passes: left→right, brief pause at the right edge, then
+ * right→left, then fades. No easter-egg text — that's Fireworks-only.
  *
- * Timeline:
+ * Timeline (~11.5s):
  *   0.0–4.5s   pass 1 (L→R), easing in/out
- *   4.5–5.5s   pause at the right edge (spin keeps going)
+ *   4.5–5.5s   pause at the right edge (swirl keeps going)
  *   5.5–10.5s  pass 2 (R→L)
  *   10.5–11.5s fade out at the left edge
- *   10.5–14.0s "Creator Outreach" easter egg
  *
- * Spotlight total: ~14s (parent passes durationMs explicitly).
+ * Shape: narrow funnel at the top (orbit radius ~5px), wide gusty
+ * base (~85px). Bias toward the bottom so the cone reads with weight.
  *
- * Each icon orbits the column spine via its own swirl + spin loop, so
- * the cluster reads as 'tornado-like' even though the outer container
- * just translates linearly. Taper: icons at the bottom orbit wider
- * and are larger; icons at the top stay tighter and smaller.
+ * Effects (per Dylan 2026-05-10 v2):
+ *   • Per-icon drop-shadow in platform color → depth
+ *   • Subtle blur(0.3px) → motion smear
+ *   • Orbital sweep (x + y oscillate together) → real 3-D swirl feel
+ *   • Ground shadow ellipse breathing at the base → weight
+ *   • Vertical wind streak with pulsing opacity → motion blur trail
+ *   • Debris particles drifting up + away from the spine → gust feel
  */
 function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
   const icons = useMemo(() => {
-    const N = 34
+    const N = 44
     return Array.from({ length: N }, (_, i) => {
-      // Distribute vertically across ~70vh, biased toward the middle
-      // for a denser core.
-      const y = 12 + Math.random() * 76 // 12–88vh
-      // Taper factor: 0 at top, 1 at bottom. Wider orbits at the
-      // bottom give the tornado its cone shape.
-      const taper = (y - 12) / 76
-      const orbitRadius = 14 + taper * 46 // 14–60px
-      // Icons at the bottom are larger.
-      const size = 14 + taper * 12 + Math.floor(Math.random() * 6) // 14–32px
-      // Swirl period — small variation so they don't lock-step.
-      const period = 0.7 + Math.random() * 0.5 // 0.7–1.2s
-      // Random phase so each icon starts at a different point on its
-      // orbit.
+      // Distribute biased toward the bottom — gives the cone a heavy
+      // base. Linear-by-squared so density increases downward.
+      const r = Math.random()
+      const yT = 1 - r * r // bias toward 1 (bottom)
+      const y = 8 + yT * 82 // 8–90vh
+      // Cone taper — power curve so the top stays really tight and
+      // the base flares out aggressively.
+      const taper = (y - 8) / 82 // 0 at top, 1 at bottom
+      const orbitRadius = 5 + Math.pow(taper, 1.3) * 78 // 5–83px
+      // Vertical wobble — small fraction of orbit radius so swirl
+      // reads as orbital, not just horizontal.
+      const yWobble = orbitRadius * 0.28
+      // Size taper — bigger at the wide base.
+      const size = 11 + taper * 18 + Math.floor(Math.random() * 4) // 11–33px
+      // Swirl period — faster at top (tight orbit), slower at bottom
+      // (slow majestic sweep) — matches real tornado dynamics.
+      const period = 0.5 + (1 - taper) * 0.4 + Math.random() * 0.25
       const phase = Math.random() * Math.PI * 2
-      // Opacity bias — bottom icons slightly more visible.
-      const op = 0.55 + taper * 0.4
-      return { key: i, y, orbitRadius, size, period, phase, op }
+      // Opacity bias — bottom more solid, top a bit ghosted.
+      const op = 0.5 + taper * 0.45
+      return { key: i, y, orbitRadius, yWobble, size, period, phase, op }
     })
   }, [])
 
+  // Debris — small icons getting flung off the spine upward and out.
+  const debris = useMemo(() => {
+    return Array.from({ length: 16 }, (_, i) => ({
+      key: `d${i}`,
+      y: 18 + Math.random() * 62, // 18–80vh — mid-tornado where it would shed
+      offsetX: -45 + Math.random() * 90, // -45 to +45px from spine
+      size: 7 + Math.random() * 6, // 7–13px (smaller than core icons)
+      period: 1.0 + Math.random() * 0.8,
+      verticalDrift: 28 + Math.random() * 60,
+      delay: Math.random() * 1.5,
+      op: 0.25 + Math.random() * 0.25,
+    }))
+  }, [])
+
   return (
-    <>
-      {/* Outer container — translates the whole tornado horizontally
-          in a two-pass back-and-forth. Width is narrow so the column
-          reads as a vertical structure. */}
+    <motion.div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: 0,
+        height: '100vh',
+        willChange: 'transform, opacity',
+      }}
+      // Two-pass back-and-forth on a unified 6-keyframe timeline.
+      //   0      fade in, still at left (off-screen)
+      //   0.04   visible, beginning pass 1
+      //   0.42   arrived at right edge
+      //   0.50   pause at right
+      //   0.92   arrived back at left
+      //   1.0    faded out
+      animate={{
+        x: ['-14vw', '-14vw', '108vw', '108vw', '-14vw', '-14vw'],
+        opacity: [0, 1, 1, 1, 1, 0],
+      }}
+      transition={{
+        duration: 11.5,
+        times: [0, 0.04, 0.42, 0.50, 0.92, 1],
+        ease: ['linear', 'easeInOut', 'linear', 'easeInOut', 'easeOut'],
+      }}
+    >
+      {/* Wind streak — vertical gradient column behind the icons,
+          blurred so it reads as motion-smear. Pulsing opacity gives
+          a 'gusting' feel. */}
       <motion.div
-        aria-hidden
+        animate={{ opacity: [0.18, 0.35, 0.22, 0.32, 0.18] }}
+        transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          width: 0,
-          height: '100vh',
-          willChange: 'transform, opacity',
+          left: '-3px',
+          top: '12vh',
+          width: '6px',
+          height: '76vh',
+          background: `linear-gradient(to bottom, transparent 0%, ${color}80 35%, ${color} 70%, ${color}80 100%)`,
+          filter: 'blur(10px)',
+          willChange: 'opacity',
+          pointerEvents: 'none',
         }}
-        // Unified 6-keyframe timeline so x and opacity share `times`.
-        //   0       fade in, still at left (off-screen)
-        //   0.04    visible, beginning pass 1
-        //   0.42    arrived at right edge
-        //   0.50    pause at right
-        //   0.92    arrived back at left
-        //   1.0     faded out
-        animate={{
-          x: ['-12vw', '-12vw', '108vw', '108vw', '-12vw', '-12vw'],
-          opacity: [0, 1, 1, 1, 1, 0],
-        }}
-        transition={{
-          duration: 11.5,
-          times: [0, 0.04, 0.42, 0.50, 0.92, 1],
-          ease: ['linear', 'easeInOut', 'linear', 'easeInOut', 'easeOut'],
-        }}
-      >
-        {icons.map(ic => {
-          // Pre-compute base x from phase so the icon doesn't snap
-          // when the swirl loop starts.
-          const baseX = Math.cos(ic.phase) * ic.orbitRadius
-          return (
-            <motion.svg
-              key={ic.key}
-              viewBox="0 0 24 24"
-              width={ic.size}
-              height={ic.size}
-              fill={color}
-              animate={{
-                // Sinusoidal swirl around the spine — three keyframes
-                // make a 'wobble' that reads as orbital motion when
-                // combined with continuous rotation.
-                x: [
-                  baseX,
-                  baseX + ic.orbitRadius,
-                  baseX,
-                  baseX - ic.orbitRadius,
-                  baseX,
-                ],
-                rotate: [0, 360],
-              }}
-              transition={{
-                duration: ic.period,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: `${ic.y}vh`,
-                opacity: ic.op,
-                transformOrigin: 'center',
-                willChange: 'transform',
-              }}
-            >
-              <path d={iconPath} />
-            </motion.svg>
-          )
-        })}
-      </motion.div>
+      />
 
-      {/* Easter-egg text — same animation language as the Fireworks
-          finale. Lands AFTER the tornado has cleared, so the words
-          are the visual punctuation. */}
-      <CreatorOutreachEasterEgg color={color} delay={10.5} />
-    </>
+      {/* Ground shadow — wide ellipse at the base. Scales horizontally
+          on a loop so the base looks like it's pulsing with the gust. */}
+      <motion.div
+        animate={{ scaleX: [1, 1.18, 0.92, 1.18, 1] }}
+        transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          position: 'absolute',
+          left: '-75px',
+          top: '88vh',
+          width: '150px',
+          height: '22px',
+          background: `radial-gradient(ellipse at center, ${color}55 0%, ${color}22 45%, transparent 75%)`,
+          filter: 'blur(6px)',
+          transformOrigin: 'center',
+          willChange: 'transform',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Core swirl — icons orbiting the spine. */}
+      {icons.map(ic => {
+        // Start positions on the orbit (cos/sin of phase).
+        const sx = Math.cos(ic.phase) * ic.orbitRadius
+        const sy = Math.sin(ic.phase) * ic.yWobble
+        return (
+          <motion.svg
+            key={ic.key}
+            viewBox="0 0 24 24"
+            width={ic.size}
+            height={ic.size}
+            fill={color}
+            // 4-step orbital cycle: cos & sin together → real circular
+            // sweep instead of just a horizontal wobble.
+            animate={{
+              x: [sx, ic.orbitRadius, -sx, -ic.orbitRadius, sx],
+              y: [sy, ic.yWobble, -sy, -ic.yWobble, sy],
+              rotate: [0, 360],
+            }}
+            transition={{
+              duration: ic.period,
+              repeat: Infinity,
+              ease: 'linear', // linear keeps the orbit smooth (no pulsing)
+            }}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: `${ic.y}vh`,
+              opacity: ic.op,
+              transformOrigin: 'center',
+              filter: `drop-shadow(0 2px 6px ${color}aa) blur(0.3px)`,
+              willChange: 'transform, opacity',
+            }}
+          >
+            <path d={iconPath} />
+          </motion.svg>
+        )
+      })}
+
+      {/* Debris — small icons shedding off the tornado, drifting up
+          and outward like dust caught in the gust. Each one fades
+          out as it rises. */}
+      {debris.map(d => (
+        <motion.svg
+          key={d.key}
+          viewBox="0 0 24 24"
+          width={d.size}
+          height={d.size}
+          fill={color}
+          animate={{
+            x: [0, d.offsetX, d.offsetX * 1.4],
+            y: [0, -d.verticalDrift * 0.5, -d.verticalDrift],
+            rotate: [0, 540],
+            opacity: [0, d.op, 0],
+          }}
+          transition={{
+            duration: d.period,
+            delay: d.delay,
+            repeat: Infinity,
+            ease: 'easeOut',
+            times: [0, 0.5, 1],
+          }}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: `${d.y}vh`,
+            filter: 'blur(0.6px)',
+            willChange: 'transform, opacity',
+          }}
+        >
+          <path d={iconPath} />
+        </motion.svg>
+      ))}
+    </motion.div>
   )
 }
