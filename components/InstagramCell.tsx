@@ -1,28 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { useInstagramMetrics, formatFollowers, formatEngagementRate } from '@/lib/hooks/useInstagramMetrics'
 
 /**
  * Drop-in replacement for the existing inline Instagram cell in
- * the Results table. Three states:
+ * the Results table. Two states:
  *
- *   1. Have IG URL → render "DM" link (existing behavior) AND poll
- *      Meta Graph API in the background. Once metrics resolve, swap
- *      to "{followers} · {ER%}" format with the DM link as a tooltip.
+ *   1. Have IG URL → render "DM" link that opens the profile in a new
+ *      tab. (Previously also rendered an inline follower-count badge
+ *      next to "DM" via Meta Graph API polling — removed 2026-05-11
+ *      per Dylan: the badge was visually noisy and the dedicated
+ *      IG Followers column carries the same data when needed.)
  *
  *   2. No IG URL → render a small "Find IG" button. Clicking opens
  *      a tiny inline input where the user can paste a handle. After
- *      submit, the cell saves the URL via the onUpdate callback and
- *      starts polling for metrics.
- *
- *   3. Polling timeout / personal account / unconfigured → fall back
- *      to the original "DM" link with no metrics decoration. The IG
- *      URL still works for outreach copy/click.
- *
- * The polling itself is fire-and-forget per-row — useInstagramMetrics
- * cancels on unmount, so scroll/filter changes don't accumulate
- * pending requests.
+ *      submit, the cell saves the URL via the onUpdate callback.
  */
 
 export interface InstagramCellProps {
@@ -43,8 +35,6 @@ export function InstagramCell({
   readOnly = false,
   className = '',
 }: InstagramCellProps) {
-  const status = useInstagramMetrics(instagramUrl || undefined)
-
   if (instagramUrl) {
     return (
       <span className={`inline-flex items-center gap-1.5 ${className}`}>
@@ -58,7 +48,6 @@ export function InstagramCell({
         >
           DM
         </a>
-        <InstagramMetricsBadge status={status} />
       </span>
     )
   }
@@ -74,58 +63,6 @@ export function InstagramCell({
       className={className}
     />
   )
-}
-
-function InstagramMetricsBadge({ status }: { status: ReturnType<typeof useInstagramMetrics> }) {
-  if (status.status === 'idle') return null
-
-  if (status.status === 'pending') {
-    return (
-      <span
-        title="Fetching Instagram metrics from Meta…"
-        className="text-[10px] text-muted-foreground/70 animate-pulse"
-      >
-        ⋯
-      </span>
-    )
-  }
-
-  if (status.status === 'ready') {
-    const m = status.metrics
-    // ER may be undefined when the source is the public-page scrape
-    // (no per-post engagement data without Meta Graph API).
-    const erText = typeof m.engagementRate === 'number'
-      ? formatEngagementRate(m.engagementRate)
-      : null
-    return (
-      <span
-        title={`@${m.username} · ${m.followers.toLocaleString()} followers${erText ? ` · ${erText} engagement` : ''}`}
-        className="text-[10px] text-muted-foreground tabular-nums"
-      >
-        {formatFollowers(m.followers)}
-        {erText && (
-          <>
-            <span className="opacity-50 mx-0.5">·</span>
-            {erText}
-          </>
-        )}
-      </span>
-    )
-  }
-
-  if (status.status === 'unavailable') {
-    return (
-      <span
-        title="Personal IG account or not found via Meta Graph API. DM link still works."
-        className="text-[10px] text-muted-foreground/50"
-      >
-        ⊘
-      </span>
-    )
-  }
-
-  // unconfigured / invalid_handle / timeout — silent fallback (no badge).
-  return null
 }
 
 /**

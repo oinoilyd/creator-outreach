@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
+import { SeedTestDataButton } from '@/components/admin/SeedTestDataButton'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -132,6 +133,10 @@ export default async function AdminPage() {
                 <span className="text-xs font-mono bg-yellow-500/20 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded" aria-label={`${unresolvedContact} unresolved`}>{unresolvedContact}</span>
               )}
             </Link>
+            {/* Seed test data — admin-only dev tool. Moved here from the
+                hamburger menu (2026-05-11) so the user-app menu stays
+                clean and every admin function lives on /admin. */}
+            <SeedTestDataButton />
             <AuditMenu />
             <ThemeToggle />
             <Link href="/" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors">

@@ -596,10 +596,14 @@ export default function Home() {
     // The cluster is moved to the front of the visible-column list
     // (channel name is implicit, not in colConfig).
     //
-    // YouTube has no dedicated column in Results (the channel-name
-    // cell is the YT link), so for YouTube the cluster is just
-    // [email, instagram, twitter] with channel-name doing the YT
-    // role implicitly.
+    // 2026-05-11 update: for YouTube the cluster is just [email].
+    // Dylan wants YouTube Results to read
+    //   Channel · Email · Fit Score · Avg Views · Subscribers · Last
+    //   Video · Instagram · X · LinkedIn
+    // so the socials stay at the END in their DEFAULT_COLS order
+    // rather than getting hoisted next to email. Other platforms still
+    // get the full cluster treatment because their dedicated column
+    // is the primary signal (IG view leads with the IG col, etc.).
     const TRIO_SOCIALS: ColId[] = ['instagram', 'twitter']
     const selected: ColId | null = (platformConfig.column as ColId | null) ?? null
 
@@ -618,14 +622,17 @@ export default function Home() {
     })
 
     // Build the desired ordered cluster:
-    //   1. selected platform column (if it has one and isn't email)
-    //   2. email
-    //   3. the other two trio socials (in TRIO_SOCIALS order, minus the selected)
+    //   YouTube: [email]                         — socials stay at end
+    //   Other:   [selected, email, other trio socials]
     const clusterIds: ColId[] = []
-    if (selected && selected !== 'email') clusterIds.push(selected)
-    clusterIds.push('email')
-    for (const id of TRIO_SOCIALS) {
-      if (id !== selected) clusterIds.push(id)
+    if (isYouTube) {
+      clusterIds.push('email')
+    } else {
+      if (selected && selected !== 'email') clusterIds.push(selected)
+      clusterIds.push('email')
+      for (const id of TRIO_SOCIALS) {
+        if (id !== selected) clusterIds.push(id)
+      }
     }
     // Remove these from wherever they currently are, then re-insert
     // them at the front of the column list in cluster order.
@@ -1174,129 +1181,10 @@ export default function Home() {
     }
   }
 
-  async function seedTestData() {
-    if (!confirm('Add ~100 real creators to your Outreach with random statuses + dates? This calls the real /api/search endpoint. Cleanup later by deleting rows where notes = "[seed]".')) return
-    const keywords = ['fitness coach', 'cooking', 'gardening', 'tech founder', 'travel vlogger', 'gaming', 'finance content creator', 'photography']
-    const seedToastId = toast.loading(`Seeding 0 / ~100 creators…`, { duration: 120_000 })
-    let added = 0
-    const newEntries: OutreachEntry[] = []
-    const seenIds = new Set<string>(outreach.map(o => o.channelId))
-    const now = Date.now()
-
-    for (const kw of keywords) {
-      try {
-        const url = `/api/search?keyword=${encodeURIComponent(kw)}&maxResults=15&minViews=0&maxViews=999999999`
-        const r = await fetch(url)
-        if (!r.ok) {
-          const errText = await r.text().catch(() => '')
-          console.warn('[seedTestData] search failed', kw, r.status, errText)
-          toast.warning(`Search "${kw}" failed: ${r.status}`)
-          continue
-        }
-        const data = await r.json()
-        const channels = (data.channels || []) as Creator[]
-        if (channels.length === 0) {
-          toast.warning(`No results for "${kw}"`)
-          continue
-        }
-        for (const c of channels.slice(0, 14)) {
-          if (seenIds.has(c.channelId) || added >= 100) continue
-          seenIds.add(c.channelId)
-
-          // Distribute statuses + dates randomly with realistic spread
-          const r1 = Math.random()
-          const status: OutreachEntry['status'] =
-            r1 < 0.15 ? 'Not Outreached' :
-            r1 < 0.45 ? 'Open' :
-            r1 < 0.70 ? 'No Response' :
-            r1 < 0.85 ? 'Successful' : 'Rejected'
-
-          const tps = status === 'Not Outreached' ? 0 : Math.min(5, Math.floor(Math.random() * 6))
-          const reachedDaysAgo = Math.floor(Math.random() * 90)
-          const dateReachedOut = status === 'Not Outreached' ? '' : isoDaysFromNow(-reachedDaysAgo)
-
-          let followUpDate = ''
-          if (status === 'Open') {
-            const r2 = Math.random()
-            if (r2 < 0.20) followUpDate = isoDaysFromNow(-(1 + Math.floor(Math.random() * 10)))
-            else if (r2 < 0.30) followUpDate = todayIso()
-            else if (r2 < 0.65) followUpDate = isoDaysFromNow(1 + Math.floor(Math.random() * 7))
-            else followUpDate = isoDaysFromNow(8 + Math.floor(Math.random() * 30))
-          } else if (status === 'No Response') {
-            followUpDate = Math.random() < 0.5
-              ? isoDaysFromNow(-(1 + Math.floor(Math.random() * 14)))
-              : isoDaysFromNow(1 + Math.floor(Math.random() * 14))
-          }
-          const responseDate = (status === 'Successful' || status === 'Rejected')
-            ? isoDaysFromNow(-Math.floor(Math.random() * 30)) : ''
-
-          const dealValue = Math.random() > 0.70 ? `$${200 + Math.floor(Math.random() * 4800)}` : ''
-          const medium: OutreachEntry['medium'] = (() => {
-            const r3 = Math.random()
-            return r3 < 0.50 ? 'Email' : r3 < 0.80 ? 'LinkedIn' : r3 < 0.90 ? 'Other' : ''
-          })()
-
-          newEntries.push({
-            id: `${c.channelId}-seed-${now + added}`,
-            channelId: c.channelId,
-            channelName: c.channelName,
-            channelUrl: c.channelUrl,
-            description: c.description || '',
-            email: c.email || '',
-            product: '',
-            favorite: Math.random() < 0.20,
-            reachedOut: status !== 'Not Outreached',
-            medium,
-            mediumOther: '',
-            headerUsed: status === 'Not Outreached' ? '' : 'Quick question about your channel',
-            status,
-            addedAt: now - Math.floor(Math.random() * 120 * 86400000),
-            notes: '[seed]',
-            followUpDate,
-            dateReachedOut,
-            touchpoints: tps === 0 ? '' : String(tps),
-            responseDate,
-            subscribers: c.subscribers || '',
-            avgViews: c.avgViews || 0,
-            fitScore: 50 + Math.floor(Math.random() * 50),
-            linkedin: c.linkedin || '',
-            instagram: c.instagram || '',
-            twitter: c.twitter || '',
-            tiktok: c.tiktok || '',
-            website: c.website || '',
-            contentNiche: kw,
-            phone: '',
-            dealValue,
-            contractSent: status === 'Successful' && !!dealValue,
-            meetingScheduled: '',
-          })
-          added++
-        }
-        toast.loading(`Seeding ${added} / ~100 creators…`, { id: seedToastId, duration: 120_000 })
-      } catch (err: any) {
-        console.warn('[seedTestData] keyword failed:', kw, err)
-        toast.warning(`"${kw}" errored: ${err?.message || err}`)
-      }
-      if (added >= 100) break
-    }
-
-    toast.dismiss(seedToastId)
-    if (newEntries.length === 0) {
-      toast.error('No creators added — every search returned 0 or failed. Check console.')
-      return
-    }
-    try {
-      const merged = [...newEntries, ...outreach]
-      await persistOutreach(merged)
-      const fresh = await getOutreach()
-      setOutreach(fresh)
-      setOutreachIds(new Set(fresh.map(e => e.channelId)))
-      toast.success(`Seeded ${newEntries.length} real creators 🎉`, { description: 'Refreshing your queue. Cleanup later by deleting rows where notes="[seed]".' })
-    } catch (err: any) {
-      console.error('[seedTestData] persist failed', err)
-      toast.error(`Persist failed: ${err?.message || err}`)
-    }
-  }
+  // [seedTestData] was here until 2026-05-11 — moved to
+  // POST /api/admin/seed-test-data and surfaced via the
+  // SeedTestDataButton on /admin/page.tsx. Centralizing admin dev
+  // tools on the admin dashboard so the in-app menus stay clean.
 
   async function deepSearchAllOutreach() {
     const targets = outreach.filter(e => !e.email).map(e => e.id)
@@ -2042,7 +1930,6 @@ export default function Home() {
                 alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
                 if (result.ok) window.location.reload()
               }}
-              onSeedTestData={seedTestData}
               backdropTheme={backdropTheme}
               onBackdropThemeChange={handleBackdropThemeChange}
               onTriggerSpotlight={handleManualSpotlight}

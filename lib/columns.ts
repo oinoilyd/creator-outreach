@@ -49,7 +49,19 @@ export const ALL_OUTREACH_COLS: OutreachColDef[] = [
 export const DEFAULT_OUTREACH_COLS: OutreachColConfig[] =
   ALL_OUTREACH_COLS.map(c => ({ ...c, visible: c.defaultVisible, width: c.defaultWidth }))
 
+// 2026-05-11 per Dylan: YouTube column order should be
+//   Channel · Email · Fit Score · Avg Views · Subscribers · Last Video
+//   · Instagram · X · LinkedIn
+// Channel is rendered as a hardcoded header in CreatorTable and isn't
+// part of DEFAULT_COLS. The order below matches everything AFTER
+// Channel. The effectiveColConfig() reorder in app/page.tsx still
+// hoists the active-platform's column to the front for non-YouTube
+// platforms (Instagram view leads with the IG col, etc.), but for
+// YouTube only `email` is hoisted — the socials stay at the end in
+// this order. See app/page.tsx effectiveColConfig for the runtime
+// override.
 export const DEFAULT_COLS: ColConfig[] = [
+  { id: 'email',       label: 'Email',       visible: true  },
   { id: 'fitScore',    label: 'Fit Score',   visible: true  },
   { id: 'avgViews',    label: 'Avg Views',   visible: true  },
   { id: 'subscribers', label: 'Subscribers', visible: true  },
@@ -59,27 +71,20 @@ export const DEFAULT_COLS: ColConfig[] = [
   // so the column reads as mostly empty and ends up noise. Available
   // via Customize Columns when actually needed.
   { id: 'lastShort',   label: 'Last Short',  visible: false },
-  { id: 'email',       label: 'Email',       visible: true  },
+  // Socials default VISIBLE in Results per Dylan 2026-05-10. He sees
+  // strong returns on Instagram + X and wants both surfaced in the
+  // default layout. LinkedIn defaults visible too. Order matches the
+  // PlatformDropdown order: Instagram → X → LinkedIn.
+  { id: 'instagram',   label: 'Instagram',   visible: true  },
+  { id: 'twitter',     label: 'X',           visible: true  },
   { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
   { id: 'website',     label: 'Website',     visible: false },
-  // Instagram defaults VISIBLE in the Results table too — same
-  // reasoning as the Outreach default above. Drives the IG handle
-  // into the search results immediately so users see it before
-  // adding to outreach.
-  { id: 'instagram',   label: 'Instagram',   visible: true  },
   // Instagram-derived metrics — defaults OFF (the Instagram column
   // already gives you the DM link). They auto-show when the user
   // flips the platform filter to Instagram (per platform config in
   // app/page.tsx) and are always available via Customize Columns.
   { id: 'igFollowers', label: 'IG Followers',visible: false },
   { id: 'igPosts',     label: 'IG Posts',    visible: false },
-  // X (twitter) and Instagram both default VISIBLE in Results per
-  // Dylan 2026-05-10. He sees strong returns on X and wants the X
-  // column treated as a peer of Instagram in the default layout.
-  // The reorder logic in effectiveColConfig (app/page.tsx) groups
-  // [selected platform → email → other socials] together as a
-  // contiguous cluster regardless of which platform is active.
-  { id: 'twitter',     label: 'X',           visible: true  },
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 
