@@ -2326,10 +2326,14 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
     gray: 'bg-muted/30 text-muted-foreground border-border',
   }[accent]
 
-  // Smart date label per bucket. For high-priority, distinguish overdue vs today.
+  // Smart date label per bucket. Self-explanatory wording per Dylan's
+  // 2026-05-10 feedback ("'15d' alone doesn't tell you whether it's till
+  // next follow-up or since last contact"). Every label now includes the
+  // semantic — "Follow up in Xd" / "Overdue by Xd" / "Due today" — so the
+  // pill stands alone.
   const dateLabel = (() => {
-    if (bucket === 'ghosted') return 'ghosted'
-    if (bucket === 'unset') return 'no date'
+    if (bucket === 'ghosted') return 'Ghosted'
+    if (bucket === 'unset') return 'No follow-up set'
     const days = daysFromNow(e.followUpDate)
     if (bucket === 'high') {
       // Either overdue or due today — daysFromNow returns 0 for both, so we
@@ -2338,11 +2342,11 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
       if (d) {
         const today = new Date(); today.setHours(0, 0, 0, 0)
         d.setHours(0, 0, 0, 0)
-        if (d.getTime() < today.getTime()) return `${daysAgo(e.followUpDate)} late`
+        if (d.getTime() < today.getTime()) return `Overdue by ${daysAgo(e.followUpDate)}`
       }
-      return 'due today'
+      return 'Due today'
     }
-    return `in ${days}d`
+    return `Follow up in ${days}d`
   })()
 
   // What action does this row prompt?
@@ -2446,9 +2450,9 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
             title="Open lead details"
           >
             <span className="text-foreground/80">{stageHint}</span>
-            {e.dateReachedOut && <span> · reached {daysAgo(e.dateReachedOut)} ago</span>}
+            {e.dateReachedOut && <span> · Sent {daysAgo(e.dateReachedOut)} ago</span>}
             {e.medium && <span> · via {e.medium}</span>}
-            {e.addedAt && <span> · added {formatAddedAtRelative(e.addedAt)}</span>}
+            {e.addedAt && <span> · Added {formatAddedAtRelative(e.addedAt)}</span>}
           </button>
         </div>
 
