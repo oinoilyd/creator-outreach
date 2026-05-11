@@ -5732,20 +5732,24 @@ export default function Home() {
       <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity">
-                <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent leading-none">Creator Outreach</h1>
+            <div className="flex items-center gap-4 min-w-0">
+              <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity shrink-0">
+                {/* Creator Outreach — gradient wordmark with subtle accent dot.
+                    Per Dylan 2026-05-10: top banner got a premium-grade
+                    redesign. Wordmark is denser, more confident; pairs
+                    with the chunky platform pill to its right. */}
+                <h1 className="text-2xl font-bold tracking-[-0.02em] leading-none inline-flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 shadow-md shadow-purple-500/40" aria-hidden />
+                  <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Creator Outreach</span>
+                </h1>
               </Link>
-              {/* "Find [platform] creators" — every child explicitly
-                  uses h-7 + flex items-center so they share the same
-                  vertical metrics. Earlier attempts with just
-                  items-center on the parent + various line-height
-                  combos produced a 1-2px offset because the icon
-                  inside the dropdown button has different intrinsic
-                  height (16px) than the surrounding text x-height.
-                  Locking everyone to 28px tall sidesteps the issue. */}
-              <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
-                <span className="inline-flex items-center h-7 leading-none">Find</span>
+              {/* "Find [LOGO] creators" — chunky platform pill in the
+                  middle. Per Dylan: when a platform is selected the
+                  button shows ONLY that platform's brand logo (no
+                  label text), with a smooth animated transition on
+                  switch. Logo + brand-color glow carries the meaning. */}
+              <div className="hidden md:flex items-center gap-2 text-base">
+                <span className="text-muted-foreground/70 font-medium">Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                   void savePlatformWeights(activePlatform, scoreWeights)
                   void savePlatformNarrative(activePlatform, scoreNarrative)
@@ -5756,7 +5760,7 @@ export default function Home() {
                   setGuidanceEntries(guidance)
                   setActivePlatform(newPlatform)
                 }} />
-                <span className="inline-flex items-center h-7 leading-none">creators</span>
+                <span className="text-muted-foreground/70 font-medium">creators</span>
               </div>
             </div>
             <HamburgerMenu
