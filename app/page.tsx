@@ -6970,6 +6970,7 @@ export default function Home() {
             entry={entry}
             onUpdate={updateOutreachEntry}
             onClose={() => setViewingLeadId(null)}
+            profile={profile}
           />
         )
       })()}

@@ -2,13 +2,19 @@
 
 import { motion } from 'motion/react'
 import { useEffect, useId, useRef } from 'react'
-import type { OutreachEntry } from '@/lib/types'
+import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
+import { buildOutreachEmail, buildOutreachContent, recipientIssue } from '@/lib/format'
+import { copyInstagramDm, copyLinkedInMessage } from '@/lib/outreach'
 
-export function LeadDetailModal({ entry, onUpdate, onClose }: {
+export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
   entry: OutreachEntry
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
   onClose: () => void
+  /** Passed-through so we can decide between Unipile send vs compose-URL
+   *  fallback for the primary CTA. NULL = no profile loaded yet → just
+   *  use the compose-URL path. */
+  profile?: UserProfile | null
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -25,6 +31,69 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
 
   const tps = parseInt(entry.touchpoints || '0', 10) || 0
   const dealValue = parseFloat(String(entry.dealValue || '').replace(/[^0-9.]/g, '')) || 0
+
+  // Primary outreach CTA — picks the modality based on what's available.
+  // Per Dylan 2026-05-10: prefer Email if a valid email exists, else IG
+  // if an Instagram handle exists, else LinkedIn if a profile URL exists,
+  // else don't show the button at all.
+  //
+  // This is ADDITIVE — every other email/IG/LinkedIn trigger in the app
+  // (row icons, day-sheet rows, follow-ups, etc.) keeps working. This
+  // CTA just adds one more entry point for users who navigated into the
+  // lead's detail view first.
+  type Modality = 'email' | 'instagram' | 'linkedin' | null
+  const emailIsValid = recipientIssue(entry.email, profile?.userEmail) === null
+  const igHandle = entry.instagram?.replace('@', '').trim() || ''
+  const igUrl = igHandle ? (igHandle.startsWith('http') ? igHandle : `https://instagram.com/${igHandle}`) : ''
+  const liUrl = (entry.linkedin || '').trim()
+  const modality: Modality =
+    emailIsValid ? 'email'
+    : igUrl ? 'instagram'
+    : liUrl ? 'linkedin'
+    : null
+
+  function handleCta() {
+    if (modality === 'email') {
+      // Match the row-click flow: if Unipile is connected, dispatch the
+      // event that Home() listens for and opens the SendPreviewModal.
+      // Otherwise open the compose-URL (mailto / Gmail web compose).
+      const content = buildOutreachContent(
+        { channelName: entry.channelName, email: entry.email, videoTitles: [], description: entry.description } as unknown as Creator,
+        profile,
+        undefined,
+      )
+      if (profile?.unipileAccountId && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('open-send-modal', {
+          detail: {
+            entryId: entry.id,
+            to: entry.email,
+            subject: content.subject,
+            body: content.body,
+            recipientLabel: entry.channelName,
+          },
+        }))
+        onClose()  // close the detail modal so the send preview is unobstructed
+        return
+      }
+      const href = buildOutreachEmail(
+        { channelName: entry.channelName, email: entry.email, videoTitles: [], description: entry.description } as unknown as Creator,
+        profile,
+        entry.trackingId,
+      )
+      if (href) window.open(href, '_blank', 'noopener,noreferrer')
+      // Auto-flip status to 'No Response' on first click — same rule
+      // as the row-level email click handler in app/page.tsx.
+      if (entry.status === 'Not Outreached' || !entry.status) {
+        onUpdate(entry.id, 'status', 'No Response')
+      }
+    } else if (modality === 'instagram') {
+      window.open(igUrl, '_blank', 'noopener,noreferrer')
+      copyInstagramDm(entry.channelName)
+    } else if (modality === 'linkedin') {
+      window.open(liUrl, '_blank', 'noopener,noreferrer')
+      copyLinkedInMessage(entry.channelName)
+    }
+  }
 
   const statusColor = {
     'Successful': 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
@@ -80,6 +149,61 @@ export function LeadDetailModal({ entry, onUpdate, onClose }: {
             className="text-muted-foreground hover:text-foreground text-lg leading-none shrink-0 w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
           >✕</button>
         </div>
+
+        {/* Primary outreach CTA — picks the available channel.
+            See modality selection above for priority logic. Hidden
+            entirely when no contact method is available. */}
+        {modality && (
+          <div className="px-5 pt-4 pb-4 border-b border-border">
+            <button
+              type="button"
+              onClick={handleCta}
+              className={`w-full inline-flex items-center justify-between gap-3 rounded-xl px-5 py-3.5 font-semibold text-white shadow-md transition-all ${
+                modality === 'email'    ? 'bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-purple-500/20' :
+                modality === 'instagram'? 'bg-gradient-to-br from-pink-500 to-orange-500 hover:from-pink-400 hover:to-orange-400 shadow-pink-500/20' :
+                                          'bg-gradient-to-br from-blue-700 to-blue-600 hover:from-blue-600 hover:to-blue-500 shadow-blue-500/20'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                {modality === 'email' && (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                      <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                    <span className="text-sm">Send outreach email</span>
+                  </>
+                )}
+                {modality === 'instagram' && (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                    </svg>
+                    <span className="text-sm">Send Instagram DM</span>
+                  </>
+                )}
+                {modality === 'linkedin' && (
+                  <>
+                    <span className="text-base font-bold leading-none">in</span>
+                    <span className="text-sm">Open LinkedIn DM</span>
+                  </>
+                )}
+              </span>
+              <span className="text-xs opacity-80">
+                {modality === 'email'    && (profile?.unipileAccountId ? 'preview & send →' : 'opens compose →')}
+                {modality === 'instagram'&& 'opens IG + copies template →'}
+                {modality === 'linkedin' && 'opens LinkedIn + copies template →'}
+              </span>
+            </button>
+            <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
+              {modality === 'email' && `Uses your outreach template${profile?.subjectTemplate ? '' : ' + the default subject line'}.`}
+              {modality === 'instagram' && 'No email on file. Opens Instagram and copies the templated DM to your clipboard — paste in the chat.'}
+              {modality === 'linkedin' && 'No email or Instagram on file. Opens LinkedIn and copies the templated message to your clipboard.'}
+            </p>
+          </div>
+        )}
 
         {/* Channel-level stats */}
         <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-border">
