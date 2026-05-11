@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { BulkJobProvider } from "@/components/BulkJobProvider";
 import { BulkJobBar } from "@/components/BulkJobBar";
+import { CookieConsent } from "@/components/CookieConsent";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -128,6 +129,10 @@ export default function RootLayout({
             <BulkJobBar />
           </BulkJobProvider>
           <Toaster position="bottom-right" />
+          {/* GDPR-style cookie banner — first-visit only, persisted
+              in localStorage. Renders fixed-bottom-right so it doesn't
+              block scroll or hide critical UI. */}
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>

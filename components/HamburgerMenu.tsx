@@ -506,6 +506,27 @@ export function HamburgerMenu({
             </div>
           </button>
 
+          {/* Legal — Terms / Privacy / Refunds / Cookies. Compact
+              inline row so the menu doesn't bloat. Per Dylan
+              2026-05-11: legal docs need to be reachable from the
+              authenticated app, not just the landing page footer. */}
+          <div className="px-4 pt-3 pb-2 border-t border-border/60">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-muted-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </span>
+              <div className="text-sm text-foreground font-medium leading-tight">Legal</div>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 pl-6 text-[11px]">
+              <a href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms</a>
+              <a href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</a>
+              <a href="/refunds" className="text-muted-foreground hover:text-foreground transition-colors">Refunds</a>
+              <a href="/cookies" className="text-muted-foreground hover:text-foreground transition-colors">Cookies</a>
+            </div>
+          </div>
+
           <div className="mx-4 my-1 border-t border-border" />
 
           {/* Sign out */}
