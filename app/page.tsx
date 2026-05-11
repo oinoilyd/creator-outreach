@@ -4276,6 +4276,40 @@ export default function Home() {
       window.localStorage.setItem('backdrop-theme', backdropTheme)
     }
   }, [backdropTheme])
+
+  // 2026-05-10 per Dylan: backdrop should show briefly on switch
+  // / initial load, then fade out so it doesn't distract during work.
+  // Fade triggers (any one fires):
+  //   1) 30 seconds since last theme switch
+  //   2) User initiated a search (currentKeyword goes from empty → set)
+  //   3) User switched to Outreach or Dismissed tab
+  // Setting theme back to 'off' just hides it; the visibility-fade
+  // applies only when a theme is actively selected.
+  const [backdropVisible, setBackdropVisible] = useState<boolean>(false)
+  // Show on theme switch (and on initial load if a theme is persisted)
+  useEffect(() => {
+    if (backdropTheme === 'off') {
+      setBackdropVisible(false)
+      return
+    }
+    setBackdropVisible(true)
+    const timer = setTimeout(() => setBackdropVisible(false), 30_000)
+    return () => clearTimeout(timer)
+  }, [backdropTheme])
+  // Fade when user starts working
+  useEffect(() => {
+    if (activeTab === 'outreach' || activeTab === 'dismissed') {
+      setBackdropVisible(false)
+    }
+  }, [activeTab])
+  // Fade once an actual search has happened. currentKeyword goes
+  // from '' to the search query when runSearch fires — that's the
+  // "user is now in working mode, get out of the way" signal.
+  useEffect(() => {
+    if (currentKeyword) {
+      setBackdropVisible(false)
+    }
+  }, [currentKeyword])
   const [showExport, setShowExport] = useState(false)
   // Ref + click-outside detection for the tab-nav Settings gear popover.
   // Auto-update search mode pill based on what the classifier sees
@@ -5754,8 +5788,13 @@ export default function Home() {
       {/* Backdrop — animated platform-themed background. Rendered at
           z-index: 0 underneath all chrome. Off by default; user
           opts in via Profile → Theme. Re-keys on theme:platform
-          change so the new animation starts at frame 0. */}
-      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} />
+          change so the new animation starts at frame 0.
+          `visible` controls a smooth opacity fade — per Dylan: show
+          for ~30s on theme switch / initial load, fade out once the
+          user starts working (search runs, or switches to Outreach /
+          Dismissed). Animations keep running internally so when the
+          user re-toggles a theme, it's already at speed. */}
+      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} />
       {/* Sticky glass top bar — same width-feel as the page below */}
       <div className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>

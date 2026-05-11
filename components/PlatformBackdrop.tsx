@@ -27,9 +27,13 @@ import {
 interface Props {
   theme: BackdropTheme
   platform: PlatformId
+  /** 2026-05-10 — controls a smooth opacity fade. Layer stays
+   *  mounted (animations keep running) so toggling back on snaps
+   *  to full speed instantly. Defaults true for backwards-compat. */
+  visible?: boolean
 }
 
-export function PlatformBackdrop({ theme, platform }: Props) {
+export function PlatformBackdrop({ theme, platform, visible = true }: Props) {
   if (theme === 'off') return null
   const hue = PLATFORM_HUES[platform]
   const iconPath = PLATFORM_ICON_PATH[platform]
@@ -38,8 +42,14 @@ export function PlatformBackdrop({ theme, platform }: Props) {
     <div
       key={`${theme}:${platform}`}
       aria-hidden
-      className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 0 }}
+      className="fixed inset-0 pointer-events-none overflow-hidden transition-opacity ease-out"
+      style={{
+        zIndex: 0,
+        opacity: visible ? 1 : 0,
+        // Slow fade-out reads as deliberate; faster fade-in feels
+        // responsive when the user just changed themes.
+        transitionDuration: visible ? '300ms' : '1500ms',
+      }}
     >
       {theme === 'rain' && <RainLayer color={hue.color} iconPath={iconPath} />}
       {theme === 'drift' && <DriftLayer color={hue.color} iconPath={iconPath} />}
