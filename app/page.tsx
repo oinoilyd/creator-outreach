@@ -5734,21 +5734,19 @@ export default function Home() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity shrink-0">
-                {/* Creator Outreach — clean wordmark. The accent-dot
-                    version was too cute for an in-app surface (Dylan
-                    2026-05-10: 'design feels cheesy'). Quiet gradient
-                    on the text gives just enough warmth without
-                    extra ornaments. */}
-                <h1 className="text-xl font-semibold tracking-[-0.015em] leading-none bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent">
+                {/* Creator Outreach — confident wordmark. v3 (Dylan
+                    2026-05-10): kept the gradient text-fill, sized
+                    back up so it sits as a peer with the chunkier
+                    platform pill instead of feeling smaller than it. */}
+                <h1 className="text-2xl font-bold tracking-[-0.02em] leading-none bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent">
                   Creator Outreach
                 </h1>
               </Link>
-              {/* "Find [icon] [label] creators" — quiet utility pill in
-                  the middle. v1's chunky logo-only + brand-glow design
-                  was too marketing-page energy for an interior control
-                  clicked dozens of times per session. */}
-              <div className="hidden md:flex items-center gap-1.5 text-sm">
-                <span className="text-muted-foreground">Find</span>
+              {/* "Find [colored logo] creators" — brand-color icon is
+                  the pop. Surrounding text gets font-medium contrast
+                  so it doesn't disappear next to the chunkier pill. */}
+              <div className="hidden md:flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground/90 font-medium">Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                   void savePlatformWeights(activePlatform, scoreWeights)
                   void savePlatformNarrative(activePlatform, scoreNarrative)
@@ -5759,7 +5757,7 @@ export default function Home() {
                   setGuidanceEntries(guidance)
                   setActivePlatform(newPlatform)
                 }} />
-                <span className="text-muted-foreground">creators</span>
+                <span className="text-muted-foreground/90 font-medium">creators</span>
               </div>
             </div>
             <HamburgerMenu
