@@ -19,6 +19,10 @@ import type { BackdropTheme } from '@/lib/backdrop-themes'
 import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
 import { NumberTicker } from '@/components/NumberTicker'
+import { Section } from '@/components/shared/Section'
+import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
+import { AStat } from '@/components/shared/AStat'
+import { StackedBar } from '@/components/shared/StackedBar'
 import { AnimatedTabs, tabId, tabPanelId } from '@/components/AnimatedTabs'
 import { OutreachSubTabs } from '@/components/outreach/OutreachSubTabs'
 import { AnimatedRow } from '@/components/AnimatedRow'
@@ -2197,60 +2201,6 @@ function FollowUpDaySheet({
   )
 }
 
-function Section({ title, accent, count, subtitle, icon, children, headerRight }: {
-  title: string
-  accent: 'red' | 'yellow' | 'blue' | 'green'
-  count: number
-  subtitle?: string
-  icon?: React.ReactNode
-  children: React.ReactNode
-  /** Right-floated slot in the header row — used by the Follow-ups
-   *  tab to embed the sort pills inline with the first section header
-   *  instead of as a separate row above. */
-  headerRight?: React.ReactNode
-}) {
-  const accentText = { red: 'text-red-700 dark:text-red-300', yellow: 'text-amber-800 dark:text-yellow-300', blue: 'text-blue-700 dark:text-blue-300', green: 'text-emerald-700 dark:text-emerald-300' }[accent]
-  const accentBorder = { red: 'border-red-200 dark:border-red-500/40', yellow: 'border-amber-200 dark:border-yellow-500/40', blue: 'border-blue-200 dark:border-blue-500/30', green: 'border-emerald-200 dark:border-emerald-500/30' }[accent]
-  return (
-    <section>
-      <div className="flex items-center gap-2 mb-3">
-        {icon}
-        <h3 className={`text-sm font-semibold ${accentText}`}>{title}</h3>
-        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${accentBorder} ${accentText}`}>{count}</span>
-        {subtitle && <span className="text-[11px] text-muted-foreground ml-1">· {subtitle}</span>}
-        {headerRight && <div className="ml-auto">{headerRight}</div>}
-      </div>
-      <div className="space-y-2">{children}</div>
-    </section>
-  )
-}
-
-function CollapsibleSection({ title, count, subtitle, open, onToggle, children }: {
-  title: string
-  count: number
-  subtitle?: string
-  open: boolean
-  onToggle: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <section className="border-t border-border pt-4">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 text-left hover:bg-card/30 rounded px-1 py-1 -mx-1 transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-        <h3 className="text-sm font-semibold text-foreground/80">{title}</h3>
-        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-border text-muted-foreground">{count}</span>
-        {subtitle && <span className="text-[11px] text-muted-foreground ml-1">· {subtitle}</span>}
-      </button>
-      {open && <div className="space-y-2 mt-3">{children}</div>}
-    </section>
-  )
-}
-
 // Inline pipeline value editor for the follow-ups row. Click → input
 // appears, type a number, blur or Enter to save. Empty zero shows a
 // faint $ placeholder so the click target is always there.
@@ -3240,45 +3190,6 @@ function CustomMetricCard({ metric, entries }: {
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5 truncate" title={metric.label}>{metric.label}</div>
       <div className="text-2xl font-bold text-foreground tabular-nums">{value}</div>
       <div className="text-[11px] text-muted-foreground mt-1 capitalize">{metricTypeLabel(metric)}</div>
-    </div>
-  )
-}
-
-function AStat({ label, value, sub, highlight }: { label: string; value: number | string; sub?: string; highlight?: boolean }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '0px' }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      className={`relative bg-card/60 border rounded-xl p-4 shadow-sm shadow-black/5 hover:border-border/80 transition-colors ${highlight ? 'border-red-500/40' : 'border-border'}`}
-    >
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</div>
-      <div className={`text-2xl font-bold tabular-nums ${highlight ? 'text-red-700 dark:text-red-400' : 'text-foreground'}`}>
-        {typeof value === 'number' ? <NumberTicker value={value} /> : value}
-      </div>
-      {sub && <div className="text-[11px] text-muted-foreground mt-1">{sub}</div>}
-    </motion.div>
-  )
-}
-
-function StackedBar({ segments, total }: { segments: { label: string; value: number; color: string }[]; total: number }) {
-  return (
-    <div>
-      <div className="flex h-3 rounded-full overflow-hidden bg-muted">
-        {segments.map(s => s.value > 0 && (
-          <div key={s.label} className={s.color} style={{ width: `${(s.value / total) * 100}%` }} title={`${s.label}: ${s.value}`} />
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-        {segments.map(s => (
-          <div key={s.label} className="flex items-center gap-1.5 text-xs">
-            <span className={`w-2.5 h-2.5 rounded-sm ${s.color}`} />
-            <span className="text-muted-foreground">{s.label}</span>
-            <span className="text-foreground tabular-nums">{s.value}</span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
