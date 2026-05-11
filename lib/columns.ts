@@ -73,7 +73,13 @@ export const DEFAULT_COLS: ColConfig[] = [
   // app/page.tsx) and are always available via Customize Columns.
   { id: 'igFollowers', label: 'IG Followers',visible: false },
   { id: 'igPosts',     label: 'IG Posts',    visible: false },
-  { id: 'twitter',     label: 'X',           visible: false },
+  // X (twitter) and Instagram both default VISIBLE in Results per
+  // Dylan 2026-05-10. He sees strong returns on X and wants the X
+  // column treated as a peer of Instagram in the default layout.
+  // The reorder logic in effectiveColConfig (app/page.tsx) groups
+  // [selected platform → email → other socials] together as a
+  // contiguous cluster regardless of which platform is active.
+  { id: 'twitter',     label: 'X',           visible: true  },
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 

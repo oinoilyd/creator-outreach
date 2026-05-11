@@ -4367,40 +4367,65 @@ export default function Home() {
   // Effective col config: bring the platform's column to the front and ensure it's visible
   const effectiveColConfig = useMemo(() => {
     const isYouTube = platformConfig.id === 'youtube'
-    // Per-platform metric columns to auto-show — IG today, more later
-    // (TikTok / Twitter / LinkedIn would slot in here when we wire
-    // those data sources). Comes from PLATFORM_AUTOSHOW_COLS in
-    // lib/columns.ts so the platform-data plumbing stays in one
-    // place.
     const autoShow = PLATFORM_AUTOSHOW_COLS[platformConfig.id] ?? []
 
-    // For non-YouTube platforms: hide YouTube-only metrics, show & front-load the platform column
+    // 2026-05-10 per Dylan: 'when you change Find ___ creators,
+    // Insta/YouTube/X should default on the results columns; the
+    // selected one is first, then email, then the other two; if a
+    // 4th social is selected outside those 3, there will be 4
+    // total.' Implemented as an explicit ordered cluster below:
+    //   selected-platform-col → email → other social cols
+    // The cluster is moved to the front of the visible-column list
+    // (channel name is implicit, not in colConfig).
+    //
+    // YouTube has no dedicated column in Results (the channel-name
+    // cell is the YT link), so for YouTube the cluster is just
+    // [email, instagram, twitter] with channel-name doing the YT
+    // role implicitly.
+    const TRIO_SOCIALS: ColId[] = ['instagram', 'twitter']
+    const selected: ColId | null = (platformConfig.column as ColId | null) ?? null
+
     let cols = colConfig.map(c => {
+      // Hide YouTube-only metrics on non-YouTube platforms.
       if (!isYouTube && (c.id === 'avgViews' || c.id === 'subscribers' || c.id === 'lastVideo' || c.id === 'lastShort')) {
         return { ...c, visible: false }
       }
-      if (platformConfig.column && c.id === platformConfig.column) {
-        return { ...c, visible: true }
-      }
-      // Platform-specific auto-show columns (e.g. IG followers + posts
-      // when activePlatform === 'instagram').
-      if (autoShow.includes(c.id)) {
-        return { ...c, visible: true }
-      }
+      // Force the selected platform's column visible.
+      if (selected && c.id === selected) return { ...c, visible: true }
+      // Force email + trio socials always visible in Results.
+      if (c.id === 'email' || TRIO_SOCIALS.includes(c.id)) return { ...c, visible: true }
+      // Platform-specific auto-show columns (e.g. IG followers + posts).
+      if (autoShow.includes(c.id)) return { ...c, visible: true }
       return c
     })
-    if (platformConfig.column) {
-      const idx = cols.findIndex(c => c.id === platformConfig.column)
-      if (idx > 0) {
-        const [moved] = cols.splice(idx, 1)
-        cols.unshift(moved)
+
+    // Build the desired ordered cluster:
+    //   1. selected platform column (if it has one and isn't email)
+    //   2. email
+    //   3. the other two trio socials (in TRIO_SOCIALS order, minus the selected)
+    const clusterIds: ColId[] = []
+    if (selected && selected !== 'email') clusterIds.push(selected)
+    clusterIds.push('email')
+    for (const id of TRIO_SOCIALS) {
+      if (id !== selected) clusterIds.push(id)
+    }
+    // Remove these from wherever they currently are, then re-insert
+    // them at the front of the column list in cluster order.
+    const cluster: ColConfig[] = []
+    for (const id of clusterIds) {
+      const idx = cols.findIndex(c => c.id === id)
+      if (idx >= 0) {
+        const [m] = cols.splice(idx, 1)
+        cluster.push(m)
       }
     }
-    // Move the auto-show metric columns right after the platform
-    // column so the user sees them next to the handle they came from.
-    if (autoShow.length > 0) {
-      const insertAfter = cols.findIndex(c => c.id === platformConfig.column)
-      const target = insertAfter >= 0 ? insertAfter + 1 : 0
+    cols = [...cluster, ...cols]
+
+    // Position auto-show metric columns (e.g. IG followers/posts) right
+    // after the platform's social column so they read together.
+    if (autoShow.length > 0 && selected) {
+      const anchor = cols.findIndex(c => c.id === selected)
+      const target = anchor >= 0 ? anchor + 1 : 0
       const moved: ColConfig[] = []
       for (const id of autoShow) {
         const idx = cols.findIndex(c => c.id === id)
