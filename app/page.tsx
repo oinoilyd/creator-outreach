@@ -48,6 +48,7 @@ import {
 import { DismissedTab } from '@/components/DismissedTab'
 import { PlatformDropdown } from '@/components/PlatformDropdown'
 import { HamburgerMenu } from '@/components/HamburgerMenu'
+import { UpgradeButton, computeUpgradeLabel } from '@/components/billing/UpgradeButton'
 // Lazy-loaded modal mounts (2026-05-09). Each of these only renders
 // after a user click — there's no reason for them to ride along on
 // the initial JS bundle. Switching to next/dynamic with the named-
@@ -537,6 +538,16 @@ export default function Home() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  // Stripe subscription state — populated alongside profile. The fields
+  // are nullable because most users haven't subscribed yet; the UI
+  // treats null as "no subscription, show pricing CTA".
+  const [subscription, setSubscription] = useState<{
+    status: string | null
+    priceId: string | null
+    currentPeriodEnd: string | null
+    cancelAtPeriodEnd: boolean
+    stripeCustomerId: string | null
+  } | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [hasBackup, setHasBackup] = useState(false)
@@ -681,7 +692,7 @@ export default function Home() {
         // Use maybeSingle so missing row returns null instead of erroring
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address')
+          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end')
           .eq('user_id', user.id)
           .maybeSingle()
 
@@ -692,7 +703,7 @@ export default function Home() {
           const { data: inserted } = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address')
+            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end')
             .single()
           profileRow = inserted
         }
@@ -749,6 +760,25 @@ export default function Home() {
             physicalAddress: profileRow.physical_address ?? null,
           })
           setUnipileConnected(!!profileRow.unipile_account_id)
+          // Stripe subscription mirror. profileRow may not have these
+          // columns yet on environments where migration 0022 hasn't
+          // been applied — guard accordingly. Casting via a typed
+          // helper since the wider profile select returns a permissive
+          // shape and we don't want a TS error on missing optional cols.
+          const subRow = profileRow as typeof profileRow & {
+            stripe_customer_id?: string | null
+            subscription_status?: string | null
+            subscription_price_id?: string | null
+            subscription_current_period_end?: string | null
+            subscription_cancel_at_period_end?: boolean | null
+          }
+          setSubscription({
+            status: subRow.subscription_status ?? null,
+            priceId: subRow.subscription_price_id ?? null,
+            currentPeriodEnd: subRow.subscription_current_period_end ?? null,
+            cancelAtPeriodEnd: !!subRow.subscription_cancel_at_period_end,
+            stripeCustomerId: subRow.stripe_customer_id ?? null,
+          })
           if (!profileRow.onboarded) {
             setShowOnboarding(true)
           }
@@ -1917,28 +1947,45 @@ export default function Home() {
                 <span className="text-muted-foreground/90 font-medium">creators</span>
               </div>
             </div>
-            <HamburgerMenu
-              userEmail={userEmail}
-              userFullName={profile?.fullName || null}
-              onOpenScoreSettings={() => setShowScoreSettings(true)}
-              onOpenProfile={() => setShowProfile(true)}
-              onImportOutreach={() => setShowImport(true)}
-              onImportDismissed={() => setShowImportDismissed(true)}
-              showRetryMigration={hasBackup}
-              onRetryMigration={async () => {
-                const result = await retryMigrationFromBackup()
-                alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
-                if (result.ok) window.location.reload()
-              }}
-              backdropTheme={backdropTheme}
-              onBackdropThemeChange={handleBackdropThemeChange}
-              onTriggerSpotlight={handleManualSpotlight}
-              spotlightActive={spotlight}
-              backdropDurationSec={backdropDurationSec}
-              onBackdropDurationChange={setBackdropDurationSec}
-              spotlightAlwaysOn={spotlightAlwaysOn}
-              onSpotlightAlwaysOnChange={setSpotlightAlwaysOn}
-            />
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Upgrade / Manage CTA — hides when Stripe isn't
+                  configured (e.g. dev/preview without env vars). */}
+              <UpgradeButton
+                subscription={subscription}
+                stripeConfigured={!!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+              />
+              <HamburgerMenu
+                userEmail={userEmail}
+                userFullName={profile?.fullName || null}
+                onOpenScoreSettings={() => setShowScoreSettings(true)}
+                onOpenProfile={() => setShowProfile(true)}
+                onImportOutreach={() => setShowImport(true)}
+                onImportDismissed={() => setShowImportDismissed(true)}
+                showRetryMigration={hasBackup}
+                onRetryMigration={async () => {
+                  const result = await retryMigrationFromBackup()
+                  alert(result.ok ? `✓ ${result.message} Refreshing…` : `Migration retry failed: ${result.message}`)
+                  if (result.ok) window.location.reload()
+                }}
+                backdropTheme={backdropTheme}
+                onBackdropThemeChange={handleBackdropThemeChange}
+                onTriggerSpotlight={handleManualSpotlight}
+                spotlightActive={spotlight}
+                backdropDurationSec={backdropDurationSec}
+                onBackdropDurationChange={setBackdropDurationSec}
+                spotlightAlwaysOn={spotlightAlwaysOn}
+                onSpotlightAlwaysOnChange={setSpotlightAlwaysOn}
+                subscriptionHref={
+                  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+                    ? '/pricing'
+                    : null
+                }
+                subscriptionLabel={(() => {
+                  const l = computeUpgradeLabel(subscription)
+                  return { cta: l.cta === 'Upgrade' ? 'Pricing' : l.cta, status: l.hint ?? 'Plans & checkout' }
+                })()}
+              />
+            </div>
           </div>
         </div>
       </div>

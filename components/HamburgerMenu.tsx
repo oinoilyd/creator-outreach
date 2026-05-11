@@ -24,6 +24,8 @@ export function HamburgerMenu({
   onBackdropDurationChange,
   spotlightAlwaysOn,
   onSpotlightAlwaysOnChange,
+  subscriptionHref,
+  subscriptionLabel,
 }: {
   userEmail: string | null
   userFullName: string | null
@@ -48,6 +50,12 @@ export function HamburgerMenu({
    *  render at boosted opacity always. Doesn't affect one-shot themes. */
   spotlightAlwaysOn?: boolean
   onSpotlightAlwaysOnChange?: (on: boolean) => void
+  /** Pricing menu entry — href is /pricing for users without a sub,
+   *  or a portal-trigger href when they have one. Parent owns the
+   *  click semantics (it can override onClick if needed). When undefined
+   *  the menu item is hidden — e.g. when Stripe isn't configured. */
+  subscriptionHref?: string | null
+  subscriptionLabel?: { cta: string; status: string } | null
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
@@ -478,6 +486,35 @@ export function HamburgerMenu({
           )}
 
           <div className="mx-4 my-1 border-t border-border" />
+
+          {/* Pricing — between Themes and Legal per Dylan 2026-05-11.
+              Surfaces the upgrade flow from inside the app without
+              forcing users back to the marketing site. The badge under
+              the label reflects current subscription state when
+              available (parent passes subscriptionLabel). */}
+          {subscriptionHref && (
+            <a
+              href={subscriptionHref}
+              onClick={() => setOpen(false)}
+              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            >
+              <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm text-foreground font-medium leading-tight">
+                  {subscriptionLabel?.cta ?? 'Pricing'}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                  {subscriptionLabel?.status ?? 'Plans & checkout'}
+                </div>
+              </div>
+            </a>
+          )}
+
+          {subscriptionHref && <div className="mx-4 my-1 border-t border-border" />}
 
           {/* Contact Us */}
           <button

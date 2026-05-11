@@ -533,7 +533,7 @@ export default async function LandingPage() {
           {/* "Customers" anchor was removed — there's no #customers
               section on the page, and footer links into nowhere are
               an SEO/UX dead-link. */}
-          <FooterCol heading="Product"   links={[['Overview','#product'],['Solutions','#solutions'],['Pricing','#pricing']]} />
+          <FooterCol heading="Product"   links={[['Overview','#product'],['Solutions','#solutions'],['Pricing','#pricing'],['Plans & checkout','/pricing']]} />
           {/* Resources column — every entry currently says "Coming
               soon" because none of the long-form content (guides,
               playbooks, changelog) is published yet. Honest framing
