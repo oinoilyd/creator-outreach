@@ -6825,7 +6825,13 @@ export default function Home() {
               bulkRunning={resultsBulkRunning}
               onUpdateInstagram={updateInstagramHandle}
             />
-            {activeTab === 'results' && (
+            {/* Per Dylan 2026-05-10: 'Load More Creators' should not
+                appear at all before any search has happened. Previously
+                the button was disabled but visible, which created a
+                misleading 'something to click' affordance on a blank
+                page. Now it shows only once currentKeyword is set
+                (i.e. a search has run at least once). */}
+            {activeTab === 'results' && !!currentKeyword && (
               <div className="mt-5 flex flex-col items-center gap-2">
                 {loadingMore ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -6835,7 +6841,7 @@ export default function Home() {
                 ) : (
                   <button
                     onClick={handleLoadMore}
-                    disabled={!currentKeyword || loading}
+                    disabled={loading}
                     className="px-6 py-2 bg-muted hover:bg-muted border border-border hover:border-border text-foreground/80 hover:text-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     Load More Creators
