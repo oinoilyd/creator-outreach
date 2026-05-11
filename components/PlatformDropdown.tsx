@@ -4,18 +4,17 @@
  * PlatformDropdown — the "Find [LOGO] creators" affordance in the
  * top banner.
  *
- * 2026-05-10 v2 redesign per Dylan ('design feels cheesy'): pulled
- * way back on the marketing-pages energy (gradient bgs, glow rings,
- * HIGH ROI tags, scale+rotate animations). This control is in the
- * app interior, clicked dozens of times per session — it should feel
- * like Linear/Notion utility, not a hero CTA.
- *
- * The restrained version:
- *   • Just the brand-colored icon + tiny chevron in a quiet pill
- *   • Subtle hover state (background lightens, no scale jump)
- *   • Simple opacity-fade transition on platform change (no rotate)
- *   • Dropdown options use a small left-rail icon + "(suggested)"
- *     hint for the three platforms with proven returns
+ * Design history:
+ *   v1: gradient bg + glow + scale+rotate spring + "HIGH ROI" tag
+ *       — too cheesy for an in-app control (Dylan)
+ *   v2: stripped everything, h-8 with neutral border + bare icon
+ *       — too restrained, "STILL NO POP"
+ *   v3: h-10 with bigger 22px icon, brand-color icons against neutral
+ *       — "colors kinda feel out of place", transition too slow
+ *   v4 (this): icon contained in a brand-tinted soft ring so the
+ *       color reads as intentional UI ornament, not a sticker. Faster
+ *       transition (no scale, ~70ms opacity only). Pill itself stays
+ *       muted; the ring is what carries the brand hint.
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -23,6 +22,18 @@ import { motion, AnimatePresence } from 'motion/react'
 import type { PlatformId } from '@/lib/types'
 import { PLATFORM_CONFIGS } from '@/lib/platform'
 import { PlatformIcon } from './ui'
+
+// Soft per-platform ring tint that frames the icon. Low-opacity
+// background + matching border makes the brand color feel like an
+// intentional UI ornament rather than a colorful sticker. Same brand
+// hue as the icon itself, so they read as one composed unit.
+const ICON_FRAME: Record<PlatformId, string> = {
+  youtube:   'bg-red-500/10 ring-1 ring-red-500/25',
+  instagram: 'bg-pink-500/10 ring-1 ring-pink-500/25',
+  tiktok:    'bg-cyan-500/10 ring-1 ring-cyan-500/25',
+  twitter:   'bg-foreground/10 ring-1 ring-foreground/20',
+  linkedin:  'bg-blue-500/10 ring-1 ring-blue-500/25',
+}
 
 export function PlatformDropdown({ activePlatform, onChange }: { activePlatform: PlatformId; onChange: (id: PlatformId) => void }) {
   const [open, setOpen] = useState(false)
@@ -43,25 +54,22 @@ export function PlatformDropdown({ activePlatform, onChange }: { activePlatform:
         onClick={() => setOpen(v => !v)}
         aria-label={`Find ${active.label} creators — click to change platform`}
         title={`Currently searching ${active.label}. Click to switch.`}
-        // 2026-05-10 v3 per Dylan: brought back some pop, kept it
-        // restrained. h-10 + bigger icon means the brand color does
-        // the heavy lifting visually. Border bumps from default to a
-        // slightly heavier foreground/20 so the pill has actual
-        // presence; hover lifts to foreground/40 for clear affordance.
-        className="group inline-flex items-center gap-2.5 h-10 px-3 rounded-xl border border-foreground/15 bg-card/60 hover:bg-card hover:border-foreground/40 transition-colors"
+        className="group inline-flex items-center gap-2 h-10 pl-1.5 pr-2.5 rounded-xl border border-foreground/15 bg-card hover:border-foreground/40 transition-colors"
       >
+        {/* Brand-tinted ring frames the icon — the color now reads
+            as intentional UI ornament rather than a loose sticker.
+            Inline-block + flex centering keeps the icon perfectly
+            optical-center inside the 28px frame. */}
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
             key={activePlatform}
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.85 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="inline-flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.07, ease: 'easeOut' }}
+            className={`inline-flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${ICON_FRAME[activePlatform]}`}
           >
-            {/* Bumped 16px → 22px. The brand color now has room to
-                actually read — that's the entire visual pop. */}
-            <PlatformIcon id={activePlatform} className="w-[22px] h-[22px]" colored />
+            <PlatformIcon id={activePlatform} className="w-[18px] h-[18px]" colored />
           </motion.span>
         </AnimatePresence>
         <svg
@@ -90,16 +98,17 @@ export function PlatformDropdown({ activePlatform, onChange }: { activePlatform:
               <button
                 key={p.id}
                 onClick={() => { onChange(p.id); setOpen(false) }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-left text-sm transition-colors ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2 text-left text-sm transition-colors ${
                   isActive
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                 }`}
               >
-                {/* Match the trigger's bigger logo so the dropdown
-                    feels like a peer of the closed pill, not a smaller
-                    cousin. */}
-                <PlatformIcon id={p.id} className="w-5 h-5 shrink-0" colored />
+                {/* Same ring treatment as the trigger so the dropdown
+                    visually links back to the closed state. */}
+                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${ICON_FRAME[p.id]}`}>
+                  <PlatformIcon id={p.id} className="w-[18px] h-[18px]" colored />
+                </span>
                 <span className="font-medium">{p.label}</span>
                 {isSuggested && (
                   <span className="text-[10px] text-muted-foreground/70 ml-1">(suggested)</span>
