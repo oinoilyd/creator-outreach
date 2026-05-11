@@ -853,7 +853,11 @@ export default function Home() {
    *
    * Three-state per-column cycle: off → desc → asc → off.
    */
-  function handleSort(col: SortCol) {
+  // Wrapped in useCallback so the reference is stable across renders —
+  // matters once children that receive `onSort` are memoized (Phase 3b).
+  // Body uses only functional setState (setSorts(prev => …)), so an
+  // empty dep array is safe here.
+  const handleSort = useCallback((col: SortCol) => {
     setSorts(prev => {
       const idx = prev.findIndex(s => s.col === col)
       if (idx === 0) {
@@ -869,7 +873,7 @@ export default function Home() {
       const without = prev.filter(s => s.col !== col)
       return [{ col, dir: 'desc' }, ...without]
     })
-  }
+  }, [])
 
   function saveOutreach(updated: OutreachEntry[]) {
     setOutreach(updated)
@@ -956,17 +960,50 @@ export default function Home() {
     setRecentlyAddedIds(prev => new Set([...prev, entry.id]))
   }
 
-  function reorderResultCols(newConfig: ColConfig[]) {
+  // Both reorder handlers are stable: they touch only setters + a
+  // module-level persistence import, so an empty dep array is correct.
+  const reorderResultCols = useCallback((newConfig: ColConfig[]) => {
     setColConfig(newConfig)
     setDraftCols(newConfig)
     void saveColConfig(newConfig)
-  }
+  }, [])
 
-  function reorderOutreachCols(newConfig: OutreachColConfig[]) {
+  const reorderOutreachCols = useCallback((newConfig: OutreachColConfig[]) => {
     setOutreachColConfig(newConfig)
     setDraftOutreachCols(newConfig)
     void saveOutreachColConfig(newConfig)
-  }
+  }, [])
+
+  // ---------------------------------------------------------------------
+  // Phase 3b memoization helpers — extracted from inline arrows in JSX so
+  // their reference is stable across renders. Required for the memoized
+  // children (FollowUpRow, FUStat, FitScoreCell, etc.) to actually skip
+  // re-renders when this parent re-renders for unrelated reasons.
+  // ---------------------------------------------------------------------
+
+  // Opens the lead-detail modal. Pure setter — empty deps are correct.
+  const openLeadDetail = useCallback((id: string) => {
+    setViewingLeadId(id)
+  }, [])
+
+  // Clears the "recently added" pin pool and its companion interacted
+  // set. Both are local setters with no closure reads.
+  const clearRecentlyAdded = useCallback(() => {
+    setRecentlyAddedIds(new Set())
+    setInteractedNewIds(new Set())
+  }, [])
+
+  // Marks a newly-added outreach id as "interacted" so the highlight
+  // fades. Functional setter (prev => …) keeps this independent of
+  // current state, so the empty dep array is correct.
+  const markNewInteracted = useCallback((id: string) => {
+    setInteractedNewIds(prev => {
+      if (prev.has(id)) return prev // no-op if already marked
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+  }, [])
 
   function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
     saveOutreach(outreach.map(e => {
@@ -3018,7 +3055,7 @@ export default function Home() {
               <OutreachFollowUps
                 entries={outreach}
                 onUpdate={updateOutreachEntry}
-                onOpenEntry={(id: string) => setViewingLeadId(id)}
+                onOpenEntry={openLeadDetail}
                 profile={profile}
               />
             ) : (
@@ -3039,7 +3076,7 @@ export default function Home() {
                 bulkRunning={outreachBulkRunning}
                 profile={profile}
                 emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
-                onOpenEntry={(id: string) => setViewingLeadId(id)}
+                onOpenEntry={openLeadDetail}
                 // Disable recently-added pinning when a keyword
                 // filter is active. Keyword search is a "find specific
                 // entry" workflow; pinning recently-added on top of a
@@ -3047,17 +3084,9 @@ export default function Home() {
                 // newly added" perception. Browsing (no keyword) keeps
                 // pinning so new entries surface naturally.
                 recentlyAddedIds={keyword.trim() ? new Set() : recentlyAddedIds}
-                onClearRecentlyAdded={() => {
-                  setRecentlyAddedIds(new Set())
-                  setInteractedNewIds(new Set())
-                }}
+                onClearRecentlyAdded={clearRecentlyAdded}
                 interactedNewIds={interactedNewIds}
-                onMarkNewInteracted={(id) => setInteractedNewIds(prev => {
-                  if (prev.has(id)) return prev // no-op if already marked
-                  const next = new Set(prev)
-                  next.add(id)
-                  return next
-                })}
+                onMarkNewInteracted={markNewInteracted}
               />
             )}
             </div>
