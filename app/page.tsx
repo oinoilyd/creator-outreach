@@ -1436,11 +1436,26 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
         )}
       </div>
 
-      {/* Sort control removed 2026-05-10 per Dylan: urgency is the
-          only sort users actually pick on the follow-up tab — the
-          pipeline-$ / touchpoints toggles were noise. The `sort`
-          state stays at its default 'urgency' so the rendering
-          branch below still works without UI changes. */}
+      {/* Sort pills — label removed 2026-05-10 per Dylan ("the 'Sort'
+          text is implied"). Pills themselves stay because all three
+          options are still useful. */}
+      <div className="flex justify-end">
+        <div className="flex bg-card/60 rounded-md p-0.5 border border-border">
+          {([
+            { id: 'urgency', label: 'Urgency' },
+            { id: 'pipeline', label: 'Pipeline $' },
+            { id: 'touchpoints', label: 'Touches' },
+          ] as { id: typeof sort; label: string }[]).map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setSort(opt.id)}
+              className={`px-2.5 py-1 text-[11px] rounded transition-colors ${
+                sort === opt.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >{opt.label}</button>
+          ))}
+        </div>
+      </div>
 
       {/* Sort-aware rendering branch.
           When sort === 'urgency', we group leads into priority
