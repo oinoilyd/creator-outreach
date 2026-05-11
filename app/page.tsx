@@ -1284,6 +1284,28 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
     return parts.length > 0 ? `${parts.join(' · ')} need your attention.` : 'All caught up.'
   })()
 
+  // Sort pills as a reusable slot — passed into the first Section's
+  // headerRight so they sit inline with the 'High priority — Overdue
+  // or due today — act first' header (per Dylan 2026-05-10: aligned
+  // with section header, not floating above it).
+  const sortPills = (
+    <div className="flex bg-card/60 rounded-md p-0.5 border border-border">
+      {([
+        { id: 'urgency', label: 'Urgency' },
+        { id: 'pipeline', label: 'Pipeline $' },
+        { id: 'touchpoints', label: 'Touches' },
+      ] as { id: typeof sort; label: string }[]).map(opt => (
+        <button
+          key={opt.id}
+          onClick={() => setSort(opt.id)}
+          className={`px-2.5 py-1 text-[11px] rounded transition-colors ${
+            sort === opt.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >{opt.label}</button>
+      ))}
+    </div>
+  )
+
   function snooze(e: OutreachEntry, days: number) {
     const base = parseLocalDate(e.followUpDate) ?? new Date()
     base.setDate(base.getDate() + days)
@@ -1436,27 +1458,6 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
         )}
       </div>
 
-      {/* Sort pills — label removed 2026-05-10 per Dylan ("the 'Sort'
-          text is implied"). Pills themselves stay because all three
-          options are still useful. */}
-      <div className="flex justify-end">
-        <div className="flex bg-card/60 rounded-md p-0.5 border border-border">
-          {([
-            { id: 'urgency', label: 'Urgency' },
-            { id: 'pipeline', label: 'Pipeline $' },
-            { id: 'touchpoints', label: 'Touches' },
-          ] as { id: typeof sort; label: string }[]).map(opt => (
-            <button
-              key={opt.id}
-              onClick={() => setSort(opt.id)}
-              className={`px-2.5 py-1 text-[11px] rounded transition-colors ${
-                sort === opt.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >{opt.label}</button>
-          ))}
-        </div>
-      </div>
-
       {/* Sort-aware rendering branch.
           When sort === 'urgency', we group leads into priority
           buckets (High / Medium / Low / Unset / Ghosted) — that's
@@ -1519,7 +1520,10 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
         })()
       ) : (
         <>
-      {/* Section: High priority (overdue + today) */}
+      {/* Section: High priority (overdue + today).
+          Carries the sort pills in its headerRight slot so they sit
+          inline with the first section heading instead of as a
+          standalone row above. */}
       {(priorityFilter === 'all' || priorityFilter === 'high') && (
         groups.high.length > 0 ? (
           <Section
@@ -1528,6 +1532,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
             count={groups.high.length}
             subtitle="Overdue or due today — act first"
             icon={<Flame className="w-4 h-4 text-red-500" />}
+            headerRight={sortPills}
           >
             {groups.high.map(e => (
               <FollowUpRow
@@ -1543,7 +1548,13 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
             ))}
           </Section>
         ) : (
-          <Section title="High priority" accent="green" count={0} icon={<span className="text-base">✓</span>}>
+          <Section
+            title="High priority"
+            accent="green"
+            count={0}
+            icon={<span className="text-base">✓</span>}
+            headerRight={sortPills}
+          >
             <div className="text-xs text-muted-foreground italic px-1 py-2">
               Nothing urgent. {groups.medium.length > 0 ? `${groups.medium.length} medium-priority lead${groups.medium.length === 1 ? '' : 's'} below.` : 'You\'re fully caught up.'}
             </div>
@@ -2180,13 +2191,17 @@ function FollowUpDaySheet({
   )
 }
 
-function Section({ title, accent, count, subtitle, icon, children }: {
+function Section({ title, accent, count, subtitle, icon, children, headerRight }: {
   title: string
   accent: 'red' | 'yellow' | 'blue' | 'green'
   count: number
   subtitle?: string
   icon?: React.ReactNode
   children: React.ReactNode
+  /** Right-floated slot in the header row — used by the Follow-ups
+   *  tab to embed the sort pills inline with the first section header
+   *  instead of as a separate row above. */
+  headerRight?: React.ReactNode
 }) {
   const accentText = { red: 'text-red-700 dark:text-red-300', yellow: 'text-amber-800 dark:text-yellow-300', blue: 'text-blue-700 dark:text-blue-300', green: 'text-emerald-700 dark:text-emerald-300' }[accent]
   const accentBorder = { red: 'border-red-200 dark:border-red-500/40', yellow: 'border-amber-200 dark:border-yellow-500/40', blue: 'border-blue-200 dark:border-blue-500/30', green: 'border-emerald-200 dark:border-emerald-500/30' }[accent]
@@ -2197,6 +2212,7 @@ function Section({ title, accent, count, subtitle, icon, children }: {
         <h3 className={`text-sm font-semibold ${accentText}`}>{title}</h3>
         <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${accentBorder} ${accentText}`}>{count}</span>
         {subtitle && <span className="text-[11px] text-muted-foreground ml-1">· {subtitle}</span>}
+        {headerRight && <div className="ml-auto">{headerRight}</div>}
       </div>
       <div className="space-y-2">{children}</div>
     </section>
