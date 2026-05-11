@@ -7,14 +7,13 @@ import { createPortal } from 'react-dom'
 // (★ Favorites, ⏰ Follow-ups, 📊 Analytics, 🔥 High priority, ✨ Lead
 // Criteria, ✉ has-email indicator, 👋 in DM template) are now SVG
 // icons from lucide-react.
-import { Star, Clock, BarChart3, Flame, Sparkles, Mail } from 'lucide-react'
+import { Star, BarChart3, Flame, Sparkles, Mail } from 'lucide-react'
 import type {
   Creator, SortCol, SortKey, ColId, ActiveTab, ScoreWeights,
-  GuidanceCondition, GuidanceRule, GuidanceEntry, GuidancePreset, GuidanceContextType,
-  OutreachEntry, OutreachColDef, OutreachColConfig,
-  ColConfig, PlatformId, PlatformConfig, UserProfile,
+  GuidanceEntry, GuidanceContextType,
+  OutreachEntry, OutreachColConfig,
+  ColConfig, PlatformId, UserProfile,
 } from '@/lib/types'
-import { EMPTY_METRIC_FILTER } from '@/lib/types'
 import { computeMetric, metricTypeLabel, SUGGESTED_METRICS } from '@/lib/metrics'
 import type { BackdropTheme } from '@/lib/backdrop-themes'
 import { toast } from 'sonner'
@@ -159,9 +158,7 @@ import {
   daysFromNow,
 } from '@/lib/dates'
 import {
-  composeInstagramDm,
   copyInstagramDm,
-  composeLinkedInMessage,
   copyLinkedInMessage,
   markEmailBounced,
   filterOutreachByKeyword,
@@ -4663,7 +4660,6 @@ export default function Home() {
       // Resolve session + profile, decide whether to show onboarding
       const supabase = createSupabaseClient()
       const { data: { user } } = await supabase.auth.getUser()
-      console.log('[home-init] user:', user?.id, user?.email)
       if (user) {
         setUserId(user.id)
         setUserEmail(user.email ?? null)
@@ -4674,7 +4670,6 @@ export default function Home() {
           .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at')
           .eq('user_id', user.id)
           .maybeSingle()
-        console.log('[home-init] profile row:', profileRow, 'error:', profileErr?.message)
 
         // Defensive: if no profile row exists (trigger may have failed),
         // create one ourselves before continuing.
@@ -4740,10 +4735,7 @@ export default function Home() {
           })
           setUnipileConnected(!!profileRow.unipile_account_id)
           if (!profileRow.onboarded) {
-            console.log('[home-init] onboarded=false → showing modal')
             setShowOnboarding(true)
-          } else {
-            console.log('[home-init] onboarded=true → skipping modal')
           }
         }
       }
@@ -5149,7 +5141,6 @@ export default function Home() {
     for (const kw of keywords) {
       try {
         const url = `/api/search?keyword=${encodeURIComponent(kw)}&maxResults=15&minViews=0&maxViews=999999999`
-        console.log('[seedTestData] fetching', url)
         const r = await fetch(url)
         if (!r.ok) {
           const errText = await r.text().catch(() => '')
@@ -5159,7 +5150,6 @@ export default function Home() {
         }
         const data = await r.json()
         const channels = (data.channels || []) as Creator[]
-        console.log('[seedTestData] keyword', kw, 'returned', channels.length, 'channels')
         if (channels.length === 0) {
           toast.warning(`No results for "${kw}"`)
           continue
@@ -5387,10 +5377,7 @@ export default function Home() {
           avgViews: e.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
         }
       }))
-      if (!extra.email) {
-        // Subtle feedback when search returned nothing useful — non-blocking.
-        console.log('[searchContacts] no email found for', entry.channelName)
-      }
+      // (No email found is non-blocking — UI updates via setOutreach above.)
     } catch (err: any) {
       toast.error(`Search failed: ${err?.message || err}`)
     } finally {
