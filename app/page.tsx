@@ -1164,13 +1164,34 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayMs = today.getTime()
   const DAY = 86_400_000
+  // 2026-05-10 per Dylan: "no response after immediate outreach isn't
+  // low priority — it just puts the next follow-up a little bit out.
+  // Stay medium until 2 weeks pass with no reply, THEN demote to
+  // ghosted." So entries flip into the ghosted bucket only after this
+  // many days since the original outreach. Before that, they bucket by
+  // follow-up date like a normal Open row.
+  const GHOSTED_THRESHOLD_DAYS = 14
 
-  // Active queue = Open only. "No Response" = ghosted, separate bucket.
-  const open = entries.filter(e => e.status === 'Open')
-  const ghosted = entries.filter(e => e.status === 'No Response')
+  // Helper — true when a 'No Response' entry has aged past the
+  // ghosted threshold (or is missing dateReachedOut, which we treat
+  // as old/legacy and conservatively put in ghosted).
+  function isTrulyGhosted(e: OutreachEntry): boolean {
+    if (e.status !== 'No Response') return false
+    const reached = parseLocalDate(e.dateReachedOut)
+    if (!reached) return true  // legacy entry with no reach-out date → ghosted
+    const daysSince = Math.round((todayMs - reached.getTime()) / DAY)
+    return daysSince >= GHOSTED_THRESHOLD_DAYS
+  }
+
+  // Active queue = Open OR recently-sent (status=No Response, <14d).
+  // Truly ghosted = No Response AND >= 14 days since outreach. Treated
+  // as a separate bucket below the main priority queue.
+  const open = entries.filter(e => e.status === 'Open' || (e.status === 'No Response' && !isTrulyGhosted(e)))
+  const ghosted = entries.filter(e => isTrulyGhosted(e))
 
   function bucketOf(e: OutreachEntry): FUBucket {
-    if (e.status === 'No Response') return 'ghosted'
+    // Only flip into 'ghosted' once 14 days have passed without a reply.
+    if (isTrulyGhosted(e)) return 'ghosted'
     const d = parseLocalDate(e.followUpDate)
     if (!d) return 'unset'
     const tDay = new Date(d); tDay.setHours(0, 0, 0, 0)
@@ -1527,7 +1548,7 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
         <CollapsibleSection
           title="Ghosted"
           count={groups.ghosted.length}
-          subtitle="Marked No Response. Optional re-engagement."
+          subtitle="No reply 14+ days after outreach. Optional re-engagement."
           open={showGhosted}
           onToggle={() => setShowGhosted(v => !v)}
         >
