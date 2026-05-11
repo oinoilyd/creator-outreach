@@ -267,13 +267,21 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
         <div className="p-5 border-b border-border space-y-3">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Contact</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/*
+              Placeholders read as obvious empty-state hints ("Not set
+              — add an email" etc.) and render in italic + faded so an
+              empty field can't be mistaken for a filled-in real value.
+              Per Dylan 2026-05-10: previous placeholders ("hello@example.com",
+              "https://linkedin.com/in/…", "+1 555 123 4567") looked like
+              real data and made the modal feel pre-filled.
+            */}
             <Field label="Email">
               <input
                 type="email"
                 value={entry.email}
                 onChange={e => onUpdate(entry.id, 'email', e.target.value)}
-                placeholder="hello@example.com"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — add an email"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
             <Field label="LinkedIn">
@@ -281,8 +289,8 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                 type="url"
                 value={entry.linkedin}
                 onChange={e => onUpdate(entry.id, 'linkedin', e.target.value)}
-                placeholder="https://linkedin.com/in/…"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — paste LinkedIn URL"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
             <Field label="Phone">
@@ -290,8 +298,8 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                 type="tel"
                 value={entry.phone}
                 onChange={e => onUpdate(entry.id, 'phone', e.target.value)}
-                placeholder="+1 555 123 4567"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — add a phone number"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
             <Field label="Website">
@@ -299,8 +307,8 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                 type="url"
                 value={entry.website}
                 onChange={e => onUpdate(entry.id, 'website', e.target.value)}
-                placeholder="https://example.com"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — paste website URL"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
             <Field label="Instagram">
@@ -308,8 +316,8 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                 type="url"
                 value={entry.instagram}
                 onChange={e => onUpdate(entry.id, 'instagram', e.target.value)}
-                placeholder="https://instagram.com/handle"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — paste Instagram URL"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
             <Field label="Twitter / X">
@@ -317,8 +325,8 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                 type="url"
                 value={entry.twitter}
                 onChange={e => onUpdate(entry.id, 'twitter', e.target.value)}
-                placeholder="https://x.com/handle"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — paste X / Twitter URL"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
             <Field label="TikTok">
@@ -326,8 +334,8 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                 type="url"
                 value={entry.tiktok}
                 onChange={e => onUpdate(entry.id, 'tiktok', e.target.value)}
-                placeholder="https://tiktok.com/@handle"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — paste TikTok URL"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
             <Field label="Product / pitch">
@@ -335,8 +343,8 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                 type="text"
                 value={entry.product}
                 onChange={e => onUpdate(entry.id, 'product', e.target.value)}
-                placeholder="What you're selling"
-                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                placeholder="Not set — what are you pitching?"
+                className="w-full bg-muted border border-border rounded px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-purple-500 placeholder:italic placeholder:text-muted-foreground/45"
               />
             </Field>
           </div>
@@ -359,9 +367,9 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
           <textarea
             value={entry.notes || ''}
             onChange={e => onUpdate(entry.id, 'notes', e.target.value)}
-            placeholder="What's the angle? What did they say?"
+            placeholder="No notes yet — what's the angle?"
             rows={3}
-            className="w-full bg-muted border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 resize-none"
+            className="w-full bg-muted border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 resize-none placeholder:italic placeholder:text-muted-foreground/45"
           />
         </div>
 
