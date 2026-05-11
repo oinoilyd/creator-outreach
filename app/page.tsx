@@ -1936,6 +1936,64 @@ function FollowUpDaySheet({
                     >
                       {e.status || 'Not Outreached'}
                     </span>
+                    {/* Date-state pill — same wording the List view shows
+                        (Overdue by 3d / Due today / Follow up in 15d /
+                        Ghosted) so calendar rows carry the same context.
+                        Computed inline because the day sheet doesn't have
+                        access to OutreachFollowUps's bucketOf closure. */}
+                    {(() => {
+                      const today = new Date(); today.setHours(0, 0, 0, 0)
+                      const DAY = 86_400_000
+                      const reached = parseLocalDate(e.dateReachedOut)
+                      const reachedDays = reached
+                        ? Math.round((today.getTime() - reached.getTime()) / DAY)
+                        : null
+                      // Mirrors the 30d ghosted threshold in the List view.
+                      const ghosted =
+                        e.status === 'No Response' && (reachedDays === null || reachedDays >= 30)
+                      let label = 'No follow-up set'
+                      let tone = 'border-border text-muted-foreground bg-muted/40'
+                      if (ghosted) {
+                        label = 'Ghosted'
+                        tone = 'border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10'
+                      } else {
+                        const fu = parseLocalDate(e.followUpDate)
+                        if (fu) {
+                          fu.setHours(0, 0, 0, 0)
+                          const diffDays = Math.round((fu.getTime() - today.getTime()) / DAY)
+                          if (diffDays < 0) {
+                            label = `Overdue by ${Math.abs(diffDays)}d`
+                            tone = 'border-red-500/40 text-red-700 dark:text-red-300 bg-red-500/10'
+                          } else if (diffDays === 0) {
+                            label = 'Due today'
+                            tone = 'border-red-500/40 text-red-700 dark:text-red-300 bg-red-500/10'
+                          } else if (diffDays <= 7) {
+                            label = `Follow up in ${diffDays}d`
+                            tone = 'border-amber-500/40 text-amber-700 dark:text-yellow-300 bg-amber-500/10'
+                          } else {
+                            label = `Follow up in ${diffDays}d`
+                            tone = 'border-blue-500/40 text-blue-700 dark:text-blue-300 bg-blue-500/10'
+                          }
+                        }
+                      }
+                      return (
+                        <span
+                          className={`text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border ${tone}`}
+                        >
+                          {label}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                  {/* Subtitle — last-touch + medium + added-at context.
+                      Matches the List view's row subtitle so the calendar
+                      day sheet doesn't feel like a bare summary. */}
+                  <div className="text-[11px] text-muted-foreground mt-1 flex flex-wrap gap-x-2">
+                    {e.dateReachedOut && (
+                      <span>Sent {daysAgo(e.dateReachedOut)} ago</span>
+                    )}
+                    {e.medium && <span>· via {e.medium}</span>}
+                    {!!e.addedAt && <span>· Added {formatAddedAtRelative(e.addedAt)}</span>}
                   </div>
                   {e.notes && (
                     <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
