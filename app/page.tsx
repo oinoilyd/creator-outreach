@@ -4805,42 +4805,34 @@ export default function Home() {
         toast.error(`Search failed: ${extra.error || 'unknown'}`)
         return
       }
-      // Functional updater so we always merge against the latest
-      // dismissed array — guards against state having moved between
-      // when the function was called and when the fetch resolved.
-      //
-      // 2026-05-10 fix: per-row save instead of full-snapshot save.
-      // Previously each concurrent search captured the FULL state and
-      // called persistDismissed(snapshot), which does "delete missing
-      // rows + upsert remaining." Three concurrent saves would race —
-      // the slowest one's snapshot (with fewer updates) could
-      // overwrite the faster ones' added emails. Now we upsert just
-      // the one row per resolution; concurrent calls write different
-      // rows independently, no race.
+      // 2026-05-10 (2nd fix) — Dylan reported emails STILL not
+      // persisting through a refresh. Two real causes:
+      //   1. `void saveDismissedRow(...)` was fire-and-forget. If the
+      //      user refreshed before the HTTP completed, the save died
+      //      with the page. AWAIT the save so it commits before the
+      //      function returns.
+      //   2. Capturing `updatedRow` inside a setDismissed updater
+      //      closure was fragile — React can run that updater async
+      //      after our await, and the closure variable timing wasn't
+      //      reliable. Now: compute the merged Creator OUTSIDE the
+      //      updater (the closure-captured `c` from .find() is fresh
+      //      enough — nothing else mutates this row between the fetch
+      //      kicking off and the response arriving). Pass the same
+      //      explicit value to both setDismissed and saveDismissedRow.
       const cleanEmail = String(extra.email || '').trim()
-      let updatedRow: Creator | null = null
-      setDismissed(prev => {
-        const next = prev.map(x => {
-          if (x.channelId !== channelId) return x
-          const merged: Creator = {
-            ...x,
-            email: x.email || cleanEmail,
-            linkedin: x.linkedin || extra.linkedin || '',
-            instagram: x.instagram || extra.instagram || '',
-            twitter: x.twitter || extra.twitter || '',
-            tiktok: x.tiktok || extra.tiktok || '',
-            website: x.website || extra.website || '',
-            subscribers: x.subscribers || extra.subscribers || '',
-            avgViews: x.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
-          }
-          updatedRow = merged
-          return merged
-        })
-        return next
-      })
-      // Persist ONLY this row. Concurrent calls touch different rows
-      // and never clobber each other.
-      if (updatedRow) void saveDismissedRow(updatedRow)
+      const merged: Creator = {
+        ...c,
+        email: c.email || cleanEmail,
+        linkedin: c.linkedin || extra.linkedin || '',
+        instagram: c.instagram || extra.instagram || '',
+        twitter: c.twitter || extra.twitter || '',
+        tiktok: c.tiktok || extra.tiktok || '',
+        website: c.website || extra.website || '',
+        subscribers: c.subscribers || extra.subscribers || '',
+        avgViews: c.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
+      }
+      setDismissed(prev => prev.map(x => (x.channelId === channelId ? merged : x)))
+      await saveDismissedRow(merged)
       if (cleanEmail && !c.email) toast.success(`Found email for ${c.channelName}`)
     } catch (err: any) {
       toast.error(`Search failed: ${err?.message || err}`)
