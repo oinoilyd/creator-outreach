@@ -2,6 +2,7 @@
 
 import type { Creator, UserProfile } from '@/lib/types'
 import { composeUrl, formatSubscribers, recipientIssue } from '@/lib/format'
+import { copyInstagramDm } from '@/lib/outreach'
 import { toast } from 'sonner'
 
 /**
@@ -157,6 +158,7 @@ export function DismissedTab({
               <th className="text-left px-4 py-3 font-medium text-[11px] uppercase tracking-wider whitespace-nowrap">Subs</th>
               <th className="text-left px-4 py-3 font-medium text-[11px] uppercase tracking-wider whitespace-nowrap">Avg views</th>
               <th className="text-left px-4 py-3 font-medium text-[11px] uppercase tracking-wider">Email</th>
+              <th className="text-left px-4 py-3 font-medium text-[11px] uppercase tracking-wider w-20">Instagram</th>
               <th className="text-right px-4 py-3 font-medium text-[11px] uppercase tracking-wider w-32">Action</th>
             </tr>
           </thead>
@@ -237,6 +239,32 @@ export function DismissedTab({
                       >
                         {searching ? 'Searching…' : '🔍 Find email'}
                       </button>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+
+                  {/* Instagram cell — same click pattern as the Results
+                      table: open IG profile in a new tab AND copy the
+                      templated DM to the clipboard so the user can
+                      paste straight into the chat. Empty handle → dash. */}
+                  <td className="px-4 py-3">
+                    {c.instagram ? (
+                      <a
+                        href={c.instagram.startsWith('http') ? c.instagram : `https://instagram.com/${c.instagram.replace('@', '').trim()}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => copyInstagramDm(c.channelName)}
+                        title="Open Instagram + copy DM template to clipboard"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded text-pink-700 dark:text-pink-400 hover:bg-pink-500/10 transition-colors"
+                        aria-label={`Open Instagram for ${c.channelName}`}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                          <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                        </svg>
+                      </a>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
