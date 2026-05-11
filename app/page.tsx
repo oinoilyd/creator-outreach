@@ -4263,14 +4263,17 @@ export default function Home() {
     }
   }, [emailFirstSort])
 
-  // Backdrop theme — 5 options ('off' / 'rain' / 'drift' / 'pulse' /
-  // 'aura'), each parameterized by the currently-active platform.
+  // Backdrop theme — 4 options ('off' / 'rain' / 'drift' / 'aura'),
+  // each parameterized by the currently-active platform. Pulse was
+  // dropped in v3 (2026-05-10) — its static color tint graduated
+  // into the always-on PlatformShade. Existing localStorage values
+  // of 'pulse' fall through to 'off' on next load.
   // Defaults 'off' so the app stays minimal until the user opts in.
   // Persisted to localStorage so the chosen vibe survives sessions.
   const [backdropTheme, setBackdropTheme] = useState<BackdropTheme>(() => {
     if (typeof window === 'undefined') return 'off'
     const saved = window.localStorage.getItem('backdrop-theme')
-    if (saved === 'rain' || saved === 'drift' || saved === 'pulse' || saved === 'aura' || saved === 'off') {
+    if (saved === 'rain' || saved === 'drift' || saved === 'aura' || saved === 'off') {
       return saved
     }
     return 'off'
