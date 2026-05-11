@@ -86,6 +86,21 @@ const ThreadModal = dynamic(
   () => import('@/components/ThreadModal').then(m => m.ThreadModal),
   { ssr: false },
 )
+const FollowUpWeekStrip = dynamic(
+  () => import('@/components/FollowUpWeekStrip').then(m => m.FollowUpWeekStrip),
+  { ssr: false },
+)
+const FollowUpGantt = dynamic(
+  () => import('@/components/FollowUpGantt').then(m => m.FollowUpGantt),
+  { ssr: false },
+)
+const FollowUpSplit = dynamic(
+  () => import('@/components/FollowUpSplit').then(m => m.FollowUpSplit),
+  { ssr: false },
+)
+// Type union for the Follow-ups tab view selector. Lives at module
+// scope so OutreachFollowUps + FollowUpsViewToggle can share it.
+type FUView = 'list' | 'month' | 'week' | 'gantt' | 'split'
 const MigrationPromptModal = dynamic(
   () => import('@/components/MigrationPromptModal').then(m => m.MigrationPromptModal),
   { ssr: false },
@@ -1155,11 +1170,25 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   const [showUnset, setShowUnset] = useState(false)
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium'>('all')
   const [showGhosted, setShowGhosted] = useState(false)
-  // List vs Calendar view toggle. Default 'list' to preserve the
-  // existing experience; switching to 'calendar' renders a month
-  // grid of every entry that has a followUpDate (status = Open or
-  // No Response). Click a day → expand a sheet with quick actions.
-  const [view, setView] = useState<'list' | 'calendar'>('list')
+  // View toggle for the Follow-ups tab. Per Dylan 2026-05-10, the
+  // single 'calendar' option was expanded into 4 calendar variants so
+  // each user can pick the one that fits their workflow:
+  //   list     — original priority-bucket list (default)
+  //   month    — month-grid (the original "calendar" view)
+  //   week     — 7-day strip with tall tiles + expanded day sheet
+  //   gantt    — 3-week horizontal timeline, bars span Sent→FU
+  //   split    — mini-month-cal sidebar + always-visible day agenda
+  // Persisted to localStorage so each user keeps their preferred view
+  // across sessions.
+  const [view, setView] = useState<FUView>(() => {
+    if (typeof window === 'undefined') return 'list'
+    const saved = window.localStorage.getItem('follow-ups-view')
+    if (saved === 'list' || saved === 'month' || saved === 'week' || saved === 'gantt' || saved === 'split') return saved
+    return 'list'
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('follow-ups-view', view)
+  }, [view])
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayMs = today.getTime()
@@ -1235,7 +1264,12 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
 
   // Top stats
   const pipelineValue = open.reduce((s, e) => s + dealValueNum(e), 0)
-  const atRiskValue = groups.high.reduce((s, e) => s + dealValueNum(e), 0)
+  // 2026-05-10 per Dylan: "At-risk" should ONLY be ghosted entries
+  // (no response 30+ days), not high-priority follow-ups. A lead that's
+  // overdue by 2 days isn't at risk — the user just needs to send the
+  // next follow-up. At-risk means the deal is actually slipping away,
+  // which is what 30+ days of silence signals.
+  const atRiskValue = groups.ghosted.reduce((s, e) => s + dealValueNum(e), 0)
   const totalTouches = open.reduce((s, e) => s + (parseInt(e.touchpoints || '0', 10) || 0), 0)
 
   // Headline summary line — single sentence
@@ -1284,15 +1318,53 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
     )
   }
 
-  // Calendar view — month grid of every follow-up. Click a day to
-  // expand a sheet with quick actions (email / IG / open details).
-  if (view === 'calendar') {
+  // Calendar variants — each renders the SAME entries (open + ghosted)
+  // through a different layout. List remains the default. Per Dylan
+  // 2026-05-10: ship 4 calendar shapes alongside the list so users can
+  // pick the workflow that fits.
+  if (view === 'month') {
     return (
       <div className="space-y-4">
         <FollowUpsViewToggle current={view} onChange={setView} />
         <FollowUpCalendar
           entries={[...open, ...ghosted]}
           onUpdate={onUpdate}
+          onOpenEntry={onOpenEntry}
+          profile={profile}
+        />
+      </div>
+    )
+  }
+  if (view === 'week') {
+    return (
+      <div className="space-y-4">
+        <FollowUpsViewToggle current={view} onChange={setView} />
+        <FollowUpWeekStrip
+          entries={[...open, ...ghosted]}
+          onOpenEntry={onOpenEntry}
+          profile={profile}
+        />
+      </div>
+    )
+  }
+  if (view === 'gantt') {
+    return (
+      <div className="space-y-4">
+        <FollowUpsViewToggle current={view} onChange={setView} />
+        <FollowUpGantt
+          entries={[...open, ...ghosted]}
+          onOpenEntry={onOpenEntry}
+          profile={profile}
+        />
+      </div>
+    )
+  }
+  if (view === 'split') {
+    return (
+      <div className="space-y-4">
+        <FollowUpsViewToggle current={view} onChange={setView} />
+        <FollowUpSplit
+          entries={[...open, ...ghosted]}
           onOpenEntry={onOpenEntry}
           profile={profile}
         />
@@ -1333,11 +1405,15 @@ function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
             accent={atRiskValue > 0 ? 'red' : 'gray'}
             sub={
               atRiskValue > 0
-                ? `${groups.high.length} high-priority lead${groups.high.length === 1 ? '' : 's'}`
-                : 'nothing urgent in pipeline'
+                ? `${groups.ghosted.length} ghosted (30+ days no reply)`
+                : 'nothing has gone cold'
             }
-            onClick={() => setPriorityFilter(f => f === 'high' ? 'all' : 'high')}
-            active={priorityFilter === 'high'}
+            // Click opens the Ghosted section instead of filtering — the
+            // ghosted bucket is its own collapsible at the bottom of the
+            // Follow-ups list, so make that visible when the user wants
+            // to see what's at risk.
+            onClick={() => setShowGhosted(v => !v)}
+            active={showGhosted}
           />
           <FUStat
             label="Pipeline $"
@@ -1586,22 +1662,30 @@ function FollowUpsViewToggle({
   current,
   onChange,
 }: {
-  current: 'list' | 'calendar'
-  onChange: (next: 'list' | 'calendar') => void
+  current: FUView
+  onChange: (next: FUView) => void
 }) {
+  // 5 options: List + 4 calendar shapes. Each user picks their preferred
+  // mode (persisted to localStorage in the parent). Compact segmented
+  // control — tooltips on each button describe the trade-off so users
+  // can find the right fit without trial-and-error.
   return (
     <div className="flex items-center justify-between flex-wrap gap-2">
       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">View</div>
-      <div className="flex bg-card/60 rounded-md p-0.5 border border-border">
+      <div className="flex bg-card/60 rounded-md p-0.5 border border-border flex-wrap">
         {([
-          { id: 'list', label: 'List' },
-          { id: 'calendar', label: 'Calendar' },
-        ] as { id: 'list' | 'calendar'; label: string }[]).map(opt => (
+          { id: 'list',  label: 'List',   hint: 'Priority buckets: High / Medium / Low / Ghosted' },
+          { id: 'month', label: 'Month',  hint: 'Classic month-grid calendar' },
+          { id: 'week',  label: 'Week',   hint: '7-day strip with previews + day-detail panel' },
+          { id: 'gantt', label: 'Gantt',  hint: '3-week horizontal timeline, bars from Sent → Follow-up' },
+          { id: 'split', label: 'Split',  hint: 'Mini calendar + always-visible day agenda (Outlook-style)' },
+        ] as { id: FUView; label: string; hint: string }[]).map(opt => (
           <button
             key={opt.id}
             type="button"
             onClick={() => onChange(opt.id)}
-            className={`px-3 py-1 text-[11px] rounded transition-colors ${
+            title={opt.hint}
+            className={`px-2.5 py-1 text-[11px] rounded transition-colors ${
               current === opt.id
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
