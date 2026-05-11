@@ -57,6 +57,10 @@ export function HamburgerMenu({
   // the inline subtitle ("Picks up the active platform's color...")
   // with a gear icon that toggles a small controls panel.
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false)
+  // Per Dylan 2026-05-11: collapse the themes section by default —
+  // 'Themes' header is clickable to expand/collapse so the menu
+  // doesn't bloat for users not actively switching themes.
+  const [themesExpanded, setThemesExpanded] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const { theme, setTheme } = useTheme()
   const [themeMounted, setThemeMounted] = useState(false)
@@ -291,9 +295,38 @@ export function HamburgerMenu({
                   </svg>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="text-sm text-foreground font-medium leading-tight">Themes</div>
-                    {onBackdropDurationChange && (
+                  {/* Header row — clicking 'Themes' toggles the
+                      whole section. Per Dylan 2026-05-11: keep the
+                      menu compact when not actively switching themes.
+                      Gear icon (theme settings) only shows when
+                      expanded. */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setThemesExpanded(v => {
+                          const next = !v
+                          if (!next) setThemeSettingsOpen(false)
+                          return next
+                        })
+                      }}
+                      aria-expanded={themesExpanded}
+                      className="flex-1 flex items-center justify-between gap-1.5 -mx-1 px-1 py-0.5 rounded text-left hover:bg-muted/30 transition-colors"
+                    >
+                      <span className="text-sm text-foreground font-medium leading-tight">Themes</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${themesExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {themesExpanded && onBackdropDurationChange && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setThemeSettingsOpen(v => !v) }}
@@ -313,6 +346,20 @@ export function HamburgerMenu({
                       </button>
                     )}
                   </div>
+
+                  {/* Collapsible body — everything below the header
+                      shows/hides on Themes click. */}
+                  <AnimatePresence initial={false}>
+                    {themesExpanded && (
+                      <motion.div
+                        key="themes-body"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pt-2">
 
                   {/* Theme-settings panel — collapsible under the gear.
                       Per Dylan: duration is the main knob; 0s = always on. */}
@@ -434,6 +481,10 @@ export function HamburgerMenu({
                       {spotlightActive ? '✨ Showing…' : '✨ Spotlight'}
                     </button>
                   )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
