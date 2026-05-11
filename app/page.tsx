@@ -4488,6 +4488,26 @@ export default function Home() {
     return () => clearTimeout(timer)
   }, [backdropTheme, activePlatform, activeTab, spotlight, waveCounter, backdropDurationSec])
 
+  // 2026-05-10 v6 per Dylan: one-shot themes (Fireworks/Tornado)
+  // SHOULD re-fire when the user switches platforms in the
+  // 'Find ___ creators' dropdown — that's the one trigger worth
+  // keeping. They still stay dormant on hard refresh, tab return,
+  // and search (those were too noisy).
+  //
+  // The ref-based dedupe ensures we only fire on actual platform
+  // CHANGES, not on initial mount or on theme/tab changes.
+  const prevPlatformRef = useRef<PlatformId>(activePlatform)
+  useEffect(() => {
+    const prev = prevPlatformRef.current
+    if (prev === activePlatform) return // initial mount, no real change
+    prevPlatformRef.current = activePlatform
+    // Only fire if user is actually looking at the backdrop (Results tab).
+    if (activeTab !== 'results') return
+    if (backdropTheme === 'fireworks' || backdropTheme === 'tornado') {
+      triggerSpotlight(spotlightDurationFor(backdropTheme))
+    }
+  }, [activePlatform, activeTab, backdropTheme])
+
   const seenChannelIds = useRef<Set<string>>(new Set())
 
   // Auth + profile
