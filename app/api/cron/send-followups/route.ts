@@ -103,6 +103,10 @@ interface CronProfileRow {
    *  Gmail (which differs from your signup email) wouldn't be blocked
    *  by the self-check. */
   unipile_account_email: string | null
+  /** Sender's postal address — auto-appended to the CAN-SPAM footer
+   *  by buildOutreachContent. Nullable; the email body falls back to
+   *  a "set this in Settings" placeholder when missing. */
+  physical_address: string | null
 }
 
 export async function GET(req: NextRequest) {
@@ -203,7 +207,7 @@ export async function GET(req: NextRequest) {
   const userIds = Array.from(new Set(candidates.map(c => c.user_id)))
   const { data: profileRows } = await supabase
     .from('user_profile')
-    .select('user_id, full_name, linkedin_url, pitch_line, subject_template, email, unipile_account_id, unipile_account_email')
+    .select('user_id, full_name, linkedin_url, pitch_line, subject_template, email, unipile_account_id, unipile_account_email, physical_address')
     .in('user_id', userIds)
   const profileByUser = new Map<string, CronProfileRow>()
   for (const p of (profileRows ?? []) as CronProfileRow[]) {
@@ -240,6 +244,7 @@ export async function GET(req: NextRequest) {
       pitchLine: profileRow.pitch_line ?? '',
       subjectTemplate: profileRow.subject_template ?? undefined,
       userEmail: profileRow.email ?? undefined,
+      physicalAddress: profileRow.physical_address ?? null,
     }
 
     // Defensive recipient guard — same logic the manual send path uses.

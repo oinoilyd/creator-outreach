@@ -221,6 +221,11 @@ export interface UserProfile {
   /** When the user first completed OAuth (epoch ms). Useful for
    *  analytics + detecting stale connections. */
   unipileConnectedAt?: number | null
+  /** Sender's postal address. Required by CAN-SPAM §5(a)(5) — every
+   *  commercial email must include a valid physical address. Surfaced
+   *  in the composer warning when missing and auto-appended to the
+   *  outgoing email footer by buildOutreachContent. */
+  physicalAddress?: string | null
 }
 
 // ── Custom analytics metrics (Outreach > Analytics tab) ─────────────────────

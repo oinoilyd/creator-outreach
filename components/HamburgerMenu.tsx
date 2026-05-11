@@ -523,6 +523,7 @@ export function HamburgerMenu({
               <a href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms</a>
               <a href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</a>
               <a href="/refunds" className="text-muted-foreground hover:text-foreground transition-colors">Refunds</a>
+              <a href="/support" className="text-muted-foreground hover:text-foreground transition-colors">Support</a>
               <a href="/cookies" className="text-muted-foreground hover:text-foreground transition-colors">Cookies</a>
             </div>
           </div>

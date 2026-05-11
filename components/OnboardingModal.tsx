@@ -14,6 +14,11 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
 
   const [fullName, setFullName] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
+  // CAN-SPAM §5(a)(5) — every commercial email must include a valid
+  // physical postal address. We collect it here but don't block
+  // onboarding on it (a softer nudge appears in the send composer
+  // until the address is set).
+  const [physicalAddress, setPhysicalAddress] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -30,6 +35,7 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
       .update({
         full_name: fullName.trim(),
         linkedin_url: opts.skipLinkedin ? '' : linkedinUrl.trim(),
+        physical_address: physicalAddress.trim() || null,
         onboarded: true,
       })
       .eq('user_id', userId)
@@ -83,6 +89,20 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
               className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
             />
             <p className="text-[11px] text-muted-foreground/70 mt-1">Goes in the footer of your outreach emails. Skip and add later if you don&apos;t have one handy.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Business address <span className="text-muted-foreground/70">(required for compliance)</span>
+            </label>
+            <input
+              type="text"
+              value={physicalAddress}
+              onChange={e => setPhysicalAddress(e.target.value)}
+              placeholder="123 Main St, City, ST 12345"
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-[11px] text-muted-foreground/70 mt-1">This appears in the footer of every email you send through Creator Outreach — required by US anti-spam law (CAN-SPAM). You can add it later from Profile, but every send before then will include a placeholder warning.</p>
           </div>
         </div>
 

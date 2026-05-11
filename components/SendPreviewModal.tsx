@@ -31,6 +31,14 @@ interface Props {
   initialBody: string
   /** Shown in the header for context — "to Ryan Gaynor" etc. */
   recipientLabel?: string
+  /** User's physical business address. When null/empty we surface a
+   *  yellow CAN-SPAM warning at the top of the modal nudging the
+   *  user to set one in their profile before sending commercial mail. */
+  physicalAddress?: string | null
+  /** Called when the user clicks "Settings → Profile" inside the
+   *  warning banner. Parent should close this modal and open the
+   *  profile editor. */
+  onOpenProfile?: () => void
   onClose: () => void
   /** Called with the Unipile response after a successful send so the
    *  parent can update local state without a refetch. */
@@ -49,6 +57,8 @@ export function SendPreviewModal({
   initialSubject,
   initialBody,
   recipientLabel,
+  physicalAddress,
+  onOpenProfile,
   onClose,
   onSent,
 }: Props) {
@@ -145,6 +155,30 @@ export function SendPreviewModal({
             ✕
           </button>
         </div>
+
+        {!physicalAddress?.trim() && (
+          <div
+            role="alert"
+            className="mb-4 rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2.5 text-[12px] leading-relaxed text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100"
+          >
+            <span className="font-semibold">
+              <span aria-hidden>⚠️ </span>No business address set in your profile.
+            </span>{' '}
+            CAN-SPAM requires every commercial email to include your physical address. Add one in{' '}
+            {onOpenProfile ? (
+              <button
+                type="button"
+                onClick={onOpenProfile}
+                className="underline underline-offset-2 font-semibold hover:opacity-80"
+              >
+                Settings → Profile
+              </button>
+            ) : (
+              <span className="font-semibold">Settings → Profile</span>
+            )}
+            .
+          </div>
+        )}
 
         <div className="space-y-3">
           <div>

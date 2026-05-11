@@ -540,7 +540,7 @@ export default async function LandingPage() {
               beats four mailto: links pretending to be real pages. */}
           <FooterColPlaceholder heading="Resources" labels={['Guides', 'Playbooks', 'Changelog']} />
           <FooterCol heading="Company"   links={[['About','#'],['Contact','mailto:dmeehanj@gmail.com'],['Talk to us','mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo']]} />
-          <FooterCol heading="Legal"     links={[['Privacy','/privacy'],['Terms','/terms'],['Refunds','/refunds'],['Cookies','/cookies']]} />
+          <FooterCol heading="Legal"     links={[['Privacy','/privacy'],['Terms','/terms'],['Refunds','/refunds'],['Support','/support'],['Cookies','/cookies']]} />
         </div>
       </footer>
     </main>

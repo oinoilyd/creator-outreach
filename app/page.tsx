@@ -674,7 +674,7 @@ export default function Home() {
         // Use maybeSingle so missing row returns null instead of erroring
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at')
+          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address')
           .eq('user_id', user.id)
           .maybeSingle()
 
@@ -685,7 +685,7 @@ export default function Home() {
           const { data: inserted } = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at')
+            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address')
             .single()
           profileRow = inserted
         }
@@ -739,6 +739,7 @@ export default function Home() {
             unipileConnectedAt: profileRow.unipile_connected_at
               ? new Date(profileRow.unipile_connected_at).getTime()
               : null,
+            physicalAddress: profileRow.physical_address ?? null,
           })
           setUnipileConnected(!!profileRow.unipile_account_id)
           if (!profileRow.onboarded) {
@@ -3254,6 +3255,13 @@ export default function Home() {
           initialSubject={sendPreview.subject}
           initialBody={sendPreview.body}
           recipientLabel={sendPreview.recipientLabel}
+          // CAN-SPAM compliance signals — the modal nudges the user to
+          // set a business address before sending if it's missing.
+          physicalAddress={profile?.physicalAddress ?? null}
+          onOpenProfile={() => {
+            setSendPreview(null)
+            setShowProfile(true)
+          }}
           onClose={() => setSendPreview(null)}
           onSent={(result) => {
             // Optimistically reflect the send in the local outreach state:

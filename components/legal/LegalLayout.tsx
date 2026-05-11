@@ -69,6 +69,7 @@ export function LegalLayout({
             <Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link>
             <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link href="/refunds" className="text-muted-foreground hover:text-foreground transition-colors">Refund Policy</Link>
+            <Link href="/support" className="text-muted-foreground hover:text-foreground transition-colors">Support</Link>
             <Link href="/cookies" className="text-muted-foreground hover:text-foreground transition-colors">Cookie Policy</Link>
           </div>
         </div>
