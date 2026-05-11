@@ -3105,27 +3105,12 @@ export default function Home() {
           />
         ) : (
           <>
-            {/* Small badge — surfaces the currently-active sort behavior
-                so 'Emails first' isn't hidden inside the filter panel.
-                Click to toggle off; when off, also shows so you can flip
-                back on. */}
-            {!!currentKeyword && (
-              <button
-                type="button"
-                onClick={() => setEmailFirstSort(v => !v)}
-                title={emailFirstSort
-                  ? 'Emails-first sort is ON — creators with an email always rank above those without, regardless of column sort. Click to turn off.'
-                  : 'Emails-first sort is OFF — pure column sort. Click to turn back on.'}
-                className={`mb-3 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] font-bold px-2 py-1 rounded border transition-colors ${
-                  emailFirstSort
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                    : 'border-border bg-muted/30 text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <span aria-hidden>{emailFirstSort ? '✓' : '○'}</span>
-                <span>{emailFirstSort ? 'Emails first' : 'Emails first — off'}</span>
-              </button>
-            )}
+            {/* Per Dylan 2026-05-11: the green 'Emails first' badge
+                above results was removed. Emails-first remains the
+                default sort silently; if the user picks an explicit
+                column sort, that takes precedence. State + setter
+                kept so the behavior is still wired up — the prior
+                toggle UX may come back later as a hidden setting. */}
             <CreatorTable
               creators={currentList} outreachIds={outreachIds}
               dismissedIds={dismissedIds}
