@@ -157,7 +157,17 @@ export async function GET(req: NextRequest) {
 
   if (idQueryErr) {
     console.error('[cron/send-followups] candidate id query failed', idQueryErr)
-    return NextResponse.json({ error: 'Candidate query failed' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Candidate query failed',
+        // Surface the actual Supabase error message + code so cron probes
+        // can diagnose without trawling Vercel function logs.
+        detail: idQueryErr.message,
+        code: idQueryErr.code ?? null,
+        hint: idQueryErr.hint ?? null,
+      },
+      { status: 500 },
+    )
   }
 
   const candidateIds = (candidateIdRows ?? []).map(r => r.id as string)
