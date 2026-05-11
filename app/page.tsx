@@ -1985,14 +1985,32 @@ function FollowUpDaySheet({
                       )
                     })()}
                   </div>
-                  {/* Subtitle — last-touch + medium + added-at context.
-                      Matches the List view's row subtitle so the calendar
-                      day sheet doesn't feel like a bare summary. */}
+                  {/* "Last followed up" chip — added per Dylan 2026-05-10
+                      as a distinct visual element from the existing
+                      status/date pills. markFollowedUp() updates
+                      dateReachedOut on every manual follow-up, and the
+                      cron stamps last_auto_followup_at — so the most
+                      recent touch is max of those two. Touchpoints=0
+                      means "reached but never followed up yet" — show
+                      "Reached Xd ago" instead. */}
+                  {(() => {
+                    const tps = parseInt(e.touchpoints || '0', 10) || 0
+                    const reachedTs = e.dateReachedOut ? parseLocalDate(e.dateReachedOut)?.getTime() ?? 0 : 0
+                    const autoFuTs = e.lastAutoFollowupAt ?? 0
+                    const lastTouchTs = Math.max(reachedTs, autoFuTs)
+                    if (!lastTouchTs) return null
+                    const daysSince = Math.round((Date.now() - lastTouchTs) / 86_400_000)
+                    const label = tps >= 1 ? `Last followed up ${daysSince}d ago` : `Reached ${daysSince}d ago`
+                    return (
+                      <span className="inline-block mt-1.5 text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground">
+                        {label}
+                      </span>
+                    )
+                  })()}
+                  {/* Subtitle — medium + added-at context. The "last
+                      touched" date moved out of here into the chip above. */}
                   <div className="text-[11px] text-muted-foreground mt-1 flex flex-wrap gap-x-2">
-                    {e.dateReachedOut && (
-                      <span>Sent {daysAgo(e.dateReachedOut)} ago</span>
-                    )}
-                    {e.medium && <span>· via {e.medium}</span>}
+                    {e.medium && <span>via {e.medium}</span>}
                     {!!e.addedAt && <span>· Added {formatAddedAtRelative(e.addedAt)}</span>}
                   </div>
                   {e.notes && (
@@ -2035,9 +2053,19 @@ function FollowUpDaySheet({
                       rel="noreferrer"
                       onClick={() => copyInstagramDm(e.channelName)}
                       title="Open Instagram + copy DM template to clipboard"
-                      className="text-[11px] font-medium px-2.5 py-1 rounded border border-pink-500/40 text-pink-700 dark:text-pink-400 hover:bg-pink-500/10 transition-colors"
+                      className="text-[11px] font-medium px-2.5 py-1 rounded border border-pink-500/40 text-pink-700 dark:text-pink-400 hover:bg-pink-500/10 transition-colors inline-flex items-center gap-1"
                     >
-                      📸 IG DM
+                      {/* Actual Instagram logo (camera-square outline +
+                          lens circle + corner dot). Replaces the
+                          generic 📸 emoji per Dylan 2026-05-10 — the
+                          emoji rendered differently on every platform
+                          (Apple's was particularly off-brand). */}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                      </svg>
+                      IG DM
                     </a>
                   )}
                   {e.linkedin && (
@@ -2508,10 +2536,28 @@ function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, o
             title="Open lead details"
           >
             <span className="text-foreground/80">{stageHint}</span>
-            {e.dateReachedOut && <span> · Sent {daysAgo(e.dateReachedOut)} ago</span>}
             {e.medium && <span> · via {e.medium}</span>}
             {e.addedAt && <span> · Added {formatAddedAtRelative(e.addedAt)}</span>}
           </button>
+          {/* "Last followed up" chip — added per Dylan 2026-05-10 as a
+              distinct visual element. markFollowedUp() updates
+              dateReachedOut on every manual follow-up; the cron stamps
+              last_auto_followup_at. Take max of both for the most
+              recent touch. Touchpoints=0 means "reached but never
+              followed up yet" — show "Reached Xd ago" instead. */}
+          {(() => {
+            const reachedTs = e.dateReachedOut ? parseLocalDate(e.dateReachedOut)?.getTime() ?? 0 : 0
+            const autoFuTs = e.lastAutoFollowupAt ?? 0
+            const lastTouchTs = Math.max(reachedTs, autoFuTs)
+            if (!lastTouchTs) return null
+            const daysSince = Math.round((Date.now() - lastTouchTs) / 86_400_000)
+            const label = tps >= 1 ? `Last followed up ${daysSince}d ago` : `Reached ${daysSince}d ago`
+            return (
+              <span className="inline-block mt-1 text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground">
+                {label}
+              </span>
+            )
+          })()}
         </div>
 
         {/* Pipeline value chip — inline editable. Click the chip to type
