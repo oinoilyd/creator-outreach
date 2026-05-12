@@ -24,8 +24,12 @@
  * 2026-05-10 per Dylan — single biggest 'don't get blocked' trick.
  */
 
-const DEFAULT_MIN_JITTER_MS = 500
-const DEFAULT_MAX_JITTER_MS = 2000
+// 2026-05-11 per Dylan: halved jitter range (was 500–2000) to make
+// scrape paths feel snappier. Still randomized to defeat simple
+// anti-bot rhythm detectors, just on a tighter window. Watch for
+// 429s in the enrichment logs — if they spike, bump these back up.
+const DEFAULT_MIN_JITTER_MS = 250
+const DEFAULT_MAX_JITTER_MS = 1000
 
 /**
  * Random sleep — picks a wait between min and max, evenly distributed.

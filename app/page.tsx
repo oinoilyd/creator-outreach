@@ -1893,7 +1893,17 @@ export default function Home() {
       if (maxSubs > 0 && n > maxSubs) return false
       return true
     })
-    .filter(c => maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays)
+    // Per Dylan 2026-05-11: be lenient with creators whose video date
+    // didn't scrape (more common after the May-10 politeness rate-
+    // limiting). parseRelativeDays('') returns Infinity which would
+    // fail the filter — so explicitly pass-through when we have no
+    // date to evaluate. Only filter out creators with a KNOWN-stale date.
+    .filter(c => {
+      if (maxAgeDays === Infinity) return true
+      const dateStr = c.videoDates?.[0]
+      if (!dateStr) return true // no data → innocent until proven stale
+      return parseRelativeDays(dateStr) <= maxAgeDays
+    })
     .filter(c => !emailOnly || !!c.email)
     .filter(c => {
       if (activePlatform === 'youtube') return true
@@ -3074,7 +3084,8 @@ export default function Home() {
               loadMoreBatch={activeTab === 'results' ? loadMoreCreators.filter(c =>
                 !dismissedIds.has(c.channelId) &&
                 c.avgViews >= minViews && c.avgViews <= maxViews &&
-                (maxAgeDays === Infinity || parseRelativeDays(c.videoDates?.[0] || '') <= maxAgeDays) &&
+                // Same pass-through-on-missing-date logic as the main list filter above.
+                (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
                 (!emailOnly || !!c.email) &&
                 (activePlatform === 'youtube' || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
               ) : undefined}
