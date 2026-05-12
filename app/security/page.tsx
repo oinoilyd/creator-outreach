@@ -200,14 +200,24 @@ export default function SecurityPage() {
           breach-notification requirements of US state privacy laws.
         </li>
         <li>
+          <strong>Illinois residents:</strong> Under the Illinois
+          Personal Information Protection Act (815 ILCS 530), breaches
+          affecting <strong>500 or more Illinois residents</strong>{' '}
+          trigger a notification to the Illinois Attorney General within{' '}
+          <strong>45 days</strong> of discovery. Our internal Illinois
+          Breach Notification Procedure (PRO-003) documents the full
+          process.
+        </li>
+        <li>
           Notification is sent by email to affected users and posted on
           this page (and at <code>/security/incidents</code> if we ever
           need a separate incident log).
         </li>
         <li>
           We retain incident response evidence (logs, timeline,
-          remediation steps) for a minimum of <strong>2 years</strong>{' '}
-          for audit purposes.
+          remediation steps) for a minimum of <strong>5 years</strong>{' '}
+          for audit purposes and compliance with Illinois civil
+          statute-of-limitations requirements.
         </li>
       </ul>
 

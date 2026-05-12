@@ -157,6 +157,12 @@ const doc: LegalDoc = {
       md: 'You may also designate an authorized agent to make a request on your behalf. We will require written proof of the designation and may require you to verify your identity directly with us before honoring an agent request.',
     },
 
+    { type: 'h3', text: 'Illinois residents' },
+    {
+      type: 'p',
+      md: 'While Illinois has not enacted a comprehensive consumer privacy law, our Privacy Policy practices apply to all U.S. users. Under the **Illinois Personal Information Protection Act (PIPA, 815 ILCS 530)**, we commit to notify affected Illinois residents — and the **Illinois Attorney General** (if 500 or more Illinois residents are affected by a single incident) — without unreasonable delay following a confirmed breach of unencrypted Personal Information. Notification will occur within 45 days of breach discovery, or sooner if directed by the Illinois Attorney General\'s office. To contact us about an Illinois privacy concern, email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com) or [security@creatoroutreach.net](mailto:security@creatoroutreach.net) and reference "Illinois privacy" in the subject line.',
+    },
+
     { type: 'h2', text: '7. International Data Transfers' },
     {
       type: 'p',

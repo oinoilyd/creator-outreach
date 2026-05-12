@@ -5,6 +5,7 @@ import refunds from './refunds'
 import cookies from './cookies'
 import pciCompliance from './pci-compliance'
 import webhookSecurity from './webhook-security'
+import illinoisBreachNotification from './illinois-breach-notification'
 import customerSupport from './customer-support'
 
 /**
@@ -35,6 +36,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
   cookies,
   pciCompliance,
   webhookSecurity,
+  illinoisBreachNotification,
   customerSupport,
 ]
 
