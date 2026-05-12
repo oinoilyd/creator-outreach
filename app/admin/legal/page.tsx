@@ -56,8 +56,8 @@ const SIGNED_AGREEMENTS: SignedAgreement[] = [
     signedOn: '2026-04-28',
     signedBy: 'Dylan Meehan (auto-accepted at API signup)',
     summary:
-      'GDPR Article 28 DPA covering Anthropic processing of prompt/response data sent to the Claude API (used for AI keyword expansion + outreach drafting). Auto-accepted upon API account creation. Live link below; snapshot-to-PDF pending for audit folder.',
-    externalUrl: 'https://www.anthropic.com/legal/data-processing-addendum',
+      'GDPR Article 28 DPA covering Anthropic processing of prompt/response data sent to the Claude API (used for AI keyword expansion + outreach drafting). Auto-accepted upon API account creation. PDF snapshot filed 2026-05-12; confirmation email from Anthropic support archived separately. Upstream URL: anthropic.com/legal/data-processing-addendum.',
+    filename: 'DPA-Anthropic.pdf',
   },
 ]
 
