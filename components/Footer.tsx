@@ -28,6 +28,12 @@ export function Footer() {
           <Link href="/refunds" className="hover:text-foreground transition-colors">
             Refunds
           </Link>
+          <Link href="/security" className="hover:text-foreground transition-colors">
+            Security
+          </Link>
+          <Link href="/subprocessors" className="hover:text-foreground transition-colors">
+            Subprocessors
+          </Link>
           <Link href="/support" className="hover:text-foreground transition-colors">
             Support
           </Link>

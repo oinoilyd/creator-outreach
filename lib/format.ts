@@ -1,4 +1,5 @@
 import type { Creator, UserProfile } from './types'
+import { encodeUnsubscribeToken } from './unsubscribe'
 
 export const ALL_OCCUPATIONS = [
   'fitness coach', 'personal trainer', 'nutritionist', 'life coach', 'business coach',
@@ -458,23 +459,24 @@ export function buildOutreachContent(
 /**
  * Build the three-line CAN-SPAM footer appended to every outreach
  * email body. Pure function — no side effects, deterministic given
- * the inputs, so it's straightforward to test.
+ * the inputs (except for the timestamp baked into the unsubscribe
+ * token), so it's straightforward to test.
  *
  * Returns lines (not a joined string) so the caller can stitch them
  * into its existing line array without worrying about delimiter
  * conventions.
  *
- * The unsubscribe URL embeds a base64-encoded JSON payload —
- * { userId, recipientEmail, ts } — as a placeholder until proper
- * token signing lands. The /unsubscribe endpoint that records the
- * click into suppression_list is intentionally not built here.
+ * The unsubscribe URL embeds a signed token of the form
+ *   <base64url(json)>.<base64url(hmac)>
+ * where the JSON is `{ userId, recipientEmail, ts }`. The signing
+ * key is `UNSUBSCRIBE_HMAC_SECRET`; see lib/unsubscribe.ts.
  */
 export function buildCanSpamFooter(args: {
   senderName: string
   physicalAddress: string
   /** Tenant identifier for the unsubscribe token. We use the user's
-   *  auth email here as a stable, non-secret pointer. Server can swap
-   *  this for the user's UUID when the unsubscribe endpoint lands. */
+   *  auth email here as a stable, non-secret pointer. The /unsubscribe
+   *  endpoint resolves it back to a Supabase auth UUID server-side. */
   userId: string
   recipientEmail: string
 }): string[] {
@@ -482,12 +484,11 @@ export function buildCanSpamFooter(args: {
     ? args.physicalAddress
     : '[Add your business address in Settings to comply with CAN-SPAM]'
 
-  const tokenPayload = {
+  const token = encodeUnsubscribeToken({
     userId: args.userId,
     recipientEmail: args.recipientEmail,
     ts: Date.now(),
-  }
-  const token = encodeUnsubscribeToken(tokenPayload)
+  })
   const unsubscribeUrl = `https://creatoroutreach.net/unsubscribe?t=${token}`
 
   return [
@@ -495,28 +496,6 @@ export function buildCanSpamFooter(args: {
     addressLine,
     `Unsubscribe: ${unsubscribeUrl}`,
   ]
-}
-
-/**
- * Placeholder unsubscribe token. Base64url-encoded JSON; not signed,
- * not encrypted. The /unsubscribe handler (next task) will validate
- * and rotate this into a signed format. Kept here so the link in the
- * email body is real and the eventual handler has a parse target.
- */
-function encodeUnsubscribeToken(payload: {
-  userId: string
-  recipientEmail: string
-  ts: number
-}): string {
-  const json = JSON.stringify(payload)
-  // Browser + Node both expose btoa; in pure Node environments the
-  // older `Buffer` path is the safer fallback. We pick whichever is
-  // available without importing node-only globals at module scope.
-  const b64 =
-    typeof btoa === 'function'
-      ? btoa(unescape(encodeURIComponent(json)))
-      : Buffer.from(json, 'utf8').toString('base64')
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
 export function buildOutreachEmail(

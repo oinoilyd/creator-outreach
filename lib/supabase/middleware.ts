@@ -9,11 +9,19 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 // Legal pages (/terms, /privacy, /refunds, /cookies, /support) ARE
 // public — they're referenced from the landing-page footer + must
 // be reachable for compliance.
+//
+// /unsubscribe is public because the recipient who clicks it has
+// never signed in to our app — they're a creator on the other end
+// of one of our users' outreach emails. CAN-SPAM §5(a)(3) requires
+// the opt-out link to work without any registration or sign-in
+// barrier, so the auth middleware must let them through.
 const PUBLIC_PATHS = [
   '/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback',
   '/auth/confirm', '/auth/forgot-password', '/auth/reset-password',
   '/landing',
   '/terms', '/privacy', '/refunds', '/cookies', '/support',
+  '/security', '/subprocessors',
+  '/unsubscribe',
 ]
 
 /**

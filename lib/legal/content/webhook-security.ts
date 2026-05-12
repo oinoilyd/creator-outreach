@@ -112,6 +112,21 @@ const doc: LegalDoc = {
         'Both `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY` MUST be configured to allow safe rotation.',
       ],
     },
+    { type: 'h3', text: '5.4 Outbound Signed URLs (Unsubscribe)' },
+    {
+      type: 'p',
+      md: 'Same HMAC discipline applies to URLs we mint and send to third parties. The `/unsubscribe` endpoint embedded in every outreach email is the canonical example: an attacker who can forge an unsubscribe URL can silently DoS a sender\'s outreach by opting their entire contact list out. The link is signed and verified the same way an inbound webhook is.',
+    },
+    {
+      type: 'ul',
+      items: [
+        'Token format is `<base64url(json)>.<base64url(hmac)>` where the HMAC is HMAC-SHA256 of the base64url-encoded payload using `UNSUBSCRIBE_HMAC_SECRET`.',
+        'Sign the **encoded** payload string, not the raw JSON — verification then compares bytes directly without re-serialising the JSON.',
+        'Verify with `crypto.timingSafeEqual` to defeat timing oracles.',
+        'Treat any tampered or unsigned token as invalid and render a friendly fallback page that tells the recipient to reply with "unsubscribe" — never throw a 500 at someone trying to opt out of mail.',
+        '`UNSUBSCRIBE_HMAC_SECRET` MUST be ≥64 chars / 256 bits of entropy and is stored as a Vercel env var, never committed.',
+      ],
+    },
 
     { type: 'h2', text: '6. Incident Response' },
     {

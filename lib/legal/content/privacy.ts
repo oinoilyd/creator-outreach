@@ -120,10 +120,41 @@ const doc: LegalDoc = {
       md: 'To exercise any of these rights, email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com). We will respond within 30 days. Many of these are also self-serve via your account settings.',
     },
 
-    { type: 'h2', text: '6. California Residents (CCPA/CPRA)' },
+    { type: 'h2', text: '6. Your US State Privacy Rights' },
     {
       type: 'p',
-      md: 'California residents have additional rights including the right to know what personal information we collect, the right to delete it, the right to correct it, the right to opt out of any "sale" or "sharing" (we do not sell or share for cross-context behavioral advertising), and the right to non-discrimination for exercising these rights. To exercise your California rights, email us at the address above with "California Privacy Request" in the subject line.',
+      md: 'If you are a resident of a US state with an applicable comprehensive privacy law, you have additional rights described in this section. These laws include the **California Consumer Privacy Act / California Privacy Rights Act (CCPA/CPRA)**, **Virginia Consumer Data Protection Act (VCDPA)**, **Colorado Privacy Act (CPA)**, **Connecticut Data Privacy Act (CTDPA)**, **Utah Consumer Privacy Act (UCPA)**, **Texas Data Privacy and Security Act (TDPSA)**, **Oregon Consumer Privacy Act (OCPA)**, **Iowa Consumer Data Protection Act (IPDPA)**, **Tennessee Information Protection Act (TIPA)**, **Delaware Personal Data Privacy Act (DPDPA)**, and **New Hampshire Privacy Act (NHPDPA)**.',
+    },
+    {
+      type: 'p',
+      md: 'Subject to verification and the specifics of your state\'s law, you may have the following rights:',
+    },
+    {
+      type: 'ul',
+      items: [
+        '**Right to know / access** — confirm whether we process your personal information and request a copy of what we collect.',
+        '**Right to delete** — request that we delete personal information we have collected from you.',
+        '**Right to correct** — request that we correct inaccurate personal information we hold about you.',
+        '**Right to data portability** — receive a copy of your personal information in a portable, machine-readable format.',
+        '**Right to opt out of "sale" or "sharing"** — we do not sell your personal information and we do not "share" it for cross-context behavioral advertising as those terms are defined under state law.',
+        '**Right to opt out of targeted advertising** — we do not engage in targeted advertising based on your personal information.',
+        '**Right to limit the use of sensitive personal information** — we do not use sensitive personal information for purposes beyond what is reasonably necessary to provide the Service.',
+        '**Right to opt out of profiling** — we do not use automated decision-making or profiling that produces legal or similarly significant effects about you.',
+        '**Right to appeal** — if we deny your privacy rights request, you may appeal that decision by replying to our denial email, and we will respond within the timeframe required by your state\'s law (typically 45 to 60 days).',
+        '**Right to non-discrimination** — we will not deny service, charge different prices, or provide a different level of quality because you exercised your privacy rights.',
+      ],
+    },
+    {
+      type: 'p',
+      md: '**Universal opt-out signals (Global Privacy Control).** Where required by state law (currently California, Colorado, Connecticut, Texas, Oregon, and others as they take effect), we honor browser-based universal opt-out signals such as the **Global Privacy Control (GPC)** as a valid request to opt out of "sale," "sharing," and targeted advertising. Because we do not engage in those activities, the GPC signal does not change our processing, but we recognize and respect the signal.',
+    },
+    {
+      type: 'p',
+      md: 'To exercise any of these rights, email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com) with "US State Privacy Request" and your state of residence in the subject line. We will respond within 30 days (or the timeframe your state\'s law requires, whichever is shorter). We may need to verify your identity before fulfilling the request.',
+    },
+    {
+      type: 'p',
+      md: 'You may also designate an authorized agent to make a request on your behalf. We will require written proof of the designation and may require you to verify your identity directly with us before honoring an agent request.',
     },
 
     { type: 'h2', text: '7. International Data Transfers' },

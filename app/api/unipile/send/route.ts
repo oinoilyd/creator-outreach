@@ -29,6 +29,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 import { createClient } from '@/lib/supabase/server'
 import { sendEmail, UnipileError } from '@/lib/unipile'
@@ -124,6 +125,50 @@ export async function POST(req: NextRequest) {
       { error: `Refusing to send: recipient is ${issue}`, code: issue },
       { status: 400 },
     )
+  }
+
+  // CAN-SPAM §5(a)(4) suppression check — if the recipient has
+  // unsubscribed from this user's outreach (via the /unsubscribe page
+  // or a manual bounce / complaint record), we MUST NOT send. The
+  // service-role client bypasses RLS so we don't depend on the
+  // request-scoped Supabase session having SELECT on suppression_list
+  // (the user owns the rows, so RLS would also work — service-role is
+  // a defensive choice that keeps this branch isolated from any future
+  // RLS tweak).
+  const suppressionUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const suppressionKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (suppressionUrl && suppressionKey) {
+    const svc = createServiceClient(suppressionUrl, suppressionKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { data: suppressed, error: suppressionErr } = await svc
+      .from('suppression_list')
+      .select('reason, unsubscribed_at')
+      .eq('user_id', user.id)
+      .eq('recipient_email', to.trim().toLowerCase())
+      .maybeSingle()
+    if (suppressionErr) {
+      // Fail OPEN on a transient suppression-table error so a momentary
+      // DB hiccup doesn't block legitimate sends. The compliance
+      // tradeoff: rare flake-window where one stale send slips through,
+      // which is still better than a silent total-outage. Log loudly
+      // so we'd notice a pattern.
+      console.error('[unipile/send] suppression lookup failed', suppressionErr.message)
+    } else if (suppressed) {
+      console.log('[unipile/send] suppressed', {
+        userId: user.id,
+        recipient: to.trim().toLowerCase(),
+        reason: suppressed.reason,
+      })
+      return NextResponse.json(
+        {
+          suppressed: true,
+          reason: suppressed.reason ?? 'unsubscribed',
+          error: 'Recipient has unsubscribed and cannot be contacted.',
+        },
+        { status: 409 },
+      )
+    }
   }
 
   try {

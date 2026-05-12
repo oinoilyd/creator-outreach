@@ -99,6 +99,21 @@ export function SendPreviewModal({
       })
       const data = await resp.json()
       if (!resp.ok) {
+        // 409 + suppressed flag is the CAN-SPAM unsubscribe path —
+        // surface a calm, non-destructive toast rather than the
+        // generic red error block, then close the modal so the user
+        // doesn't have a half-staged send sitting open.
+        if (resp.status === 409 && data?.suppressed) {
+          toast.error('Recipient has unsubscribed and cannot be contacted.', {
+            description:
+              data.reason && data.reason !== 'unsubscribed'
+                ? `Marked as "${data.reason}" — they won't receive future outreach from you.`
+                : 'They removed themselves from your outreach list — they won\'t receive future emails from you.',
+          })
+          setSending(false)
+          onClose()
+          return
+        }
         setError(data.hint ? `${data.error}\n${data.hint}` : data.error || `HTTP ${resp.status}`)
         setSending(false)
         return

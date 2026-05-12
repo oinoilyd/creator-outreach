@@ -214,6 +214,35 @@ export async function GET(req: NextRequest) {
     profileByUser.set(p.user_id, p)
   }
 
+  // CAN-SPAM §5(a)(4) suppression batch — anyone the user has on
+  // their do-not-contact list MUST be skipped. We load every
+  // (user_id, recipient_email) pair we're about to send to in one
+  // query so we don't N+1 the table per follow-up.
+  const recipientPairs = candidates.map(c => ({
+    user_id: c.user_id,
+    recipient_email: (c.email ?? '').trim().toLowerCase(),
+  }))
+  const suppressedSet = new Set<string>()
+  if (recipientPairs.length > 0) {
+    const lowercased = Array.from(new Set(recipientPairs.map(p => p.recipient_email)))
+      .filter(e => e.length > 0)
+    const { data: suppressionRows, error: suppressionErr } = await supabase
+      .from('suppression_list')
+      .select('user_id, recipient_email')
+      .in('user_id', userIds)
+      .in('recipient_email', lowercased)
+    if (suppressionErr) {
+      // Fail open — same rationale as the manual send path: a transient
+      // table error shouldn't kill the entire cron run. Log so it's
+      // noticeable.
+      console.error('[cron/send-followups] suppression lookup failed', suppressionErr.message)
+    } else {
+      for (const row of suppressionRows ?? []) {
+        suppressedSet.add(`${row.user_id}|${(row.recipient_email ?? '').toLowerCase()}`)
+      }
+    }
+  }
+
   const perUserCounter = new Map<string, number>()
   let sent = 0
   let skipped = 0
@@ -256,6 +285,16 @@ export async function GET(req: NextRequest) {
     if (issue !== null) {
       skipped += 1
       errors.push({ entryId: entry.id, reason: `recipient ${issue}` })
+      continue
+    }
+
+    // Suppression check — recipient unsubscribed (or bounced / complained).
+    // CAN-SPAM §5(a)(4) requires us to honor opt-outs within 10
+    // business days; we apply immediately. Pre-loaded above to keep
+    // this loop branch O(1).
+    if (suppressedSet.has(`${entry.user_id}|${(entry.email ?? '').trim().toLowerCase()}`)) {
+      skipped += 1
+      errors.push({ entryId: entry.id, reason: 'recipient suppressed (unsubscribed)' })
       continue
     }
 

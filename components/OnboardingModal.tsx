@@ -14,18 +14,29 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
 
   const [fullName, setFullName] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
-  // CAN-SPAM §5(a)(5) — every commercial email must include a valid
-  // physical postal address. We collect it here but don't block
-  // onboarding on it (a softer nudge appears in the send composer
-  // until the address is set).
+  // CAN-SPAM §5(a)(5) — every commercial email MUST include a valid
+  // physical postal address. We hard-block onboarding without one
+  // (vs. the soft-warning approach we had pre-2026-05-11) because
+  // every send below the funnel is now an automated compliance risk.
+  // The minimum length (MIN_ADDRESS_LEN) is a defensive sanity check:
+  // anything shorter than "1 A St US" can't be a real postal address.
   const [physicalAddress, setPhysicalAddress] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const trimmedAddress = physicalAddress.trim()
+  const MIN_ADDRESS_LEN = 8
+  const addressValid = trimmedAddress.length >= MIN_ADDRESS_LEN
+  const canSubmit = fullName.trim().length > 0 && addressValid && !loading
 
   async function save(opts: { skipLinkedin: boolean }) {
     setError('')
     if (!fullName.trim()) {
       setError('Full name is required')
+      return
+    }
+    if (!addressValid) {
+      setError('Business address is required to send CAN-SPAM compliant emails')
       return
     }
     setLoading(true)
@@ -35,7 +46,7 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
       .update({
         full_name: fullName.trim(),
         linkedin_url: opts.skipLinkedin ? '' : linkedinUrl.trim(),
-        physical_address: physicalAddress.trim() || null,
+        physical_address: trimmedAddress,
         onboarded: true,
       })
       .eq('user_id', userId)
@@ -93,16 +104,29 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
 
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Business address <span className="text-muted-foreground/70">(required for compliance)</span>
+              Business address <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
               value={physicalAddress}
               onChange={e => setPhysicalAddress(e.target.value)}
               placeholder="123 Main St, City, ST 12345"
-              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
+              aria-invalid={physicalAddress.length > 0 && !addressValid}
+              aria-describedby="onboarding-address-help"
+              className={`w-full bg-muted border rounded px-3 py-2 text-foreground text-sm focus:outline-none ${
+                physicalAddress.length > 0 && !addressValid
+                  ? 'border-red-400/70 focus:border-red-500'
+                  : 'border-border focus:border-blue-500'
+              }`}
             />
-            <p className="text-[11px] text-muted-foreground/70 mt-1">This appears in the footer of every email you send through Creator Outreach — required by US anti-spam law (CAN-SPAM). You can add it later from Profile, but every send before then will include a placeholder warning.</p>
+            <p id="onboarding-address-help" className="text-[11px] text-muted-foreground/70 mt-1">
+              Required by US anti-spam law (CAN-SPAM §5(a)(5)) — appears in the footer of every email you send through Creator Outreach. A PO Box works too. You can change it later from Profile.
+            </p>
+            {physicalAddress.length > 0 && !addressValid && (
+              <p className="text-[11px] text-red-700 dark:text-red-400 mt-1">
+                Business address is required to send CAN-SPAM compliant emails.
+              </p>
+            )}
           </div>
         </div>
 
@@ -111,14 +135,14 @@ export function OnboardingModal({ userId, onComplete }: { userId: string; onComp
         <div className="flex items-center justify-between gap-3 mt-6">
           <button
             onClick={() => save({ skipLinkedin: true })}
-            disabled={loading}
-            className="text-sm text-muted-foreground hover:text-foreground/80 transition-colors disabled:opacity-50"
+            disabled={!canSubmit}
+            className="text-sm text-muted-foreground hover:text-foreground/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Skip LinkedIn for now
           </button>
           <button
             onClick={() => save({ skipLinkedin: false })}
-            disabled={loading}
+            disabled={!canSubmit}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Saving…' : 'Save & continue'}
