@@ -53,31 +53,21 @@ export function Spinner() {
 /**
  * Sort indicator for column headers. Multi-column-sort aware:
  *
- *   - col not in sorts        → muted ↕ (sortable, currently inactive)
- *   - col is sorts[0]         → bright primary arrow + no badge (top key)
- *   - col is sorts[1+]        → dimmer arrow + priority badge "2", "3", …
+ *   - col not in sorts → muted ↕ (sortable, currently inactive)
+ *   - col is sorts[0]  → bright purple ↑/↓
  *
- * The numeric badge is only drawn when more than one sort is active —
- * a single-column sort doesn't need a "1".
+ * Per Dylan 2026-05-11: dropped the multi-sort priority badge. Sort
+ * is now single-column (see handleSort in app/page.tsx), so there's
+ * only ever 0 or 1 entries in `sorts`. Keeping the type signature
+ * tolerant of arrays in case other call sites pass multi-sort
+ * shapes — we just show the arrow for index 0.
  */
 export function SortIndicator({ col, sorts }: { col: SortCol; sorts: { col: SortCol; dir: 'asc' | 'desc' }[] }) {
   const idx = sorts.findIndex(s => s.col === col)
   if (idx < 0) return <span className="ml-1 text-muted-foreground/70">↕</span>
   const { dir } = sorts[idx]
   const arrow = dir === 'asc' ? '↑' : '↓'
-  const isPrimary = idx === 0
-  const arrowCls = isPrimary ? 'text-purple-500' : 'text-purple-400/70'
-  const showBadge = sorts.length > 1
-  return (
-    <span className="ml-1 inline-flex items-center gap-1">
-      <span className={arrowCls}>{arrow}</span>
-      {showBadge && (
-        <span className={`text-[9px] font-bold px-1 rounded ${isPrimary ? 'bg-purple-500 text-white' : 'bg-purple-500/30 text-purple-200'}`}>
-          {idx + 1}
-        </span>
-      )}
-    </span>
-  )
+  return <span className="ml-1 text-purple-500">{arrow}</span>
 }
 
 /**

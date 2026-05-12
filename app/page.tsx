@@ -903,21 +903,20 @@ export default function Home() {
   // matters once children that receive `onSort` are memoized (Phase 3b).
   // Body uses only functional setState (setSorts(prev => …)), so an
   // empty dep array is safe here.
+  // 2026-05-11 per Dylan: simplified from multi-sort to single-column
+  // sort. The old behavior promoted the clicked column to primary
+  // while keeping previous sorts as secondary, which surfaced a
+  // priority badge ("1", "2", "3"...) that felt weird and useless.
+  // Now clicking a header just replaces the sort. Three-state cycle:
+  //   off → desc → asc → off.
   const handleSort = useCallback((col: SortCol) => {
     setSorts(prev => {
-      const idx = prev.findIndex(s => s.col === col)
-      if (idx === 0) {
-        // Currently primary → toggle dir, or remove on second toggle.
-        const cur = prev[0]
-        if (cur.dir === 'desc') {
-          return [{ col, dir: 'asc' }, ...prev.slice(1)]
-        } else {
-          return prev.slice(1) // remove primary
-        }
+      const cur = prev[0]
+      if (cur?.col === col) {
+        if (cur.dir === 'desc') return [{ col, dir: 'asc' }]
+        return [] // toggle off after asc
       }
-      // Promote (or insert) as new primary.
-      const without = prev.filter(s => s.col !== col)
-      return [{ col, dir: 'desc' }, ...without]
+      return [{ col, dir: 'desc' }]
     })
   }, [])
 
