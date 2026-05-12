@@ -116,6 +116,18 @@ export async function syncSubscriptionByCustomerId(
   const periodEndIso = periodEnd(sub)
   const priceId = sub.items?.data?.[0]?.price?.id ?? null
 
+  // Stripe has TWO mutually-exclusive cancellation mechanisms:
+  //   • cancel_at_period_end = true  → cancels at current_period_end
+  //   • cancel_at = <timestamp>      → cancels at that specific time
+  // The Customer Portal sometimes uses one, sometimes the other,
+  // depending on flow. From our UI's perspective both mean
+  // "subscription is scheduled to cancel" — we treat them as
+  // equivalent. Setting cancel_at flips cancel_at_period_end to
+  // false in Stripe's data model, so we have to check both.
+  const isCanceling =
+    (sub.cancel_at_period_end ?? false) ||
+    (sub.cancel_at != null && sub.cancel_at > 0)
+
   const { data, error } = await sb
     .from('user_profile')
     .update({
@@ -123,7 +135,7 @@ export async function syncSubscriptionByCustomerId(
       subscription_status: sub.status,
       subscription_current_period_end: periodEndIso,
       subscription_price_id: priceId,
-      subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
+      subscription_cancel_at_period_end: isCanceling,
     })
     .eq('stripe_customer_id', stripeCustomerId)
     .select('user_id')

@@ -86,6 +86,28 @@ function priceIdFromSub(sub: Stripe.Subscription): string | null {
   return sub.items?.data?.[0]?.price?.id ?? null
 }
 
+/**
+ * "Is this subscription scheduled to cancel?" — defended against
+ * Stripe's two-track cancellation model.
+ *
+ * Stripe represents pending cancellation via EITHER:
+ *   • cancel_at_period_end = true       — cancels at current_period_end
+ *   • cancel_at = <unix timestamp>      — cancels at that specific time
+ *
+ * They're mutually exclusive (setting cancel_at flips cancel_at_period_end
+ * to false in Stripe's data model). The Customer Portal picks one based
+ * on the flow. From our UI's perspective they're equivalent: "the user
+ * has scheduled cancellation; show the warn-styled canceling state".
+ *
+ * Lifting this into one helper so both the webhook handler and the
+ * portal-return sync make the same call.
+ */
+function isCanceling(sub: Stripe.Subscription): boolean {
+  if (sub.cancel_at_period_end) return true
+  if (sub.cancel_at != null && sub.cancel_at > 0) return true
+  return false
+}
+
 export async function POST(req: NextRequest) {
   const signature = req.headers.get('stripe-signature')
   if (!signature) {
@@ -159,7 +181,7 @@ export async function POST(req: NextRequest) {
           subscription_status: sub.status,
           subscription_current_period_end: periodEndIso(sub),
           subscription_price_id: priceIdFromSub(sub),
-          subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
+          subscription_cancel_at_period_end: isCanceling(sub),
         }, fallbackUserId)
         break
       }
@@ -179,7 +201,7 @@ export async function POST(req: NextRequest) {
           subscription_status: sub.status,
           subscription_current_period_end: periodEndIso(sub),
           subscription_price_id: priceIdFromSub(sub),
-          subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
+          subscription_cancel_at_period_end: isCanceling(sub),
         }, subscriptionMetadataUserId(sub))
         break
       }
@@ -193,7 +215,7 @@ export async function POST(req: NextRequest) {
           subscription_status: sub.status,
           subscription_current_period_end: periodEndIso(sub),
           subscription_price_id: priceIdFromSub(sub),
-          subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
+          subscription_cancel_at_period_end: isCanceling(sub),
         }, subscriptionMetadataUserId(sub))
         break
       }
