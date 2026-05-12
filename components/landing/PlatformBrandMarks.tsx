@@ -80,9 +80,16 @@ export function InstagramMark({ size = 28, ...rest }: Props) {
 }
 
 export function TikTokMark({ size = 28, ...rest }: Props) {
-  // TikTok's two-tone glyph: cyan + magenta offsets on a black/dark
-  // base note. The offsets are the brand's recognition cue — without
-  // them this reads as a generic music note.
+  // TikTok's signature stereoscopic mark: cyan offset behind-left,
+  // magenta offset behind-right, foreground note in currentColor
+  // (so the glyph adapts to light/dark substrates). Tight 0.5px
+  // offsets — wide offsets look glitchy at small render sizes.
+  //
+  // Path is the Simple-Icons canonical TikTok glyph (cleaner curve
+  // geometry than our previous custom path which read as a generic
+  // music note at small sizes).
+  const path =
+    'M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z'
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -93,23 +100,14 @@ export function TikTokMark({ size = 28, ...rest }: Props) {
       aria-label="TikTok"
       {...rest}
     >
-      {/* cyan offset */}
-      <path
-        fill="#25F4EE"
-        d="M9.39 8.69v8.62a3 3 0 1 1-3-3 3.05 3.05 0 0 1 .94.15v-3.5a6.5 6.5 0 0 0-.94-.07A6.5 6.5 0 1 0 12.89 17.31V9.7a8.16 8.16 0 0 0 4.78 1.52V7.74a4.86 4.86 0 0 1-3.28-1.05V8.69z"
-        transform="translate(-1 0.6)"
-      />
-      {/* magenta offset */}
-      <path
-        fill="#FE2C55"
-        d="M9.39 8.69v8.62a3 3 0 1 1-3-3 3.05 3.05 0 0 1 .94.15v-3.5a6.5 6.5 0 0 0-.94-.07A6.5 6.5 0 1 0 12.89 17.31V9.7a8.16 8.16 0 0 0 4.78 1.52V7.74a4.86 4.86 0 0 1-3.28-1.05V8.69z"
-        transform="translate(1 -0.6)"
-      />
-      {/* black base */}
-      <path
-        fill="#000000"
-        d="M9.39 8.69v8.62a3 3 0 1 1-3-3 3.05 3.05 0 0 1 .94.15v-3.5a6.5 6.5 0 0 0-.94-.07A6.5 6.5 0 1 0 12.89 17.31V9.7a8.16 8.16 0 0 0 4.78 1.52V7.74a4.86 4.86 0 0 1-3.28-1.05V8.69z"
-      />
+      {/* Layer order (back → front): cyan, magenta, foreground.
+          Foreground last so it sits on top — that's the recognizable
+          shape. Previous version had black on top covering both
+          offsets, which obscured the brand cue and made the glyph
+          read as muddy. */}
+      <path fill="#25F4EE" transform="translate(-0.5 0.5)" d={path} />
+      <path fill="#FE2C55" transform="translate(0.5 -0.5)" d={path} />
+      <path fill="currentColor" d={path} />
     </svg>
   )
 }

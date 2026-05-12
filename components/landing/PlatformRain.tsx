@@ -113,7 +113,17 @@ export function PlatformRain() {
           className="platform-rain-drop absolute top-0"
           style={{
             left: `${leftPct}%`,
-            animation: `platform-rain-fall ${duration}s linear ${delay}s infinite`,
+            // animation-fill-mode: backwards applies the 0% keyframe
+            // state (opacity: 0) during the `delay` period BEFORE the
+            // animation actually starts. Without this, drops render
+            // at default opacity (1) and "pop in" at full brightness
+            // when the animation finally kicks in — read as glitchy
+            // chunks in early testing.
+            animation: `platform-rain-fall ${duration}s linear ${delay}s infinite backwards`,
+            // Initial state matches the 0% keyframe so even before
+            // styles compute, the drop isn't a flash of full-opacity
+            // brand glyph. Defense in depth with the fill-mode.
+            opacity: 0,
             // Slight blur on the smaller drops adds atmospheric depth
             filter: size < 26 ? 'blur(0.3px)' : undefined,
             willChange: 'transform, opacity',
