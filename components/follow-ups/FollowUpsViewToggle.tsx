@@ -28,8 +28,8 @@ export function FollowUpsViewToggle({
       <div className="flex bg-card/60 rounded-md p-0.5 border border-border flex-wrap">
         {([
           { id: 'list',  label: 'List',   hint: 'Priority buckets: High / Medium / Low / Ghosted' },
-          { id: 'month', label: 'Month',  hint: 'Classic month-grid calendar' },
           { id: 'week',  label: 'Week',   hint: '7-day strip with previews + day-detail panel' },
+          { id: 'month', label: 'Month',  hint: 'Classic month-grid calendar' },
           { id: 'gantt', label: 'Gantt',  hint: '3-week horizontal timeline, bars from Sent → Follow-up' },
           { id: 'split', label: 'Split',  hint: 'Mini calendar + always-visible day agenda (Outlook-style)' },
         ] as { id: FUView; label: string; hint: string }[]).map(opt => (
