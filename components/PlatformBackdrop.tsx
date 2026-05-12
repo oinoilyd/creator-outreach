@@ -68,10 +68,14 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
     <div
       key={theme}
       aria-hidden
-      className="fixed inset-0 pointer-events-none overflow-hidden transition-opacity ease-out"
+      // Per Dylan 2026-05-11: themes now play ONLY in the top banner
+      // strip, not full-page. The banner is ~88px tall (sticky nav).
+      // overflow-hidden clips everything outside this strip.
+      className="fixed top-0 inset-x-0 h-[88px] pointer-events-none overflow-hidden transition-opacity ease-out"
       style={{
         // Spotlight pushes the layer above content (z-50). Otherwise
-        // stays at z-0 in the background.
+        // stays at z-0 in the background — sits behind the banner's
+        // translucent bg-background/10 so icons show through.
         zIndex: spotlight ? 50 : 0,
         opacity: visible ? 1 : 0,
         transitionDuration: visible ? '300ms' : '1500ms',
@@ -95,15 +99,19 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
 // ── Rain ─────────────────────────────────────────────────────────────
 
 function RainLayer({ color, iconPath, boosted }: { color: string; iconPath: string; boosted: boolean }) {
+  // 2026-05-11 banner-only redesign: rain falls THROUGH the 88px banner
+  // strip instead of full viewport. Smaller icons, faster fall, more
+  // drops so the banner reads as 'raining' at a glance.
   const drops = useMemo(() => {
-    const N = 36 // bumped from 22 — denser feel per Dylan
+    const N = 26 // adjusted for banner area
     return Array.from({ length: N }, (_, i) => ({
       key: i,
       left: Math.random() * 100,
-      size: 14 + Math.floor(Math.random() * 18),
-      delay: Math.random() * 14,
-      duration: 11 + Math.random() * 16,
-      opacity: 0.05 + Math.random() * 0.07,
+      // Banner-scale icons — much smaller than full-page rain
+      size: 10 + Math.floor(Math.random() * 8), // 10–18px
+      delay: Math.random() * 4,
+      duration: 2.5 + Math.random() * 2.5, // 2.5–5s fall (faster — short distance)
+      opacity: 0.18 + Math.random() * 0.12,
     }))
   }, [])
 
@@ -119,8 +127,10 @@ function RainLayer({ color, iconPath, boosted }: { color: string; iconPath: stri
             width={size}
             height={size}
             fill={color}
-            initial={{ y: '-15vh', opacity: 0 }}
-            animate={{ y: '115vh', opacity: [0, op, op, 0] }}
+            // Percentages now refer to the 88px banner container, not vh.
+            // -30% → starts ~26px above banner, 130% → ends ~26px below.
+            initial={{ y: '-30%', opacity: 0 }}
+            animate={{ y: '130%', opacity: [0, op, op, 0] }}
             transition={{
               duration: d.duration,
               delay: d.delay,
@@ -128,7 +138,7 @@ function RainLayer({ color, iconPath, boosted }: { color: string; iconPath: stri
               ease: 'linear',
               times: [0, 0.1, 0.9, 1],
             }}
-            style={{ position: 'absolute', left: `${d.left}%`, willChange: 'transform, opacity' }}
+            style={{ position: 'absolute', left: `${d.left}%`, top: 0, willChange: 'transform, opacity' }}
           >
             <path d={iconPath} />
           </motion.svg>
@@ -141,16 +151,19 @@ function RainLayer({ color, iconPath, boosted }: { color: string; iconPath: stri
 // ── Drift ────────────────────────────────────────────────────────────
 
 function DriftLayer({ color, iconPath, boosted }: { color: string; iconPath: string; boosted: boolean }) {
+  // 2026-05-11 banner-only redesign: bubbles float from below the
+  // banner upward through it. Smaller icons + faster rise so they
+  // read at banner scale.
   const bubbles = useMemo(() => {
-    const N = 20 // bumped from 12 — denser feel
+    const N = 16
     return Array.from({ length: N }, (_, i) => ({
       key: i,
       left: Math.random() * 100,
-      size: 24 + Math.floor(Math.random() * 22),
-      delay: Math.random() * 22,
-      duration: 22 + Math.random() * 18,
-      sway: 30 + Math.random() * 50,
-      opacity: 0.04 + Math.random() * 0.06,
+      size: 14 + Math.floor(Math.random() * 10), // 14–24px
+      delay: Math.random() * 5,
+      duration: 4 + Math.random() * 4, // 4–8s rise
+      sway: 8 + Math.random() * 14, // smaller sway for narrow banner
+      opacity: 0.18 + Math.random() * 0.12,
     }))
   }, [])
 
@@ -166,9 +179,10 @@ function DriftLayer({ color, iconPath, boosted }: { color: string; iconPath: str
             width={size}
             height={size}
             fill={color}
-            initial={{ y: '115vh', x: 0, opacity: 0 }}
+            // Percentages relative to the 88px container, not viewport.
+            initial={{ y: '130%', x: 0, opacity: 0 }}
             animate={{
-              y: '-15vh',
+              y: '-30%',
               x: [0, b.sway / 2, -b.sway / 2, b.sway / 2, 0],
               opacity: [0, op, op, 0],
             }}
@@ -179,7 +193,7 @@ function DriftLayer({ color, iconPath, boosted }: { color: string; iconPath: str
               ease: 'linear',
               times: [0, 0.2, 0.5, 0.8, 1],
             }}
-            style={{ position: 'absolute', left: `${b.left}%`, willChange: 'transform, opacity' }}
+            style={{ position: 'absolute', left: `${b.left}%`, top: 0, willChange: 'transform, opacity' }}
           >
             <path d={iconPath} />
           </motion.svg>
@@ -241,16 +255,19 @@ function FireworksShow({ color, iconPath }: { color: string; iconPath: string })
   )
 
   const particles = useMemo(() => {
+    // 2026-05-11 banner-only scale: particles are ~1/3 the size and
+    // travel ~1/4 the distance in pixels (not vmin) so the burst fits
+    // inside the 88px banner instead of exploding off-screen.
     return bursts.flatMap(burst =>
-      Array.from({ length: 12 }, (_, i) => {
-        const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.35
-        const distance = 14 + Math.random() * 18
+      Array.from({ length: 10 }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.35
+        const distance = 12 + Math.random() * 12 // px, not vmin
         return {
           key: `${burst.id}-${i}`,
           burst,
           dx: Math.cos(angle) * distance * burst.scale,
           dy: Math.sin(angle) * distance * burst.scale,
-          size: (16 + Math.floor(Math.random() * 10)) * burst.scale,
+          size: (6 + Math.floor(Math.random() * 5)) * burst.scale, // 6–11px base, * burst scale
         }
       }),
     )
@@ -267,8 +284,9 @@ function FireworksShow({ color, iconPath }: { color: string; iconPath: string })
           fill={color}
           initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
           animate={{
-            x: `${p.dx}vmin`,
-            y: `${p.dy}vmin`,
+            // Pixel distances now — keeps bursts inside the 88px banner.
+            x: p.dx,
+            y: p.dy,
             scale: [0, 1.2, 0.9, 0],
             opacity: [0, 0.95, 0.6, 0],
           }}
@@ -334,11 +352,13 @@ function CreatorOutreachEasterEgg({ color, delay }: { color: string; delay: numb
     >
       <div
         style={{
-          fontSize: 'clamp(2.5rem, 7vw, 5.5rem)',
+          // Banner-scaled — was clamp(2.5rem, 7vw, 5.5rem) for full-page.
+          // Now sized to fit comfortably inside the 88px banner strip.
+          fontSize: 'clamp(0.9rem, 1.6vw, 1.25rem)',
           fontWeight: 800,
-          letterSpacing: '-0.03em',
+          letterSpacing: '-0.02em',
           color,
-          textShadow: `0 0 24px ${color}, 0 0 56px ${color}, 0 0 96px ${color}`,
+          textShadow: `0 0 6px ${color}, 0 0 14px ${color}, 0 0 22px ${color}`,
           whiteSpace: 'nowrap',
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
@@ -377,46 +397,29 @@ function CreatorOutreachEasterEgg({ color, delay }: { color: string; delay: numb
  *   • Debris streaming out + upward from the spine
  */
 function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
+  // 2026-05-11 banner-only redesign: the original tornado spanned the
+  // full viewport (88vh tall, 110px-wide funnel). It can't fit in an
+  // 88px banner. Reimagined as a compact ~60px tall funnel that sweeps
+  // horizontally across the banner width. Same two-pass timeline; same
+  // visual language (swirl + cloud + streak); just sized for the strip.
   const icons = useMemo(() => {
-    const N = 62
+    const N = 16
     return Array.from({ length: N }, (_, i) => {
-      // Cubic bias toward the top — funnel cloud volume sits up top.
+      // Bias slightly toward top — funnel-cloud weight.
       const r = Math.random()
-      const yT = r * r * r // small → small (concentrated at top)
-      const y = 5 + yT * 78 // 5–83vh
-      // Taper: 0 at top (WIDE), 1 at bottom (NARROW). Power curve for
-      // dramatic flare in the upper portion (the funnel cloud).
-      const taper = (y - 5) / 78
-      const orbitRadius = 10 + Math.pow(1 - taper, 1.3) * 105 // 10–115px
-      // Vertical wobble — small fraction of orbit radius so swirl
-      // reads as 3-D orbital, not just horizontal.
-      const yWobble = orbitRadius * 0.28
-      // Size taper — bigger at the wide top.
-      const size = 12 + (1 - taper) * 20 + Math.floor(Math.random() * 5)
-      // Swirl period — top sweeps slower (majestic cloud roll), bottom
-      // spins faster (tight tail whip).
-      const period = 0.5 + taper * 0.5 + Math.random() * 0.25
+      const yT = r * r
+      const y = 6 + yT * 56 // 6–62px vertically (within 88px banner)
+      const taper = (y - 6) / 56 // 0=top, 1=bottom
+      // Banner-scaled orbit radii: 4px (bottom tail) → 22px (top cloud).
+      const orbitRadius = 4 + Math.pow(1 - taper, 1.3) * 18
+      const yWobble = orbitRadius * 0.3
+      // Tiny icons — banner scale.
+      const size = 7 + (1 - taper) * 6 + Math.floor(Math.random() * 2) // 7–15px
+      const period = 0.45 + taper * 0.4 + Math.random() * 0.2
       const phase = Math.random() * Math.PI * 2
-      // Opacity — top more solid (visible cloud), bottom ghostier.
-      const op = 0.55 + (1 - taper) * 0.4
+      const op = 0.6 + (1 - taper) * 0.35
       return { key: i, y, orbitRadius, yWobble, size, period, phase, op }
     })
-  }, [])
-
-  // Debris — small icons flung from the spine + drifting upward,
-  // distributed across the mid-section where the tornado interacts
-  // with its surroundings.
-  const debris = useMemo(() => {
-    return Array.from({ length: 22 }, (_, i) => ({
-      key: `d${i}`,
-      y: 25 + Math.random() * 58, // mid-to-bottom of the column
-      offsetX: -60 + Math.random() * 120,
-      size: 8 + Math.random() * 7,
-      period: 0.9 + Math.random() * 0.8,
-      verticalDrift: 35 + Math.random() * 75,
-      delay: Math.random() * 1.5,
-      op: 0.28 + Math.random() * 0.3,
-    }))
   }, [])
 
   return (
@@ -427,18 +430,12 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
         top: 0,
         left: 0,
         width: 0,
-        height: '100vh',
+        height: '88px',
         willChange: 'transform, opacity',
       }}
-      // Two-pass back-and-forth on a unified 6-keyframe timeline.
-      //   0      fade in, still at left (off-screen)
-      //   0.04   visible, beginning pass 1
-      //   0.42   arrived at right edge
-      //   0.50   pause at right
-      //   0.92   arrived back at left
-      //   1.0    faded out
+      // Same two-pass timeline as before, just in a banner-sized canvas.
       animate={{
-        x: ['-16vw', '-16vw', '108vw', '108vw', '-16vw', '-16vw'],
+        x: ['-10vw', '-10vw', '110vw', '110vw', '-10vw', '-10vw'],
         opacity: [0, 1, 1, 1, 1, 0],
       }}
       transition={{
@@ -447,8 +444,7 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
         ease: ['linear', 'easeInOut', 'linear', 'easeInOut', 'easeOut'],
       }}
     >
-      {/* Funnel cloud — rotating ellipsoidal blob at the top, blurred
-          heavily so it reads as a cloud. Scales with the gust pulse. */}
+      {/* Funnel cloud — small rotating blob at the top. */}
       <motion.div
         animate={{ rotate: [0, 360], scale: [1, 1.08, 1] }}
         transition={{
@@ -457,93 +453,55 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
         }}
         style={{
           position: 'absolute',
-          left: '-120px',
-          top: '0vh',
-          width: '240px',
-          height: '18vh',
+          left: '-26px',
+          top: '0px',
+          width: '52px',
+          height: '18px',
           background: `radial-gradient(ellipse at 50% 70%, ${color}55 0%, ${color}28 35%, ${color}12 60%, transparent 85%)`,
-          filter: 'blur(18px)',
+          filter: 'blur(5px)',
           transformOrigin: 'center 80%',
           willChange: 'transform',
           pointerEvents: 'none',
         }}
       />
 
-      {/* Wide soft streak — outer layer, very blurred, low opacity,
-          gives depth behind the column. */}
-      <motion.div
-        animate={{ opacity: [0.12, 0.22, 0.14, 0.20, 0.12] }}
-        transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          position: 'absolute',
-          left: '-18px',
-          top: '8vh',
-          width: '36px',
-          height: '78vh',
-          background: `linear-gradient(to bottom, ${color}80 0%, ${color}60 50%, transparent 100%)`,
-          filter: 'blur(22px)',
-          willChange: 'opacity',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Tight inner streak — sharper line down the spine. */}
+      {/* Tight inner streak — sharp line down the spine. */}
       <motion.div
         animate={{ opacity: [0.25, 0.45, 0.28, 0.42, 0.25] }}
         transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
         style={{
           position: 'absolute',
-          left: '-3px',
-          top: '12vh',
-          width: '6px',
-          height: '72vh',
+          left: '-2px',
+          top: '10px',
+          width: '4px',
+          height: '60px',
           background: `linear-gradient(to bottom, transparent 0%, ${color} 30%, ${color} 70%, transparent 100%)`,
-          filter: 'blur(8px)',
+          filter: 'blur(3px)',
           willChange: 'opacity',
           pointerEvents: 'none',
         }}
       />
 
-      {/* Ground shadow — wide ellipse at the base. Scales horizontally
-          on a loop so the base looks like it's pulsing with the gust. */}
+      {/* Ground shadow — small ellipse at the base. */}
       <motion.div
         animate={{ scaleX: [1, 1.22, 0.88, 1.22, 1] }}
         transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut' }}
         style={{
           position: 'absolute',
-          left: '-100px',
-          top: '83vh',
-          width: '200px',
-          height: '28px',
+          left: '-22px',
+          top: '70px',
+          width: '44px',
+          height: '8px',
           background: `radial-gradient(ellipse at center, ${color}66 0%, ${color}30 40%, transparent 75%)`,
-          filter: 'blur(8px)',
+          filter: 'blur(3px)',
           transformOrigin: 'center',
           willChange: 'transform',
           pointerEvents: 'none',
         }}
       />
 
-      {/* Dust cloud at base — rises slowly, fades to transparent. */}
-      <motion.div
-        animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.18, 0.32, 0.18] }}
-        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          position: 'absolute',
-          left: '-70px',
-          top: '78vh',
-          width: '140px',
-          height: '10vh',
-          background: `radial-gradient(ellipse at 50% 90%, ${color}40 0%, ${color}18 50%, transparent 80%)`,
-          filter: 'blur(14px)',
-          transformOrigin: 'center bottom',
-          willChange: 'transform, opacity',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Core swirl — 62 icons orbiting the spine. */}
+      {/* Core swirl — 16 icons orbiting the spine. */}
       {icons.map(ic => {
-        // Start positions on the orbit (cos/sin of phase).
         const sx = Math.cos(ic.phase) * ic.orbitRadius
         const sy = Math.sin(ic.phase) * ic.yWobble
         return (
@@ -553,8 +511,6 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
             width={ic.size}
             height={ic.size}
             fill={color}
-            // 4-step orbital cycle: cos & sin together → real circular
-            // sweep instead of just a horizontal wobble.
             animate={{
               x: [sx, ic.orbitRadius, -sx, -ic.orbitRadius, sx],
               y: [sy, ic.yWobble, -sy, -ic.yWobble, sy],
@@ -563,15 +519,15 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
             transition={{
               duration: ic.period,
               repeat: Infinity,
-              ease: 'linear', // linear keeps the orbit smooth (no pulsing)
+              ease: 'linear',
             }}
             style={{
               position: 'absolute',
               left: 0,
-              top: `${ic.y}vh`,
+              top: `${ic.y}px`,
               opacity: ic.op,
               transformOrigin: 'center',
-              filter: `drop-shadow(0 2px 6px ${color}aa) blur(0.3px)`,
+              filter: `drop-shadow(0 1px 3px ${color}aa) blur(0.3px)`,
               willChange: 'transform, opacity',
             }}
           >
@@ -579,40 +535,6 @@ function TornadoShow({ color, iconPath }: { color: string; iconPath: string }) {
           </motion.svg>
         )
       })}
-
-      {/* Debris — small icons shedding off the tornado, drifting up
-          and outward. Each one fades as it rises. */}
-      {debris.map(d => (
-        <motion.svg
-          key={d.key}
-          viewBox="0 0 24 24"
-          width={d.size}
-          height={d.size}
-          fill={color}
-          animate={{
-            x: [0, d.offsetX, d.offsetX * 1.4],
-            y: [0, -d.verticalDrift * 0.5, -d.verticalDrift],
-            rotate: [0, 540],
-            opacity: [0, d.op, 0],
-          }}
-          transition={{
-            duration: d.period,
-            delay: d.delay,
-            repeat: Infinity,
-            ease: 'easeOut',
-            times: [0, 0.5, 1],
-          }}
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: `${d.y}vh`,
-            filter: 'blur(0.6px)',
-            willChange: 'transform, opacity',
-          }}
-        >
-          <path d={iconPath} />
-        </motion.svg>
-      ))}
     </motion.div>
   )
 }
