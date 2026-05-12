@@ -140,7 +140,12 @@ import {
 
 export default function Home() {
   const [keyword, setKeyword] = useState('')
-  const maxResults = 100
+  // Per-region cap. Bumped 100 → 175 (2026-05-12) to pair with the AI
+  // keyword expansion: with 3 sibling-keyword variants in play, the
+  // raw channel pool per region grows roughly 1.5–2× before dedupe, so
+  // we let the server keep more of them per region. Final shown count
+  // after merging regions + dedupe stays user-readable.
+  const maxResults = 175
   const [minViews, setMinViews] = useState(0)
   const [maxViews, setMaxViews] = useState(200000)
   const [minSubs, setMinSubs] = useState(0)
@@ -1564,10 +1569,20 @@ export default function Home() {
       const queryFragment = keywordsList && keywordsList.length
         ? `keywords=${encodeURIComponent(keywordsList.join(','))}`
         : `keyword=${encodeURIComponent(kw)}`
+      // AI keyword expansion (2026-05-12): fire `expand=true` for single-
+      // keyword occupation searches so the server asks Claude Haiku for
+      // 3 sibling queries and merges their hits. Skip for niche-list
+      // searches (already broad) and for url/username modes (those are
+      // targeted lookups that bypass this code path entirely above).
+      const shouldExpand =
+        effectiveMode === 'occupation' &&
+        !(keywordsList && keywordsList.length) &&
+        !!kw.trim()
+      const expandParam = shouldExpand ? '&expand=true' : ''
       const allResponses = await Promise.all(
         regionCodes.map(code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
+          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}`).then(r => r.json())
         })
       )
       if (version !== searchVersion.current) return  // superseded by newer search

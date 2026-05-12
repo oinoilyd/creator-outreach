@@ -5,6 +5,7 @@ import { bulkSaveSearchResults } from '@/lib/creator-enrichment'
 import { clampString, clampInt } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 import { regionConfidence, hasForeignSignal, REGION_SIGNALS } from '@/lib/region-signals'
+import { expandKeyword } from '@/lib/keyword-expand'
 
 const TOPIC_MAP: Record<string, string[]> = {
   basketball: ['basketball coach', 'basketball trainer', 'basketball analyst', 'NBA agent', 'basketball recruiter', 'basketball content creator', 'basketball skills trainer', 'youth basketball coach', 'basketball player'],
@@ -945,7 +946,12 @@ export async function GET(req: NextRequest) {
   // its own search query. This is what the niche-bucket button on the
   // client uses to search every occupation in a niche at once.
   const keywordsParam = clampString(searchParams.get('keywords'), 2000)
-  const maxResults = clampInt(searchParams.get('maxResults'), 1, 150, 100)
+  // Per-region cap. Bumped 100 → 175 (2026-05-12) so each region tier
+  // can keep ~75 more channels after dedupe — pairs with AI keyword
+  // expansion below, which generates 3 sibling queries whose raw hits
+  // need headroom past the original keyword's 100. Cap upper-bound
+  // also moved 150 → 175 so the client can request the new ceiling.
+  const maxResults = clampInt(searchParams.get('maxResults'), 1, 175, 175)
   const minViews   = clampInt(searchParams.get('minViews'), 0, 1_000_000_000, 0)
   const maxViews   = clampInt(searchParams.get('maxViews'), 0, 1_000_000_000, 200_000)
   // gl must be a 2-letter country code or empty
@@ -956,17 +962,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'keyword or keywords is required' }, { status: 400 })
   }
 
+  // AI keyword expansion (Feature 1, 2026-05-12): when the client
+  // sends `expand=true` AND we're in single-keyword broad mode (no
+  // pre-expanded `keywords=` list), we ask Claude Haiku for 3 sibling
+  // queries ("tech reviewer" → "tech YouTuber", "gadget reviewer",
+  // "tech channel") and merge their search hits into the same
+  // channelMap. This consistently surfaces 1.5–2× more relevant
+  // creators per search. Niche-list searches already cast a wide net
+  // via the comma-joined occupations, so we skip expansion for them.
+  // Skip when `fresh=true` (Load More) so paginated discovery sticks
+  // to the original keyword's universe — otherwise the variants
+  // would dominate every Load More page.
+  const wantExpand = searchParams.get('expand') === 'true'
+  const skipForLoadMore = searchParams.get('fresh') === 'true'
+  const canExpand = wantExpand && !!keyword && !keywordsParam && !skipForLoadMore
+
   // ── Backend cache check ─────────────────────────────────────────
   // Repeat searches for the same query+filters within 24h get served
   // from Redis instead of re-running the 30+ youtubei.js queries.
   // Key includes ALL query-affecting params so cache stays correct
-  // when the user changes filters.
+  // when the user changes filters. `expand` is part of the key so
+  // expanded vs non-expanded results don't collide.
   const cacheKey = searchCacheKey(keyword || keywordsParam || '', {
     keywordsParam,
     maxResults,
     minViews,
     maxViews,
     gl,
+    expand: canExpand,
   })
   // ?fresh=true bypasses the search-results cache entirely. Used by
   // the bulk-seed admin tool so every preset run discovers new
@@ -990,11 +1013,41 @@ export async function GET(req: NextRequest) {
     : []
   const usingMultiKeywords = keywordsList.length > 0
 
-  const baseQueries = usingMultiKeywords
-    ? keywordsList
-    : expandTopic(keyword!)
+  // AI-expanded sibling keywords (Feature 1). Returns [] on any failure
+  // — the route falls back to running the original keyword alone.
+  // We block on this once before kicking off YouTube queries because
+  // the variants change which YouTube queries we fire; running them in
+  // parallel with the AI call would mean re-firing the variant queries
+  // after the AI returns. Haiku typical latency is 300–600ms which is
+  // small relative to the 30+ YouTube searches downstream.
+  const aiVariants = canExpand ? await expandKeyword(keyword!) : []
+
+  // Build queries. For the single-keyword path with AI expansion we
+  // union expandTopic(kw) for the original + each variant, then run
+  // applyRegion once on the union. Deduped — many variants share padder
+  // suffixes so the YouTube query count grows sub-linearly with variant
+  // count. Typical: original alone ≈ 30 queries; with 3 variants ≈
+  // 60-90 unique queries after dedupe.
+  let baseQueries: string[]
+  if (usingMultiKeywords) {
+    baseQueries = keywordsList
+  } else if (aiVariants.length > 0) {
+    const unioned = new Set<string>()
+    for (const kw of [keyword!, ...aiVariants]) {
+      for (const q of expandTopic(kw)) unioned.add(q)
+    }
+    baseQueries = [...unioned]
+  } else {
+    baseQueries = expandTopic(keyword!)
+  }
   const queries = applyRegion(baseQueries, keyword || keywordsList.join(' '), gl)
-  const terms = (keyword || keywordsList.join(' ')).toLowerCase().split(/\s+/)
+  // Relevance terms include the variants too, so a channel that
+  // name-matches "tech YouTuber" but not "tech reviewer" still ranks
+  // above pure 'related' channels.
+  const scoringPhrase = aiVariants.length > 0
+    ? [keyword!, ...aiVariants].join(' ')
+    : (keyword || keywordsList.join(' '))
+  const terms = scoringPhrase.toLowerCase().split(/\s+/).filter(Boolean)
 
   try {
     const yt = await getInnertubeInstance(gl)
