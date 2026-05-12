@@ -269,11 +269,14 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
         </div>
 
         {/* Actions — both ghosted and active variants use the same slot
-            structure so the buttons land in the same columns:
-              [text button] gap [snooze slot] gap [{ ✓ slot, dismiss slot }]
-            Ghosted fills slot 2 and slot 3 with invisible spacers so
-            Re-engage sits flush with the date pill (no gap) and ✕ sits
-            in the same column as 👻. */}
+            structure so total width matches and right edges align.
+            Slot layout (left → right):
+              [text button] [icon button] [{ icon, icon }]
+            Active:  Followed up | Snooze | { ✓ (hover), 👻 (hover) }
+            Ghosted: Re-engage   | ✕      | { spacer, spacer }
+            Visible content stays tight together; the hover-slot is
+            filled with spacers on ghosted so the cluster reserves
+            the same total width. */}
         <div className="flex items-center gap-1 shrink-0">
           {bucket === 'ghosted' ? (
             <>
@@ -284,17 +287,16 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
               >
                 Re-engage
               </button>
-              {/* Snooze-slot spacer */}
-              <span className="w-5 h-5 shrink-0" aria-hidden />
-              {/* Mirror the active variant's hover-revealed group: ✓-slot
-                  spacer + dismiss button (which replaces 👻). */}
-              <div className="flex items-center gap-1">
-                <span className="w-5 h-5 shrink-0" aria-hidden />
-                <button
-                  onClick={() => onUpdate(e.id, 'status', 'Rejected')}
-                  title="Confirm dead lead"
-                  className="w-5 h-5 flex items-center justify-center text-[10px] text-red-700 dark:text-red-400 hover:text-foreground border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
-                >✕</button>
+              <button
+                onClick={() => onUpdate(e.id, 'status', 'Rejected')}
+                title="Confirm dead lead"
+                className="w-5 h-5 flex items-center justify-center text-[10px] text-red-700 dark:text-red-400 hover:text-foreground border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
+              >✕</button>
+              {/* Hover-slot spacers — keep total cluster width matching
+                  the active variant so right edges align across rows. */}
+              <div className="flex items-center gap-1" aria-hidden>
+                <span className="w-5 h-5 shrink-0" />
+                <span className="w-5 h-5 shrink-0" />
               </div>
             </>
           ) : (
