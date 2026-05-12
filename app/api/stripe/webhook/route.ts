@@ -153,13 +153,14 @@ export async function POST(req: NextRequest) {
           break
         }
         const sub = await stripe.subscriptions.retrieve(subId)
+        const fallbackUserId = subscriptionMetadataUserId(sub) ?? sessionMetadataUserId(session)
         await applySubUpdate(sb, customerId, {
           stripe_subscription_id: sub.id,
           subscription_status: sub.status,
           subscription_current_period_end: periodEndIso(sub),
           subscription_price_id: priceIdFromSub(sub),
           subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
-        })
+        }, fallbackUserId)
         break
       }
 
@@ -179,7 +180,7 @@ export async function POST(req: NextRequest) {
           subscription_current_period_end: periodEndIso(sub),
           subscription_price_id: priceIdFromSub(sub),
           subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
-        })
+        }, subscriptionMetadataUserId(sub))
         break
       }
 
@@ -193,7 +194,7 @@ export async function POST(req: NextRequest) {
           subscription_current_period_end: periodEndIso(sub),
           subscription_price_id: priceIdFromSub(sub),
           subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
-        })
+        }, subscriptionMetadataUserId(sub))
         break
       }
 
@@ -206,7 +207,7 @@ export async function POST(req: NextRequest) {
         await applySubUpdate(sb, customerId, {
           subscription_status: 'canceled',
           subscription_cancel_at_period_end: false,
-        })
+        }, subscriptionMetadataUserId(sub))
         break
       }
 
@@ -217,7 +218,10 @@ export async function POST(req: NextRequest) {
         if (!customerId) break
         // Stripe will also send subscription.updated for the status
         // change, but updating both here is harmless (idempotent) and
-        // gets the UI to "past_due" a few ms sooner.
+        // gets the UI to "past_due" a few ms sooner. Invoices don't
+        // carry our metadata, so no fallback userId available here —
+        // if the row is unknown we let the parallel subscription.updated
+        // webhook (which DOES have metadata) do the backfill.
         await applySubUpdate(sb, customerId, {
           subscription_status: 'past_due',
         })
@@ -286,14 +290,88 @@ async function applySubUpdate(
   sb: ReturnType<typeof getServiceClient> extends infer T ? Exclude<T, null> : never,
   stripeCustomerId: string,
   patch: SubscriptionUpdate,
+  /**
+   * Optional fallback user_id from the Stripe event's metadata
+   * (subscription.metadata.supabase_user_id or session.metadata).
+   * Used when the customer_id-based UPDATE matches 0 rows — which
+   * happens if the local row hasn't yet had stripe_customer_id
+   * backfilled (e.g. checkout's persist step silently failed before
+   * migration 0022 ran). In that case we look up the row by user_id
+   * and write BOTH the patch AND the customer_id at once, so future
+   * events will match on the fast path.
+   */
+  fallbackSupabaseUserId?: string,
 ) {
   if (!sb) return
-  const { error } = await sb
+
+  // Primary path: match by stripe_customer_id. `.select()` makes
+  // Supabase return the affected rows so we can detect 0-match.
+  const { data, error } = await sb
     .from('user_profile')
     .update(patch)
     .eq('stripe_customer_id', stripeCustomerId)
+    .select('user_id')
+
   if (error) {
     console.error('[stripe/webhook] user_profile update failed', stripeCustomerId, error.message)
     throw error
   }
+
+  if (data && data.length > 0) {
+    // Happy path — at least one row matched and was updated.
+    return
+  }
+
+  // Fallback path: nothing matched by customer_id. If we have a
+  // supabase_user_id from the event metadata, look up the row by
+  // user_id and backfill the stripe_customer_id while writing the
+  // patch. After this, subsequent events for this customer will hit
+  // the primary path.
+  if (!fallbackSupabaseUserId) {
+    console.warn(
+      '[stripe/webhook] no user_profile matched stripe_customer_id and no metadata.supabase_user_id available',
+      { stripeCustomerId },
+    )
+    return
+  }
+
+  const { error: fallbackErr } = await sb
+    .from('user_profile')
+    .update({ ...patch, stripe_customer_id: stripeCustomerId })
+    .eq('user_id', fallbackSupabaseUserId)
+
+  if (fallbackErr) {
+    console.error(
+      '[stripe/webhook] metadata fallback update failed',
+      { stripeCustomerId, fallbackSupabaseUserId, error: fallbackErr.message },
+    )
+    throw fallbackErr
+  }
+
+  console.info(
+    '[stripe/webhook] backfilled stripe_customer_id via metadata fallback',
+    { stripeCustomerId, fallbackSupabaseUserId },
+  )
+}
+
+/**
+ * Extract supabase_user_id from a Stripe Subscription's metadata.
+ * We set this in /api/stripe/checkout subscription_data.metadata so
+ * every subscription event carries the link back to our user row.
+ */
+function subscriptionMetadataUserId(sub: Stripe.Subscription): string | undefined {
+  const raw = sub.metadata?.supabase_user_id
+  return typeof raw === 'string' && raw.length > 0 ? raw : undefined
+}
+
+/**
+ * Extract supabase_user_id from a Stripe Checkout Session's metadata.
+ * We don't set this on the session directly today, but Stripe Checkout
+ * sometimes mirrors subscription_data.metadata to the parent session —
+ * read defensively in case Stripe's behavior changes or we add it
+ * explicitly later.
+ */
+function sessionMetadataUserId(session: Stripe.Checkout.Session): string | undefined {
+  const raw = session.metadata?.supabase_user_id
+  return typeof raw === 'string' && raw.length > 0 ? raw : undefined
 }

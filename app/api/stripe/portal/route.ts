@@ -70,9 +70,15 @@ export async function POST(req: NextRequest) {
     req.headers.get('origin') ||
     `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
+  // return_url points at /billing/sync (not /) so we run an explicit
+  // Stripe-to-Supabase sync on portal exit. This closes the gap when
+  // a portal action's webhook doesn't reliably fire (notably the
+  // "Don't cancel subscription" / reinstate flow). /billing/sync
+  // fetches the canonical state from Stripe, updates Supabase, then
+  // redirects to /. See lib/stripe/sync-subscription.ts for details.
   const session = await getStripe().billingPortal.sessions.create({
     customer: stripeCustomerId,
-    return_url: `${origin}/`,
+    return_url: `${origin}/billing/sync`,
   })
 
   return NextResponse.json({ url: session.url })
