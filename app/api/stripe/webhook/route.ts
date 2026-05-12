@@ -16,14 +16,27 @@
  *     return 200 without re-handling. Critical because Stripe will
  *     happily redeliver an event if our first response is slow.
  *
- * Events handled (all subscription lifecycle):
- *   • checkout.session.completed     — first Subscription created
+ * Events handled:
+ *   • checkout.session.completed     — first Subscription created via Checkout
+ *   • customer.subscription.created  — safety net for non-Checkout creation
+ *                                      (manual subs created in Stripe dashboard,
+ *                                      direct API calls, etc.). Idempotent
+ *                                      with checkout.session.completed —
+ *                                      same data, just a redundant write.
  *   • customer.subscription.updated  — status, period, plan changes
  *   • customer.subscription.deleted  — fully canceled
  *   • invoice.payment_failed         — flag as past_due
+ *   • charge.dispute.created         — CRITICAL: chargeback opened. Customer
+ *                                      went to their bank instead of refunding.
+ *                                      You have 7-10 days to respond with
+ *                                      evidence in the Stripe dashboard or
+ *                                      you lose automatically. We log LOUDLY
+ *                                      to Vercel + record in stripe_events.
+ *                                      TODO: build an admin email notifier
+ *                                      once SendGrid is wired up.
  *
- * For each one we look up user_profile by stripe_customer_id (set
- * during /api/stripe/checkout) and update the mirrored fields. The
+ * For each subscription event we look up user_profile by stripe_customer_id
+ * (set during /api/stripe/checkout) and update the mirrored fields. The
  * app reads those fields, never Stripe directly, so the UI stays
  * snappy and offline-tolerant.
  */
@@ -150,6 +163,26 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'customer.subscription.created': {
+        // Safety-net for subscriptions created OUTSIDE of Checkout
+        // (manual creation in dashboard, direct API call). For the
+        // primary Checkout flow this fires right after
+        // checkout.session.completed and we just write the same data
+        // twice — harmless (idempotent UPDATE) but worth noting in
+        // logs so we can confirm the dual delivery is expected.
+        const sub = event.data.object as Stripe.Subscription
+        const customerId =
+          typeof sub.customer === 'string' ? sub.customer : sub.customer.id
+        await applySubUpdate(sb, customerId, {
+          stripe_subscription_id: sub.id,
+          subscription_status: sub.status,
+          subscription_current_period_end: periodEndIso(sub),
+          subscription_price_id: priceIdFromSub(sub),
+          subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
+        })
+        break
+      }
+
       case 'customer.subscription.updated': {
         const sub = event.data.object as Stripe.Subscription
         const customerId =
@@ -188,6 +221,44 @@ export async function POST(req: NextRequest) {
         await applySubUpdate(sb, customerId, {
           subscription_status: 'past_due',
         })
+        break
+      }
+
+      case 'charge.dispute.created': {
+        // CRITICAL: a customer disputed a charge with their bank
+        // instead of asking us for a refund. We have a strict
+        // window (usually 7-10 days from `evidence_details.due_by`)
+        // to upload evidence in the Stripe dashboard, or Stripe
+        // automatically forfeits the dispute and we lose the
+        // funds + pay a $15 dispute fee.
+        //
+        // Until an admin email pipeline exists, we log LOUDLY with a
+        // distinct prefix so a Vercel log drain (or even a grep in
+        // the Vercel UI) catches it. The full dispute payload also
+        // lives in Stripe's dashboard and in our stripe_events
+        // ledger via event.id.
+        const dispute = event.data.object as Stripe.Dispute
+        const customerId =
+          typeof dispute.charge === 'string'
+            ? null
+            : (dispute.charge?.customer as string | undefined) ?? null
+        const evidenceDueBy = dispute.evidence_details?.due_by
+          ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
+          : null
+        console.error(
+          '[stripe/webhook] 🚨 DISPUTE OPENED — respond in Stripe dashboard before evidence deadline',
+          {
+            disputeId: dispute.id,
+            chargeId: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id,
+            customerId,
+            amount: dispute.amount,
+            currency: dispute.currency,
+            reason: dispute.reason,
+            status: dispute.status,
+            evidenceDueBy,
+            stripeUrl: `https://dashboard.stripe.com/disputes/${dispute.id}`,
+          },
+        )
         break
       }
 
