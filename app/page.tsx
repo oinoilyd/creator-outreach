@@ -1924,7 +1924,11 @@ export default function Home() {
           relying on backdrop-blur-sm + the border for visual
           separation. The wordmark + nav text are still readable
           because the blur softens what's behind. */}
-      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/40 dark:bg-background/10 backdrop-blur-sm">
+      {/* Banner backdrop-blur is conditionally dropped for Drift —
+          the floating-bubble icons were getting too soft to read
+          through the blur. Other themes (Rain, Fireworks, Tornado)
+          all look fine with the blur, so keep it for them. */}
+      <div className={`sticky top-0 z-30 border-b border-border/60 bg-background/40 dark:bg-background/10 ${backdropTheme === 'drift' ? '' : 'backdrop-blur-sm'}`}>
         <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
