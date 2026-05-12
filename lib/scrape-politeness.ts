@@ -31,6 +31,100 @@
 const DEFAULT_MIN_JITTER_MS = 250
 const DEFAULT_MAX_JITTER_MS = 1000
 
+// 2026-05-12 per Dylan: platform-aware politeness. Anti-bot models
+// differ wildly across platforms — IG is the only one that genuinely
+// rewards request-rate slowdown. YouTube's anti-bot is IP reputation
+// + account behavior (youtubei.js already handles its own session),
+// TikTok / X / LinkedIn use header + behavior fingerprinting more
+// than rate, and our generic email-finder hits (creator websites,
+// DDG, biolink aggregators) only need light protection against
+// the host's own rate limit, not the platform's.
+//
+// Profiles:
+//   youtube  — 0ms jitter, no retry. youtubei.js / public pages.
+//   tiktok   — 100–400ms jitter, 1 retry. Fast feedback site.
+//   twitter  — 100–400ms jitter, 1 retry.
+//   linkedin — 100–400ms jitter, 1 retry. (Most LI traffic is via DDG.)
+//   instagram— 250–1000ms jitter, 2 retries (status of the art today).
+//   generic  — 100–400ms jitter, 1 retry. Default for unspecified hosts
+//              (creator websites, biolink pages, DDG, podcast RSS, etc.).
+//
+// If 429s spike on a specific profile, bump that one in isolation
+// rather than the whole pipeline.
+export type ScrapePlatform =
+  | 'youtube'
+  | 'tiktok'
+  | 'twitter'
+  | 'linkedin'
+  | 'instagram'
+  | 'generic'
+
+interface PolitenessProfile {
+  /** Min jitter between sequential requests. 0 disables jitter. */
+  jitterMinMs: number
+  /** Max jitter between sequential requests. */
+  jitterMaxMs: number
+  /** Retry count for transient failures. 0 disables retries. */
+  maxRetries: number
+  /** Starting backoff for retries (doubles each attempt). */
+  initialDelayMs: number
+  /** Status codes that trigger a retry. */
+  retryStatuses: number[]
+}
+
+const POLITENESS_PROFILES: Record<ScrapePlatform, PolitenessProfile> = {
+  // youtubei.js manages its own session; YouTube's public HTML
+  // surfaces (About / RSS / /videos / /shorts) don't penalize tight
+  // bursts from a single IP — they penalize *account* reputation.
+  // Sleeping or retrying here just spends user-perceived time for
+  // zero block protection.
+  youtube: {
+    jitterMinMs: 0,
+    jitterMaxMs: 0,
+    maxRetries: 0,
+    initialDelayMs: 0,
+    retryStatuses: [],
+  },
+  tiktok: {
+    jitterMinMs: 100,
+    jitterMaxMs: 400,
+    maxRetries: 1,
+    initialDelayMs: 1000,
+    retryStatuses: [429, 503, 504],
+  },
+  twitter: {
+    jitterMinMs: 100,
+    jitterMaxMs: 400,
+    maxRetries: 1,
+    initialDelayMs: 1000,
+    retryStatuses: [429, 503, 504],
+  },
+  linkedin: {
+    jitterMinMs: 100,
+    jitterMaxMs: 400,
+    maxRetries: 1,
+    initialDelayMs: 1000,
+    retryStatuses: [429, 503, 504],
+  },
+  // IG is the loudest source of blocks in our logs — keep the
+  // existing 250–1000ms window and full 2-retry budget. Touching
+  // this is the highest-risk change.
+  instagram: {
+    jitterMinMs: DEFAULT_MIN_JITTER_MS,
+    jitterMaxMs: DEFAULT_MAX_JITTER_MS,
+    maxRetries: 2,
+    initialDelayMs: 1500,
+    retryStatuses: [429, 503, 504],
+  },
+  generic: {
+    jitterMinMs: 100,
+    jitterMaxMs: 400,
+    maxRetries: 1,
+    initialDelayMs: 1000,
+    retryStatuses: [429, 503, 504],
+  },
+}
+
 /**
  * Random sleep — picks a wait between min and max, evenly distributed.
  * Returns a Promise that resolves after the sleep. Call between
@@ -44,6 +138,37 @@ export function politeJitter(
   const span = Math.max(0, maxMs - minMs)
   const ms = minMs + Math.floor(Math.random() * (span + 1))
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Platform-aware jitter. Resolves immediately for `youtube` (no
+ * artificial delay) and uses tighter windows for low-risk hosts.
+ * Use in place of bare `politeJitter()` whenever the call site
+ * knows which platform it's hitting.
+ */
+export function politeJitterFor(platform: ScrapePlatform): Promise<void> {
+  const p = POLITENESS_PROFILES[platform]
+  if (p.jitterMaxMs <= 0) return Promise.resolve()
+  return politeJitter(p.jitterMinMs, p.jitterMaxMs)
+}
+
+/**
+ * Platform-aware backoff wrapper. Picks the retry budget + initial
+ * delay from the platform profile. `youtube` skips retries entirely.
+ * For one-off / non-platform calls, use `withScrapeBackoff` directly.
+ */
+export async function withScrapeBackoffFor<T>(
+  platform: ScrapePlatform,
+  fn: (attempt: number) => Promise<T>,
+  overrides: Partial<ScrapeBackoffOptions> = {},
+): Promise<T> {
+  const profile = POLITENESS_PROFILES[platform]
+  return withScrapeBackoff(fn, {
+    maxRetries: profile.maxRetries,
+    initialDelayMs: profile.initialDelayMs,
+    retryStatuses: profile.retryStatuses,
+    ...overrides,
+  })
 }
 
 export interface ScrapeBackoffOptions {

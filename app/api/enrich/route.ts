@@ -3,7 +3,7 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { shouldSkip, recordFailure, recordSuccess, delay } from '@/lib/scrape-circuit-breaker'
-import { withScrapeBackoff } from '@/lib/scrape-politeness'
+import { withScrapeBackoffFor, type ScrapePlatform } from '@/lib/scrape-politeness'
 import { requireUser, rateLimit } from '@/lib/api-auth'
 import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL, cacheBumpCounter } from '@/lib/cache'
 import { saveEnrichmentSnapshot, getLatestEnrichment } from '@/lib/creator-enrichment'
@@ -13,13 +13,32 @@ import { extractInstagramHandle, isInstagramGraphConfigured } from '@/lib/instag
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
+// Pick a politeness profile from the URL host. YouTube needs none
+// (youtubei.js + public HTML aren't rate-limit-sensitive at our
+// volume); IG would be slowest but it's reached via lib/instagram-scrape
+// not here; everything else (DDG, creator sites, biolinks, Wayback)
+// gets the light 'generic' profile.
+// 2026-05-12 per Dylan — was wrapping every URL in the IG-grade
+// retry budget (2 retries × 1500ms initial = up to 4.5s of delay
+// per page on a 503), which compounded badly across the 4-5 YouTube
+// pages an enrich call hits.
+function platformForUrl(url: string): ScrapePlatform {
+  if (/(^|\.)youtube\.com\/|youtu\.be\/|googleusercontent\.com\/youtube/.test(url)) return 'youtube'
+  if (/(^|\.)tiktok\.com\//.test(url)) return 'tiktok'
+  if (/(^|\.)(twitter|x)\.com\//.test(url)) return 'twitter'
+  if (/(^|\.)linkedin\.com\//.test(url)) return 'linkedin'
+  if (/(^|\.)instagram\.com\//.test(url)) return 'instagram'
+  return 'generic'
+}
+
 async function fetchHtml(url: string, timeout = 8000): Promise<string> {
-  // Wrapped in withScrapeBackoff (2026-05-10) so transient 429 / 5xx
-  // from YouTube About pages, RSS feeds, /videos / /shorts tabs, and
-  // DuckDuckGo HTML search don't silently return empty strings.
-  // Empties cascade into missing emails, missing recency data, and
-  // missing socials — visible quality regressions for the user.
-  const { data } = await withScrapeBackoff(
+  // Wrapped in withScrapeBackoffFor (2026-05-12) so transient 429 / 5xx
+  // from rate-limit-sensitive hosts trigger exponential retry while
+  // YouTube paths (the bulk of fetches) skip the retry budget entirely.
+  // YouTube's anti-bot is account/IP reputation, not request rate;
+  // sleeping spends user-perceived time for zero block protection.
+  const { data } = await withScrapeBackoffFor(
+    platformForUrl(url),
     async () => axios.get(url, {
       timeout,
       headers: {
@@ -28,10 +47,6 @@ async function fetchHtml(url: string, timeout = 8000): Promise<string> {
         'Accept-Language': 'en-US,en;q=0.5',
       },
     }),
-    {
-      maxRetries: 2,
-      retryStatuses: [429, 503, 504],
-    },
   )
   return data as string
 }

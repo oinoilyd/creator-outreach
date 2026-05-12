@@ -16,7 +16,7 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { promises as dns } from 'dns'
-import { withScrapeBackoff } from './scrape-politeness'
+import { withScrapeBackoffFor, type ScrapePlatform } from './scrape-politeness'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
 
@@ -50,11 +50,27 @@ const FREE_DOMAINS = new Set([
   'pm.me', 'mail.com', 'gmx.com', 'yandex.com', 'zoho.com',
 ])
 
+// Pick the platform profile from the URL host. The "educated
+// assumption" pipeline scrapes creator websites + their public social
+// pages — IG-grade retry on every URL was the wrong default. Platform-
+// aware backoff cuts the worst case from ~4.5s/page on 503 down to
+// ~1s on the lighter profiles. 2026-05-12 per Dylan.
+function platformForUrl(url: string): ScrapePlatform {
+  if (/(^|\.)youtube\.com\/|youtu\.be\//.test(url)) return 'youtube'
+  if (/(^|\.)tiktok\.com\//.test(url)) return 'tiktok'
+  if (/(^|\.)(twitter|x)\.com\//.test(url)) return 'twitter'
+  if (/(^|\.)linkedin\.com\//.test(url)) return 'linkedin'
+  if (/(^|\.)instagram\.com\//.test(url)) return 'instagram'
+  return 'generic'
+}
+
 async function safeFetch(url: string, timeoutMs = 5000): Promise<string> {
-  // Wrapped in withScrapeBackoff (2026-05-10) so 429 / 5xx don't
-  // silently produce empty corpora that suppress real email finds.
+  // Wrapped in withScrapeBackoffFor (2026-05-12) so 429 / 5xx don't
+  // silently produce empty corpora — but on a right-sized retry
+  // budget per platform.
   try {
-    const resp = await withScrapeBackoff(
+    const resp = await withScrapeBackoffFor(
+      platformForUrl(url),
       async () => axios.get(url, {
         timeout: timeoutMs,
         maxRedirects: 3,
@@ -62,10 +78,6 @@ async function safeFetch(url: string, timeoutMs = 5000): Promise<string> {
         headers: { 'User-Agent': UA, Accept: 'text/html,*/*' },
         responseType: 'text',
       }),
-      {
-        maxRetries: 2,
-        retryStatuses: [429, 503, 504],
-      },
     )
     if (typeof resp.data === 'string') return resp.data
     return ''

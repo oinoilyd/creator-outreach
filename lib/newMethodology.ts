@@ -22,7 +22,7 @@ import * as cheerio from 'cheerio'
 import { promises as dns } from 'dns'
 import { Innertube } from 'youtubei.js'
 import Anthropic from '@anthropic-ai/sdk'
-import { withScrapeBackoff } from './scrape-politeness'
+import { withScrapeBackoffFor, type ScrapePlatform } from './scrape-politeness'
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
 
@@ -104,13 +104,30 @@ export interface MethodologyOutput {
   bytesScanned: number
 }
 
+// Pick the platform profile from the URL host so creator-website /
+// biolink / podcast hits don't pay the IG-grade retry budget. None of
+// the methods in this file scrape YouTube via raw HTML — recent video
+// descriptions go through youtubei.js — so the YouTube branch is
+// mostly defensive in case a future method adds a YouTube fetch.
+// 2026-05-12 per Dylan.
+function platformForUrl(url: string): ScrapePlatform {
+  if (/(^|\.)youtube\.com\/|youtu\.be\//.test(url)) return 'youtube'
+  if (/(^|\.)tiktok\.com\//.test(url)) return 'tiktok'
+  if (/(^|\.)(twitter|x)\.com\//.test(url)) return 'twitter'
+  if (/(^|\.)linkedin\.com\//.test(url)) return 'linkedin'
+  if (/(^|\.)instagram\.com\//.test(url)) return 'instagram'
+  return 'generic'
+}
+
 async function safeFetch(url: string, timeoutMs = 5000): Promise<string> {
-  // Wrapped in withScrapeBackoff (2026-05-10) so 429 / 5xx from the
+  // Wrapped in withScrapeBackoffFor (2026-05-12) so 429 / 5xx from the
   // corpus targets (creator websites, biolinks) trigger exponential
-  // retries instead of silently returning empty strings. validateStatus
-  // returns true for all codes so we can inspect status ourselves.
+  // retries on the right-sized budget for each platform.
+  // validateStatus returns true for all codes so we can inspect status
+  // ourselves.
   try {
-    const resp = await withScrapeBackoff(
+    const resp = await withScrapeBackoffFor(
+      platformForUrl(url),
       async () => axios.get(url, {
         timeout: timeoutMs,
         maxRedirects: 3,
@@ -118,10 +135,6 @@ async function safeFetch(url: string, timeoutMs = 5000): Promise<string> {
         headers: { 'User-Agent': UA, Accept: 'text/html,application/xml,*/*' },
         responseType: 'text',
       }),
-      {
-        maxRetries: 2,
-        retryStatuses: [429, 503, 504],
-      },
     )
     return typeof resp.data === 'string' ? resp.data : ''
   } catch {
