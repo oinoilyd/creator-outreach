@@ -88,10 +88,11 @@ export default async function AdminContactsPage({
         {/* HEADER */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Admin · Contacts cache</h1>
+            <h1 className="text-2xl font-bold">Admin · Database</h1>
             <p className="text-muted-foreground/80 text-sm mt-1">
-              Durable email + social enrichment, append-only per channel.
-              Phase 1 (build the corpus) shipped 2026-05-08.
+              Durable creator contacts cache — email + social enrichment,
+              append-only per channel. Phase 1 (build the corpus) shipped
+              2026-05-08.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">

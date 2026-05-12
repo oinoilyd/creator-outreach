@@ -1224,9 +1224,10 @@ export default function Home() {
   }
 
   // [seedTestData] was here until 2026-05-11 — moved to
-  // POST /api/admin/seed-test-data and surfaced via the
-  // SeedTestDataButton on /admin/page.tsx. Centralizing admin dev
-  // tools on the admin dashboard so the in-app menus stay clean.
+  // POST /api/admin/seed-test-data and surfaced via the admin
+  // dashboard. Now lives behind the AuditMenu (magnify-glass)
+  // dropdown on /admin alongside the other dev/diagnostic tools
+  // (Inbound-debug, Email-test, Test-data).
 
   async function deepSearchAllOutreach() {
     const targets = outreach.filter(e => !e.email).map(e => e.id)
