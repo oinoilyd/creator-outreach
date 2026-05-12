@@ -46,6 +46,13 @@ export function computeUpgradeLabel(sub: SubscriptionSnapshot): UpgradeLabel {
   if (sub.status === 'trialing') {
     const daysLeft = trialDaysLeft(sub.currentPeriodEnd)
     const tail = daysLeft != null ? ` · ${daysLeft}d left` : ''
+    if (sub.cancelAtPeriodEnd) {
+      // User canceled during the trial — Stripe holds access until
+      // trial_end then transitions to canceled. Surface the canceling
+      // state with warn styling + a Reinstate hint so the user notices
+      // they CAN undo before the trial ends.
+      return { cta: `Trial${tail} · canceling`, hint: 'Reinstate?', variant: 'warn' }
+    }
     return { cta: `Trial${tail}`, hint: 'Free trial', variant: 'pro' }
   }
   if (sub.status === 'active') {
