@@ -37,7 +37,7 @@ export const runtime = 'nodejs'
 export default async function BillingSyncPage({
   searchParams,
 }: {
-  searchParams: Promise<{ to?: string }>
+  searchParams: Promise<{ to?: string; debug?: string }>
 }) {
   const supabase = await createClient()
   const {
@@ -55,6 +55,18 @@ export default async function BillingSyncPage({
   // allow relative paths starting with /.
   const target = params.to && params.to.startsWith('/') ? params.to : '/'
 
+  // Debug mode — return a JSON-ish summary instead of redirecting.
+  // Used for diagnosing sync issues without log archaeology. Visit
+  // /billing/sync?debug=1 to see the actual sync result inline.
+  const debugMode = params.debug === '1'
+
+  // Collect diagnostic info for debug mode
+  const debugInfo: Record<string, unknown> = {
+    userId: user.id,
+    userEmail: user.email,
+    timestamp: new Date().toISOString(),
+  }
+
   // Service-role client needed because the sync function updates a
   // user_profile row via stripe_customer_id (not user_id), which is
   // unfriendly to the RLS-aware server client.
@@ -65,11 +77,14 @@ export default async function BillingSyncPage({
       auth: { persistSession: false, autoRefreshToken: false },
     })
 
-    const { data: profile } = await sb
+    const { data: profile, error: profileErr } = await sb
       .from('user_profile')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, stripe_subscription_id, subscription_status, subscription_cancel_at_period_end')
       .eq('user_id', user.id)
       .maybeSingle()
+
+    debugInfo.profileBefore = profile
+    debugInfo.profileError = profileErr?.message
 
     const customerId = profile?.stripe_customer_id as string | undefined
     if (customerId) {
@@ -78,16 +93,44 @@ export default async function BillingSyncPage({
       // is the primary sync path and we don't want a portal visit
       // to dead-end.
       try {
+        console.log('[billing/sync] starting sync', { userId: user.id, customerId })
         const result = await syncSubscriptionByCustomerId(sb, customerId)
+        console.log('[billing/sync] sync result', result)
+        debugInfo.syncResult = result
+
+        // Read back what's now in the row for debug verification
+        const { data: profileAfter } = await sb
+          .from('user_profile')
+          .select('stripe_subscription_id, subscription_status, subscription_cancel_at_period_end, subscription_current_period_end')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        debugInfo.profileAfter = profileAfter
+
         if (!result.ok) {
           console.warn('[billing/sync] sync returned non-ok:', result.reason)
         }
       } catch (err) {
-        console.error('[billing/sync] sync threw:', err)
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('[billing/sync] sync threw:', msg)
+        debugInfo.error = msg
       }
+    } else {
+      debugInfo.skipped = 'no stripe_customer_id on profile'
     }
   } else {
+    debugInfo.skipped = 'Supabase service role env vars not configured'
     console.warn('[billing/sync] Supabase service role not configured — skipping sync')
+  }
+
+  // Debug mode renders the JSON inline so you can see exactly what
+  // happened without hunting through Vercel logs.
+  if (debugMode) {
+    return (
+      <main style={{ padding: 24, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap' }}>
+        <h1 style={{ fontSize: 18, marginBottom: 16 }}>/billing/sync debug</h1>
+        {JSON.stringify(debugInfo, null, 2)}
+      </main>
+    )
   }
 
   redirect(target)
