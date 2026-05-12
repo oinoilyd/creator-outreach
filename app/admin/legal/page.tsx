@@ -131,6 +131,41 @@ export default async function AdminLegalPage() {
           </table>
         </div>
 
+        {/* Combined / comprehensive download — every doc in the
+            table above, concatenated into one Word/PDF with a
+            cover page + auto-generated TOC + page-break-separated
+            sections. Rebuilt fresh per request from the LEGAL_DOCS
+            registry, so any new P&P automatically appears in the
+            next download with zero manual update. */}
+        <div className="mt-4 rounded-lg border border-purple-500/30 bg-purple-500/5 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-foreground">
+              Comprehensive P&amp;P Manual
+            </div>
+            <div className="text-xs text-muted-foreground/80 mt-0.5">
+              All {docs.length} document{docs.length === 1 ? '' : 's'} above in one
+              file — cover page, table of contents, page-break-separated sections.
+              Auto-updates whenever a new P&amp;P is added.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/admin/legal/comprehensive/docx"
+              download
+              className="text-xs rounded-md px-3 py-1.5 inline-block border border-purple-500/40 text-foreground bg-card hover:bg-purple-500/10 transition-colors font-medium"
+            >
+              Download Word
+            </a>
+            <a
+              href="/api/admin/legal/comprehensive/pdf"
+              download
+              className="text-xs rounded-md px-3 py-1.5 inline-block border border-purple-500/40 text-foreground bg-card hover:bg-purple-500/10 transition-colors font-medium"
+            >
+              Download PDF
+            </a>
+          </div>
+        </div>
+
         {/* Signed external agreements — counter-signed vendor DPAs/MSAs.
             Separated from the table above because these are signed
             artifacts (can't regenerate Word from them) and serve a
