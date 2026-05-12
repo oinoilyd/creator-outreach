@@ -40,7 +40,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
   title: 'Creator Outreach — Search, score, and reach out in one queue',
-  description: 'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. Free during beta.',
+  description: 'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. 14-day free trial — $50/mo or $500/yr.',
   // The middleware rewrites "/" → "/landing" server-side, but the
   // URL stays "/". Pin the canonical to "/" so Google never settles
   // on "/landing" if anything links there directly.
@@ -50,7 +50,7 @@ export const metadata = {
   openGraph: {
     title: 'Creator Outreach — Search, score, and reach out in one queue',
     description:
-      'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. Free during beta.',
+      'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. 14-day free trial — $50/mo or $500/yr.',
     url: 'https://creatoroutreach.net/',
   },
 }
@@ -74,9 +74,23 @@ export default async function LandingPage() {
       'Search YouTube, Instagram, TikTok, X, and LinkedIn in parallel. Score every result against criteria you write in plain English. Reach out from one queue.',
     offers: {
       '@type': 'Offer',
-      price: '0',
+      price: '50',
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
+      // SaaS subscription pricing — $50/mo recurring with a 14-day
+      // free trial. Schema.org doesn't have a clean way to express
+      // "subscription with trial" so we surface the headline price
+      // and signal trial availability via the description.
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '50',
+        priceCurrency: 'USD',
+        referenceQuantity: {
+          '@type': 'QuantitativeValue',
+          value: '1',
+          unitCode: 'MON',
+        },
+      },
     },
     aggregateRating: undefined, // omit until we have real reviews
   }
@@ -110,14 +124,14 @@ export default async function LandingPage() {
               ranks every result against your criteria. Email + social
               handles inline. Templated outreach for the platform you
               actually target. Follow-up reminders so nothing slips.
-              All free while in beta.
+              14-day free trial — no charges until your trial ends.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href={isAuthed ? '/' : '/auth/signup'}
                 className="inline-flex items-center gap-2 bg-[#0F1733] text-white hover:bg-[#1F2A52] px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
               >
-                {isAuthed ? 'Open the app' : 'Start free — no card'}
+                {isAuthed ? 'Open the app' : 'Start 14-day free trial'}
                 <span aria-hidden>→</span>
               </Link>
               <a
@@ -455,48 +469,52 @@ export default async function LandingPage() {
           platforms are already named in the Hero subhead and the
           Sourcing narrative.) */}
 
-      {/* PRICING — eyebrow ("Pricing") removed; the $0 in the card
-          and the headline do the labelling, no need to also chip it. */}
+      {/* PRICING — Monthly + Annual paid plans, both with a 14-day
+          free trial. Annual is the featured/highlighted card since
+          it's the recommended plan (2 months free vs monthly).
+          CTAs route through /pricing so the actual subscribe action
+          flows through the auth-aware checkout there. */}
       <section id="pricing" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1100px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12">
             <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Free during beta.
+              Start with a 14-day free trial.
             </h2>
             <p className="max-w-[58ch] mx-auto text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
-              No card on file. No seat cap. The full feature set, on the house, while we&apos;re still polishing.
+              No charges until your trial ends. Cancel anytime from the customer portal.
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto items-stretch">
             <PricingCard
-              tier="Beta"
-              price="$0"
-              priceSub="Free while in beta · no card · no seat cap"
+              tier="Monthly"
+              price="$50"
+              priceSub="per month · 14-day free trial · cancel anytime"
               features={[
-                'Lead sourcing across YouTube, Instagram, TikTok, X, LinkedIn',
+                'Unlimited creator search across YouTube, Instagram, TikTok, X, LinkedIn',
                 'Customizable AI fit score — any criteria you can name and measure',
                 'Built-in CRM: status pills, medium tracker, follow-up cadence',
                 'Templated outreach per channel + Instagram DM auto-composer',
                 'Customizable analytics — 7 default KPIs, 30+ custom metrics',
                 'CSV / Excel export — your data, anytime',
               ]}
-              cta={isAuthed ? 'Open the app' : 'Start for free'}
-              ctaHref={isAuthed ? '/' : '/auth/signup'}
-              featured
+              cta={isAuthed ? 'Open the app' : 'Start 14-day free trial'}
+              ctaHref={isAuthed ? '/' : '/pricing'}
             />
             <PricingCard
-              tier="Coming soon"
-              price="TBD"
-              priceSub="For heavier users + teams"
+              tier="Annual · Save 17%"
+              price="$500"
+              priceSub="per year · 14-day free trial · 2 months free"
               features={[
-                'Higher search + enrichment quotas',
-                'Multi-seat workspaces',
-                'Bulk email enrichment via Meta Graph API',
-                'Priority support',
-                'Custom scoring presets shareable across teams',
+                'Everything in Monthly',
+                'Two months free (paid annually)',
+                'Priority email support',
+                'Early access to new features',
+                'Custom scoring presets',
+                'CSV / Excel export — your data, anytime',
               ]}
-              cta="Notify me"
-              ctaHref="mailto:dmeehanj@gmail.com?subject=Notify%20me%20when%20Creator%20Outreach%20Pro%20is%20ready"
+              cta={isAuthed ? 'Open the app' : 'Start 14-day free trial'}
+              ctaHref={isAuthed ? '/' : '/pricing'}
+              featured
             />
           </div>
         </div>
