@@ -1733,10 +1733,15 @@ export default function Home() {
       const queryFragment = currentKeywordsList.length > 0
         ? `keywords=${encodeURIComponent(currentKeywordsList.join(','))}`
         : `keyword=${encodeURIComponent(currentKeyword)}`
+      // Load More MUST skip the search cache via ?fresh=true — without
+      // it, /api/search returns the same cached result set (10-min TTL)
+      // as the initial search, so every channel is already in
+      // seenChannelIds and `fresh` ends up empty (button does nothing
+      // visible). Initial search keeps the cache for navigation speed.
       const allResponses = await Promise.all(
         regionCodes.map(code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}`).then(r => r.json())
+          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}&fresh=true`).then(r => r.json())
         })
       )
       if (allResponses.some(d => d.error)) return
