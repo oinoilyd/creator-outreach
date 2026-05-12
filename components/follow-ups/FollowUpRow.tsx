@@ -268,8 +268,12 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* Actions — fixed min-width so the ghosted variant (Re-engage + ✕)
+            and the active variant (Followed up + snooze + 2 hover icons)
+            align to the same right edge. Per Dylan 2026-05-11: the
+            ghosted cluster was visibly narrower, breaking row alignment
+            whenever a Ghosted row appeared next to active rows. */}
+        <div className="flex items-center justify-end gap-1 shrink-0 min-w-[160px]">
           {bucket === 'ghosted' ? (
             <>
               <button
