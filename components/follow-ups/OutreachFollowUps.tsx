@@ -47,7 +47,11 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   const [sort, setSort] = useState<'urgency' | 'pipeline' | 'touchpoints'>('urgency')
   const [showLater, setShowLater] = useState(false)
   const [showUnset, setShowUnset] = useState(false)
-  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium'>('all')
+  // Per Dylan 2026-05-11: 'pipeline' added as a fourth filter mode.
+  // Pipeline filter narrows the list to leads with a deal value set
+  // (dealValueNum > 0), sorted by value desc. Clicking the Pipeline
+  // stat card toggles this filter (was previously a no-op clear).
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'pipeline'>('all')
   const [showGhosted, setShowGhosted] = useState(false)
   // View toggle for the Follow-ups tab. Per Dylan 2026-05-10, the
   // single 'calendar' option was expanded into 4 calendar variants so
@@ -325,13 +329,28 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
                 ? `${open.length} active · ${totalTouches} touch${totalTouches === 1 ? '' : 'es'}`
                 : undefined
             }
-            onClick={() => setPriorityFilter('all')}
-            active={priorityFilter === 'all'}
+            // Pipeline card now toggles a real filter (was a no-op
+            // 'clear' before). Click → narrows list to leads with a
+            // deal value set, and switches the sort to Pipeline so
+            // they rank by $ desc. Click again to clear.
+            onClick={() => {
+              setPriorityFilter(f => f === 'pipeline' ? 'all' : 'pipeline')
+              setSort('pipeline')
+            }}
+            active={priorityFilter === 'pipeline'}
           />
         </div>
         {priorityFilter !== 'all' && (
           <div className="flex items-center gap-2 mt-3 text-[11px] text-muted-foreground">
-            <span>Showing only <span className="text-foreground font-medium">{priorityFilter} priority</span> leads.</span>
+            <span>
+              Showing only{' '}
+              <span className="text-foreground font-medium">
+                {priorityFilter === 'pipeline'
+                  ? 'leads with pipeline value'
+                  : `${priorityFilter} priority`}
+              </span>
+              {priorityFilter === 'pipeline' ? '.' : ' leads.'}
+            </span>
             <button onClick={() => setPriorityFilter('all')} className="text-purple-700 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 underline-offset-2 hover:underline">Clear filter</button>
           </div>
         )}
@@ -346,13 +365,18 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
           or most-touched leads at top, regardless of urgency). We
           flatten everything into a single sorted list.
       */}
-      {sort !== 'urgency' ? (
+      {sort !== 'urgency' || priorityFilter === 'pipeline' ? (
         (() => {
-          // Build the flat list. Priority filter still applies for
-          // 'high' / 'medium'; otherwise include open + ghosted.
+          // Build the flat list.
+          //  - 'high'     → only high-priority bucket
+          //  - 'medium'   → only medium-priority bucket
+          //  - 'pipeline' → only leads with a non-zero deal value
+          //                 (irrespective of priority bucket)
+          //  - 'all'      → every open + ghosted lead
           let flat: OutreachEntry[] = []
           if (priorityFilter === 'high') flat = [...groups.high]
           else if (priorityFilter === 'medium') flat = [...groups.medium]
+          else if (priorityFilter === 'pipeline') flat = [...open, ...ghosted].filter(e => dealValueNum(e) > 0)
           else flat = [...open, ...ghosted]
           // Re-apply the chosen sort against the flat list (already
           // sorted within each bucket, but cross-bucket ordering
@@ -360,7 +384,13 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
           flat = applySort(flat)
           if (flat.length === 0) {
             return (
-              <Section title={sort === 'pipeline' ? 'Sorted by pipeline value' : 'Sorted by touch count'} accent="blue" count={0} icon={<span className="text-base">∅</span>}>
+              <Section
+                title={sort === 'pipeline' ? 'Sorted by pipeline value' : 'Sorted by touch count'}
+                accent="blue"
+                count={0}
+                icon={<span className="text-base">∅</span>}
+                headerRight={sortPills}
+              >
                 <div className="text-xs text-muted-foreground italic px-1 py-2">
                   No leads match the current filter.
                 </div>
@@ -381,6 +411,7 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
                   : 'Highest-touch leads first. Useful for spotting who needs the next nudge.'
               }
               icon={<span className="text-base">{sort === 'pipeline' ? '💰' : '🔥'}</span>}
+              headerRight={sortPills}
             >
               {flat.map(e => (
                 <FollowUpRow
@@ -441,7 +472,10 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
         )
       )}
 
-      {/* Section: Medium priority (1-7 days out) */}
+      {/* Section: Medium priority (1-7 days out).
+          When priorityFilter='medium', the High section unmounts —
+          attach the sort pills here as the fallback so they're still
+          visible. When 'all', High shows them. */}
       {(priorityFilter === 'all' || priorityFilter === 'medium') && groups.medium.length > 0 && (
         <Section
           title="Medium priority"
@@ -449,6 +483,7 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
           count={groups.medium.length}
           subtitle="Due in the next 7 days — plan for these"
           icon={<span className="text-base">📅</span>}
+          headerRight={priorityFilter === 'medium' ? sortPills : undefined}
         >
           {groups.medium.map(e => (
             <FollowUpRow
