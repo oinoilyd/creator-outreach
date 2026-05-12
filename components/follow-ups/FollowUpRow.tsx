@@ -43,7 +43,10 @@ function maybeOpenUnipileSend(
   if (!profile?.unipileAccountId) return false
   ev.preventDefault()
   ev.stopPropagation()
-  window.dispatchEvent(new CustomEvent('open-send-modal', { detail: payload }))
+  // Every send fired from inside a Follow-up row is BY DEFINITION a
+  // follow-up, not a fresh outreach. Pass isFollowUp:true so the
+  // preview modal renders "Send follow-up" instead of "Send outreach".
+  window.dispatchEvent(new CustomEvent('open-send-modal', { detail: { ...payload, isFollowUp: true } }))
   return true
 }
 
@@ -188,7 +191,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                     recipientLabel: e.channelName,
                   })
                 }}
-                title={`Send outreach to ${e.email}. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose.`}
+                title={`Send follow-up to ${e.email}. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose.`}
                 aria-label={`Email ${e.email}`}
                 className="inline-flex items-center text-emerald-700 dark:text-emerald-400/80 hover:text-emerald-500 transition-colors shrink-0"
               >

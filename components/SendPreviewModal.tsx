@@ -39,6 +39,11 @@ interface Props {
    *  warning banner. Parent should close this modal and open the
    *  profile editor. */
   onOpenProfile?: () => void
+  /** When true, the primary CTA + dialog title read "Send follow-up"
+   *  instead of "Send outreach". Set by the caller — Follow-up rows
+   *  always pass true; the Lead Detail modal computes it from whether
+   *  the entry has already been contacted. */
+  isFollowUp?: boolean
   onClose: () => void
   /** Called with the Unipile response after a successful send so the
    *  parent can update local state without a refetch. */
@@ -59,9 +64,14 @@ export function SendPreviewModal({
   recipientLabel,
   physicalAddress,
   onOpenProfile,
+  isFollowUp = false,
   onClose,
   onSent,
 }: Props) {
+  // Single source of truth for the verb used throughout the modal —
+  // follow-up flows call this 'follow-up' instead of 'outreach' so
+  // the user has unambiguous context about what they're about to send.
+  const actionVerb = isFollowUp ? 'follow-up' : 'outreach'
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, true)
 
@@ -154,7 +164,7 @@ export function SendPreviewModal({
         <div className="flex items-start justify-between mb-4 gap-3">
           <div>
             <h2 id="send-preview-title" className="text-lg font-bold text-foreground">
-              Send outreach{recipientLabel ? ` to ${recipientLabel}` : ''}
+              Send {actionVerb}{recipientLabel ? ` to ${recipientLabel}` : ''}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Final preview. Tweak anything below — we send via your connected Gmail when you hit Send.
@@ -268,7 +278,7 @@ export function SendPreviewModal({
             disabled={sending}
             className="px-5 py-2 bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-wait shadow-md shadow-purple-500/20"
           >
-            {sending ? 'Sending…' : 'Send'}
+            {sending ? 'Sending…' : `Send ${actionVerb}`}
           </button>
         </div>
       </div>

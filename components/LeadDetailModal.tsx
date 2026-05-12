@@ -52,6 +52,11 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
     : liUrl ? 'linkedin'
     : null
 
+  // A lead is in 'follow-up' state when prior outreach has happened —
+  // reachedOut flag set OR an initial dateReachedOut timestamp exists.
+  // Drives the SendPreviewModal labels (Send outreach → Send follow-up).
+  const isFollowUp = !!(entry.reachedOut || (entry.dateReachedOut && entry.dateReachedOut.trim().length > 0))
+
   function handleCta() {
     if (modality === 'email') {
       // Match the row-click flow: if Unipile is connected, dispatch the
@@ -70,6 +75,7 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
             subject: content.subject,
             body: content.body,
             recipientLabel: entry.channelName,
+            isFollowUp,
           },
         }))
         onClose()  // close the detail modal so the send preview is unobstructed
@@ -171,7 +177,7 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
                       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                       <polyline points="22,6 12,13 2,6" />
                     </svg>
-                    <span className="text-sm">Send outreach email</span>
+                    <span className="text-sm">{isFollowUp ? 'Send follow-up email' : 'Send outreach email'}</span>
                   </>
                 )}
                 {modality === 'instagram' && (

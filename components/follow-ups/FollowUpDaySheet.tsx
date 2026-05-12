@@ -30,7 +30,10 @@ function maybeOpenUnipileSend(
   if (!profile?.unipileAccountId) return false
   ev.preventDefault()
   ev.stopPropagation()
-  window.dispatchEvent(new CustomEvent('open-send-modal', { detail: payload }))
+  // Sends from the Follow-up Day Sheet are always follow-ups — same
+  // reasoning as FollowUpRow. Pass isFollowUp:true so the preview
+  // modal renders "Send follow-up" labels.
+  window.dispatchEvent(new CustomEvent('open-send-modal', { detail: { ...payload, isFollowUp: true } }))
   return true
 }
 
@@ -232,7 +235,7 @@ export function FollowUpDaySheet({
                           recipientLabel: e.channelName,
                         })
                       }}
-                      title="Send outreach. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose."
+                      title="Send follow-up. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose."
                       className="text-[11px] font-medium px-2.5 py-1 rounded border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
                     >
                       📧 Email

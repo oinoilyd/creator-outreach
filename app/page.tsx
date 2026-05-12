@@ -561,6 +561,12 @@ export default function Home() {
     subject: string
     body: string
     recipientLabel: string
+    /** When true, the send modal's primary button reads
+     *  "Send follow-up" instead of "Send outreach". Set by the
+     *  caller — Follow-up rows always pass true; the Lead Detail
+     *  modal computes it from whether the entry has already been
+     *  contacted (reachedOut/dateReachedOut). */
+    isFollowUp?: boolean
   } | null>(null)
   const [unipileConnected, setUnipileConnected] = useState(false)
   // Phase 4: Conversation thread modal — opened by clicking the
@@ -855,6 +861,7 @@ export default function Home() {
         subject?: string
         body?: string
         recipientLabel?: string
+        isFollowUp?: boolean
       } | undefined
       if (!detail?.entryId || !detail.to || !detail.subject || !detail.body) return
       setSendPreview({
@@ -863,6 +870,7 @@ export default function Home() {
         subject: detail.subject,
         body: detail.body,
         recipientLabel: detail.recipientLabel ?? detail.to,
+        isFollowUp: !!detail.isFollowUp,
       })
     }
     function onOpenThreadModal(ev: Event) {
@@ -3174,6 +3182,7 @@ export default function Home() {
           initialSubject={sendPreview.subject}
           initialBody={sendPreview.body}
           recipientLabel={sendPreview.recipientLabel}
+          isFollowUp={sendPreview.isFollowUp}
           // CAN-SPAM compliance signals — the modal nudges the user to
           // set a business address before sending if it's missing.
           physicalAddress={profile?.physicalAddress ?? null}
