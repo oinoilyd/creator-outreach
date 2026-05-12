@@ -23,7 +23,8 @@
  *     events stay none so the spotlight doesn't block clicks.
  */
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
 import type { PlatformId } from '@/lib/types'
 import {
@@ -54,28 +55,37 @@ const SPOTLIGHT_OPACITY_MULT = 6
 const SPOTLIGHT_SCALE = 1.15
 
 export function PlatformBackdrop({ theme, platform, visible = true, spotlight = false, intense = false }: Props) {
+  // Per Dylan 2026-05-11: rendered via Portal into document.body so
+  // it's never affected by an ancestor's `transform`, `filter`, or
+  // `will-change` (which would create a containing block and break
+  // `position: fixed`). Guarantees themes stay locked at the top of
+  // the viewport regardless of where the component sits in the JSX
+  // tree.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   if (theme === 'off') return null
   // Fireworks + Tornado are one-shot spotlight-only shows. Gate ONLY
   // on `spotlight` (momentary burst), not `intense` — so the always-on
   // visual boost doesn't auto-mount the show on every render.
   if ((theme === 'fireworks' || theme === 'tornado') && !spotlight) return null
+  if (!mounted) return null // SSR-safe: portal needs document
   const hue = PLATFORM_HUES[platform]
   const iconPath = PLATFORM_ICON_PATH[platform]
   // Effective visual intensity — burst OR persistent always-on.
   const boosted = spotlight || intense
 
-  return (
+  const node = (
     <div
       key={theme}
       aria-hidden
-      // Per Dylan 2026-05-11: themes now play ONLY in the top banner
-      // strip, not full-page. The banner is ~88px tall (sticky nav).
-      // overflow-hidden clips everything outside this strip.
+      // Themes play ONLY in the top banner strip (~88px tall), not
+      // full-page. overflow-hidden clips animations to that band.
       className="fixed top-0 inset-x-0 h-[88px] pointer-events-none overflow-hidden transition-opacity ease-out"
       style={{
         // Spotlight pushes the layer above content (z-50). Otherwise
-        // stays at z-0 in the background — sits behind the banner's
-        // translucent bg-background/10 so icons show through.
+        // stays at z-0 — sits behind the banner's translucent bg so
+        // icons show through.
         zIndex: spotlight ? 50 : 0,
         opacity: visible ? 1 : 0,
         transitionDuration: visible ? '300ms' : '1500ms',
@@ -94,6 +104,8 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
       </div>
     </div>
   )
+
+  return createPortal(node, document.body)
 }
 
 // ── Rain ─────────────────────────────────────────────────────────────
