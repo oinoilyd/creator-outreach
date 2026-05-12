@@ -14,9 +14,19 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <Aurora className="z-0" />
 
       <header className="relative z-10 px-6 py-5 flex items-center justify-between max-w-6xl w-full mx-auto">
-        <Link href="/landing" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand to-brand-2 flex items-center justify-center text-sm font-bold text-primary-foreground">C</div>
-          <span className="font-semibold tracking-tight">Creator Outreach</span>
+        {/* Brand mark — kept in lockstep with LandingTopNav.tsx so the
+            "C" tile, wordmark, gap, and color treatment are identical
+            across pre-sign-in marketing pages and the auth shell.
+            Any tweak here MUST be mirrored in LandingTopNav.tsx
+            (and vice versa) — visual inconsistency between /landing
+            and /auth/* was the symptom that prompted this. */}
+        <Link href="/landing" className="flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] dark:bg-[#F2A261] text-[#F2A261] dark:text-[#0F1733] text-[14px] font-bold">
+            C
+          </span>
+          <span className="font-semibold tracking-[-0.01em] text-[16px] text-[#0F1733] dark:text-white">
+            Creator Outreach
+          </span>
         </Link>
       </header>
 
