@@ -7,6 +7,60 @@ import type { LegalDoc } from '@/lib/legal/types'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
+/**
+ * Signed external agreements — DPAs and MSAs with sub-processors.
+ *
+ * Two flavors:
+ *   1. Counter-signed PDFs — the vendor sent a signature page back.
+ *      We store the artifact in /public/legal/ and link it via
+ *      `filename`. Strongest audit evidence.
+ *   2. Accepted-at-signup public templates — the vendor publishes
+ *      a DPA URL that's auto-accepted on account creation
+ *      (Anthropic, Supabase, Stripe, Vercel all work this way).
+ *      We link the live URL via `externalUrl` plus record the
+ *      acceptance date. For audit-grade evidence, snapshot the
+ *      page to PDF and re-add as a `filename` entry.
+ *
+ * To add a new one:
+ *   - Counter-signed: drop the PDF in /public/legal/, add a
+ *     `filename` entry.
+ *   - Live-link: add an `externalUrl` entry (no file copy needed).
+ */
+type SignedAgreement = {
+  title: string
+  vendor: string
+  /** YYYY-MM-DD. For signed PDFs, the counter-sign date. For live
+   *  links, the date we accepted by creating the account. */
+  signedOn: string
+  /** Who signed (counter-signed) or accepted (live-link). */
+  signedBy: string
+  summary: string
+} & (
+  | { filename: string; externalUrl?: never }
+  | { externalUrl: string; filename?: never }
+)
+
+const SIGNED_AGREEMENTS: SignedAgreement[] = [
+  {
+    title: 'Data Processing Agreement — Unipile',
+    vendor: 'Unipile SAS',
+    signedOn: '2025-07-09',
+    signedBy: 'Julien Crépieux (CEO)',
+    summary:
+      'GDPR Article 28 DPA covering Unipile processing of LinkedIn/email account data on our behalf. Lists sub-processors (Scaleway, Crisp, Stripe, Bright Data, Webshare, Oxylabs), security obligations, breach notification, and EU transfer mechanism.',
+    filename: 'DPA-Unipile-signed.pdf',
+  },
+  {
+    title: 'Data Processing Addendum — Anthropic',
+    vendor: 'Anthropic, PBC',
+    signedOn: '2026-04-28',
+    signedBy: 'Dylan Meehan (auto-accepted at API signup)',
+    summary:
+      'GDPR Article 28 DPA covering Anthropic processing of prompt/response data sent to the Claude API (used for AI keyword expansion + outreach drafting). Auto-accepted upon API account creation. Live link below; snapshot-to-PDF pending for audit folder.',
+    externalUrl: 'https://www.anthropic.com/legal/data-processing-addendum',
+  },
+]
+
 export const dynamic = 'force-dynamic'
 
 /**
@@ -76,8 +130,100 @@ export default async function AdminLegalPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Signed external agreements — counter-signed vendor DPAs/MSAs.
+            Separated from the table above because these are signed
+            artifacts (can't regenerate Word from them) and serve a
+            different compliance purpose (proof we have a DPA with
+            each sub-processor we send personal data to). */}
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold">Signed external agreements</h2>
+          <p className="text-muted-foreground/80 text-sm mt-1">
+            Counter-signed vendor DPAs and MSAs. Proof of GDPR Article
+            28 compliance for each sub-processor we send personal data
+            to.
+          </p>
+          <p className="text-muted-foreground/70 text-xs mt-1 tabular-nums">
+            Total: {SIGNED_AGREEMENTS.length} signed agreement
+            {SIGNED_AGREEMENTS.length === 1 ? '' : 's'}
+          </p>
+
+          <div className="overflow-x-auto rounded-lg border border-border mt-3">
+            <table className="min-w-full text-sm">
+              <thead className="bg-card text-muted-foreground text-xs uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Agreement</th>
+                  <th className="px-4 py-3 text-left font-medium">Vendor</th>
+                  <th className="px-4 py-3 text-left font-medium">Signed</th>
+                  <th className="px-4 py-3 text-left font-medium">Summary</th>
+                  <th className="px-4 py-3 text-right font-medium">Download</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {SIGNED_AGREEMENTS.map((a) => (
+                  <SignedAgreementRow key={a.filename} agreement={a} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </main>
+  )
+}
+
+function SignedAgreementRow({
+  agreement,
+}: {
+  agreement: SignedAgreement
+}) {
+  // Two render modes:
+  //   - filename → local PDF in /public/legal/, served as a download
+  //   - externalUrl → live vendor URL, opens in new tab
+  const isLocal = 'filename' in agreement && agreement.filename
+  const subtitle = isLocal ? agreement.filename : agreement.externalUrl
+  return (
+    <tr className="hover:bg-card/40 transition-colors">
+      <td className="px-4 py-3 align-top">
+        <div className="font-medium text-foreground">{agreement.title}</div>
+        <div className="text-xs text-muted-foreground/70 font-mono mt-0.5 break-all">
+          {subtitle}
+        </div>
+      </td>
+      <td className="px-4 py-3 align-top text-muted-foreground whitespace-nowrap">
+        {agreement.vendor}
+      </td>
+      <td className="px-4 py-3 align-top text-muted-foreground whitespace-nowrap">
+        <div className="tabular-nums">{agreement.signedOn}</div>
+        <div className="text-xs text-muted-foreground/70 mt-0.5">
+          {isLocal ? 'by ' : ''}
+          {agreement.signedBy}
+        </div>
+      </td>
+      <td className="px-4 py-3 align-top text-muted-foreground/90 max-w-md">
+        {agreement.summary}
+      </td>
+      <td className="px-4 py-3 align-top text-right whitespace-nowrap">
+        {isLocal ? (
+          <a
+            href={`/legal/${agreement.filename}`}
+            download
+            className="text-xs rounded-md px-2.5 py-1.5 inline-block border border-border text-foreground hover:bg-card/60 transition-colors"
+          >
+            PDF
+          </a>
+        ) : (
+          <a
+            href={agreement.externalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs rounded-md px-2.5 py-1.5 inline-block border border-border text-foreground hover:bg-card/60 transition-colors"
+          >
+            View ↗
+          </a>
+        )}
+      </td>
+    </tr>
   )
 }
 
