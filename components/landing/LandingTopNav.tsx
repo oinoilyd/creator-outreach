@@ -59,8 +59,13 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
   return (
     <header className="sticky top-0 z-40 bg-white/85 dark:bg-[#0A0E15]/85 backdrop-blur-md border-b border-[#0F1733]/8 dark:border-white/10">
       <div className="max-w-[1280px] mx-auto px-6 h-[64px] flex items-center justify-between">
+        {/* Brand mark — purple-to-blue gradient (oklch hue 290 → 215)
+            is Creator Outreach's brand. Must stay in lockstep with the
+            "C" tile in components/landing/AuthShell.tsx so /landing and
+            /auth/* render the same logo at all times. Any spec change
+            here MUST be mirrored in AuthShell (and vice versa). */}
         <Link href="/landing" className="flex items-center gap-2.5 shrink-0">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#0F1733] dark:bg-[#F2A261] text-[#F2A261] dark:text-[#0F1733] text-[14px] font-bold">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-2 text-primary-foreground text-[14px] font-bold">
             C
           </span>
           <span className="font-semibold tracking-[-0.01em] text-[16px] text-[#0F1733] dark:text-white">
