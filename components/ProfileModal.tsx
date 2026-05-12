@@ -171,25 +171,34 @@ export function ProfileModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" aria-hidden />
+      {/* Modal layout: flex-col with max-h-[90vh] so on small screens
+          the dialog never exceeds the viewport. Header (title + close)
+          and footer (Cancel + Save) are sticky via flex-shrink-0 so
+          they stay visible while the middle scrolls. */}
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md p-7 focus:outline-none"
+        className="relative bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 w-full max-w-md max-h-[90vh] flex flex-col focus:outline-none"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between mb-1">
-          <h2 id={titleId} className="text-xl font-bold text-foreground">Profile</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close profile dialog"
-            className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
-          >✕</button>
+        {/* Sticky header */}
+        <div className="flex-shrink-0 px-7 pt-7 pb-4 border-b border-border/60">
+          <div className="flex items-start justify-between mb-1">
+            <h2 id={titleId} className="text-xl font-bold text-foreground">Profile</h2>
+            <button
+              onClick={onClose}
+              aria-label="Close profile dialog"
+              className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
+            >✕</button>
+          </div>
+          <p className="text-muted-foreground text-sm">Used in your outreach emails. Edits apply to every future email you send.</p>
         </div>
-        <p className="text-muted-foreground text-sm mb-6">Used in your outreach emails. Edits apply to every future email you send.</p>
 
-        <div className="space-y-4">
+        {/* Scrollable middle */}
+        <div className="flex-1 overflow-y-auto px-7 py-5">
+          <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">
               Full name <span className="text-red-400">*</span>
@@ -390,9 +399,11 @@ export function ProfileModal({
           </div>
         </div>
 
-        {error && <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-3 py-2 mt-4">{error}</div>}
+          {error && <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-3 py-2 mt-4">{error}</div>}
+        </div>
 
-        <div className="flex items-center justify-end gap-3 mt-6">
+        {/* Sticky footer */}
+        <div className="flex-shrink-0 px-7 py-4 border-t border-border/60 flex items-center justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button
             onClick={save}
