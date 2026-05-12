@@ -268,12 +268,13 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
           )}
         </div>
 
-        {/* Actions — fixed min-width so the ghosted variant (Re-engage + ✕)
-            and the active variant (Followed up + snooze + 2 hover icons)
-            align to the same right edge. Per Dylan 2026-05-11: the
-            ghosted cluster was visibly narrower, breaking row alignment
-            whenever a Ghosted row appeared next to active rows. */}
-        <div className="flex items-center justify-end gap-1 shrink-0 min-w-[160px]">
+        {/* Actions — both ghosted and active variants use the same slot
+            structure so the buttons land in the same columns:
+              [text button] gap [snooze slot] gap [{ ✓ slot, dismiss slot }]
+            Ghosted fills slot 2 and slot 3 with invisible spacers so
+            Re-engage sits flush with the date pill (no gap) and ✕ sits
+            in the same column as 👻. */}
+        <div className="flex items-center gap-1 shrink-0">
           {bucket === 'ghosted' ? (
             <>
               <button
@@ -283,11 +284,18 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
               >
                 Re-engage
               </button>
-              <button
-                onClick={() => onUpdate(e.id, 'status', 'Rejected')}
-                title="Confirm dead lead"
-                className="w-5 h-5 flex items-center justify-center text-[10px] text-red-700 dark:text-red-400 hover:text-foreground border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
-              >✕</button>
+              {/* Snooze-slot spacer */}
+              <span className="w-5 h-5 shrink-0" aria-hidden />
+              {/* Mirror the active variant's hover-revealed group: ✓-slot
+                  spacer + dismiss button (which replaces 👻). */}
+              <div className="flex items-center gap-1">
+                <span className="w-5 h-5 shrink-0" aria-hidden />
+                <button
+                  onClick={() => onUpdate(e.id, 'status', 'Rejected')}
+                  title="Confirm dead lead"
+                  className="w-5 h-5 flex items-center justify-center text-[10px] text-red-700 dark:text-red-400 hover:text-foreground border border-red-500/30 hover:bg-red-600/30 hover:border-red-500 rounded transition-colors"
+                >✕</button>
+              </div>
             </>
           ) : (
             <>
