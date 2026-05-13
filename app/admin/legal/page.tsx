@@ -79,6 +79,51 @@ const SIGNED_AGREEMENTS: SignedAgreement[] = [
   },
 ]
 
+/**
+ * Partner agreements — internal documents that govern the relationship
+ * between the Company's founders / co-founders / advisors.
+ *
+ * These differ from SIGNED_AGREEMENTS in two ways:
+ *   1. Internal to the Company (between founders/team), not external
+ *      vendors. Confidential — never linked from public surfaces.
+ *   2. Source file lives in /docs/ in the repo (drafts) or /admin/
+ *      private routes (signed). NOT in /public/legal/ — those PDFs
+ *      are world-readable at predictable URLs.
+ *
+ * Status field tracks lifecycle: Draft (in negotiation) → Signed
+ * (fully executed) → Archived (superseded by a newer version).
+ *
+ * When signed: convert the final document to PDF (DocuSign / Adobe
+ * Sign / HelloSign typically produce one), file the PDF in a NEW
+ * non-public location (e.g. an admin-only `/internal-docs/` path
+ * served via a server-side route, NOT `/public/`), and flip the
+ * status here to 'Signed' with the date.
+ */
+type PartnerAgreement = {
+  title: string
+  parties: string
+  status: 'Draft' | 'Signed' | 'Archived'
+  /** YYYY-MM-DD. For drafts, the date the draft was prepared. For
+   *  signed, the date of final signature. */
+  dated: string
+  summary: string
+  /** Path to the source file in the repo. For drafts, the markdown.
+   *  For signed, the PDF (admin-only-served — never under /public/). */
+  filePath: string
+}
+
+const PARTNER_AGREEMENTS: PartnerAgreement[] = [
+  {
+    title: 'Founders Agreement — Creator Outreach',
+    parties: 'Dylan Meehan (operating co-founder) + Ryan Gaynor (strategic co-founder, Gaynor Media LLC)',
+    status: 'Draft',
+    dated: '2026-05-12',
+    summary:
+      'Co-founder operating agreement governing roles, revenue split (Dylan 55% / Ryan 45%), 50/50 decision-making on material decisions, sunset / cost-recovery (50/50 split of unrecovered direct costs if sunset before profitable), IP assignment to the LLC, confidentiality with carve-out for Ryan\'s current employer\'s confidential info, mutual non-compete release outside the Creator Outreach product, term and departure terms (including for-cause and voluntary departure), and Illinois-law governance with Cook County mediation/arbitration. One-page plain-English founders agreement; lawyer review optional at pre-revenue stage.',
+    filePath: 'docs/founders-agreement.md',
+  },
+]
+
 export const dynamic = 'force-dynamic'
 
 /**
@@ -220,8 +265,85 @@ export default async function AdminLegalPage() {
             </table>
           </div>
         </div>
+
+        {/* Partner Agreements — internal founder/co-founder agreements.
+            Confidential, NOT linked from public surfaces. Source files
+            live in /docs/ (drafts) or admin-served paths (signed). The
+            row shows status + path; clicking the path would only work
+            for admins with file-system access (not a public URL). */}
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold">Partner agreements</h2>
+          <p className="text-muted-foreground/80 text-sm mt-1">
+            Internal founder + co-founder agreements. Confidential —
+            never linked from public surfaces. Source files live in
+            the repo (drafts) or admin-only locations (signed PDFs).
+          </p>
+          <p className="text-muted-foreground/70 text-xs mt-1 tabular-nums">
+            Total: {PARTNER_AGREEMENTS.length} agreement
+            {PARTNER_AGREEMENTS.length === 1 ? '' : 's'}
+          </p>
+
+          <div className="overflow-x-auto rounded-lg border border-border mt-3">
+            <table className="min-w-full text-sm">
+              <thead className="bg-card text-muted-foreground text-xs uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Agreement</th>
+                  <th className="px-4 py-3 text-left font-medium">Parties</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">Dated</th>
+                  <th className="px-4 py-3 text-left font-medium">Summary</th>
+                  <th className="px-4 py-3 text-right font-medium">Source</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {PARTNER_AGREEMENTS.map((a) => (
+                  <PartnerAgreementRow key={a.filePath} agreement={a} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </main>
+  )
+}
+
+function PartnerAgreementRow({
+  agreement,
+}: {
+  agreement: PartnerAgreement
+}) {
+  const statusStyle =
+    agreement.status === 'Signed'
+      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+      : agreement.status === 'Draft'
+        ? 'bg-yellow-500/15 text-yellow-800 dark:text-yellow-300 border-yellow-500/30'
+        : 'bg-muted text-muted-foreground border-border'
+  return (
+    <tr className="hover:bg-card/40 transition-colors">
+      <td className="px-4 py-3 align-top">
+        <div className="font-medium text-foreground">{agreement.title}</div>
+      </td>
+      <td className="px-4 py-3 align-top text-muted-foreground max-w-md">
+        {agreement.parties}
+      </td>
+      <td className="px-4 py-3 align-top whitespace-nowrap">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider border ${statusStyle}`}
+        >
+          {agreement.status}
+        </span>
+      </td>
+      <td className="px-4 py-3 align-top text-muted-foreground whitespace-nowrap tabular-nums">
+        {agreement.dated}
+      </td>
+      <td className="px-4 py-3 align-top text-muted-foreground/90 max-w-md">
+        {agreement.summary}
+      </td>
+      <td className="px-4 py-3 align-top text-right whitespace-nowrap text-xs">
+        <code className="text-muted-foreground/70 font-mono">{agreement.filePath}</code>
+      </td>
+    </tr>
   )
 }
 
