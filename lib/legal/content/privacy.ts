@@ -13,7 +13,7 @@ const doc: LegalDoc = {
   owner: 'Founder / CEO',
   status: 'Active',
   intro:
-    'This Privacy Policy describes how **[LLC LEGAL NAME]** ("Creator Outreach," "we," or "us") collects, uses, and shares information when you use our website and Service at creatoroutreach.net.\n\nWe follow GDPR (European Union) and CCPA (California) principles regardless of where you live: we collect only what we need, we tell you what we do with it, and we let you delete it.',
+    'This Privacy Policy describes how **Gaynor Media LLC** ("Creator Outreach," "we," or "us") collects, uses, and shares information when you use our website and Service at creatoroutreach.net.\n\nWe follow GDPR (European Union) and CCPA (California) principles regardless of where you live: we collect only what we need, we tell you what we do with it, and we let you delete it.',
   blocks: [
     { type: 'h2', text: '1. Information We Collect' },
 
@@ -194,7 +194,7 @@ const doc: LegalDoc = {
     },
     {
       type: 'p',
-      md: 'Postal address: **[LLC LEGAL NAME], [LLC ADDRESS]**.',
+      md: 'Postal address: **Gaynor Media LLC, [LLC ADDRESS]**.',
     },
   ],
 }

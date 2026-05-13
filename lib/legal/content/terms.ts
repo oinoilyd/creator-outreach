@@ -13,7 +13,7 @@ const doc: LegalDoc = {
   owner: 'Founder / CEO',
   status: 'Active',
   intro:
-    'Welcome to Creator Outreach. These Terms of Service (the "Terms") govern your access to and use of the Creator Outreach website, applications, APIs, and related services (collectively, the "Service"), operated by **[LLC LEGAL NAME]** ("Creator Outreach," "we," "us," or "our"). By creating an account or using the Service, you agree to these Terms and to our [Privacy Policy](/privacy). If you do not agree, do not use the Service.',
+    'Welcome to Creator Outreach. These Terms of Service (the "Terms") govern your access to and use of the Creator Outreach website, applications, APIs, and related services (collectively, the "Service"), operated by **Gaynor Media LLC** ("Creator Outreach," "we," "us," or "our"). By creating an account or using the Service, you agree to these Terms and to our [Privacy Policy](/privacy). If you do not agree, do not use the Service.',
   blocks: [
     { type: 'h2', text: '1. Eligibility & Account' },
     {
