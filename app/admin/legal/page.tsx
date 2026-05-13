@@ -72,9 +72,9 @@ const SIGNED_AGREEMENTS: SignedAgreement[] = [
     title: 'Data Processing Addendum — Vercel',
     vendor: 'Vercel Inc. (Delaware, reg. 5857312)',
     signedOn: '2026-05-12',
-    signedBy: 'Dylan Meehan (snapshot for record; auto-applies on Pro upgrade)',
+    signedBy: 'Dylan Meehan (auto-accepted on Pro plan)',
     summary:
-      'GDPR Article 28 + CCPA + UK GDPR + PIPEDA + Australian Privacy Principles DPA covering Vercel processing of Customer Data (deployment/build artifacts, request logs, IP addresses, config). Per the DPA Section 1, this Addendum formally applies to **Enterprise and Pro plan customers** — on the Hobby (free) tier we operate under Vercel’s standard ToS until we upgrade. Snapshot filed as forward-looking evidence and as the canonical data protection standard Vercel commits to. Coverage: AES-256 at rest, TLS 1.2+ in transit, SOC 2 Type 2 annually, AWS/Azure/GCP regional redundancy, sub-processors at security.vercel.com. PDF snapshot of public DPA (last updated 2026-03-17, effective 2026-03-31) at vercel.com/legal/dpa.',
+      'GDPR Article 28 + CCPA + UK GDPR + PIPEDA + Australian Privacy Principles DPA covering Vercel processing of Customer Data (deployment/build artifacts, request logs, IP addresses, config). Per DPA Section 1, this Addendum applies to Enterprise and Pro plan customers — we are on Pro, so the DPA fully binds. Coverage: AES-256 at rest, TLS 1.2+ in transit, SOC 2 Type 2 annually, AWS/Azure/GCP regional redundancy, sub-processors at security.vercel.com, EU SCCs Module 1-3 for cross-border transfers, UK IDTA for UK transfers. PDF snapshot of public DPA (last updated 2026-03-17, effective 2026-03-31) at vercel.com/legal/dpa.',
     filename: 'DPA-Vercel.pdf',
   },
 ]
