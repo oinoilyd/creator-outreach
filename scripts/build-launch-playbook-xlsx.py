@@ -277,8 +277,10 @@ COLUMN_WIDTHS = {
 for col_letter, width in COLUMN_WIDTHS.items():
     ws.column_dimensions[col_letter].width = width
 
-# Freeze panes — header row of the action table stays visible
-ws.freeze_panes = f"A{header_row + 1}"
+# No freeze panes — the bottom notes section is more readable when
+# the whole document scrolls naturally together. Earlier version
+# froze the top context (rows 1-14) which made the bottom feel
+# cramped during scrolling.
 
 # ── Save ───────────────────────────────────────────────────────────
 wb.save(OUTPUT_PATH)
