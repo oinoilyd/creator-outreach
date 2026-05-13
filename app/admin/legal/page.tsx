@@ -68,6 +68,15 @@ const SIGNED_AGREEMENTS: SignedAgreement[] = [
       'GDPR Article 28 + CCPA DPA covering Stripe processing of payment transaction data (cards, billing addresses, customer identifiers) for Creator Outreach subscriptions. Auto-accepted upon Stripe account activation. Covers 48-hour breach notification (GDPR/UK GDPR), AES-256 encryption at rest, TLS 1.2 in transit, PCI Level 1 certification, and annual SOC 1/2 audits. Sub-processors listed at stripe.com/legal/service-providers. PDF snapshot of public DPA (last updated 2025-11-18) at stripe.com/legal/dpa.',
     filename: 'DPA-Stripe.pdf',
   },
+  {
+    title: 'Data Processing Addendum — Vercel',
+    vendor: 'Vercel Inc. (Delaware, reg. 5857312)',
+    signedOn: '2026-05-12',
+    signedBy: 'Dylan Meehan (snapshot for record; auto-applies on Pro upgrade)',
+    summary:
+      'GDPR Article 28 + CCPA + UK GDPR + PIPEDA + Australian Privacy Principles DPA covering Vercel processing of Customer Data (deployment/build artifacts, request logs, IP addresses, config). Per the DPA Section 1, this Addendum formally applies to **Enterprise and Pro plan customers** — on the Hobby (free) tier we operate under Vercel’s standard ToS until we upgrade. Snapshot filed as forward-looking evidence and as the canonical data protection standard Vercel commits to. Coverage: AES-256 at rest, TLS 1.2+ in transit, SOC 2 Type 2 annually, AWS/Azure/GCP regional redundancy, sub-processors at security.vercel.com. PDF snapshot of public DPA (last updated 2026-03-17, effective 2026-03-31) at vercel.com/legal/dpa.',
+    filename: 'DPA-Vercel.pdf',
+  },
 ]
 
 export const dynamic = 'force-dynamic'
