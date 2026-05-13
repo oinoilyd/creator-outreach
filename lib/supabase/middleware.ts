@@ -20,6 +20,8 @@ const PUBLIC_PATHS = [
   '/auth/signin', '/auth/signup', '/auth/check-email', '/auth/callback',
   '/auth/confirm', '/auth/forgot-password', '/auth/reset-password',
   '/landing',
+  '/pricing',   // marketing page — needs to be reachable without auth so
+                // prospects can see plans + FAQ before deciding to sign up.
   '/terms', '/privacy', '/refunds', '/cookies', '/support',
   '/security', '/subprocessors',
   '/unsubscribe',

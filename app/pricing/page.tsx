@@ -19,6 +19,7 @@
  */
 
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { PricingCheckoutButton } from '@/components/pricing/PricingCheckoutButton'
@@ -54,6 +55,10 @@ interface Plan {
   priceId: string | null
   display: string | null
   priceSub: string
+  /** Optional smaller second-line under the price (e.g. effective per-mo). */
+  priceMeta?: string
+  /** Small flag rendered on the card — "Most popular", "Best value", etc. */
+  badge?: string
   features: string[]
   featured: boolean
 }
@@ -65,14 +70,14 @@ function buildPlans(): Plan[] {
       tier: 'Pro · Monthly',
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY ?? null,
       display: process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY_DISPLAY ?? null,
-      priceSub: '14-day free trial · cancel anytime',
+      priceSub: 'per month · 14-day free trial · cancel anytime',
       features: [
-        'Unlimited creator search across 5 platforms',
-        'AI fit scoring against your own criteria',
-        'Email outreach + Instagram DM composer',
-        'Follow-up automation',
-        'Full CRM: status pills, notes, follow-up cadence',
-        'Custom analytics — 30+ metrics + CSV export',
+        'Unlimited creator search across YouTube, Instagram, TikTok, X, LinkedIn',
+        'AI fit scoring against your own ICP criteria',
+        'Native outreach: Gmail / Outlook compose + Instagram DM',
+        'Built-in CRM: status, notes, follow-up cadence',
+        'Reply tracking + auto-status updates',
+        'Custom analytics dashboard with 30+ metrics + CSV export',
       ],
       featured: false,
     },
@@ -81,12 +86,15 @@ function buildPlans(): Plan[] {
       tier: 'Pro · Annual',
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_ANNUAL ?? null,
       display: process.env.NEXT_PUBLIC_STRIPE_PRICE_ANNUAL_DISPLAY ?? null,
-      priceSub: '14-day free trial · save ~17% vs monthly',
+      priceSub: 'per year · 14-day free trial · two months free',
+      priceMeta: 'works out to ~$42/mo — billed once a year',
+      badge: 'Most popular',
       features: [
         'Everything in Monthly',
-        'Two months free (paid annually)',
-        'Priority email support',
-        'Early access to new features',
+        'Save ~$100/yr (two months free)',
+        'Priority email support — first reply within 1 business day',
+        'Early access to new features (beta cohort)',
+        'Locked-in pricing for the life of your subscription',
       ],
       featured: true,
     },
@@ -249,8 +257,70 @@ export default async function PricingPage({
             ))}
           </div>
 
-          <div className="mt-12 text-center text-[12px] text-[#0F1733]/50 dark:text-white/50">
-            Questions?{' '}
+          {/* FAQ — answers the five most common objections inline so
+              buyers don't have to email to decide. Each Q&A is short on
+              purpose: the goal is to remove friction, not to write
+              long-form marketing copy. Kept as a server-rendered <dl>
+              so it's scrapeable by search engines and accessible to
+              screen readers without any JS. */}
+          <section
+            aria-labelledby="faq-heading"
+            className="mt-20 md:mt-28 max-w-[760px] mx-auto"
+          >
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[10px] uppercase tracking-[0.18em] font-bold text-[#9C3D1F] dark:text-[#F2A261] dark:bg-[#F2A261]/10 dark:border-[#F2A261]/30">
+                FAQ
+              </div>
+              <h2
+                id="faq-heading"
+                className="font-semibold tracking-[-0.025em]"
+                style={{ fontSize: 'clamp(1.5rem, 3vw, 2.25rem)' }}
+              >
+                Common questions, answered up front.
+              </h2>
+            </div>
+            <dl className="divide-y divide-[#0F1733]/10 dark:divide-white/10">
+              <FaqItem
+                q="Will my card be charged today?"
+                a="No. Stripe captures your card during checkout but won't charge it until your 14-day trial ends. If you cancel during the trial, you're never billed — not a dollar."
+              />
+              <FaqItem
+                q="What happens at the end of the 14-day trial?"
+                a="Your card on file is charged automatically for the plan you picked. We send a reminder email three days before the trial ends so there are no surprises, and you can switch plans or cancel any time from the customer portal — even during the trial."
+              />
+              <FaqItem
+                q="Can I cancel anytime?"
+                a={
+                  <>
+                    Yes. Open <em>Manage subscription</em> in the customer portal and click <em>Cancel plan</em>. You keep full access through the end of the period you&apos;ve already paid for. No retention emails, no friction.
+                  </>
+                }
+              />
+              <FaqItem
+                q="Do I keep my data if I cancel?"
+                a={
+                  <>
+                    For 90 days after cancellation, yes — your full creator list, outreach history, notes, and analytics stay intact so you can resubscribe and pick up where you left off. After 90 days the data is permanently deleted per our <Link href="/privacy" className="underline underline-offset-2 hover:text-[#E85D2F]">Privacy Policy</Link>.
+                  </>
+                }
+              />
+              <FaqItem
+                q="Are there usage limits or 'searches per month' caps?"
+                a="No. Creator search is unlimited on every paid plan, including the trial. The only soft constraint is enrichment volume — we run ~100 creators in 30-60 seconds for performance, not as a paywall. Need to enrich thousands at once? Email us and we'll talk through a Scale plan."
+              />
+              <FaqItem
+                q="What if I'm not sure this is right for me?"
+                a={
+                  <>
+                    Start the trial anyway — you have 14 days to test it on a real campaign and decide. If it&apos;s not a fit, cancel in two clicks and nothing is charged. Or email <a href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20question" className="underline underline-offset-2 hover:text-[#E85D2F]">dmeehanj@gmail.com</a> with your use case and we&apos;ll tell you honestly whether it&apos;ll work.
+                  </>
+                }
+              />
+            </dl>
+          </section>
+
+          <div className="mt-16 text-center text-[12px] text-[#0F1733]/50 dark:text-white/50">
+            Still have questions?{' '}
             <a
               href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20pricing%20question"
               className="underline underline-offset-2 hover:text-[#E85D2F]"
@@ -265,6 +335,19 @@ export default async function PricingPage({
         </div>
       </section>
     </main>
+  )
+}
+
+function FaqItem({ q, a }: { q: string; a: ReactNode }) {
+  return (
+    <div className="py-6">
+      <dt className="text-[16px] md:text-[17px] font-semibold tracking-[-0.01em] mb-2 text-[#0F1733] dark:text-white">
+        {q}
+      </dt>
+      <dd className="text-[14px] md:text-[15px] leading-[1.6] text-[#0F1733]/70 dark:text-white/70">
+        {a}
+      </dd>
+    </div>
   )
 }
 
@@ -285,7 +368,7 @@ function PlanCard({
 
   return (
     <div
-      className={`rounded-2xl p-7 md:p-8 flex flex-col border ${
+      className={`relative rounded-2xl p-7 md:p-8 flex flex-col border ${
         plan.featured
           ? 'bg-[#0F1733] text-white border-transparent'
           : 'bg-white dark:bg-[#131826] border-[#0F1733]/10 dark:border-white/10'
@@ -294,6 +377,11 @@ function PlanCard({
         plan.featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined
       }
     >
+      {plan.badge && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#E85D2F] text-white text-[10px] uppercase tracking-[0.18em] font-bold whitespace-nowrap">
+          {plan.badge}
+        </div>
+      )}
       <div
         className={`text-[13px] uppercase tracking-[0.18em] mb-3 font-semibold ${
           plan.featured ? 'text-[#F2A261]' : 'text-[#E85D2F]'
@@ -308,12 +396,21 @@ function PlanCard({
         {plan.display ?? '—'}
       </div>
       <div
-        className={`text-[13px] mb-6 ${
+        className={`text-[13px] ${plan.priceMeta ? 'mb-1' : 'mb-6'} ${
           plan.featured ? 'text-white/55' : 'text-[#0F1733]/55 dark:text-white/55'
         }`}
       >
         {plan.priceSub}
       </div>
+      {plan.priceMeta && (
+        <div
+          className={`text-[12px] mb-6 italic ${
+            plan.featured ? 'text-white/45' : 'text-[#0F1733]/45 dark:text-white/45'
+          }`}
+        >
+          {plan.priceMeta}
+        </div>
+      )}
       <ul className="space-y-2.5 mb-7 text-[14px] flex-1">
         {plan.features.map(f => (
           <li key={f} className="flex items-start gap-2.5">
