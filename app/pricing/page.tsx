@@ -93,7 +93,18 @@ function buildPlans(): Plan[] {
   ]
 }
 
-export default async function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ required?: string }>
+}) {
+  // ?required=1 is set by the paywall middleware when an
+  // authenticated-but-unsubscribed user tries to reach the app. We
+  // surface a clear banner so they know why they were redirected here
+  // and what to do about it (pick a plan, start the trial).
+  const params = (await searchParams) ?? {}
+  const isPaywallRedirect = params.required === '1'
+
   const supabase = await createClient()
   const {
     data: { user },
@@ -146,6 +157,18 @@ export default async function PricingPage() {
 
       <section className="px-6 pt-16 pb-12 md:pt-24 md:pb-16">
         <div className="max-w-[1100px] mx-auto">
+          {isPaywallRedirect && (
+            <div className="max-w-[700px] mx-auto mb-10 rounded-xl border border-[#E85D2F]/40 bg-[#E85D2F]/8 dark:bg-[#F2A261]/8 dark:border-[#F2A261]/40 px-5 py-4 flex items-start gap-3">
+              <span aria-hidden className="mt-0.5 inline-flex w-5 h-5 items-center justify-center rounded-full bg-[#E85D2F] text-white text-[11px] font-bold shrink-0">!</span>
+              <div className="text-[14px] text-[#9C3D1F] dark:text-[#F2A261] leading-[1.5]">
+                <strong className="font-semibold">Start your free trial to continue.</strong>{' '}
+                Creator Outreach requires an active subscription. Pick a plan
+                below — the 14-day trial means you won&apos;t be charged today,
+                and you can cancel anytime.
+              </div>
+            </div>
+          )}
+
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-1.5 mb-5 px-2.5 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[10px] uppercase tracking-[0.18em] font-bold text-[#9C3D1F] dark:text-[#F2A261] dark:bg-[#F2A261]/10 dark:border-[#F2A261]/30">
               Pricing

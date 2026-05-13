@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { hasLiveSubscription, isPaywallBypassed } from '@/lib/billing/paywall'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -22,6 +23,21 @@ const PUBLIC_PATHS = [
   '/terms', '/privacy', '/refunds', '/cookies', '/support',
   '/security', '/subprocessors',
   '/unsubscribe',
+]
+
+// Paths an authenticated-but-unsubscribed user is allowed to reach.
+// They need a way TO subscribe (/pricing), a way to complete checkout
+// (/billing/sync — Stripe redirects here on Checkout success), and a
+// way to sign out. Everything else is paywalled.
+const PAYWALL_ALLOWED_PATHS = [
+  '/pricing',
+  '/billing/sync',
+  '/auth/signout',
+  '/api/stripe/checkout',   // start Checkout from /pricing
+  '/api/stripe/portal',     // open Stripe Portal from /pricing
+  '/api/auth',              // signout endpoints
+  '/terms', '/privacy', '/refunds', '/cookies', '/support',
+  '/security', '/subprocessors',
 ]
 
 /**
@@ -69,6 +85,43 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
+  }
+
+  // ── Paywall gate ────────────────────────────────────────────────────
+  // Authenticated user. Decide whether they need to subscribe first.
+  // Cheap path: bypass-email check needs no DB hit. Falls back to a
+  // single user_profile lookup for subscription_status.
+  if (user) {
+    const isPaywallAllowed = PAYWALL_ALLOWED_PATHS.some(p => path.startsWith(p))
+
+    // Asset / image / api-internal paths never get paywalled here — the
+    // middleware matcher in middleware.ts already excludes _next/static,
+    // _next/image, and any path with a file extension, so the only API
+    // routes that hit this function are non-extension app routes. Stripe
+    // and signout endpoints are explicitly allowed above.
+    if (!isPaywallAllowed && !path.startsWith('/api/')) {
+      // Cheap path first — bypass-list lookup is in-memory, no DB hit.
+      // Skips the subscription query entirely for Dylan / Ryan / test
+      // accounts, which is the hottest authenticated request on the app.
+      if (!isPaywallBypassed(user.email ?? null)) {
+        // Look up subscription_status. maybeSingle handles brand-new users
+        // whose profile row may not exist yet (will be created on first
+        // /page.tsx load — for now treat as no-sub which sends them to
+        // /pricing to start the trial).
+        const { data: profileRow } = await supabase
+          .from('user_profile')
+          .select('subscription_status')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (!hasLiveSubscription(profileRow?.subscription_status ?? null)) {
+          const url = request.nextUrl.clone()
+          url.pathname = '/pricing'
+          url.searchParams.set('required', '1')
+          return NextResponse.redirect(url)
+        }
+      }
+    }
   }
 
   return supabaseResponse
