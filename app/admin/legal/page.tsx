@@ -59,6 +59,15 @@ const SIGNED_AGREEMENTS: SignedAgreement[] = [
       'GDPR Article 28 DPA covering Anthropic processing of prompt/response data sent to the Claude API (used for AI keyword expansion + outreach drafting). Auto-accepted upon API account creation. PDF snapshot filed 2026-05-12; confirmation email from Anthropic support archived separately. Upstream URL: anthropic.com/legal/data-processing-addendum.',
     filename: 'DPA-Anthropic.pdf',
   },
+  {
+    title: 'Data Processing Agreement — Stripe',
+    vendor: 'Stripe, LLC',
+    signedOn: '2026-05-12',
+    signedBy: 'Dylan Meehan (auto-accepted at Stripe activation, Gaynor Media LLC)',
+    summary:
+      'GDPR Article 28 + CCPA DPA covering Stripe processing of payment transaction data (cards, billing addresses, customer identifiers) for Creator Outreach subscriptions. Auto-accepted upon Stripe account activation. Covers 48-hour breach notification (GDPR/UK GDPR), AES-256 encryption at rest, TLS 1.2 in transit, PCI Level 1 certification, and annual SOC 1/2 audits. Sub-processors listed at stripe.com/legal/service-providers. PDF snapshot of public DPA (last updated 2025-11-18) at stripe.com/legal/dpa.',
+    filename: 'DPA-Stripe.pdf',
+  },
 ]
 
 export const dynamic = 'force-dynamic'
