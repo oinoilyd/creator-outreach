@@ -132,13 +132,21 @@ export default async function PricingPage({
 
   return (
     <main className="min-h-screen bg-white dark:bg-[#0B1020] text-[#0F1733] dark:text-white">
-      {/* Lightweight top bar — just brand + back-to-app. No nav clutter
-          since the pricing page is its own moment. Brand mark MUST
-          match LandingTopNav.tsx and AuthShell.tsx — purple→blue
-          gradient tile + 16px wordmark. */}
+      {/* Lightweight top bar — brand mark + escape hatch. Brand mark MUST
+          match LandingTopNav.tsx and AuthShell.tsx — purple→blue gradient
+          tile + 16px wordmark.
+
+          Escape-hatch logic: a signed-in user without a live subscription
+          would hit /pricing via the paywall redirect, so linking "/" or
+          "Back to app" sends them straight back through the loop. For
+          that state we offer three escape options: back to the public
+          landing page, in to the app (only if subscribed), or sign out. */}
       <header className="border-b border-[#0F1733]/10 dark:border-white/10">
         <div className="max-w-[1100px] mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link
+            href={isAuthed && !hasLiveSub ? '/landing' : '/'}
+            className="flex items-center gap-2.5"
+          >
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-2 text-primary-foreground text-[14px] font-bold">
               C
             </span>
@@ -146,12 +154,44 @@ export default async function PricingPage({
               Creator Outreach
             </span>
           </Link>
-          <Link
-            href={isAuthed ? '/' : '/auth/signin'}
-            className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] dark:hover:text-white transition-colors"
-          >
-            {isAuthed ? 'Back to app' : 'Sign in'}
-          </Link>
+          <div className="flex items-center gap-5">
+            {!isAuthed && (
+              <Link
+                href="/auth/signin"
+                className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+              >
+                Sign in
+              </Link>
+            )}
+            {isAuthed && hasLiveSub && (
+              <Link
+                href="/"
+                className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+              >
+                Back to app
+              </Link>
+            )}
+            {isAuthed && !hasLiveSub && (
+              <>
+                <Link
+                  href="/landing"
+                  className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+                >
+                  Back to landing page
+                </Link>
+                {/* Signout is POST-only (app/auth/signout/route.ts) so we
+                    use a tiny form instead of a Link. No JS required. */}
+                <form action="/auth/signout" method="post" className="inline">
+                  <button
+                    type="submit"
+                    className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    Sign out
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
         </div>
       </header>
 

@@ -26,12 +26,17 @@ const PUBLIC_PATHS = [
 ]
 
 // Paths an authenticated-but-unsubscribed user is allowed to reach.
-// They need a way TO subscribe (/pricing), a way to complete checkout
-// (/billing/sync — Stripe redirects here on Checkout success), and a
-// way to sign out. Everything else is paywalled.
+// They need:
+//   • a way TO subscribe                 → /pricing
+//   • a way to complete checkout         → /billing/sync (Stripe success URL)
+//   • a way OUT — back to the public site /landing, or sign out entirely
+//     (/auth/signout). Without these escape hatches the user is trapped
+//     on /pricing with no way to browse the marketing site or sign out.
+//   • legal / compliance pages           → /terms, /privacy, etc.
 const PAYWALL_ALLOWED_PATHS = [
   '/pricing',
   '/billing/sync',
+  '/landing',
   '/auth/signout',
   '/api/stripe/checkout',   // start Checkout from /pricing
   '/api/stripe/portal',     // open Stripe Portal from /pricing
