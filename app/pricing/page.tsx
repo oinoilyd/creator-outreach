@@ -286,7 +286,7 @@ export default async function PricingPage({
               />
               <FaqItem
                 q="What happens at the end of the 14-day trial?"
-                a="Your card on file is charged automatically for the plan you picked. We send a reminder email three days before the trial ends so there are no surprises, and you can switch plans or cancel any time from the customer portal — even during the trial."
+                a="Your card on file is charged automatically for the plan you picked, and Stripe emails you three days before that happens so it's never a surprise. You can switch plans or cancel any time from the customer portal — including during the trial."
               />
               <FaqItem
                 q="Can I cancel anytime?"

@@ -63,6 +63,15 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   Why: this is the diagnostic tool for catching stale-deploy reports.
   Without it, we have to debug each one cold.
 
+- [ ] **Enable Stripe trial-end reminder emails in Dashboard.**
+  *5 min · Stripe Dashboard*
+  Stripe Dashboard → Settings → Billing → Subscriptions and emails →
+  toggle ON "Email customers when their trial is about to end." Default
+  is 3 days before — leave as is. The /pricing FAQ now claims this email
+  is sent, so the toggle has to actually be on. Without this toggle,
+  customers get surprise-charged when their trial ends, the #1 reason
+  for chargebacks on SaaS trials.
+
 - [ ] **Upgrade Supabase to Pro ($25/mo).**
   *5 min · Supabase Dashboard*
   Required before first paying customer — free tier has a 50K row /
