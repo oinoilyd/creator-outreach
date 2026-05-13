@@ -122,11 +122,18 @@ export default async function PricingPage() {
   return (
     <main className="min-h-screen bg-white dark:bg-[#0B1020] text-[#0F1733] dark:text-white">
       {/* Lightweight top bar — just brand + back-to-app. No nav clutter
-          since the pricing page is its own moment. */}
+          since the pricing page is its own moment. Brand mark MUST
+          match LandingTopNav.tsx and AuthShell.tsx — purple→blue
+          gradient tile + 16px wordmark. */}
       <header className="border-b border-[#0F1733]/10 dark:border-white/10">
         <div className="max-w-[1100px] mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="font-semibold tracking-[-0.01em] text-[16px] border-b-2 border-[#E85D2F] pb-0.5">
-            Creator Outreach
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-2 text-primary-foreground text-[14px] font-bold">
+              C
+            </span>
+            <span className="font-semibold tracking-[-0.01em] text-[16px]">
+              Creator Outreach
+            </span>
           </Link>
           <Link
             href={isAuthed ? '/' : '/auth/signin'}

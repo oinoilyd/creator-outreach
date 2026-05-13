@@ -141,21 +141,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'service role not configured' }, { status: 500 })
   }
 
-  // Idempotency — try to insert event.id. If it's already there we've
-  // already processed this event (or it's in-flight on a parallel
-  // delivery); short-circuit with 200.
+  // Two-phase idempotency ledger:
+  //   1. INSERT marks the event "received"
+  //   2. UPDATE processed_at after the handler completes successfully
+  // Dedupe only short-circuits when processed_at IS NOT NULL. This way
+  // a delivery that threw mid-handler (500 → Stripe retry) will be
+  // re-run, not silently swallowed. See migration 0025.
   const { error: insertErr } = await sb
     .from('stripe_events')
     .insert({ stripe_event_id: event.id, event_type: event.type })
   if (insertErr) {
-    // 23505 is unique_violation in Postgres — duplicate event.id.
-    // Any other error is genuine; we still return 200 so Stripe
-    // doesn't hammer us, but log loudly.
     if ((insertErr as { code?: string }).code === '23505') {
-      return NextResponse.json({ received: true, deduped: true })
+      // Duplicate event.id — check whether the previous attempt
+      // actually completed. If processed_at is set, we're done.
+      // If still null, fall through and re-run the handler.
+      const { data: existing } = await sb
+        .from('stripe_events')
+        .select('processed_at')
+        .eq('stripe_event_id', event.id)
+        .single()
+      if (existing?.processed_at) {
+        return NextResponse.json({ received: true, deduped: true })
+      }
+      // Else: existing row but never processed. Continue → handler
+      // will run again, and the UPDATE at the end marks it done.
+    } else {
+      console.error('[stripe/webhook] event-ledger insert failed', insertErr)
+      // Other error — fall through. Better to process than to drop.
     }
-    console.error('[stripe/webhook] event-ledger insert failed', insertErr)
-    // Fall through — we'd rather process the event than drop it.
   }
 
   try {
@@ -297,12 +310,23 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[stripe/webhook] handler failed', event.type, msg)
-    // Return 500 so Stripe retries. Idempotency ledger already
-    // recorded event.id; on retry the dedupe path returns 200, so
-    // we'd lose this event. Better: only stamp the ledger AFTER
-    // successful processing. TODO follow-up: split the ledger so
-    // dedupe survives transient handler failures.
+    // Return 500 so Stripe retries. processed_at remains NULL on the
+    // ledger row, so the dedupe path will allow re-processing on
+    // retry (instead of silently skipping). See migration 0025.
     return NextResponse.json({ error: 'handler failed', detail: msg }, { status: 500 })
+  }
+
+  // Phase 2 of the idempotency ledger: handler completed successfully,
+  // stamp processed_at so subsequent retries of this event.id are
+  // recognized as duplicates and short-circuited with 200.
+  const { error: stampErr } = await sb
+    .from('stripe_events')
+    .update({ processed_at: new Date().toISOString() })
+    .eq('stripe_event_id', event.id)
+  if (stampErr) {
+    // Not fatal — the handler did its work. Worst case: a retry
+    // re-runs the (idempotent) handler. Log for visibility.
+    console.warn('[stripe/webhook] failed to stamp processed_at', event.id, stampErr.message)
   }
 
   return NextResponse.json({ received: true })

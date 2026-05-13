@@ -59,7 +59,13 @@ export default async function BillingSyncPage({
   // Debug mode — return a JSON-ish summary instead of redirecting.
   // Used for diagnosing sync issues without log archaeology. Visit
   // /billing/sync?debug=1 to see the actual sync result inline.
-  const debugMode = params.debug === '1'
+  //
+  // Admin-only: leaks internal field names + Stripe IDs to anyone who
+  // visits with ?debug=1 otherwise. Hardcoded ADMIN_EMAIL match
+  // matches the rest of /admin convention. When we move to env-driven
+  // admin emails (todo F7), update this check at the same time.
+  const ADMIN_EMAIL = 'dmeehanj@gmail.com'
+  const debugMode = params.debug === '1' && user.email === ADMIN_EMAIL
 
   // Collect diagnostic info for debug mode
   const debugInfo: Record<string, unknown> = {
