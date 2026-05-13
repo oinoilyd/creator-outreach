@@ -30,6 +30,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { syncSubscriptionByCustomerId } from '@/lib/stripe/sync-subscription'
+import { getStripe } from '@/lib/stripe/client'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -86,7 +87,49 @@ export default async function BillingSyncPage({
     debugInfo.profileBefore = profile
     debugInfo.profileError = profileErr?.message
 
-    const customerId = profile?.stripe_customer_id as string | undefined
+    let customerId = profile?.stripe_customer_id as string | undefined
+
+    // Backfill path: if user has no stripe_customer_id stored, try to
+    // find one in Stripe by their auth email. This covers users whose
+    // checkout's "persist customer_id" step silently failed (e.g.
+    // because the migration adding the column hadn't run yet at the
+    // time of their original subscription). After we find it, write
+    // it back so subsequent syncs hit the fast path immediately.
+    if (!customerId && user.email && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const stripe = getStripe()
+        const customers = await stripe.customers.list({
+          email: user.email,
+          limit: 1,
+        })
+        const found = customers.data[0]
+        if (found) {
+          console.log('[billing/sync] backfilling stripe_customer_id from email lookup', {
+            userId: user.id,
+            email: user.email,
+            customerId: found.id,
+          })
+          const { error: backfillErr } = await sb
+            .from('user_profile')
+            .update({ stripe_customer_id: found.id })
+            .eq('user_id', user.id)
+          if (backfillErr) {
+            console.error('[billing/sync] backfill update failed', backfillErr.message)
+            debugInfo.backfillError = backfillErr.message
+          } else {
+            customerId = found.id
+            debugInfo.backfilled = true
+          }
+        } else {
+          debugInfo.backfillSearched = `no Stripe customer found for email ${user.email}`
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('[billing/sync] email-lookup backfill threw:', msg)
+        debugInfo.backfillError = msg
+      }
+    }
+
     if (customerId) {
       // Best-effort. If Stripe is down or the customer object is
       // weird, log + continue to the redirect anyway — the webhook
