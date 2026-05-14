@@ -362,12 +362,18 @@ export default function Home() {
     if (theme === 'tornado')   return 11_500 // 11.5s two-pass funnel
     return 15_000
   }
-  // Wrapper around setBackdropTheme — Fireworks + Tornado are
-  // one-shot themes that auto-trigger spotlight when picked, with
-  // theme-specific durations.
+  // Wrapper around setBackdropTheme — every non-'off' theme auto-fires
+  // the spotlight burst on pick. Gives the user a confirmation moment
+  // that the theme is now active, at full saturation. Fireworks +
+  // Tornado get their natural one-shot show length; Rain + Drift get
+  // the default 15s burst before falling back to the persistent
+  // ambient render driven by spotlightAlwaysOn.
+  //
+  // 'off' deliberately skips — no spotlight burst when the user is
+  // turning the backdrop off, since there's nothing to spotlight.
   function handleBackdropThemeChange(theme: BackdropTheme) {
     setBackdropTheme(theme)
-    if (theme === 'fireworks' || theme === 'tornado') {
+    if (theme !== 'off') {
       // Fire on next tick so the theme state has committed before
       // spotlight reads it.
       setTimeout(() => triggerSpotlight(spotlightDurationFor(theme)), 0)
