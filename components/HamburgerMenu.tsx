@@ -560,7 +560,7 @@ export function HamburgerMenu({
             </span>
             <div className="min-w-0">
               <div className="text-sm text-foreground font-medium leading-tight">Roadmap</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">What&apos;s shipped, paused, and coming next</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">What&apos;s paused and coming next</div>
             </div>
           </a>
 

@@ -26,60 +26,9 @@ import { createClient } from '@/lib/supabase/server'
 export const metadata = {
   title: 'Roadmap — Creator Outreach',
   description:
-    "What's shipped, what's paused, and what's coming next. Email me to vote on priority.",
+    "What's paused and what's coming next. Email me to vote on priority.",
   alternates: { canonical: 'https://creatoroutreach.net/roadmap' },
 }
-
-const SHIPPED_ITEMS = [
-  {
-    title: '5-platform creator search',
-    body: 'Unified search across YouTube, Instagram, TikTok, X, and LinkedIn from one query bar. Public data only — parallel queries, cross-platform deduplication, filters for audience size, engagement, language, geography.',
-  },
-  {
-    title: 'AI fit score (0–100)',
-    body: 'Every result rated against the ICP criteria you describe. Breaks into audience signal, content fit, and brand alignment components — explainable, not a black box. Stop reading 80 bios to find the right ten.',
-  },
-  {
-    title: 'Email outreach via Gmail compose',
-    body: 'Click an email icon on any creator row → Gmail compose opens with your custom template, recipient, subject, and signed footer pre-filled. You hit Send in Gmail. No API send, no quota burn, no Unipile dependency.',
-  },
-  {
-    title: 'Per-platform Templates editor',
-    body: 'New hamburger-menu entry → Templates. Edit Email, Instagram DM, LinkedIn DM, X DM, and TikTok DM templates with live preview. Per-recipient variables underlined so you see exactly what changes per send. Reset to default per platform.',
-  },
-  {
-    title: 'Reply-based CAN-SPAM footer',
-    body: 'Every outbound email gets a compact 3-line footer: sender name, postal address, and "Reply \'unsubscribe\' if you\'d rather not hear from me again." No URL, no domain reveal. Toggle off entirely from the Templates modal (with acknowledgment).',
-  },
-  {
-    title: 'IG + LinkedIn DM templates (copy-to-clipboard)',
-    body: 'Click an IG or LinkedIn cell on a row → opens the profile in a new tab + writes your customized DM template (from the Templates editor) to the clipboard. Paste into the DM box, hit Send.',
-  },
-  {
-    title: 'CRM pipeline + follow-up cadence',
-    body: 'Built-in status pipeline (Not Outreached → No Response → Successful / Rejected / Open). Cadence ladder (3 → 7 → 14 → 21 days) auto-advances with each "Followed up" click. Ghosting threshold at 30 days surfaces unresponded rows.',
-  },
-  {
-    title: 'Custom analytics + CSV / Excel export',
-    body: 'Analytics tab with 7 default metrics + a 30+ metric custom builder (reply rate by platform, time-to-first-reply, cost-per-qualified-creator, etc.). Export the underlying outreach list any time.',
-  },
-  {
-    title: 'Stripe paywall + 14-day free trial',
-    body: 'Subscription gate via middleware — non-bypassed users without an active sub are redirected to /pricing. Stripe Checkout starts a 14-day trial (no charge today). Customer Portal for cancel / change plan.',
-  },
-  {
-    title: '/pricing — FAQ + plan cards',
-    body: 'Two plans (Monthly $50, Annual $500), six inline FAQ answers covering trial, cancellation, data retention, search limits. "Most popular" badge on Annual. Public — anyone can view before signing up.',
-  },
-  {
-    title: '/admin/legal — full compliance posture',
-    body: 'Signed P&Ps, 4 counter-signed sub-processor DPAs (Unipile, Anthropic, Stripe, Vercel), founders agreement draft. Privacy Policy covers GDPR + CCPA + 11 US state laws. Procurement-ready at v1.0.',
-  },
-  {
-    title: 'Visual theme system (Rain, Drift, Fireworks, Tornado)',
-    body: 'Backdrop animation system with per-platform color matching. Auto-spotlight burst on theme pick. Persistent intensity boost toggle. Configurable fade duration. All settings persist per browser.',
-  },
-]
 
 const PAUSED_ITEMS = [
   {
@@ -169,7 +118,6 @@ export default async function PipelinePage() {
   } = await supabase.auth.getUser()
   const isAuthed = !!user
 
-  const shippedCount = SHIPPED_ITEMS.length
   const pausedCount = PAUSED_ITEMS.length
   const upNextCount = UP_NEXT_ITEMS.length
   const onRadarCount = ON_RADAR_ITEMS.length
@@ -196,7 +144,7 @@ export default async function PipelinePage() {
             className="font-semibold tracking-[-0.03em] leading-[1] text-[#0F1733] dark:text-white"
             style={{ fontSize: 'clamp(2.5rem, 5.5vw, 4.5rem)' }}
           >
-            What&apos;s shipped, paused, and coming next.{' '}
+            What&apos;s coming next.{' '}
             <span
               className="italic font-normal text-[#E85D2F] dark:text-[#F2A261]"
               style={{ fontFamily: 'var(--font-newsreader), Georgia, serif' }}
@@ -205,10 +153,10 @@ export default async function PipelinePage() {
             </span>
           </h1>
           <p className="mt-6 max-w-[64ch] text-[16px] md:text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.65]">
-            Items move left as they ship. The Paused lane shows features that are built and
-            tested but currently waiting on a third-party (Unipile) re-subscription — your
-            data + UI stays intact, only the automation is dormant. No marketing-quarter
-            calendar behind any of this; the list is the list.
+            Forward-looking only. The Paused lane shows features that are built and tested
+            but currently waiting on a third-party (Unipile) re-subscription — your data +
+            UI stays intact, only the automation is dormant. No marketing-quarter calendar
+            behind any of this; the list is the list.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <a
@@ -231,9 +179,8 @@ export default async function PipelinePage() {
       {/* SUMMARY METRICS — auto-derived from the lane arrays so adding an
           item updates the count automatically. */}
       <section className="px-6 pb-12">
-        <div className="max-w-[1180px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
+        <div className="max-w-[1180px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
           {[
-            { n: shippedCount, label: 'Shipped', sub: 'Live today' },
             { n: pausedCount, label: 'Paused', sub: 'Awaiting Unipile' },
             { n: upNextCount, label: 'Up next', sub: '1–4 weeks' },
             { n: onRadarCount, label: 'On the radar', sub: 'Longer-term' },
@@ -260,17 +207,12 @@ export default async function PipelinePage() {
         </div>
       </section>
 
-      {/* MAIN QUEUE — 4 lanes: Shipped, Paused, Up next, On the radar. */}
+      {/* MAIN QUEUE — 3 forward-looking lanes: Paused, Up next, On the
+          radar. Shipped items intentionally NOT included here — a
+          roadmap is what's coming, not a changelog of what's done. */}
       <section className="px-6 py-14 md:py-20 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1180px] mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10">
-            <RoadmapLane
-              label="Shipped"
-              count={shippedCount}
-              accent="#16A34A"
-              caption="Live in production. Working today, end-to-end."
-              items={SHIPPED_ITEMS}
-            />
+          <div className="grid md:grid-cols-3 gap-8 md:gap-10">
             <RoadmapLane
               label="Paused"
               count={pausedCount}
