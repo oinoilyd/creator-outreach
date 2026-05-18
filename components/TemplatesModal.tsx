@@ -330,10 +330,11 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
                 )}
                 {/* Email-only — show what the CAN-SPAM footer would
                     look like (when enabled) so the user can see the
-                    full final shape. */}
+                    full final shape. Reply-based opt-out (no URL, no
+                    domain reveal) — see lib/format.ts buildCanSpamFooter. */}
                 {activePlatform === 'email' && includeCanSpamFooter && (
                   <span className="text-foreground/60 italic">
-                    {`\n\n—\n${previewVars.sender_full ?? ''} · ${(profile?.physicalAddress ?? '').trim() || '[your address from Profile]'} · unsubscribe\nhttps://creatoroutreach.net/unsubscribe?t=…`}
+                    {`\n\n—\n${previewVars.sender_full ?? ''} · ${(profile?.physicalAddress ?? '').trim() || '[your address from Profile]'}\nReply "unsubscribe" if you'd rather not hear from me again.`}
                   </span>
                 )}
               </div>
@@ -361,7 +362,7 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
                   Include unsubscribe footer on email sends
                   <span
                     className="inline-flex items-center justify-center w-4 h-4 ml-1.5 rounded-full bg-muted border border-border text-muted-foreground cursor-help align-middle"
-                    title="When ON (default), every email body gets a compact footer with your name, postal address, and a working unsubscribe link — required by CAN-SPAM for commercial emails, plus GDPR / CASL for international recipients. Disabling shifts full compliance responsibility to you as the sender."
+                    title={`When ON (default), every email body gets a 3-line footer:\n\n— Your name · Your postal address\nReply "unsubscribe" if you'd rather not hear from me again.\n\nRequired by CAN-SPAM for commercial emails, plus GDPR / CASL for international recipients. Disabling shifts full compliance responsibility to you as the sender.`}
                     aria-label="More info"
                   >
                     <Info className="w-2.5 h-2.5" />

@@ -475,49 +475,61 @@ export function buildOutreachContent(
 /**
  * Build the minimal CAN-SPAM footer appended to every outreach email.
  *
- * Visually small but legally complete — meets §5(a)(3)/(4)/(5) which
- * require sender identification, valid physical postal address, and
- * a working opt-out mechanism. Format:
+ * Visually small but legally complete — meets §5(a)(3)/(4)/(5):
+ *   • Sender identification (name)
+ *   • Valid physical postal address
+ *   • A working "Internet-based mechanism" for opt-out
+ *
+ * Format (reply-based opt-out, per Dylan 2026-05-18):
  *
  *     —
- *     Sender Name · 123 Main St, City ST 12345 · unsubscribe
- *     https://creatoroutreach.net/unsubscribe?t=<signed-token>
+ *     Sender Name · 123 Main St, City ST 12345
+ *     Reply "unsubscribe" if you'd rather not hear from me again.
  *
- * Two lines instead of the previous three — sender + address +
- * "unsubscribe" stay on one compact dotted line; the actual URL
- * sits underneath because plain-text email can't hide it behind a
- * "click here" hyperlink (no HTML in mailto: bodies, and Gmail's
- * compose URL accepts plain text only).
+ * Why reply-based instead of a URL?
  *
- * The unsubscribe URL embeds a signed token of the form
- *   <base64url(json)>.<base64url(hmac)>
- * where the JSON is `{ userId, recipientEmail, ts }`. The signing
- * key is `UNSUBSCRIBE_HMAC_SECRET`; see lib/unsubscribe.ts.
+ *   The previous footer pointed at https://creatoroutreach.net/unsubscribe?t=…
+ *   That's correct compliance plumbing (signed token, suppression list,
+ *   honored across send paths) but from the recipient's perspective it
+ *   looked like a SaaS tool revealing itself — a domain they never
+ *   heard of, attached to a personal-feeling sales pitch from John.
+ *
+ *   CAN-SPAM §5(a)(3) explicitly allows ANY Internet-based opt-out
+ *   mechanism — "Reply X to stop" is one. It's been used by sales
+ *   reps and personal newsletters for 20+ years. Removes the domain
+ *   reveal entirely; reads as ordinary correspondence.
+ *
+ *   Tradeoff: no automatic suppression-list write. The sender has to
+ *   read replies and mark rows themselves. Manageable at low volume;
+ *   when volume grows we can re-introduce URL-based as a per-user
+ *   opt-in (or layer it alongside the reply text).
+ *
+ * The `userId` and `recipientEmail` parameters are kept in the
+ * signature for backward compatibility (callers still pass them) but
+ * are no longer used to generate a URL. `encodeUnsubscribeToken` is
+ * preserved in lib/unsubscribe.ts because (a) the /unsubscribe route
+ * still serves URLs sent under the old footer, and (b) we may re-enable
+ * URL-based opt-out as an option in a future update.
  */
 export function buildCanSpamFooter(args: {
   senderName: string
   physicalAddress: string
-  /** Tenant identifier for the unsubscribe token. We use the user's
-   *  auth email here as a stable, non-secret pointer. The /unsubscribe
-   *  endpoint resolves it back to a Supabase auth UUID server-side. */
+  /** Kept for backward compat — no longer used in reply-based footer. */
   userId: string
+  /** Kept for backward compat — no longer used in reply-based footer. */
   recipientEmail: string
 }): string[] {
   const addressLine = args.physicalAddress
     ? args.physicalAddress
     : '[Add your business address in Settings to comply with CAN-SPAM]'
 
-  const token = encodeUnsubscribeToken({
-    userId: args.userId,
-    recipientEmail: args.recipientEmail,
-    ts: Date.now(),
-  })
-  const unsubscribeUrl = `https://creatoroutreach.net/unsubscribe?t=${token}`
+  void args.userId
+  void args.recipientEmail
 
   return [
     `—`,
-    `${args.senderName} · ${addressLine} · unsubscribe`,
-    unsubscribeUrl,
+    `${args.senderName} · ${addressLine}`,
+    `Reply "unsubscribe" if you'd rather not hear from me again.`,
   ]
 }
 
