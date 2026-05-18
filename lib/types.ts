@@ -241,6 +241,14 @@ export interface UserProfile {
    *  of compliance responsibility. */
   includeCanSpamFooter?: boolean
   footerDisabledAcknowledgedAt?: string | null
+  /** Terms of Service + Privacy Policy consent audit (migration 0027).
+   *  Both set together by the signup checkbox; NULL = pre-checkbox
+   *  user (signed up before consent collection was wired) or fresh
+   *  account that hasn't completed signup. termsPrivacyVersion matches
+   *  the lastUpdated date on the docs at the time of consent (e.g.
+   *  "2026-05-11"). */
+  termsPrivacyAgreedAt?: string | null
+  termsPrivacyVersion?: string | null
 }
 
 // ── Custom analytics metrics (Outreach > Analytics tab) ─────────────────────

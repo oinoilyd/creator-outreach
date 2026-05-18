@@ -725,7 +725,8 @@ export default function Home() {
         // undefined and the defaults in lib/templates.ts kick in.
         const BASE_COLS = 'full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end'
         const TEMPLATE_COLS = 'email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at'
-        const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}`
+        const CONSENT_COLS = 'terms_privacy_agreed_at, terms_privacy_version'
+        const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}`
 
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
@@ -797,6 +798,67 @@ export default function Home() {
             .update(updates)
             .eq('user_id', user.id)
           if (profileRow && updates.timezone) profileRow.timezone = updates.timezone
+
+          // ── GDPR Art. 7 consent backfill ─────────────────────────
+          // If this user just completed signup (consent checkbox was
+          // checked), the signup page stashed { agreedAt, version } in
+          // localStorage AND in auth user_metadata. Either source is
+          // valid audit-trail evidence; we promote whichever is present
+          // into user_profile.terms_privacy_agreed_at on first home load.
+          // Once written we clear the localStorage stash (DB is the
+          // source of truth from here on).
+          //
+          // Tolerant of migration 0027 not having applied yet — the
+          // UPDATE for missing columns errors silently and we log and
+          // continue without crashing the home page.
+          try {
+            const tplRow = profileRow as typeof profileRow & {
+              terms_privacy_agreed_at?: string | null
+              terms_privacy_version?: string | null
+            }
+            const alreadyConsented = !!tplRow.terms_privacy_agreed_at
+            if (!alreadyConsented) {
+              type ConsentStash = { agreedAt: string; version: string }
+              let consent: ConsentStash | null = null
+              try {
+                const raw =
+                  typeof window !== 'undefined'
+                    ? window.localStorage.getItem('co_terms_privacy_consent')
+                    : null
+                if (raw) consent = JSON.parse(raw) as ConsentStash
+              } catch { /* ignore parse errors */ }
+              // Fallback to user_metadata if localStorage was cleared.
+              if (!consent && user.user_metadata) {
+                const md = user.user_metadata as Record<string, unknown>
+                if (typeof md.terms_privacy_agreed_at === 'string' && typeof md.terms_privacy_version === 'string') {
+                  consent = {
+                    agreedAt: md.terms_privacy_agreed_at,
+                    version: md.terms_privacy_version,
+                  }
+                }
+              }
+              if (consent) {
+                const { error: consentErr } = await supabase
+                  .from('user_profile')
+                  .update({
+                    terms_privacy_agreed_at: consent.agreedAt,
+                    terms_privacy_version: consent.version,
+                  })
+                  .eq('user_id', user.id)
+                if (!consentErr) {
+                  if (profileRow) {
+                    profileRow.terms_privacy_agreed_at = consent.agreedAt
+                    profileRow.terms_privacy_version = consent.version
+                  }
+                  try {
+                    window.localStorage.removeItem('co_terms_privacy_consent')
+                  } catch { /* ignore */ }
+                }
+              }
+            }
+          } catch (consentBackfillErr) {
+            console.warn('[home-init] consent backfill failed:', consentBackfillErr)
+          }
         } catch (tzErr) {
           console.warn('[home-init] last_seen/timezone update failed:', tzErr)
         }
@@ -830,6 +892,8 @@ export default function Home() {
                 tiktok_dm_template?: string | null
                 include_can_spam_footer?: boolean | null
                 footer_disabled_acknowledged_at?: string | null
+                terms_privacy_agreed_at?: string | null
+                terms_privacy_version?: string | null
               }
               return {
                 emailTemplate: tplRow.email_template ?? null,
@@ -840,6 +904,8 @@ export default function Home() {
                 includeCanSpamFooter: tplRow.include_can_spam_footer ?? true,
                 footerDisabledAcknowledgedAt:
                   tplRow.footer_disabled_acknowledged_at ?? null,
+                termsPrivacyAgreedAt: tplRow.terms_privacy_agreed_at ?? null,
+                termsPrivacyVersion: tplRow.terms_privacy_version ?? null,
               }
             })(),
           })

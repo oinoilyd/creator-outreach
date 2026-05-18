@@ -8,6 +8,32 @@ import { AuthShell } from '@/components/landing/AuthShell'
 import { PasswordChecklist } from '@/components/PasswordChecklist'
 import { validatePassword, friendlyPasswordError } from '@/lib/password'
 import { safeNext } from '@/lib/safe-redirect'
+import { TERMS_PRIVACY_VERSION } from '@/lib/legal/version'
+
+/**
+ * Stash the user's "I agree to Terms + Privacy" timestamp + the doc
+ * version in localStorage so it survives the email-confirm round-trip
+ * (signUp → check-email → confirm link → callback → first home load).
+ * On the first home load, app/page.tsx reads this back and writes it
+ * to user_profile.terms_privacy_agreed_at + terms_privacy_version,
+ * then clears localStorage. Audit trail for GDPR Article 7.
+ */
+const CONSENT_LS_KEY = 'co_terms_privacy_consent'
+
+function persistConsent() {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(
+      CONSENT_LS_KEY,
+      JSON.stringify({
+        agreedAt: new Date().toISOString(),
+        version: TERMS_PRIVACY_VERSION,
+      }),
+    )
+  } catch {
+    /* ignore quota / blocked storage */
+  }
+}
 
 function SignUpForm() {
   const router = useRouter()
@@ -17,12 +43,21 @@ function SignUpForm() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function signUpWithPassword(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    // GDPR Article 7 — record the user's explicit consent BEFORE we
+    // create their account. The checkbox is `required` so this guard
+    // is belt + suspenders for browsers that bypass HTML validation.
+    if (!agreed) {
+      setError('Please agree to the Terms of Service and Privacy Policy to continue.')
+      return
+    }
 
     // Client-side check FIRST — surfaces a clean error instead of
     // letting Supabase return its character-class-dump message.
@@ -38,12 +73,20 @@ function SignUpForm() {
     }
 
     setLoading(true)
+    persistConsent()
     const supabase = createClient()
     const { error: err } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        // Stash consent in user_metadata too — secondary record beyond
+        // localStorage so we have it even if the user clears storage
+        // before clicking the email confirm link.
+        data: {
+          terms_privacy_agreed_at: new Date().toISOString(),
+          terms_privacy_version: TERMS_PRIVACY_VERSION,
+        },
       },
     })
     if (err) {
@@ -59,7 +102,19 @@ function SignUpForm() {
    *  (the user record is auto-created on first sign-in). */
   async function signUpWithGoogle() {
     setError('')
+
+    // Same consent gate as the password flow — must accept before
+    // we hand off to Google's OAuth screen. Supabase OAuth doesn't
+    // accept options.data the way signUp does, so the consent record
+    // travels via localStorage (persistConsent above) and gets copied
+    // to user_profile on first home load (app/page.tsx).
+    if (!agreed) {
+      setError('Please agree to the Terms of Service and Privacy Policy to continue.')
+      return
+    }
+
     setLoading(true)
+    persistConsent()
     try {
       const supabase = createClient()
       const { error: err } = await supabase.auth.signInWithOAuth({
@@ -85,11 +140,15 @@ function SignUpForm() {
       <p className="text-muted-foreground text-sm mb-6">Find creators worth reaching out to — fast.</p>
 
       {/* Google OAuth — primary path for new users (one tap, no
-          password to remember). Sits above the email/password form. */}
+          password to remember). Sits above the email/password form.
+          Disabled until the consent checkbox below is ticked — keeps
+          the GDPR Art. 7 audit trail consistent across both signup
+          paths. */}
       <button
         type="button"
         onClick={signUpWithGoogle}
-        disabled={loading}
+        disabled={loading || !agreed}
+        title={!agreed ? 'Check "I agree to Terms + Privacy" below first.' : ''}
         className="w-full flex items-center justify-center gap-2.5 bg-white hover:bg-gray-50 text-gray-800 font-medium py-2.5 rounded-lg border border-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:hover:bg-gray-100"
       >
         <GoogleIcon />
@@ -132,6 +191,43 @@ function SignUpForm() {
           <PasswordChecklist password={password} />
         </div>
 
+        {/* Terms + Privacy consent — applies to BOTH this form and
+            the Google OAuth button above. Gating both flows on a
+            single checkbox state keeps the audit trail clean and
+            satisfies GDPR Article 7 (demonstrable consent) + CCPA
+            transparency requirements. Version stamped via
+            TERMS_PRIVACY_VERSION at lib/legal/version.ts. */}
+        <label className="flex items-start gap-2 text-[12px] text-foreground/85 cursor-pointer leading-relaxed pt-1">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={e => setAgreed(e.target.checked)}
+            required
+            className="mt-0.5 w-3.5 h-3.5 accent-purple-600 shrink-0 cursor-pointer"
+          />
+          <span>
+            I agree to the{' '}
+            <Link
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand hover:text-brand/80 underline underline-offset-2"
+            >
+              Terms of Service
+            </Link>
+            {' '}and{' '}
+            <Link
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand hover:text-brand/80 underline underline-offset-2"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+
         {error && (
           <div
             role="alert"
@@ -144,7 +240,7 @@ function SignUpForm() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !agreed}
           className="w-full bg-primary text-primary-foreground hover:opacity-90 font-semibold py-2.5 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Creating account…' : 'Create account'}

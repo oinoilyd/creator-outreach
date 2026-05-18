@@ -50,20 +50,49 @@ export default async function AdminPage() {
   // otherwise look "idle" forever.
   //
   // timezone: IANA name (0015). NULL = pre-migration user.
-  type ProfileExtras = { timezone: string | null; last_seen_at: string | null }
-  const { data: profileExtraRows } = await supabase
+  // terms_privacy_*: GDPR Art. 7 consent audit trail (0027). NULL = user
+  // signed up before the consent checkbox was wired; treated as implicit
+  // accept (they used the Service, which is the contractual lawful basis).
+  type ProfileExtras = {
+    timezone: string | null
+    last_seen_at: string | null
+    terms_privacy_agreed_at: string | null
+    terms_privacy_version: string | null
+  }
+  // Migration-tolerant SELECT — full first, fall back to base cols if
+  // 0027 hasn't been applied. Same pattern as the home-page profile load.
+  type ExtraRow = {
+    user_id: string
+    timezone: string | null
+    last_seen_at: string | null
+    terms_privacy_agreed_at?: string | null
+    terms_privacy_version?: string | null
+  }
+  let profileExtraRows: ExtraRow[] | null = null
+  const fullExtras = await supabase
     .from('user_profile')
-    .select('user_id, timezone, last_seen_at')
+    .select('user_id, timezone, last_seen_at, terms_privacy_agreed_at, terms_privacy_version')
+  if (fullExtras.error) {
+    const fallback = await supabase
+      .from('user_profile')
+      .select('user_id, timezone, last_seen_at')
+    profileExtraRows = (fallback.data as unknown as ExtraRow[] | null) ?? null
+  } else {
+    profileExtraRows = (fullExtras.data as unknown as ExtraRow[] | null) ?? null
+  }
   const profileExtras = new Map<string, ProfileExtras>(
     (profileExtraRows ?? []).map(r => [
-      r.user_id as string,
+      r.user_id,
       {
-        timezone: (r.timezone as string | null) ?? null,
-        last_seen_at: (r.last_seen_at as string | null) ?? null,
+        timezone: r.timezone ?? null,
+        last_seen_at: r.last_seen_at ?? null,
+        terms_privacy_agreed_at: r.terms_privacy_agreed_at ?? null,
+        terms_privacy_version: r.terms_privacy_version ?? null,
       },
     ]),
   )
   const tzKnownCount = Array.from(profileExtras.values()).filter(p => !!p.timezone).length
+  const consentCount = Array.from(profileExtras.values()).filter(p => !!p.terms_privacy_agreed_at).length
 
   // Best-available "last active" timestamp per row: prefer the real
   // page-load bump (last_seen_at), fall back to auth's last_sign_in_at
@@ -165,7 +194,7 @@ export default async function AdminPage() {
               <Stat label="Total users" value={total} />
               <Stat label="Email verified" value={verified} sub={total > 0 ? `${pct(verified, total)}%` : null} />
               <Stat label="Active last 7d" value={activeLast7} sub={total > 0 ? `${pct(activeLast7, total)}%` : null} />
-              <Stat label="Timezone known" value={tzKnownCount} sub={total > 0 ? `${pct(tzKnownCount, total)}%` : null} />
+              <Stat label="ToS + Privacy" value={consentCount} sub={total > 0 ? `${pct(consentCount, total)}%` : null} />
               <Stat label="Outreach (all)" value={totalOutreach} />
               <Stat label="Dismissed (all)" value={totalDismissed} />
             </div>
@@ -197,6 +226,7 @@ export default async function AdminPage() {
                   <th className="px-4 py-3 text-left font-medium">Idle</th>
                   <th className="px-4 py-3 text-left font-medium">Time → 1st outreach</th>
                   <th className="px-4 py-3 text-center font-medium">Conf.</th>
+                  <th className="px-4 py-3 text-center font-medium" title="Terms of Service + Privacy Policy consent timestamp (GDPR Article 7 audit trail). Recorded when the user checked the consent box at signup. NULL = pre-checkbox user — implicit accept via account creation.">ToS</th>
                   <th className="px-4 py-3 text-right font-medium">Outreach</th>
                   <th className="px-4 py-3 text-right font-medium">Dismissed</th>
                 </tr>
@@ -256,6 +286,31 @@ export default async function AdminPage() {
                         {r.email_confirmed_at
                           ? <span className="text-green-700 dark:text-green-400 font-bold">✓</span>
                           : <span className="text-yellow-600 dark:text-yellow-400 font-bold">·</span>}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        {(() => {
+                          const extras = profileExtras.get(r.user_id)
+                          const agreedAt = extras?.terms_privacy_agreed_at ?? null
+                          const version = extras?.terms_privacy_version ?? null
+                          if (!agreedAt) {
+                            return (
+                              <span
+                                className="text-muted-foreground/50 text-[10px]"
+                                title="No explicit ToS+Privacy consent on file — pre-checkbox user. Implicit accept via account creation (Contract lawful basis, GDPR Art. 6(1)(b))."
+                              >
+                                —
+                              </span>
+                            )
+                          }
+                          return (
+                            <span
+                              className="inline-flex items-center justify-center w-9 h-6 rounded text-[10px] font-mono bg-green-500/15 text-green-700 dark:text-green-400 cursor-help"
+                              title={`Agreed to ToS + Privacy on ${new Date(agreedAt).toLocaleString()}${version ? ` (version ${version})` : ''}.`}
+                            >
+                              ✓ {version ?? ''}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.outreach_count}</td>
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.dismissed_count}</td>

@@ -26,6 +26,49 @@ export const metadata: Metadata = {
 
 const LAST_UPDATED = 'May 11, 2026'
 
+/**
+ * Counter-signed DPAs available for public download. Same files
+ * mirrored under public/legal/ and surfaced (with summaries) on
+ * /admin/legal for internal review.
+ *
+ * Only the five sub-processors that touch personal data are listed
+ * here — Resend (admin-form-notification only) + Upstash (ephemeral
+ * cache) handle DPAs case-by-case on request rather than as a public
+ * library entry. Email dmeehanj@gmail.com to get those.
+ */
+const PUBLIC_DPAS: { vendor: string; title: string; signedOn: string; filename: string }[] = [
+  {
+    vendor: 'Unipile',
+    title: 'Data Processing Agreement',
+    signedOn: '2025-07-09',
+    filename: 'DPA-Unipile-signed.pdf',
+  },
+  {
+    vendor: 'Anthropic',
+    title: 'Data Processing Addendum',
+    signedOn: '2026-04-28',
+    filename: 'DPA-Anthropic.pdf',
+  },
+  {
+    vendor: 'Stripe',
+    title: 'Data Processing Agreement',
+    signedOn: '2026-05-12',
+    filename: 'DPA-Stripe.pdf',
+  },
+  {
+    vendor: 'Vercel',
+    title: 'Data Processing Addendum',
+    signedOn: '2026-05-12',
+    filename: 'DPA-Vercel.pdf',
+  },
+  {
+    vendor: 'Supabase',
+    title: 'Data Processing Agreement',
+    signedOn: '2026-05-18',
+    filename: 'DPA-Supabase-signed.pdf',
+  },
+]
+
 interface SubprocessorRow {
   name: string
   purpose: string
@@ -139,6 +182,70 @@ export default function SubprocessorsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* DPA Library — collapsed by default so the page stays focused
+          on the sub-processor table. Procurement teams + customers who
+          need actual signed DPAs expand the section + download the
+          PDFs. Mirrors the SIGNED_AGREEMENTS list on /admin/legal but
+          surfaces only sub-processor DPAs (no internal P&Ps, no
+          partner agreements) — uses HTML <details> for zero-JS toggle. */}
+      <h2>Signed DPAs (for download)</h2>
+      <p className="text-foreground/80">
+        Every subprocessor above has a counter-signed Data Processing Agreement on file.
+        Expand the panel to download the current PDF for any of them.
+      </p>
+      <details className="not-prose rounded-lg border border-border/60 bg-card/40 overflow-hidden">
+        <summary className="cursor-pointer select-none px-4 py-3 font-semibold text-foreground hover:bg-muted/40 transition-colors flex items-center justify-between gap-3">
+          <span>View signed DPAs ({PUBLIC_DPAS.length})</span>
+          <span aria-hidden className="text-xs text-muted-foreground transition-transform">▾</span>
+        </summary>
+        <div className="border-t border-border/60 overflow-x-auto">
+          <table className="w-full text-[14px] text-left">
+            <thead className="bg-muted/40 text-foreground">
+              <tr>
+                <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                  Vendor
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                  Document
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap">
+                  Signed
+                </th>
+                <th scope="col" className="px-4 py-3 font-semibold whitespace-nowrap text-right">
+                  Download
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {PUBLIC_DPAS.map((d, i) => (
+                <tr key={d.filename} className={i % 2 === 1 ? 'bg-muted/20' : undefined}>
+                  <td className="px-4 py-3 align-top font-medium text-foreground whitespace-nowrap">
+                    {d.vendor}
+                  </td>
+                  <td className="px-4 py-3 align-top text-foreground/85">
+                    {d.title}
+                  </td>
+                  <td className="px-4 py-3 align-top text-foreground/85 whitespace-nowrap">
+                    {d.signedOn}
+                  </td>
+                  <td className="px-4 py-3 align-top whitespace-nowrap text-right">
+                    <a
+                      href={`/legal/${d.filename}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:underline underline-offset-2"
+                    >
+                      PDF
+                      <span aria-hidden>↗</span>
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
 
       <h2>Notifications about subprocessor changes</h2>
       <p>
