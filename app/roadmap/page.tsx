@@ -17,13 +17,12 @@ import { createClient } from '@/lib/supabase/server'
  * /admin/roadmap which is admin-gated; this page is the user-facing
  * version.
  *
- * Content overhaul 2026-05-18 — replaces the prior list which assumed
- * Unipile was active. Features that require the Unipile send/inbound
- * API (auto follow-up, reply detection, etc.) live in the "Validating"
- * lane: built + feature-complete, running in manual mode while we
- * exercise the end-to-end loop with real users before re-enabling
- * automation. Shipped items dropped per Dylan request 2026-05-18 —
- * a roadmap is forward-looking, not a changelog.
+ * Content overhaul 2026-05-18 — copy intentionally customer-facing.
+ * No vendor names, no implementation paths, no operational items
+ * (DB upgrades, billing setup, etc.). Items either describe what a
+ * user will get when the feature ships, or describe what we're
+ * validating before it ships. Anything embarrassing to expose to a
+ * paying customer lives on /admin/roadmap instead.
  */
 
 export const metadata = {
@@ -33,64 +32,71 @@ export const metadata = {
   alternates: { canonical: 'https://creatoroutreach.net/roadmap' },
 }
 
+// Note: const arrays kept name PAUSED_ITEMS internally to keep older
+// git diffs clean. User-facing label is "Validating." All copy below
+// is intentionally customer-facing — no internal terms (Unipile, Path B,
+// "manual mode"), no implementation paths (lib/foo.ts), no operational
+// items (DB upgrades, vendor billing). This is a product roadmap, not
+// an engineering changelog.
+
 const PAUSED_ITEMS = [
   {
-    title: 'Auto follow-up cron',
-    body: 'Per-row toggle to auto-send follow-ups via your Gmail every 15 min when the date hits. Hard caps prevent runaway. CODE intact — UI checkbox self-disables when Gmail is not connected. Re-enables when Gmail connection comes back online.',
+    title: 'Automated follow-up sequences',
+    body: 'Toggle automation on a row and the system sends follow-ups at the right time without you lifting a finger. Built-in cadence ladder — 3, then 7, then 14, then 21 days — and stops the moment a recipient replies. Currently exercising the cadence rules with our first cohort.',
   },
   {
-    title: 'Programmatic email send (Path B)',
-    body: 'In-app SendPreviewModal that sends via Unipile API directly — instead of opening Gmail compose. Lets us track sends, opens, link clicks, and offer richer HTML formatting. Re-enables when Gmail connection comes back online.',
+    title: 'In-app email composer with preview',
+    body: 'Compose and send your outreach without leaving the app. Side-by-side preview, template variables, recipient validation, and live send status. Currently validating the composer flow against real campaigns.',
   },
   {
-    title: 'Reply detection + auto-status flip',
-    body: 'When a creator replies, an inbound Unipile webhook fires, AI classifies the reply (positive / negative / autoresponder / unclear), and the row\'s status updates automatically. Right now status is updated manually. Re-enables when Gmail connection comes back online.',
+    title: 'Real-time reply detection',
+    body: 'When a recipient replies, the row updates automatically and the conversation lands in your CRM. AI tags the reply by intent — positive, negative, autoresponder, unclear — so you can sort by signal. Currently validating classification accuracy on real outreach.',
   },
   {
-    title: 'Open + click tracking',
-    body: 'See when a recipient opens the email or clicks an embedded link, surfaced on the outreach row. Engagement signal before any reply lands. Re-enables when Gmail connection comes back online.',
+    title: 'Email engagement signals',
+    body: 'See when recipients open your email or click a link, surfaced right on the outreach row. Warm leads light up before any reply lands so you can prioritize follow-ups. Currently validating delivery reliability across mail clients.',
   },
   {
-    title: 'In-app conversation thread modal',
-    body: '💬 button per outreach row that opens the full back-and-forth thread inline (color-coded by sender, oldest first). Reads like a normal chat surface instead of jumping to Gmail. Re-enables when Gmail connection comes back online.',
+    title: 'Inline conversation threads',
+    body: 'Click a message icon on any row to see the full back-and-forth — color-coded by sender, oldest first. Reads like a chat surface instead of jumping to your inbox. Currently validating thread rendering against real customer replies.',
   },
   {
-    title: 'Instagram + LinkedIn DM send via API',
-    body: 'Push DMs from inside the app without copy-paste. Same SendPreviewModal flavor as email Path B but for IG / LinkedIn. Currently every DM is copy-to-clipboard + manual paste. Re-enables when Gmail connection comes back online.',
+    title: 'One-click DM send (Instagram + LinkedIn)',
+    body: 'Send DMs from inside the app, same composer flavor as email — no copy-paste, no platform-hopping. Currently validating per-platform message formatting before broad release.',
   },
 ]
 
 const UP_NEXT_ITEMS = [
   {
-    title: '"Have a code?" coupon input on /pricing',
-    body: 'Small input below the Subscribe button. Type VIPOUTREACH (or any future coupon code) → checkout endpoint validates against Stripe → applied to the checkout session. ETA: this week once the coupon is created in Stripe.',
+    title: 'Promo code redemption at checkout',
+    body: '"Have a code?" input below the Subscribe button. Drop in a partner-program or waitlist code and the discount applies automatically to the trial-end charge.',
   },
   {
-    title: 'Stripe trial-end reminder emails',
-    body: 'Email customers 3 days before their 14-day trial ends so the auto-charge isn\'t a surprise. Stripe sends these natively once the toggle is enabled in their Dashboard. The /pricing FAQ already claims this is on.',
+    title: 'Trial-end reminders',
+    body: 'Get notified by email three days before your 14-day trial converts to a paid subscription, so the auto-charge is never a surprise.',
   },
   {
-    title: 'X DM + TikTok DM cell handlers',
-    body: 'Templates for X and TikTok DMs already exist in the Templates modal, but there\'s no actual UI button yet to trigger copy-to-clipboard from a row. Quick wire-up to make the modal not a dangling surface.',
+    title: 'X + TikTok message templates',
+    body: 'Editable per-platform templates wired into outreach rows, joining the existing Instagram and LinkedIn DM flows. Tailor your voice per platform without code.',
   },
   {
-    title: 'Meta Graph API for official IG metrics',
-    body: 'Replace the public-scrape fallback with official Meta-sourced IG follower / post counts. Integration code already exists in lib/instagram-graph.ts. Needs Meta App + ~1-2 weeks of App Review for production scale.',
+    title: 'Official Instagram metrics',
+    body: 'Authoritative follower counts, post cadence, and engagement pulled directly from Meta\'s Graph API. Adds reliability for IG-heavy campaigns where the public-data fallback can lag.',
   },
   {
-    title: 'Sequence editor v1 — custom cadence templates',
-    body: 'Define a multi-touch cadence (Day 1 cold, Day 4 bump, Day 8 final) with per-step body templates and timing. Auto-applies to new outreach. Customer-pulled — defer until ~$10K MRR.',
+    title: 'Custom cadence sequences',
+    body: 'Define your own multi-touch follow-up sequence per campaign — Day 1 cold, Day 4 bump, Day 8 final — with per-step body templates and timing. Replaces the built-in 3 → 7 → 14 → 21 cadence when you want different rhythms.',
   },
   {
-    title: 'Supabase Pro upgrade',
-    body: '$25/mo. Required before first paying customer — lifts row / storage / egress limits and adds daily backups + 7-day point-in-time recovery. 5-minute upgrade in Supabase Dashboard.',
+    title: 'Quick-action keyboard shortcuts',
+    body: 'Mark replies, advance status, snooze follow-ups, and skip rows entirely from the keyboard. Faster than scrolling and clicking when triaging dozens of replies in one sitting.',
   },
 ]
 
 const ON_RADAR_ITEMS = [
   {
     title: 'Multi-seat workspaces',
-    body: 'Shared outreach queues, per-user notes, per-seat status — without per-seat pricing punishments. One workspace, many operators, one bill. Unblocked when first 5+ paying customers ask for it.',
+    body: 'Shared outreach queues, per-user notes, per-seat status — without per-seat pricing punishments. One workspace, many operators, one bill.',
   },
   {
     title: 'CSV import + bulk fit-score',
@@ -98,19 +104,19 @@ const ON_RADAR_ITEMS = [
   },
   {
     title: 'Browser extension',
-    body: 'See a creator on YouTube / IG / LinkedIn, hit a hotkey, drop them into the Outreach board with one keystroke. Bypasses the unified-search workflow when you already know who you want.',
+    body: 'See a creator on YouTube, Instagram, or LinkedIn, hit a hotkey, drop them into your Outreach board with one keystroke.',
   },
   {
     title: 'Slack + Notion sync',
     body: 'Push status changes into a Slack channel; mirror the Outreach board into a Notion view so non-app teammates can follow along.',
   },
   {
-    title: 'Custom unsubscribe domain per user',
-    body: 'Connect your own subdomain via CNAME so footer URLs land on your domain instead of creatoroutreach.net. Bigger lift; needed when senders want zero tool reveal. Currently sidestepped via reply-based opt-out.',
+    title: 'Custom-domain unsubscribe links',
+    body: 'Connect your own subdomain so unsubscribe URLs land on your domain instead of ours. Cleaner footers when you want zero tool reveal.',
   },
   {
-    title: 'CASA-verified own OAuth (replaces Unipile at scale)',
-    body: 'Once paid-customer count crosses ~5,000, the per-seat math on renting Unipile\'s verified OAuth flips. Worth paying for Google\'s CASA security review (~$15–75k one-time) to remove the middleman.',
+    title: 'AI-assisted outreach copy',
+    body: 'Generate a first-draft message per scored creator based on their content and your pitch. Always editable before send. Quality threshold and human-in-the-loop guardrails enforced.',
   },
 ]
 
@@ -141,7 +147,7 @@ export default async function PipelinePage() {
           {isAuthed ? (
             <Link
               href="/"
-              className="inline-flex items-center gap-2 mb-7 px-4 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#0F1733] hover:bg-[#E85D2F] dark:bg-[#F2A261] dark:text-[#0F1733] dark:hover:bg-white transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 mb-12 md:mb-14 px-4 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#0F1733] hover:bg-[#E85D2F] dark:bg-[#F2A261] dark:text-[#0F1733] dark:hover:bg-white transition-colors shadow-sm"
             >
               <span aria-hidden>&larr;</span>
               Back to app
@@ -149,7 +155,7 @@ export default async function PipelinePage() {
           ) : (
             <Link
               href="/landing"
-              className="inline-flex items-center gap-1.5 text-[13px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors mb-6"
+              className="inline-flex items-center gap-1.5 text-[13px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors mb-8"
             >
               <span aria-hidden>&larr;</span>
               Back to home
@@ -172,11 +178,10 @@ export default async function PipelinePage() {
             </span>
           </h1>
           <p className="mt-6 max-w-[64ch] text-[16px] md:text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.65]">
-            Forward-looking only. The Validating lane covers features that are built and
-            feature-complete — we&apos;re running the end-to-end workflow in manual mode
-            with real users before flipping automation back on. Your data + UI stays
-            intact throughout. No marketing-quarter calendar behind any of this; the list
-            is the list.
+            Forward-looking only. Validating items are feature-complete and currently
+            being exercised end-to-end with our first cohort of users before broader
+            release. No marketing-quarter calendar behind any of this — the list is
+            the list, and it reorders fast when there&apos;s real demand for an item.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <a
