@@ -402,8 +402,14 @@ export function buildOutreachContent(
         content: contentRef.replace(/^"|"$/g, ''),
       })
     : ''
-  const baseSubject = userSubject || `Love your content, think I can help`
-  const subject = trackingId ? `${baseSubject} [CO-#${trackingId}]` : baseSubject
+  // Subject — clean. We used to suffix `[CO-#${trackingId}]` for SendGrid
+  // Inbound Parse legacy reply matching, but that pipeline isn't running.
+  // Modern reply matching (when Unipile comes back) uses the In-Reply-To
+  // header which is invisible to the recipient, so the visible tag is
+  // dead weight. trackingId parameter stays in the signature for
+  // backward compatibility but is no longer surfaced in the subject.
+  const subject = userSubject || `Love your content, think I can help`
+  void trackingId  // explicitly mark unused so lint doesn't warn
 
   const referenceLine = contentRef.startsWith('"')
     ? `Love your content, especially ${contentRef}.`
@@ -445,7 +451,6 @@ export function buildOutreachContent(
     recipientEmail: c.email,
   })
   lines.push(``)
-  lines.push(`---`)
   lines.push(...footer)
 
   return {
@@ -457,14 +462,21 @@ export function buildOutreachContent(
 }
 
 /**
- * Build the three-line CAN-SPAM footer appended to every outreach
- * email body. Pure function — no side effects, deterministic given
- * the inputs (except for the timestamp baked into the unsubscribe
- * token), so it's straightforward to test.
+ * Build the minimal CAN-SPAM footer appended to every outreach email.
  *
- * Returns lines (not a joined string) so the caller can stitch them
- * into its existing line array without worrying about delimiter
- * conventions.
+ * Visually small but legally complete — meets §5(a)(3)/(4)/(5) which
+ * require sender identification, valid physical postal address, and
+ * a working opt-out mechanism. Format:
+ *
+ *     —
+ *     Sender Name · 123 Main St, City ST 12345 · unsubscribe
+ *     https://creatoroutreach.net/unsubscribe?t=<signed-token>
+ *
+ * Two lines instead of the previous three — sender + address +
+ * "unsubscribe" stay on one compact dotted line; the actual URL
+ * sits underneath because plain-text email can't hide it behind a
+ * "click here" hyperlink (no HTML in mailto: bodies, and Gmail's
+ * compose URL accepts plain text only).
  *
  * The unsubscribe URL embeds a signed token of the form
  *   <base64url(json)>.<base64url(hmac)>
@@ -492,9 +504,9 @@ export function buildCanSpamFooter(args: {
   const unsubscribeUrl = `https://creatoroutreach.net/unsubscribe?t=${token}`
 
   return [
-    `Sent by ${args.senderName}`,
-    addressLine,
-    `Unsubscribe: ${unsubscribeUrl}`,
+    `—`,
+    `${args.senderName} · ${addressLine} · unsubscribe`,
+    unsubscribeUrl,
   ]
 }
 
