@@ -1,5 +1,6 @@
 import type { Creator, UserProfile } from './types'
 import { encodeUnsubscribeToken } from './unsubscribe'
+import { applyTemplate, resolveTemplate } from './templates'
 
 export const ALL_OCCUPATIONS = [
   'fitness coach', 'personal trainer', 'nutritionist', 'life coach', 'business coach',
@@ -411,47 +412,57 @@ export function buildOutreachContent(
   const subject = userSubject || `Love your content, think I can help`
   void trackingId  // explicitly mark unused so lint doesn't warn
 
-  const referenceLine = contentRef.startsWith('"')
-    ? `Love your content, especially ${contentRef}.`
-    : `Love ${contentRef}.`
-
+  // Body — built from the user's saved email template if they have one
+  // (set via the Templates modal in the hamburger menu), otherwise the
+  // bundled default. `contentRef` already includes the "your X content"
+  // framing for niche fallback and the quoted video title for video
+  // fallback, so the template just needs to substitute it directly.
   const trimmedPitch = pitch.replace(/[.!?]+\s*$/, '').trim()
   const pitchLine = trimmedPitch
     ? `${trimmedPitch}.`
     : `I think I can support what you're building.`
 
-  const lines: string[] = [
-    `Hey ${recipientFirst},`,
-    ``,
-    referenceLine,
-    ``,
-    pitchLine,
-    ``,
-    `Worth a quick chat?`,
-    ``,
-  ]
-  if (linkedin) {
-    lines.push(`Also on LinkedIn: ${linkedin}`)
-    lines.push(``)
-  }
-  lines.push(senderFirst)
-
-  // CAN-SPAM footer — every commercial email must include the
-  // sender's physical address (§5(a)(5)) and a working unsubscribe
-  // mechanism (§5(a)(3-4)). We append both unconditionally so the
-  // user can't accidentally skip them; the address falls back to a
-  // visible placeholder so missing data is obvious to the sender
-  // before send rather than a silent compliance gap. Token signing
-  // is a placeholder for now — the /unsubscribe endpoint that
-  // honors the click is a follow-on task.
-  const footer = buildCanSpamFooter({
-    senderName: senderFull || profile?.userEmail || senderFirst,
-    physicalAddress: (profile?.physicalAddress ?? '').trim(),
-    userId: (profile?.userEmail ?? '').trim(),
-    recipientEmail: c.email,
+  const templateText = resolveTemplate('email', profile?.emailTemplate)
+  const renderedBody = applyTemplate(templateText, {
+    name: recipientFirst,
+    channel: c.channelName,
+    // For video titles we keep the leading "Love" pattern reading well:
+    // `contentRef` is `"video title"` (quoted) or `your X content`.
+    content: contentRef,
+    pitch: pitchLine,
+    sender_first: senderFirst,
+    sender_full: senderFull,
+    linkedin,
   })
-  lines.push(``)
-  lines.push(...footer)
+
+  // Optional "Also on LinkedIn:" line — preserves prior behavior so an
+  // existing user's email shape doesn't change just because the template
+  // engine got introduced. Only appended when the default template is
+  // in use AND the user has a LinkedIn URL on their profile.
+  const usingDefaultTemplate = !((profile?.emailTemplate ?? '').trim())
+  const linkedinSuffix = usingDefaultTemplate && linkedin
+    ? `\n\nAlso on LinkedIn: ${linkedin}`
+    : ''
+
+  const lines: string[] = [renderedBody + linkedinSuffix]
+
+  // CAN-SPAM footer — appended only when user has it enabled (default).
+  // §5(a)(3-5) require sender ID, valid physical address, and working
+  // opt-out for commercial emails. When the user has explicitly disabled
+  // the footer (Templates modal → uncheck + acknowledge), they've taken
+  // compliance responsibility per the audit-trail timestamp on
+  // footer_disabled_acknowledged_at. We respect that choice.
+  const includeFooter = profile?.includeCanSpamFooter !== false
+  if (includeFooter) {
+    const footer = buildCanSpamFooter({
+      senderName: senderFull || profile?.userEmail || senderFirst,
+      physicalAddress: (profile?.physicalAddress ?? '').trim(),
+      userId: (profile?.userEmail ?? '').trim(),
+      recipientEmail: c.email,
+    })
+    lines.push(``)
+    lines.push(...footer)
+  }
 
   return {
     subject,

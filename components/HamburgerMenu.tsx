@@ -12,6 +12,7 @@ export function HamburgerMenu({
   userFullName,
   onOpenScoreSettings,
   onOpenProfile,
+  onOpenTemplates,
   onImportOutreach,
   onImportDismissed,
   showRetryMigration,
@@ -31,6 +32,10 @@ export function HamburgerMenu({
   userFullName: string | null
   onOpenScoreSettings: () => void
   onOpenProfile: () => void
+  /** Opens the per-platform Templates editor — see components/TemplatesModal.tsx.
+   *  Lets users tailor email + DM templates per platform, and toggle the
+   *  CAN-SPAM footer on/off (with acknowledgment when disabling). */
+  onOpenTemplates?: () => void
   onImportOutreach?: () => void
   onImportDismissed?: () => void
   showRetryMigration?: boolean
@@ -190,6 +195,28 @@ export function HamburgerMenu({
               <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Name, LinkedIn, pitch line</div>
             </div>
           </button>
+
+          {/* Templates — per-platform message editor. Slots directly under
+              Profile because the templates inherit profile fields (name,
+              pitch, LinkedIn) and most users will want to set both
+              together. Hidden when no handler is passed so we don't break
+              older callers. */}
+          {onOpenTemplates && (
+            <button
+              onClick={() => { onOpenTemplates(); setOpen(false) }}
+              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            >
+              <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm text-foreground font-medium leading-tight">Templates</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Email + DM drafts per platform</div>
+              </div>
+            </button>
+          )}
 
           {/* Import (expandable) */}
           {importChildren.length > 0 && (

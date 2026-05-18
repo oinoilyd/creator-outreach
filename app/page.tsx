@@ -70,6 +70,10 @@ const ProfileModal = dynamic(
   () => import('@/components/ProfileModal').then(m => m.ProfileModal),
   { ssr: false },
 )
+const TemplatesModal = dynamic(
+  () => import('@/components/TemplatesModal').then(m => m.TemplatesModal),
+  { ssr: false },
+)
 const SendPreviewModal = dynamic(
   () => import('@/components/SendPreviewModal').then(m => m.SendPreviewModal),
   { ssr: false },
@@ -561,6 +565,7 @@ export default function Home() {
   } | null>(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
   const [hasBackup, setHasBackup] = useState(false)
   // Phase 2: Send-via-Unipile preview modal. Triggered by a CustomEvent
   // dispatched from the existing email-link click handlers when the
@@ -709,7 +714,7 @@ export default function Home() {
         // Use maybeSingle so missing row returns null instead of erroring
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end')
+          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end, email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at')
           .eq('user_id', user.id)
           .maybeSingle()
 
@@ -720,7 +725,7 @@ export default function Home() {
           const { data: inserted } = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end')
+            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end, email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at')
             .single()
           profileRow = inserted
         }
@@ -775,6 +780,31 @@ export default function Home() {
               ? new Date(profileRow.unipile_connected_at).getTime()
               : null,
             physicalAddress: profileRow.physical_address ?? null,
+            // Per-platform templates + CAN-SPAM footer toggle. The
+            // SELECT above includes these; nullable when the migration
+            // hasn't applied yet, so we cast through a permissive
+            // shape and default everything safely.
+            ...(() => {
+              const tplRow = profileRow as typeof profileRow & {
+                email_template?: string | null
+                ig_dm_template?: string | null
+                linkedin_dm_template?: string | null
+                x_dm_template?: string | null
+                tiktok_dm_template?: string | null
+                include_can_spam_footer?: boolean | null
+                footer_disabled_acknowledged_at?: string | null
+              }
+              return {
+                emailTemplate: tplRow.email_template ?? null,
+                igDmTemplate: tplRow.ig_dm_template ?? null,
+                linkedinDmTemplate: tplRow.linkedin_dm_template ?? null,
+                xDmTemplate: tplRow.x_dm_template ?? null,
+                tiktokDmTemplate: tplRow.tiktok_dm_template ?? null,
+                includeCanSpamFooter: tplRow.include_can_spam_footer ?? true,
+                footerDisabledAcknowledgedAt:
+                  tplRow.footer_disabled_acknowledged_at ?? null,
+              }
+            })(),
           })
           setUnipileConnected(!!profileRow.unipile_account_id)
           // Stripe subscription mirror. profileRow may not have these
@@ -2007,6 +2037,7 @@ export default function Home() {
                 userFullName={profile?.fullName || null}
                 onOpenScoreSettings={() => setShowScoreSettings(true)}
                 onOpenProfile={() => setShowProfile(true)}
+                onOpenTemplates={() => setShowTemplates(true)}
                 onImportOutreach={() => setShowImport(true)}
                 onImportDismissed={() => setShowImportDismissed(true)}
                 showRetryMigration={hasBackup}
@@ -3204,6 +3235,19 @@ export default function Home() {
           initial={profile ?? { fullName: '', linkedinUrl: '', pitchLine: '' }}
           onSave={(next) => setProfile(next)}
           onClose={() => setShowProfile(false)}
+        />
+      )}
+
+      {showTemplates && (
+        <TemplatesModal
+          profile={profile}
+          onClose={() => setShowTemplates(false)}
+          // Merge the saved template / footer fields back into the
+          // in-memory profile so other surfaces (composer preview,
+          // outreach link click) pick up the change immediately.
+          onSaved={(updated) => {
+            setProfile(prev => (prev ? { ...prev, ...updated } : prev))
+          }}
         />
       )}
 

@@ -226,6 +226,21 @@ export interface UserProfile {
    *  in the composer warning when missing and auto-appended to the
    *  outgoing email footer by buildOutreachContent. */
   physicalAddress?: string | null
+  /** Per-platform message templates. NULL/undefined = use bundled default
+   *  in lib/templates.ts. Variables supported in each template:
+   *  {name} {channel} {content} {pitch} {sender_first} {sender_full} {linkedin}.
+   *  Migration 0026 backs these as nullable TEXT columns. */
+  emailTemplate?: string | null
+  igDmTemplate?: string | null
+  linkedinDmTemplate?: string | null
+  xDmTemplate?: string | null
+  tiktokDmTemplate?: string | null
+  /** CAN-SPAM footer toggle. Defaults TRUE (compliant). When FALSE, the
+   *  email footer is suppressed AND footerDisabledAcknowledgedAt must
+   *  be set — that timestamp is the user's audit-trail acknowledgment
+   *  of compliance responsibility. */
+  includeCanSpamFooter?: boolean
+  footerDisabledAcknowledgedAt?: string | null
 }
 
 // ── Custom analytics metrics (Outreach > Analytics tab) ─────────────────────

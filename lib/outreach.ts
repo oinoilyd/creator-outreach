@@ -69,36 +69,82 @@ export function followUpStageLabel(touchpoints: number): string {
 
 // ── Social platform message templates ──────────────────────────────
 
+import { applyTemplate, resolveTemplate, type Platform } from './templates'
+import type { UserProfile } from './types'
+
 /**
- * Instagram DM template — IG has no `mailto:`-equivalent, so the UX is:
- *   1. Click on Instagram cell opens the IG profile in a new tab
- *   2. Same click copies this template to the clipboard
- *   3. User pastes into the DM box manually
+ * Build the standard template variables block from a recipient channel
+ * name + the sender's profile. Used by every per-platform DM composer
+ * so the variable substitution is consistent across surfaces.
  *
- * `[insert specific thing]` and `[your product]` are intentional
- * placeholders the user fills before sending.
+ * The {content} variable falls back to a generic "your recent post"
+ * phrase because DM contexts rarely have specific video titles or
+ * descriptions tied to the row — the email path that does have those
+ * builds vars itself.
  */
-export function composeInstagramDm(channelName: string): string {
+function templateVarsFromChannel(channelName: string, profile?: UserProfile | null) {
   const name = (channelName || '').trim() || 'there'
-  // First whitespace-separated word for a "first name"-style greeting.
-  // "Vince Lymburn" → "Vince", "CoinDesk" → "CoinDesk",
-  // "Zebu Live | UK's Flagship Web3 Summit" → "Zebu".
   const firstName = name.split(/\s+/)[0] || name
-  return `Hey ${firstName},
+  const senderFull = (profile?.fullName ?? '').trim()
+  const senderFirst = senderFull.split(/\s+/)[0] || 'me'
+  const pitch = (profile?.pitchLine ?? '').trim()
+  const linkedin = (profile?.linkedinUrl ?? '').trim()
+  return {
+    name: firstName,
+    channel: name,
+    content: 'your recent post',
+    pitch: pitch ? pitch.replace(/[.!?]+\s*$/, '') + '.' : 'I think I can support what you\'re building.',
+    sender_first: senderFirst,
+    sender_full: senderFull,
+    linkedin,
+  }
+}
 
-Just discovered ${name} on Instagram and loved [insert specific thing].
+/**
+ * Per-platform DM template composer. Looks up the user's saved
+ * template for `platform` (Templates modal in the hamburger menu)
+ * and substitutes {name}, {channel}, {content}, etc. Falls back to
+ * the bundled default in lib/templates.ts when the user hasn't
+ * customized that platform yet.
+ *
+ * Used by the clipboard-copy handlers below; the click on a creator
+ * cell opens the profile URL + pastes the rendered template.
+ */
+export function composeDmForPlatform(
+  platform: Platform,
+  channelName: string,
+  profile?: UserProfile | null,
+): string {
+  const template = resolveTemplate(platform, getProfileTemplateOverride(platform, profile))
+  return applyTemplate(template, templateVarsFromChannel(channelName, profile))
+}
 
-I'm building [your product] and would love to share what we're up to if you're open to a quick chat.
+function getProfileTemplateOverride(platform: Platform, profile?: UserProfile | null): string | null | undefined {
+  switch (platform) {
+    case 'email':       return profile?.emailTemplate
+    case 'ig_dm':       return profile?.igDmTemplate
+    case 'linkedin_dm': return profile?.linkedinDmTemplate
+    case 'x_dm':        return profile?.xDmTemplate
+    case 'tiktok_dm':   return profile?.tiktokDmTemplate
+  }
+}
 
-Either way, keep up the great work!`
+/**
+ * Instagram DM — back-compat wrapper. Existing callers pass just
+ * channelName; the new optional `profile` parameter enables the
+ * user's saved IG template + variable substitution. Falls through
+ * to the bundled default if profile is missing or has no override.
+ */
+export function composeInstagramDm(channelName: string, profile?: UserProfile | null): string {
+  return composeDmForPlatform('ig_dm', channelName, profile)
 }
 
 /** Click handler for Instagram cells: copy the templated DM to the
  *  clipboard and toast it. Fires alongside the link's default
  *  target="_blank" navigation, so the IG profile opens in a new tab
  *  AND the DM template is ready to paste in one click. */
-export function copyInstagramDm(channelName: string) {
-  const dm = composeInstagramDm(channelName)
+export function copyInstagramDm(channelName: string, profile?: UserProfile | null) {
+  const dm = composeInstagramDm(channelName, profile)
   if (!navigator.clipboard?.writeText) {
     toast.error('Clipboard not available — copy DM manually from settings')
     return
@@ -111,25 +157,16 @@ export function copyInstagramDm(channelName: string) {
   )
 }
 
-/** LinkedIn-specific message template — slightly more business-formal
- *  than the IG DM. Same flow: click the LinkedIn cell → opens profile
- *  in a new tab + writes this template to the clipboard so the user
- *  can paste it directly into a connection note or DM. */
-export function composeLinkedInMessage(channelName: string): string {
-  const name = (channelName || '').trim() || 'there'
-  const firstName = name.split(/\s+/)[0] || name
-  return `Hi ${firstName},
-
-Came across ${name} on LinkedIn and really liked [insert specific post/topic].
-
-I'm building [your product] and saw a potential fit for what you do. Would love to connect and share what we're up to if it's of interest.
-
-Best,
-[your name]`
+/** LinkedIn-specific message template — uses the user's saved template
+ *  if set, else the bundled default. Same flow: click the LinkedIn
+ *  cell → opens profile in a new tab + writes this template to the
+ *  clipboard. */
+export function composeLinkedInMessage(channelName: string, profile?: UserProfile | null): string {
+  return composeDmForPlatform('linkedin_dm', channelName, profile)
 }
 
-export function copyLinkedInMessage(channelName: string) {
-  const msg = composeLinkedInMessage(channelName)
+export function copyLinkedInMessage(channelName: string, profile?: UserProfile | null) {
+  const msg = composeLinkedInMessage(channelName, profile)
   if (!navigator.clipboard?.writeText) {
     toast.error('Clipboard not available — copy message manually')
     return
@@ -139,6 +176,40 @@ export function copyLinkedInMessage(channelName: string) {
       description: `Paste in connection note or DM to ${channelName || 'creator'}`,
     }),
     () => toast.error('Failed to copy message'),
+  )
+}
+
+/**
+ * Copy a DM template for an arbitrary platform (X DM, TikTok DM, etc.).
+ * Wraps composeDmForPlatform + the clipboard + toast pattern from above
+ * so any new "DM cell" can wire to one function.
+ *
+ * Not yet called from any cell — X + TikTok send surfaces are a
+ * planned follow-up (see /admin/roadmap). The function exists now so
+ * the Templates modal isn't a dangling UI surface for those platforms.
+ */
+export function copyDmForPlatform(
+  platform: Platform,
+  channelName: string,
+  profile?: UserProfile | null,
+) {
+  const msg = composeDmForPlatform(platform, channelName, profile)
+  if (!navigator.clipboard?.writeText) {
+    toast.error('Clipboard not available — copy DM manually')
+    return
+  }
+  const platformLabel = ({
+    email: 'Email',
+    ig_dm: 'Instagram DM',
+    linkedin_dm: 'LinkedIn DM',
+    x_dm: 'X DM',
+    tiktok_dm: 'TikTok DM',
+  } as Record<Platform, string>)[platform]
+  navigator.clipboard.writeText(msg).then(
+    () => toast.success(`${platformLabel} template copied`, {
+      description: `Paste to ${channelName || 'creator'}`,
+    }),
+    () => toast.error(`Failed to copy ${platformLabel} template`),
   )
 }
 

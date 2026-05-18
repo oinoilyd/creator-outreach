@@ -94,10 +94,10 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
       }
     } else if (modality === 'instagram') {
       window.open(igUrl, '_blank', 'noopener,noreferrer')
-      copyInstagramDm(entry.channelName)
+      copyInstagramDm(entry.channelName, profile)
     } else if (modality === 'linkedin') {
       window.open(liUrl, '_blank', 'noopener,noreferrer')
-      copyLinkedInMessage(entry.channelName)
+      copyLinkedInMessage(entry.channelName, profile)
     }
   }
 

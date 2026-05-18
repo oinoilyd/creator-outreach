@@ -246,7 +246,7 @@ export function FollowUpDaySheet({
                       href={igUrl}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => copyInstagramDm(e.channelName)}
+                      onClick={() => copyInstagramDm(e.channelName, profile)}
                       title="Open Instagram + copy DM template to clipboard"
                       className="text-[11px] font-medium px-2.5 py-1 rounded border border-pink-500/40 text-pink-700 dark:text-pink-400 hover:bg-pink-500/10 transition-colors inline-flex items-center gap-1"
                     >
@@ -268,7 +268,7 @@ export function FollowUpDaySheet({
                       href={e.linkedin}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => copyLinkedInMessage(e.channelName)}
+                      onClick={() => copyLinkedInMessage(e.channelName, profile)}
                       title="Open LinkedIn + copy message template to clipboard"
                       className="text-[11px] font-medium px-2.5 py-1 rounded border border-blue-500/40 text-blue-700 dark:text-blue-400 hover:bg-blue-500/10 transition-colors"
                     >

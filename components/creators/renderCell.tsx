@@ -110,14 +110,14 @@ export function renderCell(
         )}
       </td>
     )
-    case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" rel="noopener noreferrer" onClick={() => copyLinkedInMessage(c.channelName)} title="Open LinkedIn + copy message template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
+    case 'linkedin':  return <td key={id} className="px-4 py-3">{c.linkedin  ? <a href={c.linkedin}  target="_blank" rel="noopener noreferrer" onClick={() => copyLinkedInMessage(c.channelName, profile)} title="Open LinkedIn + copy message template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
     case 'website':   return <td key={id} className="px-4 py-3">{c.website   ? <a href={c.website}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
     case 'instagram': return (
       <td key={id} className="px-4 py-3">
         <InstagramCell
           channelName={c.channelName}
           instagramUrl={c.instagram}
-          onCopyDm={() => copyInstagramDm(c.channelName)}
+          onCopyDm={() => copyInstagramDm(c.channelName, profile)}
           onUpdateInstagram={onUpdateInstagram ? (url) => onUpdateInstagram(c.channelId, url) : undefined}
         />
       </td>
