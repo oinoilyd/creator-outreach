@@ -205,11 +205,14 @@ export function renderTemplatePreview(
  * the user sees what a real send will look like before they save.
  * These are placeholders that the modal substitutes into preview
  * variables; real sends use values from the actual creator + profile.
+ *
+ * "John Doe" intentionally generic — no real user, easy to recognize
+ * as a placeholder so the preview reads as obviously fake.
  */
 export const SAMPLE_RECIPIENT: TemplateVars = {
-  name: 'Gaynor',
-  channel: 'Gaynor Media',
-  content: 'your latest video on growth tactics',
+  name: 'John',
+  channel: 'John Doe',
+  content: 'your latest video',
 }
 
 /**

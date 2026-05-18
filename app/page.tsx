@@ -711,22 +711,59 @@ export default function Home() {
         setUserId(user.id)
         setUserEmail(user.email ?? null)
 
-        // Use maybeSingle so missing row returns null instead of erroring
+        // Migration-tolerant profile load. The template columns
+        // (email_template, ig_dm_template, etc.) and footer columns
+        // were added in migration 0026. If that migration hasn't been
+        // applied yet, the full SELECT below errors with "column does
+        // not exist" → profileRow=null → subscription state never
+        // populates → UpgradeButton flips back to "Upgrade" instead of
+        // "Trial · Xd left" (and the rest of the home page goes blank).
+        //
+        // To avoid that blast radius, we try the full SELECT first; on
+        // failure we retry with the legacy (pre-0026) SELECT that omits
+        // the new template + footer columns. Optional fields stay
+        // undefined and the defaults in lib/templates.ts kick in.
+        const BASE_COLS = 'full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end'
+        const TEMPLATE_COLS = 'email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at'
+        const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}`
+
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
-          .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end, email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at')
+          .select(FULL_COLS)
           .eq('user_id', user.id)
           .maybeSingle()
+        if (profileErr) {
+          console.warn('[home-init] full SELECT failed (likely missing migration 0026), retrying with base cols:', profileErr.message)
+          const retry = await supabase
+            .from('user_profile')
+            .select(BASE_COLS)
+            .eq('user_id', user.id)
+            .maybeSingle()
+          profileRow = retry.data as unknown as typeof profileRow
+          profileErr = retry.error
+        }
 
         // Defensive: if no profile row exists (trigger may have failed),
-        // create one ourselves before continuing.
+        // create one ourselves before continuing. The INSERT only writes
+        // base columns so it succeeds whether or not 0026 has applied.
         if (!profileRow) {
           console.warn('[home-init] no profile row, creating one')
-          const { data: inserted } = await supabase
+          let inserted: typeof profileRow = null
+          const ins1 = await supabase
             .from('user_profile')
             .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
-            .select('full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end, email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at')
+            .select(FULL_COLS)
             .single()
+          if (ins1.error) {
+            const ins2 = await supabase
+              .from('user_profile')
+              .insert({ user_id: user.id, email: user.email ?? '', onboarded: false })
+              .select(BASE_COLS)
+              .single()
+            inserted = ins2.data as unknown as typeof profileRow
+          } else {
+            inserted = ins1.data as unknown as typeof profileRow
+          }
           profileRow = inserted
         }
 
