@@ -129,13 +129,29 @@ export default async function PipelinePage() {
       {/* HERO */}
       <section className="px-6 pt-14 md:pt-20 pb-10 md:pb-14">
         <div className="max-w-[1180px] mx-auto">
-          <Link
-            href={isAuthed ? '/' : '/landing'}
-            className="inline-flex items-center gap-1.5 text-[13px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors mb-6"
-          >
-            <span aria-hidden>&larr;</span>
-            {isAuthed ? 'Back to app' : 'Back to home'}
-          </Link>
+          {/* Back link — visually different shape per auth state.
+              Signed-in users hit the roadmap from inside the app, so
+              the return path needs to be obvious + button-shaped (most
+              users arrive expecting to read briefly and return). Unauth
+              visitors land here from the landing-page nav; a subtle
+              text link is enough since they're casually browsing. */}
+          {isAuthed ? (
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 mb-7 px-4 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#0F1733] hover:bg-[#E85D2F] dark:bg-[#F2A261] dark:text-[#0F1733] dark:hover:bg-white transition-colors shadow-sm"
+            >
+              <span aria-hidden>&larr;</span>
+              Back to app
+            </Link>
+          ) : (
+            <Link
+              href="/landing"
+              className="inline-flex items-center gap-1.5 text-[13px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors mb-6"
+            >
+              <span aria-hidden>&larr;</span>
+              Back to home
+            </Link>
+          )}
           <div className="inline-flex items-center gap-2 mb-5 px-2.5 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[10.5px] uppercase tracking-[0.2em] text-[#9C3D1F] dark:text-[#F2A261] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]" />
             Roadmap
