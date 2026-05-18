@@ -12,48 +12,51 @@ import { createClient } from '@/lib/supabase/server'
  *   • In-app HamburgerMenu → "Roadmap"
  *
  * Both paths land on this same URL with the same content. The page
- * surfaces what's shipped, what's paused (working manually until Unipile
- * re-subscribes), what's queued next, and what's on the longer-term
- * radar. Internal technical-debt items live on /admin/roadmap which is
- * admin-gated; this page is the user-facing version.
+ * surfaces what we're validating, what's queued next, and what's on
+ * the longer-term radar. Internal technical-debt items live on
+ * /admin/roadmap which is admin-gated; this page is the user-facing
+ * version.
  *
  * Content overhaul 2026-05-18 — replaces the prior list which assumed
- * Unipile was active. Manual-mode reality is now reflected in the
- * Paused lane, and items shipped over the last week (Templates editor,
- * paywall, FAQ, reply-based footer) join Shipped.
+ * Unipile was active. Features that require the Unipile send/inbound
+ * API (auto follow-up, reply detection, etc.) live in the "Validating"
+ * lane: built + feature-complete, running in manual mode while we
+ * exercise the end-to-end loop with real users before re-enabling
+ * automation. Shipped items dropped per Dylan request 2026-05-18 —
+ * a roadmap is forward-looking, not a changelog.
  */
 
 export const metadata = {
   title: 'Roadmap — Creator Outreach',
   description:
-    "What's paused and what's coming next. Email me to vote on priority.",
+    "What we're validating and what's coming next. Email me to vote on priority.",
   alternates: { canonical: 'https://creatoroutreach.net/roadmap' },
 }
 
 const PAUSED_ITEMS = [
   {
     title: 'Auto follow-up cron',
-    body: 'Per-row toggle to auto-send follow-ups via your Gmail every 15 min when the date hits. Hard caps prevent runaway. CODE intact — UI checkbox self-disables when Gmail is not connected. Unblocks when Unipile is reconnected.',
+    body: 'Per-row toggle to auto-send follow-ups via your Gmail every 15 min when the date hits. Hard caps prevent runaway. CODE intact — UI checkbox self-disables when Gmail is not connected. Re-enables when Gmail connection comes back online.',
   },
   {
     title: 'Programmatic email send (Path B)',
-    body: 'In-app SendPreviewModal that sends via Unipile API directly — instead of opening Gmail compose. Lets us track sends, opens, link clicks, and offer richer HTML formatting. Unblocks when Unipile is reconnected.',
+    body: 'In-app SendPreviewModal that sends via Unipile API directly — instead of opening Gmail compose. Lets us track sends, opens, link clicks, and offer richer HTML formatting. Re-enables when Gmail connection comes back online.',
   },
   {
     title: 'Reply detection + auto-status flip',
-    body: 'When a creator replies, an inbound Unipile webhook fires, AI classifies the reply (positive / negative / autoresponder / unclear), and the row\'s status updates automatically. Right now status is updated manually. Unblocks when Unipile is reconnected.',
+    body: 'When a creator replies, an inbound Unipile webhook fires, AI classifies the reply (positive / negative / autoresponder / unclear), and the row\'s status updates automatically. Right now status is updated manually. Re-enables when Gmail connection comes back online.',
   },
   {
     title: 'Open + click tracking',
-    body: 'See when a recipient opens the email or clicks an embedded link, surfaced on the outreach row. Engagement signal before any reply lands. Unblocks when Unipile is reconnected.',
+    body: 'See when a recipient opens the email or clicks an embedded link, surfaced on the outreach row. Engagement signal before any reply lands. Re-enables when Gmail connection comes back online.',
   },
   {
     title: 'In-app conversation thread modal',
-    body: '💬 button per outreach row that opens the full back-and-forth thread inline (color-coded by sender, oldest first). Reads like a normal chat surface instead of jumping to Gmail. Unblocks when Unipile is reconnected.',
+    body: '💬 button per outreach row that opens the full back-and-forth thread inline (color-coded by sender, oldest first). Reads like a normal chat surface instead of jumping to Gmail. Re-enables when Gmail connection comes back online.',
   },
   {
     title: 'Instagram + LinkedIn DM send via API',
-    body: 'Push DMs from inside the app without copy-paste. Same SendPreviewModal flavor as email Path B but for IG / LinkedIn. Currently every DM is copy-to-clipboard + manual paste. Unblocks when Unipile is reconnected.',
+    body: 'Push DMs from inside the app without copy-paste. Same SendPreviewModal flavor as email Path B but for IG / LinkedIn. Currently every DM is copy-to-clipboard + manual paste. Re-enables when Gmail connection comes back online.',
   },
 ]
 
@@ -118,7 +121,7 @@ export default async function PipelinePage() {
   } = await supabase.auth.getUser()
   const isAuthed = !!user
 
-  const pausedCount = PAUSED_ITEMS.length
+  const validatingCount = PAUSED_ITEMS.length
   const upNextCount = UP_NEXT_ITEMS.length
   const onRadarCount = ON_RADAR_ITEMS.length
 
@@ -169,10 +172,11 @@ export default async function PipelinePage() {
             </span>
           </h1>
           <p className="mt-6 max-w-[64ch] text-[16px] md:text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.65]">
-            Forward-looking only. The Paused lane shows features that are built and tested
-            but currently waiting on a third-party (Unipile) re-subscription — your data +
-            UI stays intact, only the automation is dormant. No marketing-quarter calendar
-            behind any of this; the list is the list.
+            Forward-looking only. The Validating lane covers features that are built and
+            feature-complete — we&apos;re running the end-to-end workflow in manual mode
+            with real users before flipping automation back on. Your data + UI stays
+            intact throughout. No marketing-quarter calendar behind any of this; the list
+            is the list.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <a
@@ -197,7 +201,7 @@ export default async function PipelinePage() {
       <section className="px-6 pb-12">
         <div className="max-w-[1180px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
           {[
-            { n: pausedCount, label: 'Paused', sub: 'Awaiting Unipile' },
+            { n: validatingCount, label: 'Validating', sub: 'Running in manual mode' },
             { n: upNextCount, label: 'Up next', sub: '1–4 weeks' },
             { n: onRadarCount, label: 'On the radar', sub: 'Longer-term' },
           ].map(s => (
@@ -223,17 +227,19 @@ export default async function PipelinePage() {
         </div>
       </section>
 
-      {/* MAIN QUEUE — 3 forward-looking lanes: Paused, Up next, On the
-          radar. Shipped items intentionally NOT included here — a
-          roadmap is what's coming, not a changelog of what's done. */}
+      {/* MAIN QUEUE — 3 forward-looking lanes: Validating, Up next,
+          On the radar. Shipped items intentionally NOT included here —
+          a roadmap is what's coming, not a changelog of what's done.
+          The const array is still named PAUSED_ITEMS internally so we
+          don't break older revisions; user-facing label is "Validating". */}
       <section className="px-6 py-14 md:py-20 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
         <div className="max-w-[1180px] mx-auto">
           <div className="grid md:grid-cols-3 gap-8 md:gap-10">
             <RoadmapLane
-              label="Paused"
-              count={pausedCount}
+              label="Validating"
+              count={validatingCount}
               accent="#CA8A04"
-              caption="Built + tested. Automation dormant while we operate manually."
+              caption="Built + feature-complete. Validating the end-to-end manual workflow before re-enabling automation."
               items={PAUSED_ITEMS}
             />
             <RoadmapLane
