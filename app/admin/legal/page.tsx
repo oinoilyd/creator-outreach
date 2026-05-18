@@ -77,6 +77,15 @@ const SIGNED_AGREEMENTS: SignedAgreement[] = [
       'GDPR Article 28 + CCPA + UK GDPR + PIPEDA + Australian Privacy Principles DPA covering Vercel processing of Customer Data (deployment/build artifacts, request logs, IP addresses, config). Per DPA Section 1, this Addendum applies to Enterprise and Pro plan customers — we are on Pro, so the DPA fully binds. Coverage: AES-256 at rest, TLS 1.2+ in transit, SOC 2 Type 2 annually, AWS/Azure/GCP regional redundancy, sub-processors at security.vercel.com, EU SCCs Module 1-3 for cross-border transfers, UK IDTA for UK transfers. PDF snapshot of public DPA (last updated 2026-03-17, effective 2026-03-31) at vercel.com/legal/dpa.',
     filename: 'DPA-Vercel.pdf',
   },
+  {
+    title: 'Data Processing Agreement — Supabase',
+    vendor: 'Supabase Inc. (Delaware)',
+    signedOn: '2026-05-18',
+    signedBy: 'Dylan Meehan (Gaynor Media LLC)',
+    summary:
+      'GDPR Article 28 + UK GDPR + Swiss DPA + US state privacy laws DPA covering Supabase processing of Customer Data stored in our Postgres database (user accounts, outreach entries, profile data, OAuth tokens, suppression list). Self-signed via Supabase Dashboard → Organization → Legal Documents → PandaDoc. Special categories of personal data: None. Source-version: March 12, 2026. Covers EU SCCs for cross-border transfers, UK Addendum, sub-processor list at supabase.com/legal/sub-processors, breach notification within 48 hours, AES-256 at rest, TLS 1.2+ in transit, SOC 2 Type 2 + HIPAA + ISO 27001 certifications. Supervisory authority field left N/A — Gaynor Media LLC is US-established, no EU establishment requires a designated EU supervisory authority.',
+    filename: 'DPA-Supabase-signed.pdf',
+  },
 ]
 
 /**

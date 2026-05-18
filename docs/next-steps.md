@@ -156,10 +156,11 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   DBA and into its own entity, reducing legal entanglement with Ryan's
   employer-conflict surface.
 
-- [ ] **Supabase DPA.** Dylan.
-  *5 min · waiting on support response*
-  Currently the only sub-processor without a counter-signed DPA. Reply to
-  Supabase support thread when they respond.
+- [x] **Supabase DPA.** Dylan. *Done 2026-05-18.*
+  Self-signed via Supabase Dashboard → Organization → Legal Documents →
+  PandaDoc (no support ticket needed). PDF filed at
+  `public/legal/DPA-Supabase-signed.pdf`; row added to /admin/legal.
+  All five sub-processors now have counter-signed DPAs.
 
 ---
 
