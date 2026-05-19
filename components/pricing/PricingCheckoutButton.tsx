@@ -21,6 +21,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { usePromoCode } from './PromoCodeApplier'
 
 export type PricingButtonMode = 'signed-out' | 'subscribe' | 'manage'
 
@@ -29,14 +30,25 @@ export function PricingCheckoutButton({
   priceId,
   featured = false,
   signupNext = '/pricing',
+  promotionCode = null,
 }: {
   mode: PricingButtonMode
   priceId: string
   featured?: boolean
   signupNext?: string
+  /** Optional Stripe promotion code (user-facing alias like "VIPOUTREACH").
+   *  Passed through to /api/stripe/checkout which validates it against
+   *  Stripe and applies it to the session. Invalid codes → inline error. */
+  promotionCode?: string | null
 }) {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // Read the user's applied promo code from PromoCodeProvider (if
+  // wrapped — usePromoCode returns null when no provider above).
+  // Explicit promotionCode prop always wins over the context.
+  const contextPromo = usePromoCode()
+  const effectivePromo = promotionCode ?? contextPromo
 
   const classes = `mt-auto flex w-full items-center justify-center gap-1.5 px-5 py-3 rounded-md font-semibold text-[15px] whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
     featured
@@ -60,7 +72,12 @@ export function PricingCheckoutButton({
     setLoading(true)
     try {
       const endpoint = mode === 'manage' ? '/api/stripe/portal' : '/api/stripe/checkout'
-      const body = mode === 'manage' ? {} : { priceId }
+      const body =
+        mode === 'manage'
+          ? {}
+          : effectivePromo
+            ? { priceId, promotionCode: effectivePromo }
+            : { priceId }
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

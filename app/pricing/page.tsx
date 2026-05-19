@@ -23,6 +23,10 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { PricingCheckoutButton } from '@/components/pricing/PricingCheckoutButton'
+import {
+  PromoCodeApplier,
+  PromoCodeProvider,
+} from '@/components/pricing/PromoCodeApplier'
 
 export const metadata: Metadata = {
   title: 'Pricing — Creator Outreach',
@@ -246,16 +250,25 @@ export default async function PricingPage({
             </div>
           )}
 
-          <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto items-stretch">
-            {plans.map(plan => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                isAuthed={isAuthed}
-                hasLiveSub={hasLiveSub}
-              />
-            ))}
-          </div>
+          {/* PromoCodeProvider wraps the cards + the "Have a code?"
+              applier so they share state. PricingCheckoutButton (inside
+              each PlanCard) reads the applied code via usePromoCode()
+              and passes it to /api/stripe/checkout. Hidden when the
+              user already has a live sub since codes can't apply to
+              an existing subscription. */}
+          <PromoCodeProvider>
+            <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto items-stretch">
+              {plans.map(plan => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  isAuthed={isAuthed}
+                  hasLiveSub={hasLiveSub}
+                />
+              ))}
+            </div>
+            {!hasLiveSub && <PromoCodeApplier />}
+          </PromoCodeProvider>
 
           {/* FAQ — answers the five most common objections inline so
               buyers don't have to email to decide. Each Q&A is short on

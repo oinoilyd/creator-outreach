@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  let body: { priceId?: string } = {}
+  let body: { priceId?: string; promotionCode?: string } = {}
   try {
     body = await req.json()
   } catch {
@@ -58,6 +58,11 @@ export async function POST(req: NextRequest) {
   if (!priceId || !priceId.startsWith('price_')) {
     return NextResponse.json({ error: 'priceId required (price_…)' }, { status: 400 })
   }
+  // Optional promotion code — user-facing alias of a Stripe coupon
+  // (e.g. "VIPOUTREACH"). Validated against Stripe BEFORE we create
+  // the checkout session so we can surface a clean error inline
+  // instead of letting the user discover it at Stripe's hosted page.
+  const promotionCodeRaw = (body.promotionCode || '').trim()
 
   // Defensive env check — if Stripe isn't configured the client
   // shouldn't have called us, but fail clearly instead of surfacing
@@ -121,6 +126,37 @@ export async function POST(req: NextRequest) {
     req.headers.get('origin') ||
     `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
+  // Resolve promo code → Stripe promotion_code id, if user supplied
+  // one in the body. Stripe's allow_promotion_codes:true also surfaces
+  // a code input at the hosted checkout page, so we keep both paths
+  // available — pre-applied via this API for /pricing's "Have a code?"
+  // input, OR entered fresh at Stripe's UI. Invalid codes return a
+  // friendly error here BEFORE we waste a checkout session.
+  let preAppliedPromotionId: string | null = null
+  if (promotionCodeRaw) {
+    try {
+      const promos = await stripe.promotionCodes.list({
+        code: promotionCodeRaw,
+        active: true,
+        limit: 1,
+      })
+      const promo = promos.data[0]
+      if (!promo) {
+        return NextResponse.json(
+          { error: `Promo code "${promotionCodeRaw}" not found or expired.` },
+          { status: 400 },
+        )
+      }
+      preAppliedPromotionId = promo.id
+    } catch (e) {
+      console.error('[stripe/checkout] promo lookup failed', e)
+      return NextResponse.json(
+        { error: 'Could not validate promo code. Try again.' },
+        { status: 500 },
+      )
+    }
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: stripeCustomerId,
@@ -129,7 +165,10 @@ export async function POST(req: NextRequest) {
       trial_period_days: 14,
       metadata: { supabase_user_id: user.id },
     },
-    allow_promotion_codes: true,
+    // Pre-applied promo wins; otherwise let user enter one at Stripe UI.
+    ...(preAppliedPromotionId
+      ? { discounts: [{ promotion_code: preAppliedPromotionId }] }
+      : { allow_promotion_codes: true }),
     // 2026-05-11 — using the auth email as billing email by default
     // gives Stripe one more signal for fraud detection. Customer
     // already has it but checkout-level helps when the user has
