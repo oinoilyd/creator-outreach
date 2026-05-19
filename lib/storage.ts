@@ -76,6 +76,15 @@ function rowToOutreach(r: any): OutreachEntry {
     lastOpenedAt: r.last_opened_at ? new Date(r.last_opened_at).getTime() : null,
     autoFollowup: !!r.auto_followup,
     lastAutoFollowupAt: r.last_auto_followup_at ? new Date(r.last_auto_followup_at).getTime() : null,
+    // Active-client fields (migration 0028) — surface in the Active
+    // Clients sub-tab when status='Successful'.
+    clientBudgetAmount: r.client_budget_amount ?? null,
+    clientBudgetCurrency: r.client_budget_currency ?? null,
+    clientTimelineStart: r.client_timeline_start ?? null,
+    clientTimelineEnd: r.client_timeline_end ?? null,
+    clientScope: r.client_scope ?? null,
+    clientContractUrl: r.client_contract_url ?? null,
+    clientNotes: r.client_notes ?? null,
   }
 }
 
@@ -124,7 +133,84 @@ function outreachToRow(e: OutreachEntry, uid: string) {
     last_opened_at: e.lastOpenedAt ? new Date(e.lastOpenedAt).toISOString() : null,
     auto_followup: !!e.autoFollowup,
     last_auto_followup_at: e.lastAutoFollowupAt ? new Date(e.lastAutoFollowupAt).toISOString() : null,
+    // NB: client_* fields are NOT written here on purpose. The general
+    // outreach save path should stay migration-tolerant (0028 may not
+    // be applied yet on every env). Active-client edits use a dedicated
+    // updateActiveClientFields() function below that writes only the
+    // client_* columns + handles missing-column errors gracefully.
   }
+}
+
+/**
+ * Patch the active-client metadata on an outreach entry.
+ *
+ * Separated from the general outreachToRow path because these columns
+ * were added in migration 0028 and may not exist on environments that
+ * haven't applied it yet. The function writes ONLY the client_* fields
+ * — leaving everything else untouched — and tolerates a missing-column
+ * error by surfacing a clean message back to the caller instead of
+ * cascading the failure.
+ *
+ * Returns { ok, error } so the modal can surface inline feedback.
+ */
+export interface ActiveClientPatch {
+  clientBudgetAmount?: number | null
+  clientBudgetCurrency?: string | null
+  clientTimelineStart?: string | null
+  clientTimelineEnd?: string | null
+  clientScope?: string | null
+  clientContractUrl?: string | null
+  clientNotes?: string | null
+}
+
+export async function updateActiveClientFields(
+  entryId: string,
+  patch: ActiveClientPatch,
+): Promise<{ ok: boolean; error?: string }> {
+  const uid = await userId()
+  if (!uid) return { ok: false, error: 'Not signed in.' }
+  const supabase = createClient()
+
+  // Build the DB-shaped update — only include keys the caller explicitly
+  // provided so partial updates don't accidentally clear other columns.
+  const dbUpdate: Record<string, string | number | null> = {}
+  if ('clientBudgetAmount' in patch) {
+    dbUpdate.client_budget_amount = typeof patch.clientBudgetAmount === 'number' ? patch.clientBudgetAmount : null
+  }
+  if ('clientBudgetCurrency' in patch) {
+    dbUpdate.client_budget_currency = patch.clientBudgetCurrency || null
+  }
+  if ('clientTimelineStart' in patch) {
+    dbUpdate.client_timeline_start = patch.clientTimelineStart || null
+  }
+  if ('clientTimelineEnd' in patch) {
+    dbUpdate.client_timeline_end = patch.clientTimelineEnd || null
+  }
+  if ('clientScope' in patch) {
+    dbUpdate.client_scope = patch.clientScope || null
+  }
+  if ('clientContractUrl' in patch) {
+    dbUpdate.client_contract_url = patch.clientContractUrl || null
+  }
+  if ('clientNotes' in patch) {
+    dbUpdate.client_notes = patch.clientNotes || null
+  }
+
+  const { error } = await supabase
+    .from('outreach_entries')
+    .update(dbUpdate)
+    .eq('id', entryId)
+    .eq('user_id', uid)
+  if (error) {
+    if (error.code === '42703' || /column .* does not exist/i.test(error.message)) {
+      return {
+        ok: false,
+        error: 'Active-client columns not yet available. Run migration 0028_active_clients.sql in Supabase.',
+      }
+    }
+    return { ok: false, error: error.message }
+  }
+  return { ok: true }
 }
 
 // ── Outreach entries ────────────────────────────────────────────────────────

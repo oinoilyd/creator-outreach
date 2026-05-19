@@ -153,6 +153,17 @@ export interface OutreachEntry {
   autoFollowup?: boolean
   /** Epoch ms of the last auto-follow-up send (prevents re-firing). */
   lastAutoFollowupAt?: number | null
+  // ── Active-client fields (migration 0028) ──────────────────────────
+  // Surface when status='Successful' — the engagement now has its own
+  // metadata distinct from the pre-deal sourcing/outreach context.
+  // All nullable; older rows with no engagement data still render.
+  clientBudgetAmount?: number | null
+  clientBudgetCurrency?: string | null
+  clientTimelineStart?: string | null  // YYYY-MM-DD
+  clientTimelineEnd?: string | null    // YYYY-MM-DD
+  clientScope?: string | null
+  clientContractUrl?: string | null
+  clientNotes?: string | null
 }
 
 export interface OutreachColDef {

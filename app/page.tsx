@@ -25,6 +25,7 @@ import { AnalyticsCustomizeShell } from '@/components/outreach/AnalyticsCustomiz
 import { OutreachAnalytics } from '@/components/outreach/OutreachAnalytics'
 import { OutreachTab } from '@/components/outreach/OutreachTab'
 import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
+import { ActiveClients } from '@/components/active-clients/ActiveClients'
 import { motion } from 'motion/react'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
@@ -186,19 +187,19 @@ export default function Home() {
    *   • Survives incognito + cross-device when you copy-paste
    *   • Plays nice with the browser's back/forward buttons
    */
-  function readTabFromUrl(): { tab: ActiveTab; sub: 'all' | 'favorites' | 'analytics' | 'followups' } {
+  function readTabFromUrl(): { tab: ActiveTab; sub: 'all' | 'favorites' | 'analytics' | 'followups' | 'active' } {
     if (typeof window === 'undefined') return { tab: 'results', sub: 'all' }
     const params = new URLSearchParams(window.location.search)
     const t = params.get('tab')
     const s = params.get('sub')
     const tab: ActiveTab =
       t === 'outreach' || t === 'dismissed' || t === 'results' ? t : 'results'
-    const sub: 'all' | 'favorites' | 'analytics' | 'followups' =
-      s === 'favorites' || s === 'analytics' || s === 'followups' || s === 'all' ? s : 'all'
+    const sub: 'all' | 'favorites' | 'analytics' | 'followups' | 'active' =
+      s === 'favorites' || s === 'analytics' || s === 'followups' || s === 'active' || s === 'all' ? s : 'all'
     return { tab, sub }
   }
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => readTabFromUrl().tab)
-  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups'>(
+  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups' | 'active'>(
     () => readTabFromUrl().sub,
   )
 
@@ -2747,7 +2748,7 @@ export default function Home() {
               The remaining surfaces (Results, Outreach > All / Favorites)
               still get the gear with Export options. */}
           {activeTab !== 'dismissed' &&
-            !(activeTab === 'outreach' && (outreachSubTab === 'analytics' || outreachSubTab === 'followups')) && (
+            !(activeTab === 'outreach' && (outreachSubTab === 'analytics' || outreachSubTab === 'followups' || outreachSubTab === 'active')) && (
             <div ref={exportMenuRef} className="ml-auto relative">
               <button
                 onClick={() => setShowExport(v => !v)}
@@ -3143,7 +3144,8 @@ export default function Home() {
                 d.setHours(0, 0, 0, 0)
                 return d.getTime() <= todayMs
               }).length
-              return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} dueCount={dueCount} />
+              const activeClientsCount = outreach.filter(e => e.status === 'Successful').length
+              return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} dueCount={dueCount} activeClientsCount={activeClientsCount} />
             })()}
             {/* Sub-tab panel — same id/labelledby pattern as the
                 main tabs above. Single wrapping div whose ARIA
@@ -3161,6 +3163,18 @@ export default function Home() {
                 onOpenCustomize={() => { setDraftMetrics(customMetrics); setShowAnalyticsCustomize(true) }}
                 onExportExcel={handleExportOutreachExcel}
                 onExportCsv={handleExportOutreachCSV}
+              />
+            ) : outreachSubTab === 'active' ? (
+              // Active Clients view — surfaces rows with status='Successful'
+              // as engagement cards with budget / timeline / scope /
+              // contract URL / engagement notes. onPatch updates the
+              // local outreach state so the card UI reflects the save
+              // immediately without a full reload.
+              <ActiveClients
+                entries={outreach}
+                onPatch={(id, patch) => {
+                  setOutreach(prev => prev.map(e => e.id === id ? { ...e, ...patch } : e))
+                }}
               />
             ) : outreachSubTab === 'followups' ? (
               // Follow-ups uses UNFILTERED outreach — it's an action
