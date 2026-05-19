@@ -1,13 +1,13 @@
 'use client'
 
 /**
- * "Have a code?" input that pre-applies a Stripe promotion code to
- * the checkout session.
+ * "Enter a promo code" input that pre-applies a Stripe promotion code
+ * to the checkout session.
  *
- * Renders a small toggle ("Have a code?") that expands to an input
- * field + Apply button. On apply we don't hit Stripe directly here
- * — we just stash the code in React Context (PromoCodeContext below)
- * so the PricingCheckoutButton can pass it through to
+ * Renders a small toggle ("Enter a promo code") that expands to an
+ * input field + Apply button. On apply we don't hit Stripe directly
+ * here — we just stash the code in React Context (PromoCodeContext
+ * below) so the PricingCheckoutButton can pass it through to
  * /api/stripe/checkout, which validates against Stripe and surfaces
  * inline errors.
  *
@@ -117,7 +117,7 @@ export function PromoCodeApplier() {
           className="inline-flex items-center gap-1.5 text-[12.5px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors"
         >
           <Tag className="w-3.5 h-3.5" />
-          Have a code?
+          Enter a promo code
         </button>
       </div>
     )
