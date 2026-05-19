@@ -381,13 +381,41 @@ export function buildOutreachContent(
 ): OutreachContent {
   const recipientFirst = c.channelName.split(/[\s,|–-]/)[0]
 
-  let contentRef = 'your content'
+  // Build a clean "content reference" for use in the template body.
+  // Preference order:
+  //   1. The creator's most recent video title — most specific, most flattering
+  //   2. A topic phrase from their channel description IF it's not boilerplate
+  //   3. Safe generic fallback "your recent content"
+  //
+  // Boilerplate detection matters: an empty / unset YouTube channel
+  // description defaults on YouTube's side to "Share your videos with
+  // friends, family, and the world." If we naively yank the first 5
+  // words of that, the email reads "Love your Share your videos with
+  // friends, content." — nonsense. We detect that case + a few other
+  // common boilerplates and skip them.
+  const YT_BOILERPLATE_PREFIXES = [
+    'share your videos with friends',
+    'check out my channel',
+    'welcome to my channel',
+    'subscribe for more',
+    'a place for sharing',
+    "i'm a content creator",
+    'content creator on',
+  ]
+  let contentRef = 'your recent content'
   if (c.videoTitles && c.videoTitles.length > 0) {
     contentRef = `"${c.videoTitles[0]}"`
   } else {
     const niche = c.description.replace(/\n/g, ' ').trim().slice(0, 120)
     const clean = niche.replace(/https?:\/\/\S+/g, '').trim()
-    if (clean.length > 10) contentRef = `your ${clean.split(' ').slice(0, 5).join(' ')} content`
+    const cleanLower = clean.toLowerCase()
+    const isBoilerplate = YT_BOILERPLATE_PREFIXES.some(p => cleanLower.startsWith(p))
+    if (clean.length > 10 && !isBoilerplate) {
+      // Take the first noun-y phrase. Strip leading articles + verbs.
+      const words = clean.split(/\s+/).slice(0, 6)
+      const phrase = words.join(' ').replace(/^(a|the|an|i am|i'm)\s+/i, '').trim()
+      if (phrase.length > 5) contentRef = `your ${phrase} content`
+    }
   }
 
   const senderFull = (profile?.fullName || '').trim()

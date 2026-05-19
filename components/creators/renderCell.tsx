@@ -4,7 +4,7 @@ import React from 'react'
 import { toast } from 'sonner'
 import type { Creator, ColId, ScoreWeights, UserProfile } from '@/lib/types'
 import { buildOutreachEmail, formatSubscribers, recipientIssue } from '@/lib/format'
-import { copyInstagramDm, copyLinkedInMessage } from '@/lib/outreach'
+import { copyInstagramDm, copyLinkedInMessage, copyDmForPlatform } from '@/lib/outreach'
 import { InstagramCell } from '@/components/InstagramCell'
 import { Spinner } from '@/components/ui'
 import { FitScoreCell } from './FitScoreCell'
@@ -122,8 +122,8 @@ export function renderCell(
         />
       </td>
     )
-    case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
-    case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline">link</a> : '—'}</td>
+    case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" rel="noopener noreferrer" onClick={() => copyDmForPlatform('x_dm', c.channelName, profile)} title="Open X + copy DM template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
+    case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" rel="noopener noreferrer" onClick={() => copyDmForPlatform('tiktok_dm', c.channelName, profile)} title="Open TikTok + copy DM template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
     case 'igFollowers': return <td key={id} className="px-4 py-3 text-xs tabular-nums"><InstagramMetricCell instagramUrl={c.instagram} field="followers" /></td>
     case 'igPosts':     return <td key={id} className="px-4 py-3 text-xs tabular-nums"><InstagramMetricCell instagramUrl={c.instagram} field="posts" /></td>
   }

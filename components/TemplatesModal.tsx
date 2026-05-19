@@ -26,11 +26,12 @@ import {
   type TemplateVars,
   TEMPLATE_VARS,
   DEFAULT_TEMPLATES,
+  DEFAULT_EMAIL_SUBJECT,
   PLATFORM_LABELS,
-  PLATFORM_TO_PROFILE_FIELD,
   resolveTemplate,
   renderTemplatePreview,
   SAMPLE_RECIPIENT,
+  applyTemplate,
 } from '@/lib/templates'
 import type { UserProfile } from '@/lib/types'
 import { X, RotateCcw, Info, Check } from 'lucide-react'
@@ -47,6 +48,24 @@ interface TemplatesModalProps {
 
 export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProps) {
   const [activePlatform, setActivePlatform] = useState<Platform>('email')
+
+  // Email subject template — Email tab only. Separate from the body
+  // because subject lines need their own short editor + different
+  // variable mix.
+  const [subjectDraft, setSubjectDraft] = useState<string>(
+    (profile?.subjectTemplate ?? '').trim() || DEFAULT_EMAIL_SUBJECT,
+  )
+
+  // Ref to the active textarea for cursor-based variable insertion.
+  // Variable chips below the editor insert {var} at the current
+  // selection / cursor position instead of always appending to the
+  // end — feels like a normal rich text editor.
+  const editorRef = useRef<HTMLTextAreaElement | null>(null)
+  const subjectRef = useRef<HTMLInputElement | null>(null)
+
+  // Track which editor (body or subject) was last focused so chip
+  // clicks know where to insert.
+  const [lastFocused, setLastFocused] = useState<'body' | 'subject'>('body')
 
   // Working copy of each template. Starts with the user's override
   // (if any) or the bundled default. Saving writes back to
@@ -96,6 +115,49 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
 
   function resetToDefault(platform: Platform) {
     setDraft(platform, DEFAULT_TEMPLATES[platform])
+    if (platform === 'email') {
+      setSubjectDraft(DEFAULT_EMAIL_SUBJECT)
+    }
+  }
+
+  /**
+   * Insert a {variable} token at the current cursor position in
+   * whichever editor was last focused (body textarea or subject input).
+   * Falls back to appending if the editor ref isn't available.
+   */
+  function insertVariable(key: string) {
+    const token = `{${key}}`
+    if (lastFocused === 'subject' && activePlatform === 'email') {
+      const el = subjectRef.current
+      if (el) {
+        const start = el.selectionStart ?? subjectDraft.length
+        const end = el.selectionEnd ?? subjectDraft.length
+        const next = subjectDraft.slice(0, start) + token + subjectDraft.slice(end)
+        setSubjectDraft(next)
+        // Restore focus + cursor right after the inserted token.
+        requestAnimationFrame(() => {
+          el.focus()
+          const pos = start + token.length
+          el.setSelectionRange(pos, pos)
+        })
+        return
+      }
+    }
+    const el = editorRef.current
+    const current = drafts[activePlatform]
+    if (el) {
+      const start = el.selectionStart ?? current.length
+      const end = el.selectionEnd ?? current.length
+      const next = current.slice(0, start) + token + current.slice(end)
+      setDraft(activePlatform, next)
+      requestAnimationFrame(() => {
+        el.focus()
+        const pos = start + token.length
+        el.setSelectionRange(pos, pos)
+      })
+    } else {
+      setDraft(activePlatform, current + token)
+    }
   }
 
   function onToggleCanSpam(next: boolean) {
@@ -139,6 +201,9 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
         linkedin_dm_template: drafts.linkedin_dm === DEFAULT_TEMPLATES.linkedin_dm ? null : drafts.linkedin_dm,
         x_dm_template: drafts.x_dm === DEFAULT_TEMPLATES.x_dm ? null : drafts.x_dm,
         tiktok_dm_template: drafts.tiktok_dm === DEFAULT_TEMPLATES.tiktok_dm ? null : drafts.tiktok_dm,
+        // Email subject template — separate column in user_profile.
+        // NULL when matching the default keeps the row uncluttered.
+        subject_template: subjectDraft.trim() === DEFAULT_EMAIL_SUBJECT ? null : subjectDraft.trim() || null,
         include_can_spam_footer: includeCanSpamFooter,
       }
       // Stamp the acknowledgment if the user just disabled it AND
@@ -162,6 +227,7 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
         linkedinDmTemplate: update.linkedin_dm_template as string | null,
         xDmTemplate: update.x_dm_template as string | null,
         tiktokDmTemplate: update.tiktok_dm_template as string | null,
+        subjectTemplate: (update.subject_template as string | null) ?? undefined,
         includeCanSpamFooter,
         footerDisabledAcknowledgedAt:
           (update.footer_disabled_acknowledged_at as string | undefined) ??
@@ -254,9 +320,43 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
           <div className="grid md:grid-cols-2 gap-5">
             {/* Editor column */}
             <div className="flex flex-col">
+              {/* Subject editor (Email only). Sits above the body
+                  editor since the subject is what the recipient sees
+                  first. Same variable syntax as the body — clicking a
+                  chip while the subject input is focused inserts there. */}
+              {activePlatform === 'email' && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label htmlFor="email-subject-input" className="text-[12px] uppercase tracking-wider font-semibold text-muted-foreground">
+                      Subject
+                    </label>
+                    <button
+                      onClick={() => setSubjectDraft(DEFAULT_EMAIL_SUBJECT)}
+                      disabled={subjectDraft === DEFAULT_EMAIL_SUBJECT}
+                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      title="Reset subject to default"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset
+                    </button>
+                  </div>
+                  <input
+                    id="email-subject-input"
+                    ref={subjectRef}
+                    type="text"
+                    value={subjectDraft}
+                    onChange={e => setSubjectDraft(e.target.value)}
+                    onFocus={() => setLastFocused('subject')}
+                    placeholder={DEFAULT_EMAIL_SUBJECT}
+                    spellCheck={false}
+                    className="w-full px-3 py-2 text-[13px] font-mono bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/50"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[12px] uppercase tracking-wider font-semibold text-muted-foreground">
-                  Editor
+                <label htmlFor="template-body" className="text-[12px] uppercase tracking-wider font-semibold text-muted-foreground">
+                  {activePlatform === 'email' ? 'Body' : 'Message'}
                 </label>
                 <button
                   onClick={() => resetToDefault(activePlatform)}
@@ -269,23 +369,30 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
                 </button>
               </div>
               <textarea
+                id="template-body"
+                ref={editorRef}
                 value={currentDraft}
                 onChange={e => setDraft(activePlatform, e.target.value)}
+                onFocus={() => setLastFocused('body')}
                 rows={12}
-                className="flex-1 min-h-[280px] w-full px-3 py-2.5 text-[13px] font-mono leading-relaxed bg-background border border-border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/50"
+                className="flex-1 min-h-[240px] w-full px-3 py-2.5 text-[13px] font-mono leading-relaxed bg-background border border-border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/50"
                 spellCheck={false}
               />
-              {/* Variable chips — click-to-insert */}
+              {/* Variable chips — click-to-insert at cursor. Clicking
+                  inserts {var} at whichever input was last focused
+                  (subject or body), keeping the cursor right after
+                  the inserted token. Hover for full description. */}
               <div className="mt-3">
                 <div className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80 mb-2">
-                  Variables
+                  Variables · click to insert
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {TEMPLATE_VARS.map(v => (
                     <button
                       key={v.key}
-                      onClick={() => setDraft(activePlatform, currentDraft + `{${v.key}}`)}
-                      className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-muted hover:bg-muted/70 text-foreground/80 hover:text-foreground border border-border transition-colors"
+                      type="button"
+                      onClick={() => insertVariable(v.key)}
+                      className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-muted hover:bg-purple-500/15 hover:border-purple-500/40 text-foreground/80 hover:text-foreground border border-border transition-colors"
                       title={`${v.label} — ${v.description}`}
                     >
                       {'{' + v.key + '}'}
@@ -306,7 +413,19 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
                   {' '}= changes per recipient
                 </span>
               </div>
-              <div className="flex-1 min-h-[280px] px-3 py-2.5 text-[13px] leading-relaxed bg-background border border-border rounded-lg whitespace-pre-wrap text-foreground/90">
+              {/* Email subject preview row — rendered above the body
+                  preview for a closer-to-Gmail visual. */}
+              {activePlatform === 'email' && (
+                <div className="mb-3 px-3 py-2 text-[13px] bg-muted/40 border border-border rounded-lg">
+                  <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 mb-1">Subject</div>
+                  <div className="font-medium text-foreground/90">
+                    {applyTemplate(subjectDraft || DEFAULT_EMAIL_SUBJECT, previewVars) || (
+                      <span className="text-muted-foreground/50 italic">(empty)</span>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="flex-1 min-h-[240px] px-3 py-2.5 text-[13px] leading-relaxed bg-background border border-border rounded-lg whitespace-pre-wrap text-foreground/90">
                 {previewSegments.map((seg, i) =>
                   seg.kind === 'text' ? (
                     <span key={i}>{seg.value}</span>

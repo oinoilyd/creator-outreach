@@ -91,26 +91,44 @@ export const TEMPLATE_VARS: TemplateVar[] = [
  * The default template text per platform. Each is intentionally short
  * and personal-sounding — voice matters more than length for cold
  * outreach. Users can rewrite them entirely in the Templates modal.
+ *
+ * Defaults sized to each platform:
+ *   • email          — 4 paragraphs, formal-but-warm. Includes opener,
+ *                      personalized hook, pitch, soft CTA.
+ *   • ig_dm          — 1-2 sentences, casual, no signoff.
+ *   • linkedin_dm    — 3 paragraphs, business-warm.
+ *   • x_dm           — 1 sentence, ultra-tight. 1000-char limit on X.
+ *   • tiktok_dm      — 1 sentence, friendly, no period at end.
  */
 export const DEFAULT_TEMPLATES: Record<Platform, string> = {
   email: `Hey {name},
 
-Love {content}.
+Came across {channel} recently and {content} stood out. {pitch}
 
-{pitch}
-
-Worth a quick chat?
+Worth a quick chat this week?
 
 {sender_first}`,
 
-  ig_dm: `Hey {name} — saw {content} and had to reach out. {pitch} Down to chat?`,
+  ig_dm: `Hey {name}! Found you through {channel} — loved {content}. {pitch} Open to a quick chat?`,
 
-  linkedin_dm: `Hi {name} — really enjoyed {content}. {pitch} Open to a quick chat?`,
+  linkedin_dm: `Hi {name},
 
-  x_dm: `Hey {name}, big fan of {content}. {pitch} Open to chatting?`,
+Came across {channel} on LinkedIn and {content} caught my eye. {pitch}
 
-  tiktok_dm: `Hey {name}! Love {content}. {pitch} Let's connect?`,
+Worth a quick chat this week?`,
+
+  x_dm: `Hey {name} — big fan of {channel}, especially {content}. {pitch} Down to chat?`,
+
+  tiktok_dm: `Hey {name}! Love {content} on {channel}. {pitch}`,
 }
+
+/**
+ * Email-only: subject line template. Stored separately from the body
+ * because subject lines deserve their own editor in the Templates
+ * modal (different variable mix usually — recipient channel, not body
+ * pitch). User override lives in user_profile.subject_template.
+ */
+export const DEFAULT_EMAIL_SUBJECT = `Quick thought on {channel}`
 
 /**
  * Pick the template to use for a given platform — user override if

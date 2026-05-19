@@ -12,6 +12,7 @@ import { fitScoreMeta } from '@/lib/scoring'
 import {
   copyInstagramDm,
   copyLinkedInMessage,
+  copyDmForPlatform,
   markEmailBounced,
 } from '@/lib/outreach'
 import { AutoTextarea } from '@/components/ui'
@@ -294,15 +295,16 @@ export function renderOutreachCell(
       ) : <span className="text-muted-foreground/50">—</span>
 
     case 'linkedin':
-      // Click LinkedIn → opens profile + copies templated message.
-      // Same pattern as Instagram (LinkedIn has no DM deep-link).
+      // Click LinkedIn → opens profile + copies templated message
+      // (using the user's custom LinkedIn DM template from the
+      // Templates modal, or bundled default if unset).
       return e.linkedin ? (
         <a
           href={e.linkedin}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={() => copyLinkedInMessage(e.channelName)}
-          title="Open LinkedIn + copy message template to clipboard"
+          onClick={() => copyLinkedInMessage(e.channelName, profile)}
+          title="Open LinkedIn + copy your LinkedIn DM template to clipboard"
           className="text-blue-800 dark:text-blue-400 hover:underline text-xs"
         >
           Message
@@ -312,17 +314,15 @@ export function renderOutreachCell(
       )
     case 'instagram':
       // Instagram link: clicking opens the profile AND copies a
-      // templated DM to the clipboard (per Dylan: "click on the
-      // instagram it pulls up templated language to copy and paste").
-      // The browser's default link target="_blank" still navigates;
-      // onClick runs in parallel.
+      // templated DM to the clipboard (uses user's IG DM template
+      // from the Templates modal, or bundled default if unset).
       return e.instagram ? (
         <a
           href={e.instagram}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={() => copyInstagramDm(e.channelName)}
-          title="Open IG + copy DM template to clipboard"
+          onClick={() => copyInstagramDm(e.channelName, profile)}
+          title="Open IG + copy your Instagram DM template to clipboard"
           className="text-pink-700 dark:text-pink-400 hover:underline text-xs"
         >
           DM
@@ -331,9 +331,38 @@ export function renderOutreachCell(
         <AutoTextarea value={e.instagram || ''} onChange={v => onUpdate(e.id, 'instagram', v)} placeholder="Add IG URL..." className="text-muted-foreground" />
       )
     case 'twitter':
-      return e.twitter ? <a href={e.twitter} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.twitter || ''} onChange={v => onUpdate(e.id, 'twitter', v)} placeholder="Add X URL..." className="text-muted-foreground" />
+      // Same copy-paste flow as IG / LinkedIn — uses the X DM template
+      // from the Templates modal.
+      return e.twitter ? (
+        <a
+          href={e.twitter}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => copyDmForPlatform('x_dm', e.channelName, profile)}
+          title="Open X + copy your X DM template to clipboard"
+          className="text-blue-800 dark:text-blue-400 hover:underline text-xs"
+        >
+          DM
+        </a>
+      ) : (
+        <AutoTextarea value={e.twitter || ''} onChange={v => onUpdate(e.id, 'twitter', v)} placeholder="Add X URL..." className="text-muted-foreground" />
+      )
     case 'tiktok':
-      return e.tiktok ? <a href={e.tiktok} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.tiktok || ''} onChange={v => onUpdate(e.id, 'tiktok', v)} placeholder="Add TikTok URL..." className="text-muted-foreground" />
+      // TikTok DM template flow (same shape as Twitter).
+      return e.tiktok ? (
+        <a
+          href={e.tiktok}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => copyDmForPlatform('tiktok_dm', e.channelName, profile)}
+          title="Open TikTok + copy your TikTok DM template to clipboard"
+          className="text-blue-800 dark:text-blue-400 hover:underline text-xs"
+        >
+          DM
+        </a>
+      ) : (
+        <AutoTextarea value={e.tiktok || ''} onChange={v => onUpdate(e.id, 'tiktok', v)} placeholder="Add TikTok URL..." className="text-muted-foreground" />
+      )
     case 'website':
       return e.website ? <a href={e.website} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline text-xs">link</a> : <AutoTextarea value={e.website || ''} onChange={v => onUpdate(e.id, 'website', v)} placeholder="Add website..." className="text-muted-foreground" />
     case 'contentNiche':
