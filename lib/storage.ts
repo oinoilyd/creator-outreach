@@ -13,6 +13,7 @@ import { createClient } from './supabase/client'
 import type {
   OutreachEntry, Creator, ScoreWeights, GuidanceEntry,
   ColConfig, OutreachColConfig, PlatformId,
+  ClientLifecycle, ClientMilestone, ClientActivityEvent,
 } from './types'
 import { DEFAULT_WEIGHTS } from './scoring'
 
@@ -85,6 +86,14 @@ function rowToOutreach(r: any): OutreachEntry {
     clientScope: r.client_scope ?? null,
     clientContractUrl: r.client_contract_url ?? null,
     clientNotes: r.client_notes ?? null,
+    // Active-client expansion (migration 0029)
+    clientLifecycle: (r.client_lifecycle ?? null) as ClientLifecycle | null,
+    clientMilestones: Array.isArray(r.client_milestones) ? (r.client_milestones as ClientMilestone[]) : [],
+    clientActivity: Array.isArray(r.client_activity) ? (r.client_activity as ClientActivityEvent[]) : [],
+    clientContractPath: r.client_contract_path ?? null,
+    clientContractName: r.client_contract_name ?? null,
+    clientContractSize: typeof r.client_contract_size === 'number' ? r.client_contract_size : null,
+    clientContractUploadedAt: r.client_contract_uploaded_at ?? null,
   }
 }
 
@@ -161,6 +170,14 @@ export interface ActiveClientPatch {
   clientScope?: string | null
   clientContractUrl?: string | null
   clientNotes?: string | null
+  // 0029 expansion
+  clientLifecycle?: ClientLifecycle | null
+  clientMilestones?: ClientMilestone[]
+  clientActivity?: ClientActivityEvent[]
+  clientContractPath?: string | null
+  clientContractName?: string | null
+  clientContractSize?: number | null
+  clientContractUploadedAt?: string | null
 }
 
 export async function updateActiveClientFields(
@@ -195,6 +212,31 @@ export async function updateActiveClientFields(
   if ('clientNotes' in patch) {
     dbUpdate.client_notes = patch.clientNotes || null
   }
+  // 0029 expansion fields — JSONB columns + contract-file metadata.
+  // Cast through `unknown` because the Record signature above is keyed
+  // for string/number/null primitives; JSONB and arrays need a wider
+  // type. supabase-js accepts the raw shape.
+  if ('clientLifecycle' in patch) {
+    ;(dbUpdate as Record<string, unknown>).client_lifecycle = patch.clientLifecycle ?? null
+  }
+  if ('clientMilestones' in patch) {
+    ;(dbUpdate as Record<string, unknown>).client_milestones = patch.clientMilestones ?? []
+  }
+  if ('clientActivity' in patch) {
+    ;(dbUpdate as Record<string, unknown>).client_activity = patch.clientActivity ?? []
+  }
+  if ('clientContractPath' in patch) {
+    dbUpdate.client_contract_path = patch.clientContractPath || null
+  }
+  if ('clientContractName' in patch) {
+    dbUpdate.client_contract_name = patch.clientContractName || null
+  }
+  if ('clientContractSize' in patch) {
+    dbUpdate.client_contract_size = typeof patch.clientContractSize === 'number' ? patch.clientContractSize : null
+  }
+  if ('clientContractUploadedAt' in patch) {
+    dbUpdate.client_contract_uploaded_at = patch.clientContractUploadedAt || null
+  }
 
   const { error } = await supabase
     .from('outreach_entries')
@@ -205,11 +247,119 @@ export async function updateActiveClientFields(
     if (error.code === '42703' || /column .* does not exist/i.test(error.message)) {
       return {
         ok: false,
-        error: 'Active-client columns not yet available. Run migration 0028_active_clients.sql in Supabase.',
+        error: 'Active-client columns not yet available. Run migrations 0028 + 0029 in Supabase.',
       }
     }
     return { ok: false, error: error.message }
   }
+  return { ok: true }
+}
+
+// ── Contract file upload (Supabase Storage) ────────────────────────
+//
+// Uploads to bucket `contracts`, path `<user_id>/<entry_id>/<slug>`.
+// RLS on storage.objects (see migration 0029) restricts read/write
+// to the owner. Returns the storage path + signed URL on success.
+
+const CONTRACTS_BUCKET = 'contracts'
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7  // 7 days
+
+/** Slug a filename for safe storage paths. Preserves the extension. */
+function slugFilename(name: string): string {
+  const dot = name.lastIndexOf('.')
+  const stem = dot > 0 ? name.slice(0, dot) : name
+  const ext = dot > 0 ? name.slice(dot) : ''
+  const safe = stem
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'contract'
+  return `${safe}${ext.toLowerCase()}`
+}
+
+export interface UploadContractResult {
+  ok: boolean
+  path?: string
+  name?: string
+  size?: number
+  signedUrl?: string
+  uploadedAt?: string
+  error?: string
+}
+
+/**
+ * Upload a contract file to the user's `contracts/` folder and return
+ * a 7-day signed URL for viewing. Does NOT update the outreach row —
+ * the caller patches client_contract_* fields separately so the
+ * activity log can capture the change in one round-trip.
+ */
+export async function uploadContractFile(
+  entryId: string,
+  file: File,
+): Promise<UploadContractResult> {
+  const uid = await userId()
+  if (!uid) return { ok: false, error: 'Not signed in.' }
+  const supabase = createClient()
+
+  const safeName = slugFilename(file.name)
+  const ts = Date.now()
+  const path = `${uid}/${entryId}/${ts}-${safeName}`
+
+  const { error: upErr } = await supabase.storage
+    .from(CONTRACTS_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || undefined,
+    })
+  if (upErr) {
+    if (/bucket .* not found/i.test(upErr.message) || /not exist/i.test(upErr.message)) {
+      return { ok: false, error: 'Contracts bucket not yet available. Run migration 0029 in Supabase.' }
+    }
+    return { ok: false, error: upErr.message }
+  }
+
+  const { data: signed, error: sigErr } = await supabase.storage
+    .from(CONTRACTS_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS)
+  if (sigErr) {
+    // Upload succeeded but signing failed — return the path so the
+    // row can still record the upload; UI will retry signing on view.
+    return { ok: true, path, name: file.name, size: file.size, uploadedAt: new Date().toISOString() }
+  }
+
+  return {
+    ok: true,
+    path,
+    name: file.name,
+    size: file.size,
+    signedUrl: signed?.signedUrl,
+    uploadedAt: new Date().toISOString(),
+  }
+}
+
+/**
+ * Refresh a signed URL for an already-uploaded contract. Called from
+ * the detail modal on open so previously-uploaded files render with
+ * a working preview link.
+ */
+export async function getContractSignedUrl(path: string): Promise<string | null> {
+  if (!path) return null
+  const supabase = createClient()
+  const { data, error } = await supabase.storage
+    .from(CONTRACTS_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS)
+  if (error) return null
+  return data?.signedUrl ?? null
+}
+
+/** Delete a contract file from storage. Best-effort — the row update
+ *  proceeds even if the storage delete fails (e.g., file already gone). */
+export async function removeContractFile(path: string): Promise<{ ok: boolean; error?: string }> {
+  if (!path) return { ok: true }
+  const supabase = createClient()
+  const { error } = await supabase.storage.from(CONTRACTS_BUCKET).remove([path])
+  if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
 

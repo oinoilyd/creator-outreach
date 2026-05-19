@@ -164,6 +164,48 @@ export interface OutreachEntry {
   clientScope?: string | null
   clientContractUrl?: string | null
   clientNotes?: string | null
+  // ── Active-client expansion (migration 0029) ───────────────────────
+  // Lifecycle drives the workflow inside the Active Clients tab.
+  // Milestones + activity give per-engagement depth. Contract file
+  // fields back a Supabase Storage upload (the existing
+  // clientContractUrl remains for external links).
+  clientLifecycle?: ClientLifecycle | null
+  clientMilestones?: ClientMilestone[]
+  clientActivity?: ClientActivityEvent[]
+  clientContractPath?: string | null
+  clientContractName?: string | null
+  clientContractSize?: number | null
+  clientContractUploadedAt?: string | null
+}
+
+// ── Active-client supporting types ─────────────────────────────────
+
+export type ClientLifecycle = 'active' | 'paused' | 'completed' | 'churned'
+
+/** Single line in the milestone checklist on an active-client engagement. */
+export interface ClientMilestone {
+  id: string
+  label: string
+  /** YYYY-MM-DD or empty string for undated. */
+  dueDate?: string
+  /** ISO timestamp when checked off; empty/undefined = not done. */
+  completedAt?: string
+}
+
+/** One entry in the append-only activity timeline. */
+export interface ClientActivityEvent {
+  /** Epoch ms. */
+  ts: number
+  type:
+    | 'created'           // engagement first marked Successful
+    | 'lifecycle'         // active/paused/completed/churned change
+    | 'budget'            // budget amount change
+    | 'timeline'          // start/end date change
+    | 'scope'             // scope text edited
+    | 'contract'          // file uploaded / link added / removed
+    | 'milestone'         // milestone added / toggled / removed
+    | 'note'              // engagement notes edited
+  summary: string
 }
 
 export interface OutreachColDef {
