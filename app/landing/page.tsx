@@ -547,16 +547,6 @@ export default async function LandingPage() {
               The modern way to source, score, and pitch creators. Built for the operators who actually send the messages.
             </p>
             <div className="mt-6 text-[12px] text-[#0F1733]/50 dark:text-white/50">© 2026 Creator Outreach</div>
-            {/* Build stamp — surfaces deploy SHA + timestamp in the footer
-                so we can prove what version of the site any given browser
-                is actually loading. If a user says "I don't see X" we can
-                ask them to read this stamp and immediately know if they're
-                on a stale preview URL vs the current production deploy. */}
-            <div className="mt-2 text-[10px] font-mono text-[#0F1733]/35 dark:text-white/35 select-all" suppressHydrationWarning>
-              build {process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev'}
-              {' · '}
-              {process.env.VERCEL_GIT_COMMIT_MESSAGE?.split('\n')[0]?.slice(0, 30) ?? 'local'}
-            </div>
           </div>
           {/* "Customers" anchor was removed — there's no #customers
               section on the page, and footer links into nowhere are
