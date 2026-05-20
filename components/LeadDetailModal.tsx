@@ -6,6 +6,7 @@ import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { buildOutreachEmail, buildOutreachContent, recipientIssue } from '@/lib/format'
 import { copyInstagramDm, copyLinkedInMessage } from '@/lib/outreach'
+import { Briefcase, CheckCircle2 } from 'lucide-react'
 
 export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
   entry: OutreachEntry
@@ -218,6 +219,60 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
           <Stat label="Fit score" value={entry.fitScore ? Math.round(entry.fitScore).toString() : '—'} />
           <Stat label="Deal value" value={dealValue > 0 ? `$${dealValue.toLocaleString()}` : '—'} highlight={dealValue > 0} />
         </div>
+
+        {/* Add to Active Client CTA — single-click promotes this
+            outreach to a paid engagement (status=Successful) and jumps
+            the user straight to the Active Clients view with the
+            engagement card pre-opened. */}
+        {entry.status !== 'Successful' && (
+          <div className="px-5 pt-5">
+            <button
+              type="button"
+              onClick={() => {
+                onUpdate(entry.id, 'status', 'Successful')
+                // Hand off to the global listener in app/page.tsx —
+                // switches to Outreach → Active Clients sub-tab AND
+                // pre-opens the engagement detail modal for this id.
+                window.dispatchEvent(new CustomEvent('goto-active-client', {
+                  detail: { entryId: entry.id },
+                }))
+                onClose()
+              }}
+              className="w-full inline-flex items-center justify-between gap-3 rounded-xl px-5 py-3 font-semibold text-white shadow-md bg-gradient-to-br from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 shadow-emerald-500/20 transition-all"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Briefcase className="w-4 h-4" aria-hidden />
+                <span className="text-sm">Add to Active Clients</span>
+              </span>
+              <span className="text-xs opacity-80">marks Successful + opens engagement →</span>
+            </button>
+            <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
+              Use this once a deal is signed. Sets the status to Successful and jumps you
+              to the engagement card so you can fill in budget, timeline, scope, and
+              contract right away.
+            </p>
+          </div>
+        )}
+        {entry.status === 'Successful' && (
+          <div className="px-5 pt-5">
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('goto-active-client', {
+                  detail: { entryId: entry.id },
+                }))
+                onClose()
+              }}
+              className="w-full inline-flex items-center justify-between gap-3 rounded-xl px-5 py-3 font-semibold border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 transition-colors"
+            >
+              <span className="inline-flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" aria-hidden />
+                <span className="text-sm">Active client</span>
+              </span>
+              <span className="text-xs opacity-80">view engagement →</span>
+            </button>
+          </div>
+        )}
 
         {/* Outreach status section */}
         <div className="p-5 border-b border-border space-y-3">

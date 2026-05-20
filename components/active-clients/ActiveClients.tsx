@@ -17,18 +17,20 @@
  * detail modal. The v1 inline-editing pattern got noisy at >5 cards.
  */
 
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import type { OutreachEntry, ClientActivityEvent } from '@/lib/types'
 import { ActiveClientCard } from './ActiveClientCard'
 import { ActiveClientDetailModal } from './ActiveClientDetailModal'
 import { LifecycleFilterBar, type LifecycleFilter } from './LifecycleFilterBar'
+import { ManualAddActiveClientModal, type ManualActiveClientInput } from './ManualAddActiveClientModal'
 import {
   updateActiveClientFields, wrapUpEngagement,
+  createManualActiveClient,
   type ActiveClientPatch, type WrapUpPayload,
 } from '@/lib/storage'
 import {
   Briefcase, Wallet, FileText, TrendingUp, CalendarClock,
-  Search, ArrowUpDown,
+  Search, ArrowUpDown, Plus,
 } from 'lucide-react'
 
 interface ActiveClientsProps {
@@ -41,6 +43,14 @@ interface ActiveClientsProps {
    *  parent can refresh its in-memory outreach list. The id is the
    *  newly-created row's id. */
   onFollowOnCreated?: (newEntryId: string) => void
+  /** Optional — id of an engagement to auto-open on mount or whenever
+   *  the value changes. Used by the "Add to Active Clients" CTA in
+   *  LeadDetailModal to jump straight to the engagement card without
+   *  the user having to scan the grid. */
+  initialSelectedId?: string | null
+  /** Called once the auto-open has been consumed so the parent can
+   *  clear its preselect state (prevents re-opening on every render). */
+  onInitialSelectedConsumed?: () => void
 }
 
 type SortBy = 'recent' | 'budget' | 'end' | 'channel'
@@ -52,7 +62,7 @@ const SORT_OPTIONS: { id: SortBy; label: string }[] = [
   { id: 'channel', label: 'Channel A–Z'  },
 ]
 
-export function ActiveClients({ entries, onPatch, onFollowOnCreated }: ActiveClientsProps) {
+export function ActiveClients({ entries, onPatch, onFollowOnCreated, initialSelectedId, onInitialSelectedConsumed }: ActiveClientsProps) {
   // All Successful outreaches are "active clients" at the data level.
   // Lifecycle scopes them further inside this surface.
   const successful = useMemo(
@@ -104,12 +114,37 @@ export function ActiveClients({ entries, onPatch, onFollowOnCreated }: ActiveCli
   const [saving, setSaving] = useState<Set<string>>(new Set())
   const [saveError, setSaveError] = useState<{ id: string; message: string } | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  // Auto-open the engagement card when the parent passes an
+  // initialSelectedId — fires when the user clicks "Add to Active
+  // Clients" from a lead detail modal so they land directly on the
+  // engagement they just created. The parent must reset its preselect
+  // state via onInitialSelectedConsumed so the modal doesn't keep
+  // re-opening on every re-render.
+  React.useEffect(() => {
+    if (!initialSelectedId) return
+    // Only auto-open if this entry actually exists in our Successful
+    // list. If the entry just transitioned to Successful, it should
+    // be in `entries` already (the parent updated state before
+    // dispatching the event).
+    const exists = entries.some(e => e.id === initialSelectedId && e.status === 'Successful')
+    if (exists) {
+      setSelectedId(initialSelectedId)
+      onInitialSelectedConsumed?.()
+    }
+  }, [initialSelectedId, entries, onInitialSelectedConsumed])
   // When ANY patch returns the SCHEMA_MISSING sentinel we surface a
   // sticky banner above the whole view. The schema cache is global
   // (one Supabase project = one cache) so once we detect the issue
   // it applies to every save — no point flashing the inline error
   // and pretending it's a one-off.
   const [schemaMissing, setSchemaMissing] = useState(false)
+  // Manual-add modal — fires the createManualActiveClient helper
+  // which inserts an outreach_entries row with status='Successful'.
+  // Parent (app/page.tsx) refreshes the outreach list via the
+  // onFollowOnCreated callback (reused — same shape: "a new row
+  // exists, please refetch").
+  const [manualAddOpen, setManualAddOpen] = useState(false)
 
   const selectedEntry = useMemo(
     () => (selectedId ? successful.find(e => e.id === selectedId) ?? null : null),
@@ -264,7 +299,7 @@ export function ActiveClients({ entries, onPatch, onFollowOnCreated }: ActiveCli
         counts={lifecycleCounts}
       />
 
-      {/* Search + sort toolbar */}
+      {/* Search + sort toolbar + manual-add */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" aria-hidden />
@@ -291,6 +326,15 @@ export function ActiveClients({ entries, onPatch, onFollowOnCreated }: ActiveCli
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          onClick={() => setManualAddOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-br from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-[12.5px] font-semibold shadow-sm shadow-emerald-500/20 transition-all"
+          aria-label="Add a new active client"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New active client
+        </button>
       </div>
 
       {/* Card grid (or filtered empty state) */}
@@ -377,6 +421,30 @@ export function ActiveClients({ entries, onPatch, onFollowOnCreated }: ActiveCli
             return { ok: true }
           }}
           onClose={() => setSelectedId(null)}
+        />
+      )}
+
+      {/* Manual-add modal — direct entry of an off-platform client. */}
+      {manualAddOpen && (
+        <ManualAddActiveClientModal
+          onSubmit={async (input: ManualActiveClientInput) => {
+            const result = await createManualActiveClient(input)
+            if (!result.ok) {
+              if (result.error === 'SCHEMA_MISSING') {
+                setSchemaMissing(true)
+                return { ok: false, error: 'Migration 0030 needs to run before manual-add can save.' }
+              }
+              return result
+            }
+            // Re-fetch outreach so the new row is visible in pipeline
+            // AND in this view. Reuse the existing follow-on hook —
+            // same shape ("new row exists, parent should refresh").
+            if (result.newEntryId && onFollowOnCreated) {
+              onFollowOnCreated(result.newEntryId)
+            }
+            return { ok: true }
+          }}
+          onClose={() => setManualAddOpen(false)}
         />
       )}
     </div>

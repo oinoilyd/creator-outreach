@@ -536,6 +536,129 @@ async function createFollowOnEngagement(
   return newId
 }
 
+// ── Manual-add active client ───────────────────────────────────────
+//
+// Direct entry path used when the user signed a client off-platform
+// (existing relationship, referral, etc.) and wants to track the
+// engagement without faking an outreach loop. Creates an
+// outreach_entries row with status='Successful' AND lifecycle='active'
+// so it shows up immediately in the Active Clients view.
+
+export interface ManualActiveClientInput {
+  channelName: string
+  channelUrl: string
+  email: string
+  budget: number | null
+  currency: string
+  timelineStart: string
+  timelineEnd: string
+  scope: string
+  notes: string
+}
+
+export interface ManualActiveClientResult {
+  ok: boolean
+  error?: string
+  newEntryId?: string
+}
+
+export async function createManualActiveClient(
+  input: ManualActiveClientInput,
+): Promise<ManualActiveClientResult> {
+  const uid = await userId()
+  if (!uid) return { ok: false, error: 'Not signed in.' }
+  if (!input.channelName.trim()) return { ok: false, error: 'Channel name is required.' }
+
+  const supabase = createClient()
+
+  // Synthesize a channel id so the row has a unique identifier even
+  // though we never fetched it from YouTube. Prefix 'manual-' so we
+  // can distinguish these from search-sourced entries later if we
+  // need to.
+  const ts = Date.now()
+  const slug = input.channelName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32) || 'client'
+  const channelId = `manual-${slug}-${ts}`
+  const newId = `${channelId}-${ts}`
+  const trackingId = Math.random().toString(36).slice(2, 10)
+
+  const row = {
+    id: newId,
+    user_id: uid,
+    channel_id: channelId,
+    channel_name: input.channelName.trim(),
+    channel_url: input.channelUrl.trim() || '',
+    description: '',
+    email: input.email.trim() || '',
+    product: '',
+    favorite: false,
+    reached_out: true,
+    medium: '',
+    medium_other: '',
+    header_used: '',
+    status: 'Successful',
+    notes: '',
+    follow_up_date: '',
+    date_reached_out: '',
+    touchpoints: '',
+    response_date: '',
+    subscribers: '',
+    avg_views: 0,
+    fit_score: 0,
+    linkedin: '',
+    instagram: '',
+    twitter: '',
+    tiktok: '',
+    website: '',
+    content_niche: '',
+    phone: '',
+    deal_value: '',
+    contract_sent: false,
+    meeting_scheduled: '',
+    added_at: ts,
+    tracking_id: trackingId,
+    engagement_status: null,
+    // Active-client fields — set from the manual-add form.
+    client_lifecycle: 'active',
+    client_budget_amount: typeof input.budget === 'number' ? input.budget : null,
+    client_budget_currency: input.currency || 'USD',
+    client_timeline_start: input.timelineStart || null,
+    client_timeline_end: input.timelineEnd || null,
+    client_scope: input.scope || null,
+    client_notes: input.notes || null,
+    // Activity seed — surfaces in the timeline so the user has
+    // context for where this engagement came from.
+    client_activity: [
+      {
+        ts: Date.now(),
+        type: 'created',
+        summary: 'Engagement created manually (off-platform client)',
+      },
+    ],
+  }
+
+  const { error } = await supabase
+    .from('outreach_entries')
+    .insert(row)
+  if (error) {
+    // Schema-missing detection — both 0028/0029/0030 columns could
+    // trigger this if any migration hasn't been applied. Return the
+    // sentinel so the UI shows the same yellow banner as other
+    // schema errors.
+    const isSchemaError =
+      error.code === '42703'
+      || /column .* does not exist/i.test(error.message)
+      || /could not find the .* column/i.test(error.message)
+      || /schema cache/i.test(error.message)
+    if (isSchemaError) return { ok: false, error: 'SCHEMA_MISSING' }
+    return { ok: false, error: error.message }
+  }
+  return { ok: true, newEntryId: newId }
+}
+
 // ── Contract file upload (Supabase Storage) ────────────────────────
 //
 // Uploads to bucket `contracts`, path `<user_id>/<entry_id>/<slug>`.

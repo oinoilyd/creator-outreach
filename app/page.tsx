@@ -204,6 +204,26 @@ export default function Home() {
   const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups' | 'active'>(
     () => readTabFromUrl().sub,
   )
+  // When LeadDetailModal dispatches `goto-active-client`, this id is
+  // set and passed through to ActiveClients so the engagement detail
+  // modal auto-opens. Reset to null after consumption so it doesn't
+  // re-open on every render.
+  const [activeClientPreselect, setActiveClientPreselect] = useState<string | null>(null)
+
+  // Listen for the "Add to Active Clients" CTA in LeadDetailModal —
+  // routes the user to the Outreach → Active Clients sub-tab and
+  // pre-opens the engagement detail modal for the dispatched entry id.
+  useEffect(() => {
+    function handler(ev: Event) {
+      const detail = (ev as CustomEvent<{ entryId?: string }>).detail
+      if (!detail?.entryId) return
+      setActiveTab('outreach')
+      setOutreachSubTab('active')
+      setActiveClientPreselect(detail.entryId)
+    }
+    window.addEventListener('goto-active-client', handler as EventListener)
+    return () => window.removeEventListener('goto-active-client', handler as EventListener)
+  }, [])
 
   // Sync state → URL on every change. replaceState (not pushState) so the
   // user's back button still goes back to where they came from on this site
@@ -3226,6 +3246,8 @@ export default function Home() {
                     console.warn('[ActiveClients/onFollowOnCreated] refresh failed:', e)
                   }
                 }}
+                initialSelectedId={activeClientPreselect}
+                onInitialSelectedConsumed={() => setActiveClientPreselect(null)}
               />
             ) : outreachSubTab === 'followups' ? (
               // Follow-ups uses UNFILTERED outreach — it's an action
