@@ -2070,6 +2070,13 @@ export default function Home() {
     // `creators` state momentarily — same logic the icon uses, so the
     // row + icon are always in sync.
     .filter(c => !dismissedIds.has(c.channelId))
+    // Hide creators that have already been added to Outreach. Results
+    // is meant to be "creators I haven't acted on yet" — once you add
+    // someone, they belong in Outreach, not here. saveOutreach()
+    // updates outreachIds synchronously, so the row disappears on the
+    // very next render after the Add button is clicked (2026-05-19,
+    // per Dylan).
+    .filter(c => !outreachIds.has(c.channelId))
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
     .filter(c => {
       if (minSubs === 0 && maxSubs === 0) return true
