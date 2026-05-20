@@ -18,6 +18,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
+import { Sparkles, Undo2, Loader2 } from 'lucide-react'
 
 interface Props {
   /** Outreach entry id — sent server-side so the API can persist
@@ -81,6 +82,60 @@ export function SendPreviewModal({
   const [enableOpenTracking, setEnableOpenTracking] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // AI-rewrite state: when the user hits "Rewrite with AI" we POST to
+  // /api/ai/rewrite-outreach with the current draft + the entryId so
+  // the server can pull channel context. The previous draft is
+  // captured in `previousDraft` so the user can one-click undo.
+  const [aiIntent, setAiIntent] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [previousDraft, setPreviousDraft] = useState<{ subject: string; body: string } | null>(null)
+
+  async function handleRewriteWithAi() {
+    setAiError(null)
+    setAiBusy(true)
+    // Snapshot the current draft BEFORE the call so an Undo is always
+    // possible — even if the call fails partway through state updates.
+    const snapshot = { subject, body }
+    try {
+      const resp = await fetch('/api/ai/rewrite-outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entryId,
+          currentSubject: subject,
+          currentBody: body,
+          intent: aiIntent.trim() || undefined,
+        }),
+      })
+      const data = await resp.json() as { subject?: string; body?: string; error?: string }
+      if (!resp.ok) {
+        throw new Error(data.error || `Rewrite failed (${resp.status}).`)
+      }
+      const newSubject = (data.subject ?? snapshot.subject).trim() || snapshot.subject
+      const newBody = (data.body ?? '').trim()
+      if (!newBody) throw new Error('AI returned an empty body.')
+      setPreviousDraft(snapshot)
+      setSubject(newSubject)
+      setBody(newBody)
+      toast.success('Rewrite applied — review before sending.', { duration: 2400 })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setAiError(msg)
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  function handleUndoAi() {
+    if (!previousDraft) return
+    setSubject(previousDraft.subject)
+    setBody(previousDraft.body)
+    setPreviousDraft(null)
+    setAiError(null)
+    toast.message('Reverted to your previous draft.')
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -238,9 +293,57 @@ export function SendPreviewModal({
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={12}
-              disabled={sending}
+              disabled={sending || aiBusy}
               className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 font-mono leading-relaxed resize-y disabled:opacity-60"
             />
+            {/* AI-rewrite toolbar — sits flush under the body textarea.
+                Optional intent hint + Rewrite button. Undo appears
+                once a rewrite has been applied. */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={aiIntent}
+                onChange={e => setAiIntent(e.target.value)}
+                disabled={sending || aiBusy}
+                placeholder="Optional: 'shorter', 'more casual', 'lead with their last video'…"
+                className="flex-1 min-w-[200px] bg-background border border-border rounded-md px-2.5 py-1.5 text-[12.5px] text-foreground focus:outline-none focus:border-purple-500 disabled:opacity-60"
+                aria-label="Optional intent hint for the AI rewrite"
+              />
+              <button
+                type="button"
+                onClick={handleRewriteWithAi}
+                disabled={sending || aiBusy || !body.trim()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-br from-purple-600 to-blue-600 text-white text-[12.5px] font-semibold hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-purple-500/20"
+                title="Rewrite this draft using AI, with the creator's channel context"
+              >
+                {aiBusy
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Rewriting…</>
+                  : <><Sparkles className="w-3.5 h-3.5" /> Rewrite with AI</>}
+              </button>
+              {previousDraft && (
+                <button
+                  type="button"
+                  onClick={handleUndoAi}
+                  disabled={sending || aiBusy}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-[12.5px] text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  title="Revert to the draft before the AI rewrite"
+                >
+                  <Undo2 className="w-3.5 h-3.5" /> Undo
+                </button>
+              )}
+            </div>
+            {aiError && (
+              <p className="mt-1.5 text-[11.5px] text-red-600 dark:text-red-400">
+                {aiError}
+              </p>
+            )}
+            {!aiError && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground/70">
+                AI sees this draft + the creator&apos;s channel name, niche, and
+                description. It won&apos;t invent details — if the channel has no
+                description it&apos;ll keep the rewrite generic.
+              </p>
+            )}
           </div>
           <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer select-none">
             <input
