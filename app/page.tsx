@@ -3213,6 +3213,19 @@ export default function Home() {
                 onPatch={(id, patch) => {
                   setOutreach(prev => prev.map(e => e.id === id ? { ...e, ...patch } : e))
                 }}
+                onFollowOnCreated={async () => {
+                  // Wrap-up created a new outreach_entries row for a
+                  // repeat engagement (Definitely / Likely). Re-fetch
+                  // the full list so it appears in the pipeline + the
+                  // outreachIds set is updated for the Results filter.
+                  try {
+                    const fresh = await getOutreach()
+                    setOutreach(fresh)
+                    setOutreachIds(new Set(fresh.map(e => e.channelId)))
+                  } catch (e) {
+                    console.warn('[ActiveClients/onFollowOnCreated] refresh failed:', e)
+                  }
+                }}
               />
             ) : outreachSubTab === 'followups' ? (
               // Follow-ups uses UNFILTERED outreach — it's an action

@@ -19,6 +19,7 @@ import { AutoTextarea } from '@/components/ui'
 import { guardOutreachClick } from '@/components/creators/renderCell'
 import { EmailEditToggle } from '@/components/outreach/EmailEditToggle'
 import { FollowUpDateCell } from '@/components/follow-ups/FollowUpDateCell'
+import { EngagementStatusPill } from '@/components/outreach/EngagementStatusPill'
 
 /**
  * Phase 2 click interceptor — when the user has a Unipile-connected
@@ -66,19 +67,25 @@ export function renderOutreachCell(
       )
     case 'channelName':
       return (
-        <div className="flex items-start gap-1.5 w-full">
-          <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-800 dark:text-blue-400 font-medium flex-1" />
-          {e.unipileThreadId && (
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-thread-modal', { detail: { entryId: e.id, label: e.channelName } }))}
-              title="View full conversation thread"
-              aria-label="View conversation thread"
-              className="mt-0.5 text-muted-foreground/70 hover:text-purple-600 dark:hover:text-purple-300 transition-colors text-sm leading-none"
-            >
-              💬
-            </button>
-          )}
+        <div className="flex flex-col gap-1 w-full">
+          <div className="flex items-start gap-1.5 w-full">
+            <AutoTextarea value={e.channelName} onChange={v => onUpdate(e.id, 'channelName', v)} className="text-blue-800 dark:text-blue-400 font-medium flex-1" />
+            {e.unipileThreadId && (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-thread-modal', { detail: { entryId: e.id, label: e.channelName } }))}
+                title="View full conversation thread"
+                aria-label="View conversation thread"
+                className="mt-0.5 text-muted-foreground/70 hover:text-purple-600 dark:hover:text-purple-300 transition-colors text-sm leading-none"
+              >
+                💬
+              </button>
+            )}
+          </div>
+          {/* Pending-confirmation pill — only renders when this row was
+              auto-created from a "Likely repeat" wrap-up and the user
+              hasn't yet confirmed or denied the next engagement. */}
+          <EngagementStatusPill entry={e} onUpdate={onUpdate} />
         </div>
       )
     case 'channelUrl':

@@ -22,7 +22,10 @@ import type { OutreachEntry, ClientActivityEvent } from '@/lib/types'
 import { ActiveClientCard } from './ActiveClientCard'
 import { ActiveClientDetailModal } from './ActiveClientDetailModal'
 import { LifecycleFilterBar, type LifecycleFilter } from './LifecycleFilterBar'
-import { updateActiveClientFields, type ActiveClientPatch } from '@/lib/storage'
+import {
+  updateActiveClientFields, wrapUpEngagement,
+  type ActiveClientPatch, type WrapUpPayload,
+} from '@/lib/storage'
 import {
   Briefcase, Wallet, FileText, TrendingUp, CalendarClock,
   Search, ArrowUpDown,
@@ -34,6 +37,10 @@ interface ActiveClientsProps {
   /** Called after a successful patch so the parent can update its in-memory
    *  outreach state without an extra round-trip. */
   onPatch: (id: string, patch: ActiveClientPatch) => void
+  /** Called after wrap-up creates a follow-on outreach row so the
+   *  parent can refresh its in-memory outreach list. The id is the
+   *  newly-created row's id. */
+  onFollowOnCreated?: (newEntryId: string) => void
 }
 
 type SortBy = 'recent' | 'budget' | 'end' | 'channel'
@@ -45,7 +52,7 @@ const SORT_OPTIONS: { id: SortBy; label: string }[] = [
   { id: 'channel', label: 'Channel A–Z'  },
 ]
 
-export function ActiveClients({ entries, onPatch }: ActiveClientsProps) {
+export function ActiveClients({ entries, onPatch, onFollowOnCreated }: ActiveClientsProps) {
   // All Successful outreaches are "active clients" at the data level.
   // Lifecycle scopes them further inside this surface.
   const successful = useMemo(
@@ -314,6 +321,61 @@ export function ActiveClients({ entries, onPatch }: ActiveClientsProps) {
           saving={saving.has(selectedEntry.id)}
           saveError={saveError?.id === selectedEntry.id ? saveError.message : null}
           onPatch={(patch, activity) => handlePatch(selectedEntry.id, patch, activity)}
+          onWrapUp={async (payload: WrapUpPayload) => {
+            // Atomic wrap-up — patches engagement + creates follow-on
+            // for Definitely/Likely. The local optimistic merge runs
+            // through handlePatch so the activity timeline + lifecycle
+            // pill stay in sync with whatever wrapUpEngagement just
+            // persisted.
+            setSaving(prev => {
+              const next = new Set(prev)
+              next.add(selectedEntry.id)
+              return next
+            })
+            setSaveError(null)
+            const result = await wrapUpEngagement(selectedEntry, payload)
+            setSaving(prev => {
+              const next = new Set(prev)
+              next.delete(selectedEntry.id)
+              return next
+            })
+            if (!result.ok) {
+              if (result.error === 'SCHEMA_MISSING') {
+                setSchemaMissing(true)
+                return { ok: false, error: 'Migration 0030 needs to run in Supabase before wrap-up can save.' }
+              }
+              setSaveError({ id: selectedEntry.id, message: result.error ?? 'Wrap-up failed.' })
+              return result
+            }
+            // Optimistically merge the patch we know was just applied
+            // (lifecycle + final value + rating + repeat + testimonial
+            // + activity) into the parent's in-memory entry. The new
+            // notes block was composed server-side so we conservatively
+            // refresh from the next load — for now just mirror the
+            // structured fields.
+            const composedActivity = [
+              ...(selectedEntry.clientActivity ?? []),
+              { ts: Date.now(),     type: 'lifecycle' as const, summary: 'Marked completed' },
+              { ts: Date.now() + 1, type: 'lifecycle' as const, summary: `Engagement completed: rating ${payload.rating} / 5, repeat ${payload.repeatLikelihood}` },
+            ]
+            onPatch(selectedEntry.id, {
+              clientLifecycle: 'completed',
+              clientFinalValue: payload.finalValue,
+              clientCompletionDate: payload.completionDate,
+              clientRating: payload.rating,
+              clientRepeatLikelihood: payload.repeatLikelihood,
+              clientTestimonial: payload.testimonial ?? null,
+              clientTestimonialPublic: !!payload.testimonialPublic,
+              clientActivity: composedActivity,
+            })
+            // Notify the parent if a follow-on row was created so it
+            // can refresh its outreach list (the new row needs to
+            // appear in the Outreach pipeline + Active Clients view).
+            if (result.newEntryId && onFollowOnCreated) {
+              onFollowOnCreated(result.newEntryId)
+            }
+            return { ok: true }
+          }}
           onClose={() => setSelectedId(null)}
         />
       )}

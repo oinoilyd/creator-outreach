@@ -26,7 +26,7 @@ import { motion } from 'motion/react'
 import type {
   OutreachEntry, ClientLifecycle, ClientMilestone, ClientActivityEvent,
 } from '@/lib/types'
-import type { ActiveClientPatch } from '@/lib/storage'
+import type { ActiveClientPatch, WrapUpPayload } from '@/lib/storage'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import {
   X as XIcon, ExternalLink, Loader2, Check, AlertCircle,
@@ -35,6 +35,7 @@ import {
 import { MilestoneList } from './MilestoneList'
 import { ActivityTimeline } from './ActivityTimeline'
 import { ContractUpload } from './ContractUpload'
+import { WrapUpEngagementModal } from './WrapUpEngagementModal'
 
 interface ActiveClientDetailModalProps {
   entry: OutreachEntry
@@ -43,11 +44,15 @@ interface ActiveClientDetailModalProps {
   /** Combined patch — JSON column + optional activity event. The
    *  parent merges activity into the existing array and persists. */
   onPatch: (patch: ActiveClientPatch, activity?: ClientActivityEvent) => void
+  /** Atomic wrap-up call — patches the engagement, snapshots context
+   *  into client_notes, optionally creates a follow-on outreach row.
+   *  Returns ok/error so the wrap-up modal can show inline feedback. */
+  onWrapUp: (payload: WrapUpPayload) => Promise<{ ok: boolean; error?: string }>
   onClose: () => void
 }
 
 export function ActiveClientDetailModal({
-  entry, saving, saveError, onPatch, onClose,
+  entry, saving, saveError, onPatch, onWrapUp, onClose,
 }: ActiveClientDetailModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -146,12 +151,21 @@ export function ActiveClientDetailModal({
     setSavedFlash(true)
   }
 
+  // Completion routes through the wrap-up modal instead of an
+  // immediate lifecycle flip — capture close data (final value,
+  // rating, repeat likelihood, testimonial) in one structured pass.
+  const [wrapUpOpen, setWrapUpOpen] = useState(false)
+
   function setLifecycle(next: ClientLifecycle) {
     if (next === lifecycle) return
-    // Confirm-on-destructive: Churned is irreversible-feeling enough
-    // that an accidental click could mess up the user's pipeline
-    // accounting. The undo path (set back to Active) is one click but
-    // the activity log would still record the spurious flip-flop.
+    // Completed → open wrap-up modal. The submit handler patches
+    // lifecycle + extra fields atomically via onWrapUp.
+    if (next === 'completed') {
+      setWrapUpOpen(true)
+      return
+    }
+    // Churned → confirm + flip immediately. The undo path is one
+    // click but the activity log would still record the flip-flop.
     if (next === 'churned') {
       const ok = window.confirm(
         `Mark ${entry.channelName || 'this engagement'} as Churned?\n\nThe lifecycle change is logged in the activity timeline. You can switch it back to Active any time, but the timeline entry will remain.`,
@@ -400,6 +414,23 @@ export function ActiveClientDetailModal({
           </div>
         </div>
       </motion.div>
+
+      {/* Wrap-up modal — opens on top of the detail modal when the
+          user clicks the Completed lifecycle button. Captures real
+          close data (final value, rating, repeat likelihood, etc.)
+          and routes through onWrapUp for atomic persistence + the
+          optional follow-on outreach row creation. */}
+      {wrapUpOpen && (
+        <WrapUpEngagementModal
+          entry={entry}
+          onSubmit={async payload => {
+            const result = await onWrapUp(payload)
+            if (result.ok) setSavedFlash(true)
+            return result
+          }}
+          onClose={() => setWrapUpOpen(false)}
+        />
+      )}
     </div>
   )
 }

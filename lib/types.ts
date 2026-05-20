@@ -176,11 +176,29 @@ export interface OutreachEntry {
   clientContractName?: string | null
   clientContractSize?: number | null
   clientContractUploadedAt?: string | null
+  // ── Engagement wrap-up fields (migration 0030) ─────────────────────
+  // Set when the user marks an engagement Completed via the
+  // WrapUpEngagementModal. Drive close analytics + auto-follow-up.
+  clientFinalValue?: number | null
+  clientCompletionDate?: string | null      // YYYY-MM-DD
+  clientRating?: number | null              // 1-5
+  clientRepeatLikelihood?: ClientRepeatLikelihood | null
+  clientTestimonial?: string | null
+  clientTestimonialPublic?: boolean
+  /** Sub-state outside of main status. NULL = normal. Currently the
+   *  only non-null value is 'pending_confirmation' — auto-set when a
+   *  Likely-repeat engagement creates a follow-on outreach row that
+   *  the user hasn't yet confirmed or denied. */
+  engagementStatus?: EngagementStatus | null
 }
 
 // ── Active-client supporting types ─────────────────────────────────
 
 export type ClientLifecycle = 'active' | 'paused' | 'completed' | 'churned'
+
+export type ClientRepeatLikelihood = 'definitely' | 'likely' | 'maybe' | 'no'
+
+export type EngagementStatus = 'pending_confirmation'
 
 /** Single line in the milestone checklist on an active-client engagement. */
 export interface ClientMilestone {

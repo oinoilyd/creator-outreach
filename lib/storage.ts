@@ -14,6 +14,7 @@ import type {
   OutreachEntry, Creator, ScoreWeights, GuidanceEntry,
   ColConfig, OutreachColConfig, PlatformId,
   ClientLifecycle, ClientMilestone, ClientActivityEvent,
+  ClientRepeatLikelihood, EngagementStatus,
 } from './types'
 import { DEFAULT_WEIGHTS } from './scoring'
 
@@ -94,6 +95,14 @@ function rowToOutreach(r: any): OutreachEntry {
     clientContractName: r.client_contract_name ?? null,
     clientContractSize: typeof r.client_contract_size === 'number' ? r.client_contract_size : null,
     clientContractUploadedAt: r.client_contract_uploaded_at ?? null,
+    // Engagement wrap-up (migration 0030)
+    clientFinalValue: r.client_final_value ?? null,
+    clientCompletionDate: r.client_completion_date ?? null,
+    clientRating: typeof r.client_rating === 'number' ? r.client_rating : null,
+    clientRepeatLikelihood: (r.client_repeat_likelihood ?? null) as ClientRepeatLikelihood | null,
+    clientTestimonial: r.client_testimonial ?? null,
+    clientTestimonialPublic: !!r.client_testimonial_public,
+    engagementStatus: (r.engagement_status ?? null) as EngagementStatus | null,
   }
 }
 
@@ -142,11 +151,20 @@ function outreachToRow(e: OutreachEntry, uid: string) {
     last_opened_at: e.lastOpenedAt ? new Date(e.lastOpenedAt).toISOString() : null,
     auto_followup: !!e.autoFollowup,
     last_auto_followup_at: e.lastAutoFollowupAt ? new Date(e.lastAutoFollowupAt).toISOString() : null,
+    // engagement_status (migration 0030) IS written here so the
+    // pending-confirmation pill's Confirm/Deny actions persist through
+    // the normal outreach save path. NULL is the default for every
+    // legacy row and the JSON serialization is safe even when the
+    // column hasn't been applied yet (Postgres ignores NULLs in the
+    // upsert payload — Supabase will error if the COLUMN is missing
+    // but that's the case migration 0030 explicitly fixes).
+    engagement_status: e.engagementStatus ?? null,
     // NB: client_* fields are NOT written here on purpose. The general
-    // outreach save path should stay migration-tolerant (0028 may not
-    // be applied yet on every env). Active-client edits use a dedicated
-    // updateActiveClientFields() function below that writes only the
-    // client_* columns + handles missing-column errors gracefully.
+    // outreach save path should stay migration-tolerant for those
+    // (0028/0029 may not be applied on every env). Active-client edits
+    // use a dedicated updateActiveClientFields() function below that
+    // writes only the client_* columns + handles missing-column
+    // errors gracefully.
   }
 }
 
@@ -178,6 +196,14 @@ export interface ActiveClientPatch {
   clientContractName?: string | null
   clientContractSize?: number | null
   clientContractUploadedAt?: string | null
+  // 0030 wrap-up
+  clientFinalValue?: number | null
+  clientCompletionDate?: string | null
+  clientRating?: number | null
+  clientRepeatLikelihood?: ClientRepeatLikelihood | null
+  clientTestimonial?: string | null
+  clientTestimonialPublic?: boolean
+  engagementStatus?: EngagementStatus | null
 }
 
 export async function updateActiveClientFields(
@@ -237,6 +263,28 @@ export async function updateActiveClientFields(
   if ('clientContractUploadedAt' in patch) {
     dbUpdate.client_contract_uploaded_at = patch.clientContractUploadedAt || null
   }
+  // 0030 wrap-up fields
+  if ('clientFinalValue' in patch) {
+    dbUpdate.client_final_value = typeof patch.clientFinalValue === 'number' ? patch.clientFinalValue : null
+  }
+  if ('clientCompletionDate' in patch) {
+    dbUpdate.client_completion_date = patch.clientCompletionDate || null
+  }
+  if ('clientRating' in patch) {
+    dbUpdate.client_rating = typeof patch.clientRating === 'number' ? patch.clientRating : null
+  }
+  if ('clientRepeatLikelihood' in patch) {
+    dbUpdate.client_repeat_likelihood = patch.clientRepeatLikelihood ?? null
+  }
+  if ('clientTestimonial' in patch) {
+    dbUpdate.client_testimonial = patch.clientTestimonial || null
+  }
+  if ('clientTestimonialPublic' in patch) {
+    ;(dbUpdate as Record<string, unknown>).client_testimonial_public = !!patch.clientTestimonialPublic
+  }
+  if ('engagementStatus' in patch) {
+    dbUpdate.engagement_status = patch.engagementStatus ?? null
+  }
 
   const { error } = await supabase
     .from('outreach_entries')
@@ -262,6 +310,230 @@ export async function updateActiveClientFields(
     return { ok: false, error: error.message }
   }
   return { ok: true }
+}
+
+// ── Engagement wrap-up (migration 0030) ────────────────────────────
+//
+// One atomic op that does everything when an engagement is marked
+// Completed via the wrap-up modal:
+//
+//   1. Patches the original entry — lifecycle='completed', final
+//      value, completion date, rating, repeat likelihood,
+//      testimonial. Appends a structured snapshot (contract,
+//      testimonial, referrals, deliverables, wrap-up note) to
+//      client_notes so the historical record survives even if the
+//      signed contract URL eventually expires.
+//   2. Appends 1-2 activity events to the engagement's timeline.
+//   3. If repeat=definitely OR repeat=likely → creates a NEW
+//      outreach_entries row for the SAME channel as a follow-on
+//      engagement. 'likely' rows get engagement_status='pending_
+//      confirmation' so the UI prompts the user to confirm/deny.
+
+export interface WrapUpPayload {
+  finalValue: number | null
+  completionDate: string                 // YYYY-MM-DD
+  rating: number                         // 1-5
+  repeatLikelihood: ClientRepeatLikelihood
+  testimonial?: string
+  testimonialPublic?: boolean
+  referrals?: string                     // free text
+  deliverableUrls?: string               // free text, one per line
+  wrapUpNote?: string                    // free text
+}
+
+export interface WrapUpResult {
+  ok: boolean
+  error?: string
+  newEntryId?: string                    // populated when repeat created a follow-on
+}
+
+const REPEAT_FOLLOWUP_DAYS: Record<ClientRepeatLikelihood, number | null> = {
+  definitely: 30,
+  likely:     60,
+  maybe:      120,
+  no:         null,
+}
+
+/**
+ * Format the wrap-up payload + existing engagement context into a
+ * single prepend block for client_notes. Existing notes (if any) are
+ * preserved underneath.
+ */
+function buildWrapUpNotesBlock(payload: WrapUpPayload, entry: {
+  clientContractName?: string | null
+  clientContractUrl?: string | null
+  clientContractUploadedAt?: string | null
+  clientNotes?: string | null
+}): string {
+  const lines: string[] = []
+  const stamp = new Date().toISOString().slice(0, 10)
+  lines.push(`[Wrap-up · ${stamp}]`)
+  // Contract snapshot — what was attached at close, surviving the
+  // 7-day signed-URL expiry on the storage object.
+  if (entry.clientContractName) {
+    const dt = entry.clientContractUploadedAt
+      ? new Date(entry.clientContractUploadedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+      : '?'
+    lines.push(`Contract on file: ${entry.clientContractName} (uploaded ${dt})`)
+  }
+  if (entry.clientContractUrl) {
+    lines.push(`External contract link: ${entry.clientContractUrl}`)
+  }
+  if (payload.testimonial?.trim()) {
+    const publicTag = payload.testimonialPublic ? ' [OK to use publicly]' : ' [private — internal only]'
+    lines.push(`Testimonial${publicTag}: ${payload.testimonial.trim()}`)
+  }
+  if (payload.referrals?.trim()) {
+    lines.push(`Referrals: ${payload.referrals.trim()}`)
+  }
+  if (payload.deliverableUrls?.trim()) {
+    lines.push(`Deliverables:`)
+    for (const url of payload.deliverableUrls.split('\n').map(s => s.trim()).filter(Boolean)) {
+      lines.push(`  · ${url}`)
+    }
+  }
+  if (payload.wrapUpNote?.trim()) {
+    lines.push(`Wrap-up note: ${payload.wrapUpNote.trim()}`)
+  }
+  const block = lines.join('\n')
+  const existing = (entry.clientNotes || '').trim()
+  return existing ? `${block}\n\n— Previous notes —\n${existing}` : block
+}
+
+/**
+ * Atomic wrap-up. Returns the original entry id + (optionally) the
+ * newly-created follow-on row id.
+ */
+export async function wrapUpEngagement(
+  entry: OutreachEntry,
+  payload: WrapUpPayload,
+): Promise<WrapUpResult> {
+  const uid = await userId()
+  if (!uid) return { ok: false, error: 'Not signed in.' }
+  const supabase = createClient()
+
+  // 1) Build the activity event(s) we'll append to the engagement's
+  //    timeline. Single combined event keeps the timeline readable.
+  const ratingDisplay = '★'.repeat(payload.rating) + '☆'.repeat(5 - payload.rating)
+  const valueDisplay = payload.finalValue != null
+    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: entry.clientBudgetCurrency || 'USD', maximumFractionDigits: 0 }).format(payload.finalValue)
+    : '—'
+  const summary = `Engagement completed: ${valueDisplay} · ${ratingDisplay} · repeat ${payload.repeatLikelihood}`
+  const newActivity = [
+    ...(entry.clientActivity || []),
+    { ts: Date.now(), type: 'lifecycle' as const, summary: 'Marked completed' },
+    { ts: Date.now() + 1, type: 'lifecycle' as const, summary },
+  ]
+
+  // 2) Build the patch.
+  const composedNotes = buildWrapUpNotesBlock(payload, entry)
+  const patch: ActiveClientPatch = {
+    clientLifecycle: 'completed',
+    clientFinalValue: payload.finalValue,
+    clientCompletionDate: payload.completionDate,
+    clientRating: payload.rating,
+    clientRepeatLikelihood: payload.repeatLikelihood,
+    clientTestimonial: payload.testimonial?.trim() || null,
+    clientTestimonialPublic: !!payload.testimonialPublic,
+    clientNotes: composedNotes,
+    clientActivity: newActivity,
+  }
+
+  // 3) Apply the patch on the original entry.
+  const patchResult = await updateActiveClientFields(entry.id, patch)
+  if (!patchResult.ok) return patchResult
+
+  // 4) For repeat=definitely / likely, create a follow-on entry on
+  //    the SAME channel. Skip for maybe / no — the user can manually
+  //    re-engage later via the normal outreach flow.
+  let newEntryId: string | undefined
+  if (payload.repeatLikelihood === 'definitely' || payload.repeatLikelihood === 'likely') {
+    newEntryId = await createFollowOnEngagement(entry, payload)
+  }
+
+  return { ok: true, newEntryId }
+}
+
+/**
+ * Insert a new outreach_entries row for a repeat engagement. The new
+ * row carries the same channel info (channelId, channelName, etc.)
+ * but resets the engagement-specific state. For Likely repeats we
+ * set engagement_status='pending_confirmation' so the UI renders a
+ * confirm/deny pill.
+ */
+async function createFollowOnEngagement(
+  original: OutreachEntry,
+  payload: WrapUpPayload,
+): Promise<string | undefined> {
+  const uid = await userId()
+  if (!uid) return undefined
+  const supabase = createClient()
+
+  // Follow-up date = today + N days based on likelihood. For 'no'
+  // we wouldn't get here, but be defensive about NULL.
+  const days = REPEAT_FOLLOWUP_DAYS[payload.repeatLikelihood] ?? 30
+  const followUpDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const newId = `${original.channelId}-${Date.now()}`
+
+  // Compose notes for the follow-on so the user knows where it came
+  // from. Includes a back-pointer to the prior engagement id.
+  const valueDisplay = payload.finalValue != null
+    ? `$${payload.finalValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    : 'unknown value'
+  const ratingDisplay = '★'.repeat(payload.rating) + '☆'.repeat(5 - payload.rating)
+  const notes =
+    `Repeat engagement following completed deal (${valueDisplay} · ${ratingDisplay}). ` +
+    `Original engagement id: ${original.id}. ` +
+    `Auto-created via wrap-up flow on ${new Date().toISOString().slice(0, 10)}.`
+
+  const row = {
+    id: newId,
+    user_id: uid,
+    channel_id: original.channelId,
+    channel_name: original.channelName,
+    channel_url: original.channelUrl,
+    description: original.description ?? '',
+    email: original.email ?? '',
+    product: original.product ?? '',
+    favorite: false,
+    reached_out: false,
+    medium: '',
+    medium_other: '',
+    header_used: '',
+    status: 'Not Outreached',
+    notes,
+    follow_up_date: followUpDate,
+    date_reached_out: '',
+    touchpoints: '',
+    response_date: '',
+    subscribers: original.subscribers ?? '',
+    avg_views: original.avgViews ?? 0,
+    fit_score: original.fitScore ?? 0,
+    linkedin: original.linkedin ?? '',
+    instagram: original.instagram ?? '',
+    twitter: original.twitter ?? '',
+    tiktok: original.tiktok ?? '',
+    website: original.website ?? '',
+    content_niche: original.contentNiche ?? '',
+    phone: original.phone ?? '',
+    deal_value: '',
+    contract_sent: false,
+    meeting_scheduled: '',
+    added_at: Date.now(),
+    tracking_id: Math.random().toString(36).slice(2, 10),
+    // The new sub-state — Likely repeats render a confirm pill,
+    // Definitely repeats just enter the normal pipeline.
+    engagement_status: payload.repeatLikelihood === 'likely' ? 'pending_confirmation' : null,
+  }
+
+  const { error } = await supabase
+    .from('outreach_entries')
+    .insert(row)
+  if (error) {
+    console.error('[wrapUpEngagement] follow-on insert failed:', error.message)
+    return undefined
+  }
+  return newId
 }
 
 // ── Contract file upload (Supabase Storage) ────────────────────────
