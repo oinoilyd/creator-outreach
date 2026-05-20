@@ -26,6 +26,8 @@ import { OutreachAnalytics } from '@/components/outreach/OutreachAnalytics'
 import { OutreachTab } from '@/components/outreach/OutreachTab'
 import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
 import { ActiveClients } from '@/components/active-clients/ActiveClients'
+import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
+import { useKeyboardShortcuts, type ShortcutBinding } from '@/lib/hooks/useKeyboardShortcuts'
 import { motion } from 'motion/react'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
@@ -426,6 +428,34 @@ export default function Home() {
   // Without this, the popover only closed by clicking the gear icon
   // again — clicking anywhere else left it stuck open.
   const exportMenuRef = useRef<HTMLDivElement>(null)
+  // ── Keyboard shortcuts ─────────────────────────────────────────────
+  // `/` focuses this ref; `?` toggles the cheat-sheet modal. The hook
+  // suppresses itself when the user is typing in an input/textarea so
+  // the keys still produce literal characters in notes / scope /
+  // template fields.
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false)
+  const shortcutBindings: ShortcutBinding[] = useMemo(() => [
+    {
+      key: '/',
+      handler: e => {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+      },
+      label: 'Focus search',
+    },
+    {
+      key: '?',
+      shift: true,
+      handler: e => {
+        e.preventDefault()
+        setShowShortcutsModal(v => !v)
+      },
+      label: 'Toggle shortcut cheat sheet',
+    },
+  ], [])
+  useKeyboardShortcuts(shortcutBindings, true)
   useEffect(() => {
     if (!showExport) return
     function onMouseDown(ev: MouseEvent) {
@@ -2274,6 +2304,7 @@ export default function Home() {
                 </svg>
               </div>
               <input
+                ref={searchInputRef}
                 aria-label={
                   activeTab === 'outreach'
                     ? 'Filter outreach by name, email, notes, or niche'
@@ -3367,6 +3398,12 @@ export default function Home() {
           }}
         />
       )}
+
+      {/* Keyboard-shortcut cheat sheet — opened by `?` (Shift+/) */}
+      <KeyboardShortcutsModal
+        open={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
+      />
 
       {threadModal && (
         <ThreadModal
