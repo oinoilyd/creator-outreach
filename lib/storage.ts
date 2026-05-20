@@ -244,10 +244,19 @@ export async function updateActiveClientFields(
     .eq('id', entryId)
     .eq('user_id', uid)
   if (error) {
-    if (error.code === '42703' || /column .* does not exist/i.test(error.message)) {
+    // Schema-error detection — three known variants depending on
+    // whether the column doesn't exist at all OR Supabase's PostgREST
+    // schema cache is stale because migration just ran. Both surface
+    // to the user as "the migration hasn't been applied yet."
+    const isSchemaError =
+      error.code === '42703'
+      || /column .* does not exist/i.test(error.message)
+      || /could not find the .* column/i.test(error.message)
+      || /schema cache/i.test(error.message)
+    if (isSchemaError) {
       return {
         ok: false,
-        error: 'Active-client columns not yet available. Run migrations 0028 + 0029 in Supabase.',
+        error: 'SCHEMA_MISSING',
       }
     }
     return { ok: false, error: error.message }
@@ -292,7 +301,13 @@ export interface UploadContractResult {
  * a 7-day signed URL for viewing. Does NOT update the outreach row —
  * the caller patches client_contract_* fields separately so the
  * activity log can capture the change in one round-trip.
+ *
+ * 30s hard timeout so the UI can never hang in "Uploading…" forever.
+ * Triggered when the bucket doesn't exist, the network blips, or the
+ * file is so large Supabase decides to chunk it slowly.
  */
+const UPLOAD_TIMEOUT_MS = 30_000
+
 export async function uploadContractFile(
   entryId: string,
   file: File,
@@ -305,16 +320,48 @@ export async function uploadContractFile(
   const ts = Date.now()
   const path = `${uid}/${entryId}/${ts}-${safeName}`
 
-  const { error: upErr } = await supabase.storage
+  // Race the upload against a timeout. If the timeout wins we surface
+  // a clean error instead of leaving the UI stuck on "Uploading…".
+  const uploadPromise = supabase.storage
     .from(CONTRACTS_BUCKET)
     .upload(path, file, {
       cacheControl: '3600',
       upsert: false,
       contentType: file.type || undefined,
     })
+  let upErr: { message: string } | null = null
+  try {
+    const result = await Promise.race([
+      uploadPromise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('upload-timeout')), UPLOAD_TIMEOUT_MS),
+      ),
+    ])
+    upErr = result.error
+  } catch (e) {
+    const msg = (e as Error).message || String(e)
+    if (msg === 'upload-timeout') {
+      return {
+        ok: false,
+        error: 'Upload timed out after 30s. The contracts bucket may not exist yet — run migration 0029 in Supabase, then retry.',
+      }
+    }
+    return { ok: false, error: msg }
+  }
   if (upErr) {
-    if (/bucket .* not found/i.test(upErr.message) || /not exist/i.test(upErr.message)) {
-      return { ok: false, error: 'Contracts bucket not yet available. Run migration 0029 in Supabase.' }
+    // Schema/bucket-missing detection — multiple variants depending on
+    // which Supabase layer reports it (storage API vs PostgREST).
+    const m = upErr.message || ''
+    if (
+      /bucket .* not found/i.test(m)
+      || /not exist/i.test(m)
+      || /no such bucket/i.test(m)
+      || /could not find .* bucket/i.test(m)
+    ) {
+      return {
+        ok: false,
+        error: 'Contracts bucket not yet available. Run migration 0029 in Supabase, then retry.',
+      }
     }
     return { ok: false, error: upErr.message }
   }

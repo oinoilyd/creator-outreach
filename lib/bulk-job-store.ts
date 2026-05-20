@@ -41,6 +41,12 @@ export type EnrichJobConfig = {
   mode: 'no-email' | 'stale' | 'bounced' | 'all'
   batchSize: number
   concurrency: number
+  /** Optional user-supplied cap on how many channels to enrich in
+   *  this run. NULL/undefined = enrich everything matching the mode.
+   *  Set by the "Limit" dropdown on the enrich page so the operator
+   *  can do 100/200/500 at a time instead of all 3000+. The tick
+   *  handler treats this as the effective total when set. */
+  limit?: number | null
 }
 
 export type BulkJob = {

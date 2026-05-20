@@ -51,6 +51,8 @@ export type EnrichConfig = {
   mode: 'no-email' | 'stale' | 'bounced' | 'all'
   batchSize: number
   concurrency: number
+  /** Optional user cap — enrich at most this many channels. */
+  limit?: number | null
 }
 
 export type ActiveJob = {

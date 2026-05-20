@@ -148,6 +148,16 @@ export function ActiveClientDetailModal({
 
   function setLifecycle(next: ClientLifecycle) {
     if (next === lifecycle) return
+    // Confirm-on-destructive: Churned is irreversible-feeling enough
+    // that an accidental click could mess up the user's pipeline
+    // accounting. The undo path (set back to Active) is one click but
+    // the activity log would still record the spurious flip-flop.
+    if (next === 'churned') {
+      const ok = window.confirm(
+        `Mark ${entry.channelName || 'this engagement'} as Churned?\n\nThe lifecycle change is logged in the activity timeline. You can switch it back to Active any time, but the timeline entry will remain.`,
+      )
+      if (!ok) return
+    }
     onPatch(
       { clientLifecycle: next },
       { ts: Date.now(), type: 'lifecycle', summary: `Marked ${labelForLifecycle(next).toLowerCase()}` },
@@ -342,40 +352,51 @@ export function ActiveClientDetailModal({
           </div>
         </div>
 
-        {/* Lifecycle action bar */}
-        <div className="px-5 py-4 border-t border-border bg-muted/30">
-          <div className="text-[10.5px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">
-            Set lifecycle
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <LifecycleAction
-              icon={<Play className="w-3.5 h-3.5" />}
-              label="Active"
-              accent="green"
-              isActive={lifecycle === 'active'}
-              onClick={() => setLifecycle('active')}
-            />
-            <LifecycleAction
-              icon={<Pause className="w-3.5 h-3.5" />}
-              label="Paused"
-              accent="amber"
-              isActive={lifecycle === 'paused'}
-              onClick={() => setLifecycle('paused')}
-            />
-            <LifecycleAction
-              icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-              label="Completed"
-              accent="blue"
-              isActive={lifecycle === 'completed'}
-              onClick={() => setLifecycle('completed')}
-            />
-            <LifecycleAction
-              icon={<XCircle className="w-3.5 h-3.5" />}
-              label="Churned"
-              accent="rose"
-              isActive={lifecycle === 'churned'}
-              onClick={() => setLifecycle('churned')}
-            />
+        {/* Lifecycle action bar — anchored at the bottom of the modal
+            and styled as a real footer-bar so it doesn't get lost.
+            Active state is a FILLED button (vs subtle tint) so the
+            current lifecycle reads unambiguously even at a glance. */}
+        <div className="px-5 py-4 border-t border-border bg-muted/40">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-[10.5px] uppercase tracking-wider font-semibold text-muted-foreground">
+                Set lifecycle
+              </div>
+              <div className="text-[11px] text-muted-foreground/75 mt-0.5">
+                Currently:{' '}
+                <span className="font-semibold text-foreground">{labelForLifecycle(lifecycle)}</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <LifecycleAction
+                icon={<Play className="w-3.5 h-3.5" />}
+                label="Active"
+                accent="green"
+                isActive={lifecycle === 'active'}
+                onClick={() => setLifecycle('active')}
+              />
+              <LifecycleAction
+                icon={<Pause className="w-3.5 h-3.5" />}
+                label="Paused"
+                accent="amber"
+                isActive={lifecycle === 'paused'}
+                onClick={() => setLifecycle('paused')}
+              />
+              <LifecycleAction
+                icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                label="Completed"
+                accent="blue"
+                isActive={lifecycle === 'completed'}
+                onClick={() => setLifecycle('completed')}
+              />
+              <LifecycleAction
+                icon={<XCircle className="w-3.5 h-3.5" />}
+                label="Churned"
+                accent="rose"
+                isActive={lifecycle === 'churned'}
+                onClick={() => setLifecycle('churned')}
+              />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -416,21 +437,31 @@ function LifecycleAction({
   isActive: boolean
   onClick: () => void
 }) {
-  const activeStyles: Record<'green' | 'amber' | 'blue' | 'rose', string> = {
-    green: 'bg-green-500/15 border-green-500/40 text-green-700 dark:text-green-300',
-    amber: 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300',
-    blue:  'bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-300',
-    rose:  'bg-rose-500/15 border-rose-500/40 text-rose-700 dark:text-rose-300',
+  // Filled in active state so the current lifecycle is unambiguous —
+  // a glance at the bar tells you which slot you're in without
+  // having to compare tint intensities.
+  const activeFilled: Record<'green' | 'amber' | 'blue' | 'rose', string> = {
+    green: 'bg-green-500 hover:bg-green-500 border-green-500 text-white shadow-sm shadow-green-500/30',
+    amber: 'bg-amber-500 hover:bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-500/30',
+    blue:  'bg-blue-500  hover:bg-blue-500  border-blue-500  text-white shadow-sm shadow-blue-500/30',
+    rose:  'bg-rose-500  hover:bg-rose-500  border-rose-500  text-white shadow-sm shadow-rose-500/30',
+  }
+  // Idle state — accent-tinted hover so each button still hints at
+  // its color before the user commits.
+  const idleStyles: Record<'green' | 'amber' | 'blue' | 'rose', string> = {
+    green: 'bg-background border-border text-muted-foreground hover:text-green-700 dark:hover:text-green-300 hover:border-green-500/40 hover:bg-green-500/5',
+    amber: 'bg-background border-border text-muted-foreground hover:text-amber-700 dark:hover:text-amber-300 hover:border-amber-500/40 hover:bg-amber-500/5',
+    blue:  'bg-background border-border text-muted-foreground hover:text-blue-700  dark:hover:text-blue-300  hover:border-blue-500/40  hover:bg-blue-500/5',
+    rose:  'bg-background border-border text-muted-foreground hover:text-rose-700  dark:hover:text-rose-300  hover:border-rose-500/40  hover:bg-rose-500/5',
   }
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={isActive}
       className={[
-        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12.5px] font-medium transition-colors',
-        isActive
-          ? activeStyles[accent]
-          : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted/60',
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12.5px] font-semibold transition-colors',
+        isActive ? activeFilled[accent] : idleStyles[accent],
       ].join(' ')}
     >
       {icon}

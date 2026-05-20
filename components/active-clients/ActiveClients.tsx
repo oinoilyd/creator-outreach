@@ -97,6 +97,12 @@ export function ActiveClients({ entries, onPatch }: ActiveClientsProps) {
   const [saving, setSaving] = useState<Set<string>>(new Set())
   const [saveError, setSaveError] = useState<{ id: string; message: string } | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // When ANY patch returns the SCHEMA_MISSING sentinel we surface a
+  // sticky banner above the whole view. The schema cache is global
+  // (one Supabase project = one cache) so once we detect the issue
+  // it applies to every save — no point flashing the inline error
+  // and pretending it's a one-off.
+  const [schemaMissing, setSchemaMissing] = useState(false)
 
   const selectedEntry = useMemo(
     () => (selectedId ? successful.find(e => e.id === selectedId) ?? null : null),
@@ -131,7 +137,19 @@ export function ActiveClients({ entries, onPatch }: ActiveClientsProps) {
       return next
     })
     if (!result.ok) {
-      setSaveError({ id, message: result.error ?? 'Save failed.' })
+      // Sentinel from lib/storage.ts when Postgres / PostgREST reports
+      // a missing column or stale schema cache → migration 0029 needs
+      // to be run. Latch it so the banner stays visible until the
+      // user refreshes after running the migration.
+      if (result.error === 'SCHEMA_MISSING') {
+        setSchemaMissing(true)
+        setSaveError({
+          id,
+          message: 'Migration 0029 needs to run in Supabase before active-client edits can save.',
+        })
+      } else {
+        setSaveError({ id, message: result.error ?? 'Save failed.' })
+      }
       return
     }
     onPatch(id, mergedPatch)
@@ -154,6 +172,50 @@ export function ActiveClients({ entries, onPatch }: ActiveClientsProps) {
 
   return (
     <div>
+      {/* Migration banner — only shows when a save reports the schema
+          isn't ready. Sticky until refresh because the schema cache is
+          a global Supabase setting; clearing locally without a refresh
+          would mask the issue. */}
+      {schemaMissing && (
+        <div className="mb-5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+          <div className="shrink-0 w-5 h-5 rounded-full bg-amber-500/30 text-amber-700 dark:text-amber-300 inline-flex items-center justify-center font-bold text-[12px]" aria-hidden>
+            !
+          </div>
+          <div className="flex-1 min-w-0 text-[13px] leading-snug">
+            <div className="font-semibold text-foreground mb-0.5">
+              Migration 0029 needs to run in Supabase
+            </div>
+            <p className="text-foreground/80">
+              The new lifecycle, milestones, activity log, and contract-upload
+              features all depend on schema added in <code className="text-[12px] font-mono">0029_active_clients_expansion.sql</code>. Until
+              it&apos;s applied, edits in this view return a schema-cache error.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <a
+                href="https://supabase.com/dashboard/project/qsvsiypwecngqrzgvnxv/sql/new"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-amber-700 dark:text-amber-300 hover:underline underline-offset-2"
+              >
+                Open Supabase SQL editor <span aria-hidden>↗</span>
+              </a>
+              <span className="text-[11.5px] text-muted-foreground">
+                Paste the file from <code className="font-mono">supabase/migrations/0029_active_clients_expansion.sql</code>, run, then refresh this page.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSchemaMissing(false)}
+            className="shrink-0 w-7 h-7 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+            aria-label="Dismiss banner"
+            title="Hide until next failed save"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Metric row */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
         <MetricCard

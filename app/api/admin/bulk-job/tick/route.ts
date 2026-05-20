@@ -320,6 +320,13 @@ async function processEnrichTick(
   let processedThisCall = 0
   let totalMatching: number | undefined
   let channelIdsRemainingLen = -1
+
+  // Respect the user-supplied limit (100/200/500/etc.) — when the
+  // operator picks "Enrich 200 at a time" we cap the effective total
+  // so the progress bar reads against that smaller denominator and
+  // the loop exits once we hit it.
+  const limit = typeof config.limit === 'number' && config.limit > 0 ? config.limit : null
+
   try {
     const res = await fetch(`${baseUrl}/api/admin/bulk-enrich`, {
       method: 'POST',
@@ -350,14 +357,22 @@ async function processEnrichTick(
   }
 
   const nextOffset = offset + config.batchSize
+  // Effective total = min(user limit, total matching channels). When
+  // no limit is set we use the raw totalMatching.
+  const effectiveTotal = limit != null && totalMatching != null
+    ? Math.min(limit, totalMatching)
+    : totalMatching
+  const nextDone = job.done + processedThisCall
+
   let hasMore = true
-  if (totalMatching != null && nextOffset >= totalMatching) hasMore = false
+  if (effectiveTotal != null && nextOffset >= effectiveTotal) hasMore = false
+  if (effectiveTotal != null && nextDone >= effectiveTotal) hasMore = false
   if (channelIdsRemainingLen === 0 && processedThisCall === 0) hasMore = false
 
   return {
     hasMore,
     deltaDone: processedThisCall,
-    deltaTotal: totalMatching,
+    deltaTotal: effectiveTotal,
     nextCursor: nextOffset,
     errors,
   }

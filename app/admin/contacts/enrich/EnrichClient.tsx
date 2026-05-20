@@ -31,11 +31,16 @@ export function EnrichClient() {
   const { activeJob, startEnrichJob, cancelActiveJob } = useBulkJob()
 
   const [mode, setMode] = useState<Mode>('no-email')
-  // Default 4 (down from 8). With per-channel timeout 25s on the
-  // server + concurrency=2, a chunk of 4 channels can complete in
-  // ~50s worst-case, well under Vercel's 60s function timeout.
-  const [batchSize, setBatchSize] = useState<number>(4)
-  const [concurrency, setConcurrency] = useState<number>(2)
+  // Bumped 2026-05-20: batchSize 4→10, concurrency 2→4. Last
+  // measured tick chunk runtime stayed under ~50s with these
+  // values — within Vercel's 60s function timeout, ~2.5x throughput
+  // vs the prior defaults. Per Dylan after 3500-channel job only
+  // got through 350 overnight.
+  const [batchSize, setBatchSize] = useState<number>(10)
+  const [concurrency, setConcurrency] = useState<number>(4)
+  // Limit dropdown — lets the operator carve a 3000-channel queue
+  // into manageable chunks. 0 = no cap (enrich everything matching).
+  const [limit, setLimit] = useState<number>(0)
   const [matchingCount, setMatchingCount] = useState<number | null>(null)
   const [previewLoading, setPreviewLoading] = useState<boolean>(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -87,17 +92,23 @@ export function EnrichClient() {
       setSubmitError('A bulk enrich job is already in progress.')
       return
     }
+    // Effective channels to process this run = min(user limit, matching).
+    // limit === 0 means "no cap" → process everything matching.
+    const effective = limit > 0 ? Math.min(limit, matchingCount) : matchingCount
     if (
       !confirm(
-        `Enrich ${matchingCount} channels in mode "${MODE_LABEL[mode]}"?\n\n` +
+        `Enrich ${effective.toLocaleString()} channels in mode "${MODE_LABEL[mode]}"?\n\n` +
         `Runs in the background on the server — keeps going even if you close this tab.\n\n` +
-        `This calls the live email pipeline (~10s per channel) and writes results to the cache.`,
+        `This calls the live email pipeline (~10s per channel) and writes results to the cache.` +
+        (limit > 0 ? `\n\nLimit set to ${limit} — leftover channels (${(matchingCount - effective).toLocaleString()}) will be queued for a future run.` : ''),
       )
     )
       return
-    const label = `${MODE_LABEL[mode]} · ~${matchingCount.toLocaleString()} channels`
+    const label = limit > 0
+      ? `${MODE_LABEL[mode]} · ${effective.toLocaleString()} of ${matchingCount.toLocaleString()} channels`
+      : `${MODE_LABEL[mode]} · ~${matchingCount.toLocaleString()} channels`
     const id = await startEnrichJob(
-      { mode, batchSize, concurrency },
+      { mode, batchSize, concurrency, limit: limit > 0 ? limit : null },
       label,
     )
     if (!id) {
@@ -169,7 +180,7 @@ export function EnrichClient() {
         <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-3">
           Run options
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <label className="block">
             <div className="text-sm font-semibold text-foreground mb-1.5">Batch size</div>
             <input
@@ -177,7 +188,7 @@ export function EnrichClient() {
               min={1}
               max={50}
               value={batchSize}
-              onChange={e => setBatchSize(parseInt(e.target.value, 10) || 8)}
+              onChange={e => setBatchSize(parseInt(e.target.value, 10) || 10)}
               disabled={isRunning}
               className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
             />
@@ -190,11 +201,27 @@ export function EnrichClient() {
               min={1}
               max={4}
               value={concurrency}
-              onChange={e => setConcurrency(parseInt(e.target.value, 10) || 2)}
+              onChange={e => setConcurrency(parseInt(e.target.value, 10) || 4)}
               disabled={isRunning}
               className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
             />
             <div className="text-xs text-muted-foreground/80 mt-1">Parallel /api/enrich workers per call (1–4)</div>
+          </label>
+          <label className="block">
+            <div className="text-sm font-semibold text-foreground mb-1.5">Limit this run</div>
+            <select
+              value={limit}
+              onChange={e => setLimit(parseInt(e.target.value, 10) || 0)}
+              disabled={isRunning}
+              className="w-full px-3 py-2 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:border-border"
+            >
+              <option value={0}>All matching</option>
+              <option value={100}>100 channels</option>
+              <option value={200}>200 channels</option>
+              <option value={500}>500 channels</option>
+              <option value={1000}>1,000 channels</option>
+            </select>
+            <div className="text-xs text-muted-foreground/80 mt-1">Cap how many channels this single run processes. Leftover channels stay queued for the next run.</div>
           </label>
         </div>
       </section>
@@ -216,10 +243,18 @@ export function EnrichClient() {
               </div>
             ) : (
               <div className="text-lg font-semibold text-foreground">
-                <span className="text-orange-400 tabular-nums">{matchingCount.toLocaleString()}</span>{' '}
-                <span className="text-muted-foreground text-sm font-normal">channels match · ETA{' '}
-                  <span className="tabular-nums">~{Math.ceil((matchingCount * 10) / 60)} min</span>
-                  {' '}(rough, ~10s per channel)
+                <span className="text-orange-400 tabular-nums">
+                  {(limit > 0 ? Math.min(limit, matchingCount) : matchingCount).toLocaleString()}
+                </span>{' '}
+                <span className="text-muted-foreground text-sm font-normal">
+                  {limit > 0 && limit < matchingCount
+                    ? <>of {matchingCount.toLocaleString()} this run · </>
+                    : <>channels match · </>}
+                  ETA{' '}
+                  <span className="tabular-nums">
+                    ~{Math.ceil(((limit > 0 ? Math.min(limit, matchingCount) : matchingCount) * 10) / 60 / Math.max(1, concurrency))} min
+                  </span>
+                  {' '}(at {concurrency}× concurrency, ~10s per channel)
                 </span>
               </div>
             )}
@@ -233,7 +268,7 @@ export function EnrichClient() {
             {isRunning
               ? `Running · ${enrichJob?.done ?? 0} / ${enrichJob?.total ?? 0}…`
               : matchingCount
-              ? `Enrich ${matchingCount.toLocaleString()} in background`
+              ? `Enrich ${(limit > 0 ? Math.min(limit, matchingCount) : matchingCount).toLocaleString()} in background`
               : 'Enrich'}
           </button>
         </div>
