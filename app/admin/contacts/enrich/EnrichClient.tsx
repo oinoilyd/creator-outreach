@@ -28,7 +28,7 @@ const MODE_DESCRIPTION: Record<Mode, string> = {
  * provider so it survives navigation.
  */
 export function EnrichClient() {
-  const { activeJob, startEnrichJob } = useBulkJob()
+  const { activeJob, startEnrichJob, cancelActiveJob } = useBulkJob()
 
   const [mode, setMode] = useState<Mode>('no-email')
   // Default 4 (down from 8). With per-channel timeout 25s on the
@@ -120,6 +120,17 @@ export function EnrichClient() {
           label={enrichJob.label}
           status={enrichJob.status}
           errors={enrichJob.errors.length}
+          cancelRequested={enrichJob.cancelRequested}
+          onCancel={async () => {
+            // Two-step confirm — the user has been waiting ~hours on
+            // this; an accidental click shouldn't throw it all away.
+            // The cancel only takes effect on the next tick (≤ ~1s),
+            // so partial progress is preserved.
+            if (!confirm(
+              `Stop bulk enrichment? Progress so far (${enrichJob.done.toLocaleString()} / ${enrichJob.total.toLocaleString()}) is saved — you can resume later by running again with the same mode.`,
+            )) return
+            await cancelActiveJob()
+          }}
         />
       )}
       {otherJobRunning && (
@@ -256,6 +267,8 @@ function BackgroundJobBanner({
   label,
   status,
   errors,
+  cancelRequested,
+  onCancel,
 }: {
   done: number
   total: number
@@ -263,6 +276,8 @@ function BackgroundJobBanner({
   label: string
   status: 'running' | 'done' | 'cancelled' | 'failed'
   errors: number
+  cancelRequested: boolean
+  onCancel: () => Promise<void> | void
 }) {
   const pct = total === 0 ? 0 : Math.min(100, (done / total) * 100)
   const accent =
@@ -274,17 +289,31 @@ function BackgroundJobBanner({
       ? 'bg-gray-500'
       : 'bg-red-500'
   const seconds = Math.round(elapsedMs / 100) / 10
+  const cancelling = status === 'running' && cancelRequested
 
   return (
     <section className="rounded-xl border border-border bg-card/40 p-5">
       <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 font-bold mb-2">
-        <span>Background job · {status}</span>
+        <span>Background job · {cancelling ? 'cancelling…' : status}</span>
         <span className="font-mono normal-case tracking-normal text-muted-foreground">
           {done} / {total} · {seconds}s{errors > 0 && ` · ${errors} errors`}
         </span>
       </div>
-      <div className="text-sm text-foreground mb-3 truncate" title={label}>
-        {label}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="text-sm text-foreground truncate flex-1" title={label}>
+          {label}
+        </div>
+        {status === 'running' && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={cancelRequested}
+            className="shrink-0 px-3 py-1.5 rounded-md text-[12px] font-semibold border border-red-500/40 text-red-300 hover:bg-red-500/10 hover:border-red-500/70 disabled:opacity-60 disabled:cursor-wait transition-colors"
+            aria-label="Stop bulk enrichment"
+          >
+            {cancelRequested ? 'Cancelling…' : 'Stop'}
+          </button>
+        )}
       </div>
       <div className="h-2 rounded-full bg-muted overflow-hidden">
         <div
