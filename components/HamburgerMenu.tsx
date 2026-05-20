@@ -598,7 +598,7 @@ export function HamburgerMenu({
               <a href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</a>
               <a href="/refunds" className="text-muted-foreground hover:text-foreground transition-colors">Refunds</a>
               <a href="/security" className="text-muted-foreground hover:text-foreground transition-colors">Security</a>
-              <a href="/subprocessors" className="text-muted-foreground hover:text-foreground transition-colors">Subprocessors</a>
+              <a href="/subprocessors" className="text-muted-foreground hover:text-foreground transition-colors">Subprocessors &amp; DPAs</a>
               <a href="/support" className="text-muted-foreground hover:text-foreground transition-colors">Support</a>
               <a href="/cookies" className="text-muted-foreground hover:text-foreground transition-colors">Cookies</a>
             </div>

@@ -18,13 +18,13 @@ import { LegalLayout } from '@/components/legal/LegalLayout'
  */
 
 export const metadata: Metadata = {
-  title: 'Subprocessors',
+  title: 'Subprocessors & DPAs',
   description:
-    'The third-party services Creator Outreach engages to operate the product, including purpose, data location, and DPA status.',
+    'The third-party services Creator Outreach engages to operate the product, including purpose, data location, DPA status, and downloadable counter-signed Data Processing Agreements.',
   robots: { index: true, follow: true },
 }
 
-const LAST_UPDATED = 'May 11, 2026'
+const LAST_UPDATED = 'May 19, 2026'
 
 /**
  * Counter-signed DPAs available for public download. Same files
@@ -123,7 +123,7 @@ const SUBPROCESSORS: SubprocessorRow[] = [
 
 export default function SubprocessorsPage() {
   return (
-    <LegalLayout title="Subprocessors" lastUpdated={LAST_UPDATED}>
+    <LegalLayout title="Subprocessors & DPAs" lastUpdated={LAST_UPDATED}>
       <p>
         Creator Outreach engages the following third-party services to
         operate the Service. Each is contractually bound to handle your
@@ -135,6 +135,24 @@ export default function SubprocessorsPage() {
         each subprocessor to perform its function and we do not authorize
         them to use your data for their own purposes.
       </p>
+
+      {/* Quick-link banner — surfaces the DPA library at the top so
+          procurement teams + customers searching for a signed agreement
+          don't have to scroll past the table to find it. Anchors to the
+          #dpa-library section below. */}
+      <div className="not-prose my-4 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-[13.5px] text-foreground/85 m-0">
+          <span className="font-semibold text-foreground">Looking for a signed DPA?</span>{' '}
+          We have counter-signed Data Processing Agreements on file for every
+          subprocessor that touches personal data.
+        </p>
+        <a
+          href="#dpa-library"
+          className="shrink-0 inline-flex items-center gap-1 text-[13px] font-semibold text-blue-600 dark:text-blue-400 hover:underline underline-offset-2"
+        >
+          Jump to DPA library <span aria-hidden>↓</span>
+        </a>
+      </div>
 
       {/* Subprocessor table — uses the same `text-foreground/85` body
           tint as the surrounding LegalLayout typography so it blends
@@ -183,20 +201,24 @@ export default function SubprocessorsPage() {
         </table>
       </div>
 
-      {/* DPA Library — collapsed by default so the page stays focused
-          on the sub-processor table. Procurement teams + customers who
-          need actual signed DPAs expand the section + download the
-          PDFs. Mirrors the SIGNED_AGREEMENTS list on /admin/legal but
+      {/* DPA Library — open by default (2026-05-19) so procurement teams
+          + customers see the signed PDFs without an extra click. The
+          collapse affordance is preserved in case the table grows.
+          Mirrors the SIGNED_AGREEMENTS list on /admin/legal but
           surfaces only sub-processor DPAs (no internal P&Ps, no
           partner agreements) — uses HTML <details> for zero-JS toggle. */}
-      <h2>Signed DPAs (for download)</h2>
+      <h2 id="dpa-library">DPA library &mdash; signed Data Processing Agreements</h2>
       <p className="text-foreground/80">
-        Every subprocessor above has a counter-signed Data Processing Agreement on file.
-        Expand the panel to download the current PDF for any of them.
+        Each subprocessor above that handles personal data has a counter-signed
+        Data Processing Agreement on file. Download the current PDF below.
+        Resend and Upstash DPAs are available on request &mdash; email{' '}
+        <a href="mailto:dmeehanj@gmail.com" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
+          dmeehanj@gmail.com
+        </a>.
       </p>
-      <details className="not-prose rounded-lg border border-border/60 bg-card/40 overflow-hidden">
+      <details open className="not-prose rounded-lg border border-border/60 bg-card/40 overflow-hidden">
         <summary className="cursor-pointer select-none px-4 py-3 font-semibold text-foreground hover:bg-muted/40 transition-colors flex items-center justify-between gap-3">
-          <span>View signed DPAs ({PUBLIC_DPAS.length})</span>
+          <span>Signed DPAs &mdash; {PUBLIC_DPAS.length} on file</span>
           <span aria-hidden className="text-xs text-muted-foreground transition-transform">▾</span>
         </summary>
         <div className="border-t border-border/60 overflow-x-auto">

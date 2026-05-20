@@ -32,7 +32,7 @@ export function Footer() {
             Security
           </Link>
           <Link href="/subprocessors" className="hover:text-foreground transition-colors">
-            Subprocessors
+            Subprocessors &amp; DPAs
           </Link>
           <Link href="/support" className="hover:text-foreground transition-colors">
             Support
