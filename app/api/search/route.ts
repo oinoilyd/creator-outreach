@@ -1528,6 +1528,7 @@ function streamingCachedResponse(channels: StreamChannel[], expandedQueries: str
  */
 function streamingSearchResponse(opts: StreamingOpts): Response {
   const { queries, terms, gl, maxResults, minViews, maxViews, keyword, keywordsList, cacheKey } = opts
+  void gl  // reserved — region filter applied at end-of-stream pass
 
   // parseSubs is duplicated here so the streaming branch is self-
   // contained — the original lives inside the main handler closure
@@ -1543,6 +1544,21 @@ function streamingSearchResponse(opts: StreamingOpts): Response {
     if (t.includes('k')) return Math.round(n * 1_000)
     return Math.round(n)
   }
+
+  // Per-chunk quality filters — mirror the JSON path's strictest tier
+  // so streamed results match the canonical quality bar where possible.
+  // The full progressive tier walk + region filtering still happens
+  // server-side for the cache write, but those need the FULL candidate
+  // set to know when to relax — they can't run mid-stream.
+  const MEDIA_BRANDS_UNIQUE = /\b(?:CNN|MSNBC|BBC|NPR|PBS|HBO|ESPN|Reuters|Bloomberg|Forbes|Newsweek|Al Jazeera|Telemundo|Univision|Sky News|Vice News|WSJ|NYT)\b/i
+  const MEDIA_BRANDS_WITH_NEWS = /\b(?:ABC|NBC|CBS|FOX|MSNBC|Yahoo|Vox)\s+News\b/i
+  const MEDIA_AFFILIATE = /\b(?:ABC|CBS|NBC|FOX|KCBS|WCBS|KNBC|WNBC|KABC|WABC|KTLA|KCAL|KTVU|WPLG|WSVN|KING|KOMO)[0-9]+\b/i
+  const MEDIA_GENERIC = /\b(?:News|Newsroom|Headlines|Eyewitness|Tribune|Chronicle|Gazette|Herald|Affiliate)\b/i
+  const isMedia = (name: string): boolean =>
+    MEDIA_BRANDS_UNIQUE.test(name)
+    || MEDIA_BRANDS_WITH_NEWS.test(name)
+    || MEDIA_AFFILIATE.test(name)
+    || MEDIA_GENERIC.test(name)
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -1616,20 +1632,32 @@ function streamingSearchResponse(opts: StreamingOpts): Response {
             if (avgViews < minViews || avgViews > maxViews) continue
 
             const channelName = data.name || 'Unknown'
+            // Media blocklist — drop news/broadcaster channels at the
+            // chunk level. Matches the JSON path's topical-focus tier.
+            if (isMedia(channelName)) continue
+
             const nameScore = scoreBio(channelName.toLowerCase(), terms)
-            const titleScore = data.titles.length
-              ? scoreBio(data.titles.join(' ').toLowerCase(), terms)
-              : 0
-            const relevanceScore = nameScore * 4 + titleScore
+            // Per-title scoring so we can count HOW MANY recent titles
+            // match — drives the topical-focus rule below. A 3-of-3
+            // match signals a dedicated niche channel; a 1-of-3 match
+            // suggests a generalist who happened to mention the keyword.
+            const titleScores = data.titles.length
+              ? data.titles.map(t => scoreBio(t.toLowerCase(), terms))
+              : []
+            const titleScore = titleScores.reduce((s, n) => s + n, 0)
+            const matchingTitleCount = titleScores.filter(s => s > 0).length
+            const relevanceScore = nameScore * 4 + titleScore + matchingTitleCount * 2
             const subsCount = parseSubs(data.subscribers)
 
-            // Apply the strictest tier upfront (subs > 1M + relevance=0
-            // gets dropped). Mirrors the strict-tier behavior of the
-            // JSON path's first tier. The relaxed tiers in the JSON
-            // path only kick in if total candidates < 30 — we can't
-            // know that mid-stream without buffering everything, so
-            // we stay strict in chunks and let the user see the wider
-            // set as more batches arrive.
+            // Topical-focus rule per chunk — mirrors the JSON path's
+            // strictest tier. Channel must keyword-match its name OR
+            // have 2+ recent videos matching the topic. Generalists
+            // with one accidental keyword hit get dropped here. Adjacent-
+            // niche channels still pass via multi-title match against
+            // the AI-expanded keyword set.
+            if (nameScore === 0 && matchingTitleCount < 2) continue
+            // Belt + suspenders: also drop relevance=0 huge channels
+            // (e.g. mega-corps with one tangential video).
             if (relevanceScore === 0 && subsCount > 1_000_000) continue
 
             const channel: StreamChannel = {

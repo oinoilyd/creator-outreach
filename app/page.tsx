@@ -28,6 +28,7 @@ import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
 import { ActiveClients } from '@/components/active-clients/ActiveClients'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
 import { useKeyboardShortcuts, type ShortcutBinding } from '@/lib/hooks/useKeyboardShortcuts'
+import { consumeSse } from '@/lib/sse-client'
 import { motion } from 'motion/react'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
@@ -2022,21 +2023,79 @@ export default function Home() {
         }
       }
 
-      // Fetch search results from each region in parallel. Each
-      // /api/search response is the canonical processed result set:
-      // server-side region filtering, progressive subs-tier
-      // relaxation, fallback-queries-when-thin, and global relevance
-      // sort all already applied. We just merge by channelId and
-      // hand the unified list to the enrichment pools below.
+      // Stream search results from each region via SSE so rows pop
+      // in as YouTube-search batches resolve (~5-8s to first chunk
+      // vs ~25-30s to wait for everything). Per-chunk quality filters
+      // applied server-side: media blocklist + topical-focus rule
+      // (nameScore > 0 OR matchingTitleCount >= 2) so streamed
+      // results match the canonical quality bar. Re-enabled
+      // 2026-05-21 after Dylan reported 90s waits with the
+      // bulk-JSON path.
       setStatus('Searching YouTube…')
-      let allResponses: Array<{ channels?: Creator[]; error?: string }>
+
+      // Handle-hint narrowing for URL/username searches that fell
+      // through to broad mode. We need the input classification
+      // BEFORE the stream starts so chunks can be filtered as they
+      // arrive (otherwise we'd be appending rows we'll then narrow
+      // out, causing visual churn).
+      const inputCls = classifySearchInput(kw)
+      const handleHint =
+        inputCls.kind === 'handle' ? inputCls.handle :
+        (inputCls.kind === 'url' && inputCls.handle) ? inputCls.handle :
+        null
+
+      // Streaming consumer — appends new channels to the enrichment
+      // pools as each chunk arrives. Dedupe across regions by
+      // channelId so a creator that surfaces in multiple regions is
+      // only enriched once.
+      const seenStreamIds = new Set<string>()
+      let streamError: string | null = null
+      let firstFlush = true
+      const enqueueChannels = (channels: Creator[]) => {
+        const newOnes: Creator[] = []
+        for (const c of channels) {
+          if (seenStreamIds.has(c.channelId)) continue
+          seenStreamIds.add(c.channelId)
+          if (dismissedIds.has(c.channelId)) continue
+          if (outreachIds.has(c.channelId)) continue
+          newOnes.push(c)
+        }
+        if (newOnes.length === 0) return
+        // Track for Load More dedup
+        for (const c of newOnes) seenChannelIds.current.add(c.channelId)
+        for (const c of newOnes) {
+          const idx = enriched.length
+          enriched.push({ ...c, enriching: true })
+          phaseAQueue.push(idx)
+        }
+        tryStartPhaseA()
+        scheduleFlush()
+        if (firstFlush) {
+          firstFlush = false
+          setStatus(`Found ${enriched.length} creators (still searching…). Resolving handles 0/${enriched.length}…`)
+        }
+      }
+
       try {
-        allResponses = await Promise.all(
+        await Promise.all(
           regionCodes.map(async code => {
             const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-            const url = `/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}`
-            const resp = await fetch(url)
-            return resp.json()
+            const url = `/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}&stream=1`
+            try {
+              const resp = await fetch(url)
+              await consumeSse(resp, ev => {
+                if (version !== searchVersion.current) return
+                if (ev.event === 'chunk') {
+                  const data = ev.data as { channels?: Creator[] }
+                  enqueueChannels(data.channels || [])
+                } else if (ev.event === 'error') {
+                  const data = ev.data as { message?: string }
+                  streamError = data.message ?? 'search failed'
+                }
+              })
+            } catch (e) {
+              streamError = (e as Error).message
+            }
           })
         )
       } catch (e) {
@@ -2046,40 +2105,20 @@ export default function Home() {
         return
       }
       if (version !== searchVersion.current) return
-      const firstError = allResponses.find(d => d.error)
-      if (firstError?.error) { setStatus(`Error: ${firstError.error}`); return }
+      if (streamError) { setStatus(`Error: ${streamError}`); return }
 
-      // Merge + dedupe by channelId. Then drop dismissed +
-      // already-outreached up front so we don't waste enrichment
-      // budget on them.
-      const seenMerge = new Set<string>()
-      const allCandidates = allResponses
-        .flatMap(d => (d.channels as Creator[]) || [])
-        .filter(c => {
-          if (seenMerge.has(c.channelId)) return false
-          seenMerge.add(c.channelId)
-          return !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
-        })
-
-      // Track all returned channel IDs so Load More skips them on
-      // the next page.
-      allCandidates.forEach(c => seenChannelIds.current.add(c.channelId))
-
-      // Name-match narrowing for handle-shaped inputs (URL/username
-      // search that fell through to broad keyword mode). Only fires
-      // when the classifier saw a handle/url shape; pure phrase
-      // searches skip this.
-      let visible: Creator[] = allCandidates
-      const inputCls = classifySearchInput(kw)
-      const handleHint =
-        inputCls.kind === 'handle' ? inputCls.handle :
-        (inputCls.kind === 'url' && inputCls.handle) ? inputCls.handle :
-        null
+      // Handle-hint narrowing — applied AFTER the stream completes so
+      // we have the full set to filter against. Drops any rows that
+      // don't fuzzy-match the typed handle. Rows already started
+      // enriching might get dropped here — wasted enrichment cost
+      // is small (handle searches return tight result sets) and the
+      // alternative (filter every chunk on the fly) would create
+      // visual churn as rows get added then removed.
       if (handleHint) {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
         const target = norm(handleHint)
         const targetCore = target.replace(/\d+$/, '')
-        const matches = allCandidates.filter(c => {
+        const matches = enriched.filter(c => {
           const n = norm(c.channelName)
           if (!n || !target) return false
           return n === target
@@ -2089,26 +2128,26 @@ export default function Home() {
             || (n.length >= 4 && (target.includes(n) || targetCore.includes(n)))
         })
         if (matches.length > 0) {
-          visible = matches.slice(0, matches.length <= 3 ? matches.length : 5)
+          const kept = matches.slice(0, matches.length <= 3 ? matches.length : 5)
+          enriched.length = 0
+          enriched.push(...kept)
+          scheduleFlush()
           const label = matches.length <= 3
-            ? `Found ${visible.length} close match${visible.length === 1 ? '' : 'es'} for @${handleHint}.`
+            ? `Found ${kept.length} close match${kept.length === 1 ? '' : 'es'} for @${handleHint}.`
             : `${matches.length} channels match @${handleHint} — showing the closest 5.`
           setStatus(label)
         }
       }
 
-      // Push every visible candidate into the enrichment pools at
-      // once. The pool workers respect their concurrency limits so
-      // we won't fan out beyond 25 + 8 in-flight.
-      for (const c of visible) {
-        const idx = enriched.length
-        enriched.push({ ...c, enriching: true })
-        phaseAQueue.push(idx)
+      // Stream done; flush whatever's queued so the status text is
+      // accurate before Phase A drain.
+      flushVisible()
+      setEnrichProgress({ current: phaseACompleted, total: enriched.length })
+      if (enriched.length === 0) {
+        setStatus('No creators found.')
+        return
       }
-      setCreators([...enriched])
-      setEnrichProgress({ current: 0, total: enriched.length })
-      setStatus(`Found ${enriched.length} creators. Resolving handles 0/${enriched.length}…`)
-      tryStartPhaseA()
+      setStatus(`Found ${enriched.length} creators. Resolving handles ${phaseACompleted}/${enriched.length}…`)
 
       // Wait for Phase A to drain so we can drop the blocking
       // spinner at the right moment. Phase B continues in the
