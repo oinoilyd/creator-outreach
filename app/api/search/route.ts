@@ -1350,21 +1350,44 @@ export async function GET(req: NextRequest) {
     const isMedia = (name: string): boolean =>
       MEDIA_BRANDS.test(name) || MEDIA_AFFILIATE.test(name) || MEDIA_GENERIC.test(name)
 
+    // Occupation-search detection — when the client passes ?expand=true
+    // (which it only does for single-keyword occupation searches), we
+    // know the user typed something like "baker" or "attorney" and is
+    // looking for that profession. The keyword could be a surname for
+    // ANY of these (Baker, Smith, Cook, Hunter, Fisher, Carpenter, etc.),
+    // so we add an extra hurdle: name-match alone isn't enough to pass.
+    // The channel must ALSO have at least one recent video on the
+    // topic, which surnames-without-topical-content fail.
+    const isOccupationMode = searchParams.get('expand') === 'true'
+
     const SOFT_TARGET = 30
     const tiers: Array<{ label: string; predicate: (c: Candidate) => boolean }> = [
       {
         // Topical focus: channel is dedicated to the niche, not just
-        // mentioning it once. Pass requires name keyword match OR
-        // 2+ matching titles (real niche channels usually have both;
-        // adjacent-niche channels often pass via multi-title match
-        // against the AI-expanded keyword set).
+        // mentioning it once. In occupation mode (2026-05-21 per Dylan)
+        // we additionally require a title-match when the only signal
+        // is a name-match — fixes the "search 'baker' → returns
+        // people with last name Baker" surname-collision problem.
         label: 'topical-focus',
-        predicate: c =>
-          !isMedia(c.channelName)
-          && (c._nameScore > 0 || c._matchingTitleCount >= 2),
+        predicate: c => {
+          if (isMedia(c.channelName)) return false
+          if (isOccupationMode) {
+            // Name match must be backed by at least one topical title,
+            // OR the channel must have 2+ matching titles regardless
+            // of name. Surnames with zero topical content fail.
+            if (c._nameScore > 0 && c._matchingTitleCount >= 1) return true
+            if (c._matchingTitleCount >= 2) return true
+            return false
+          }
+          // URL/username searches — name match is good enough since
+          // the user is targeting a specific person.
+          return c._nameScore > 0 || c._matchingTitleCount >= 2
+        },
       },
       {
         // Loosen the topical-focus rule but keep the media blocklist.
+        // Occupation mode still wants SOME title content though, so
+        // we accept relevance > 0 either way at this tier.
         label: 'strictest-relevant-only',
         predicate: c => !isMedia(c.channelName) && c.relevanceScore > 0,
       },
