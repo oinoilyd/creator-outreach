@@ -12,6 +12,172 @@
 import type { OutreachEntry, ClientLifecycle } from '@/lib/types'
 import { resolveCollaboratorShare } from '@/lib/types'
 
+// ── Time range helpers ──────────────────────────────────────────────
+
+/** Named time ranges surfaced in the analytics header dropdown. */
+export type TimeRangeId = 'last7' | 'last30' | 'last90' | 'ytd' | 'all' | 'custom'
+
+export interface TimeRange {
+  id: TimeRangeId
+  /** Inclusive start, ms epoch. null = unbounded (all time). */
+  fromMs: number | null
+  /** Inclusive end, ms epoch. null = now. */
+  toMs: number | null
+  /** Human-readable label for chips ("Last 30 days"). */
+  label: string
+}
+
+/** Resolve a named range into a concrete {from, to} window. */
+export function resolveTimeRange(id: TimeRangeId, custom?: { fromMs: number; toMs: number }): TimeRange {
+  const now = Date.now()
+  const DAY = 24 * 60 * 60 * 1000
+  switch (id) {
+    case 'last7':   return { id, fromMs: now - 7 * DAY,  toMs: now, label: 'Last 7 days' }
+    case 'last30':  return { id, fromMs: now - 30 * DAY, toMs: now, label: 'Last 30 days' }
+    case 'last90':  return { id, fromMs: now - 90 * DAY, toMs: now, label: 'Last 90 days' }
+    case 'ytd': {
+      const start = new Date(); start.setMonth(0, 1); start.setHours(0, 0, 0, 0)
+      return { id, fromMs: start.getTime(), toMs: now, label: 'Year to date' }
+    }
+    case 'all':     return { id, fromMs: null, toMs: null, label: 'All time' }
+    case 'custom': {
+      if (!custom) return { id: 'all', fromMs: null, toMs: null, label: 'All time' }
+      return {
+        id, fromMs: custom.fromMs, toMs: custom.toMs,
+        label: `${new Date(custom.fromMs).toLocaleDateString()} → ${new Date(custom.toMs).toLocaleDateString()}`,
+      }
+    }
+  }
+}
+
+/**
+ * Compute the *previous* window of the same length, immediately
+ * preceding the current range. Used for period-over-period delta
+ * calculations on metric cards. Returns null for unbounded ranges.
+ */
+export function previousTimeRange(range: TimeRange): TimeRange | null {
+  if (range.fromMs == null || range.toMs == null) return null
+  const span = range.toMs - range.fromMs
+  return {
+    id: 'custom',
+    fromMs: range.fromMs - span,
+    toMs: range.fromMs,
+    label: 'Previous period',
+  }
+}
+
+/**
+ * Filter entries that fall inside the given range by addedAt. Used as
+ * the input filter to computeMetrics for the time-range UI. Range
+ * with both bounds null returns the input unchanged.
+ *
+ * Deliberate trade-off: we filter by addedAt (when the lead was first
+ * added) rather than "any activity in window." That keeps the mental
+ * model simple — "leads added in this period and their downstream
+ * outcomes." Users who want a strictly current-state view pick
+ * "All time."
+ */
+export function filterByTimeRange(entries: OutreachEntry[], range: TimeRange): OutreachEntry[] {
+  if (range.fromMs == null && range.toMs == null) return entries
+  const from = range.fromMs ?? 0
+  const to   = range.toMs   ?? Number.POSITIVE_INFINITY
+  return entries.filter(e => {
+    const t = typeof e.addedAt === 'number' ? e.addedAt : 0
+    return t >= from && t <= to
+  })
+}
+
+/** One row of the velocity time-series chart. */
+export interface BucketPoint {
+  /** ISO date for the bucket start (yyyy-MM-dd). */
+  date: string
+  /** Display label (e.g. "May 14" or "Wk 3"). */
+  label: string
+  added: number
+  reachedOut: number
+  responded: number
+  won: number
+}
+
+/**
+ * Bucket entries into day or week buckets across the given range,
+ * counting added / reachedOut / responded / won per bucket.
+ *
+ * Used by the line/area velocity chart. For >60-day ranges we
+ * switch to weekly buckets to keep the chart readable.
+ */
+export function bucketedSeries(entries: OutreachEntry[], range: TimeRange): BucketPoint[] {
+  const now = Date.now()
+  const DAY = 24 * 60 * 60 * 1000
+  const from = range.fromMs ?? Math.min(...entries.map(e => e.addedAt || now), now)
+  const to   = range.toMs   ?? now
+  const span = to - from
+  if (span <= 0) return []
+
+  const bucketByWeek = span > 60 * DAY
+  const bucketMs = bucketByWeek ? 7 * DAY : DAY
+
+  // Pre-compute bucket count to avoid drift from variable-month math.
+  const bucketCount = Math.max(1, Math.ceil(span / bucketMs) + 1)
+  const buckets: BucketPoint[] = []
+  for (let i = 0; i < bucketCount; i++) {
+    const startMs = from + i * bucketMs
+    if (startMs > to) break
+    const d = new Date(startMs)
+    buckets.push({
+      date: d.toISOString().slice(0, 10),
+      label: bucketByWeek
+        ? `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      added: 0,
+      reachedOut: 0,
+      responded: 0,
+      won: 0,
+    })
+  }
+  if (buckets.length === 0) return []
+
+  function indexFor(ts: number): number {
+    if (ts < from || ts > to) return -1
+    const i = Math.floor((ts - from) / bucketMs)
+    return Math.min(buckets.length - 1, Math.max(0, i))
+  }
+
+  for (const e of entries) {
+    const i = indexFor(e.addedAt || 0)
+    if (i >= 0) buckets[i].added += 1
+
+    if (e.dateReachedOut) {
+      const t = new Date(e.dateReachedOut).getTime()
+      if (isFinite(t)) {
+        const j = indexFor(t)
+        if (j >= 0) buckets[j].reachedOut += 1
+      }
+    }
+    if (e.responseDate) {
+      const t = new Date(e.responseDate).getTime()
+      if (isFinite(t)) {
+        const j = indexFor(t)
+        if (j >= 0) {
+          if (e.status === 'Successful' || e.status === 'Rejected') buckets[j].responded += 1
+          if (e.status === 'Successful') buckets[j].won += 1
+        }
+      }
+    }
+  }
+  return buckets
+}
+
+/** Compute percent change current vs previous. Returns null if either base is 0. */
+export function deltaPct(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null
+  if (previous === 0) {
+    if (current === 0) return 0
+    return null  // can't compute a meaningful pct from a zero base
+  }
+  return Math.round(((current - previous) / previous) * 100)
+}
+
 export function isReachedOut(e: OutreachEntry): boolean {
   return e.status !== 'Not Outreached' && e.status !== ''
 }
