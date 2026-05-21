@@ -1340,15 +1340,32 @@ export async function GET(req: NextRequest) {
     //   Tier 3:  keep everything
 
     // News/media blocklist. Matches obvious news brands, network
-    // affiliate codes, and generic media name words. Channels whose
-    // NAME hits any of these get dropped at the two strictest tiers.
-    // Falls through to looser tiers (subs-based filtering only) if
-    // the niche is so thin we'd otherwise return nothing.
-    const MEDIA_BRANDS = /\b(?:CBS|NBC|ABC|FOX|CNN|MSNBC|BBC|NPR|PBS|HBO|ESPN|Reuters|Bloomberg|Forbes|Yahoo|Sky News|Al Jazeera|Telemundo|Univision|Newsweek|Vox|Vice News|WSJ|NYT)\b/i
+    // affiliate codes, and unambiguous news vocabulary. Channels
+    // whose NAME hits any of these get dropped at the strictest
+    // tiers. Falls through to looser tiers if the niche is so
+    // thin we'd otherwise return nothing.
+    //
+    // 2026-05-21 — trimmed aggressively after "cook" search dropped
+    // to ~3 results. The original generic list contained TV / Live /
+    // Daily / Network / Post / Times / Press / Broadcasting / Radio /
+    // Magazine / Reporter / Breaking — all matched real food /
+    // streaming / vlog channel names (Food Network, Cooking Live,
+    // The Daily Cook, Foodie Live, etc). Now keeping only words
+    // that are exclusively news-related.
+    //
+    // Short brand names (ABC, NBC, CBS, FOX) used to match alone but
+    // had false-positive risk ("ABC of Cooking", "Easy as ABC"); now
+    // they require a " News" suffix to confirm. Local affiliates
+    // (ABC7, NBC4 etc) still caught by MEDIA_AFFILIATE.
+    const MEDIA_BRANDS_UNIQUE = /\b(?:CNN|MSNBC|BBC|NPR|PBS|HBO|ESPN|Reuters|Bloomberg|Forbes|Newsweek|Al Jazeera|Telemundo|Univision|Sky News|Vice News|WSJ|NYT)\b/i
+    const MEDIA_BRANDS_WITH_NEWS = /\b(?:ABC|NBC|CBS|FOX|MSNBC|Yahoo|Vox)\s+News\b/i
     const MEDIA_AFFILIATE = /\b(?:ABC|CBS|NBC|FOX|KCBS|WCBS|KNBC|WNBC|KABC|WABC|KTLA|KCAL|KTVU|WPLG|WSVN|KING|KOMO)[0-9]+\b/i
-    const MEDIA_GENERIC = /\b(?:News|Newsroom|TV|Live|Daily|Tribune|Network|Post|Times|Chronicle|Press|Broadcasting|Radio|Magazine|Gazette|Herald|Reporter|Headlines|Breaking|Eyewitness|Affiliate)\b/i
+    const MEDIA_GENERIC = /\b(?:News|Newsroom|Headlines|Eyewitness|Tribune|Chronicle|Gazette|Herald|Affiliate)\b/i
     const isMedia = (name: string): boolean =>
-      MEDIA_BRANDS.test(name) || MEDIA_AFFILIATE.test(name) || MEDIA_GENERIC.test(name)
+      MEDIA_BRANDS_UNIQUE.test(name)
+      || MEDIA_BRANDS_WITH_NEWS.test(name)
+      || MEDIA_AFFILIATE.test(name)
+      || MEDIA_GENERIC.test(name)
 
     const SOFT_TARGET = 30
     const tiers: Array<{ label: string; predicate: (c: Candidate) => boolean }> = [
