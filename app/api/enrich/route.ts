@@ -147,8 +147,84 @@ async function fromYouTubeAbout(channelId: string): Promise<{ emails: string[], 
       if (!socials.website && !SOCIAL_DOMAIN.test(rawUrl)) socials.website = url
     }
 
+    // 2026-05-21 — additional fallback per Dylan: many creators don't
+    // use the "Links" section but DO put their socials in the channel
+    // description text ("Follow my IG @username" or
+    // "instagram.com/username"). When channelExternalLinkViewModel
+    // didn't surface a handle, scan the description body for explicit
+    // URL patterns AND @handle mentions with platform context. This
+    // materially lifts IG/X/TikTok coverage from the YT-search corpus,
+    // closing the parity gap with YT-mode the user flagged.
+    const descText = typeof vm?.description === 'string' ? vm.description : ''
+    if (descText) {
+      const matchesFromText = extractSocialsFromText(descText)
+      if (!socials.instagram && matchesFromText.instagram) socials.instagram = matchesFromText.instagram
+      if (!socials.twitter   && matchesFromText.twitter)   socials.twitter   = matchesFromText.twitter
+      if (!socials.tiktok    && matchesFromText.tiktok)    socials.tiktok    = matchesFromText.tiktok
+      if (!socials.linkedin  && matchesFromText.linkedin)  socials.linkedin  = matchesFromText.linkedin
+    }
+
   } catch { /* failed */ }
   return { emails, socials, subscribers }
+}
+
+/**
+ * Scan free-form text (channel description, video description, bio)
+ * for social handle mentions. Two strategies:
+ *   1. URL form — instagram.com/handle, twitter.com/handle, x.com/handle,
+ *      tiktok.com/@handle, linkedin.com/in/handle. Unambiguous, easy
+ *      to extract.
+ *   2. @handle with platform context — "Instagram: @handle", "IG: @handle",
+ *      "Twitter: @handle", "X: @handle", "TikTok: @handle". The
+ *      platform label disambiguates which network the handle belongs
+ *      to (bare @handle alone is ambiguous and gets ignored).
+ */
+function extractSocialsFromText(text: string): {
+  instagram?: string
+  twitter?: string
+  tiktok?: string
+  linkedin?: string
+} {
+  const out: { instagram?: string; twitter?: string; tiktok?: string; linkedin?: string } = {}
+  if (!text) return out
+
+  // URL form first — highest confidence.
+  const igUrl = text.match(/(?:https?:\/\/(?:www\.)?)?instagram\.com\/([a-zA-Z0-9._]{1,30})/i)
+  if (igUrl) {
+    const h = igUrl[1]
+    if (!/^(p|reel|reels|stories|explore|tv|accounts)$/i.test(h)) {
+      out.instagram = `https://instagram.com/${h}`
+    }
+  }
+  const xUrl = text.match(/(?:https?:\/\/(?:www\.)?)?(?:twitter|x)\.com\/@?([a-zA-Z0-9_]{1,15})/i)
+  if (xUrl) {
+    const h = xUrl[1]
+    if (!/^(i|home|search|notifications|messages|explore)$/i.test(h)) {
+      out.twitter = `https://twitter.com/${h}`
+    }
+  }
+  const ttUrl = text.match(/(?:https?:\/\/(?:www\.)?)?tiktok\.com\/@?([a-zA-Z0-9._]{1,24})/i)
+  if (ttUrl) out.tiktok = `https://tiktok.com/@${ttUrl[1]}`
+  const liUrl = text.match(/(?:https?:\/\/(?:www\.)?)?linkedin\.com\/(?:in|company)\/([a-zA-Z0-9_-]{1,100})/i)
+  if (liUrl) out.linkedin = `https://linkedin.com/in/${liUrl[1]}`
+
+  // @handle with explicit platform context — disambiguation pattern.
+  if (!out.instagram) {
+    const m = text.match(/\b(?:instagram|insta|ig)\s*[:\-=]?\s*@?([a-zA-Z0-9._]{2,30})\b/i)
+    if (m && m[1].length >= 2) out.instagram = `https://instagram.com/${m[1]}`
+  }
+  if (!out.twitter) {
+    const m = text.match(/\b(?:twitter|x|tweet|tweets)\s*[:\-=]?\s*@?([a-zA-Z0-9_]{2,15})\b/i)
+    if (m && m[1].length >= 2 && !/^(on|to|at|from|or)$/i.test(m[1])) {
+      out.twitter = `https://twitter.com/${m[1]}`
+    }
+  }
+  if (!out.tiktok) {
+    const m = text.match(/\b(?:tiktok|tt)\s*[:\-=]?\s*@?([a-zA-Z0-9._]{2,24})\b/i)
+    if (m && m[1].length >= 2) out.tiktok = `https://tiktok.com/@${m[1]}`
+  }
+
+  return out
 }
 
 // SOURCE 2a: YouTube RSS feed — exact ISO dates, works for most channels

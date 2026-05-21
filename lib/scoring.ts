@@ -46,6 +46,18 @@ export function computeFitScore(c: Creator, weights: ScoreWeights = DEFAULT_WEIG
     ? 1
     : c.matchedVia === 'name' ? 10/15 : 2/15
   if (c.videoTitles?.length > 0) relRatio = Math.min(1, relRatio + 5/15)
+  // Continuous keyword-relevance bonus on top of the matchedVia
+  // categorical baseline (2026-05-21 per Dylan — "divorce attorney"
+  // searches returning "youth coach" channels signaled that the
+  // categorical relevance signal was too coarse). c.relevanceScore is
+  // the raw "name × 4 + title" count from the server search. We
+  // normalize by 20 (a strong keyword match for a 2-3 term query) and
+  // cap the bonus at +0.33 so a strong-name-match channel can saturate
+  // toward 1.0 even without a url/handle direct lookup.
+  if (typeof c.relevanceScore === 'number' && c.relevanceScore > 0) {
+    const bonus = Math.min(0.33, c.relevanceScore / 20)
+    relRatio = Math.min(1, relRatio + bonus)
+  }
 
   let qualRatio = 5/10
   if (subs > 0) {

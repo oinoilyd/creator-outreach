@@ -12,6 +12,12 @@ export interface Creator {
   tiktok: string
   company: string
   matchedVia: string
+  /** Raw relevance score from /api/search — sum of keyword term
+   *  occurrences in channel name (× 4) + recent video titles. Higher =
+   *  stronger keyword match. Used by computeFitScore to boost the
+   *  relevance dimension continuously rather than just via matchedVia
+   *  categories (2026-05-21 per Dylan). */
+  relevanceScore?: number
   videoTitles: string[]
   videoDates: string[]
   shortDates: string[]
