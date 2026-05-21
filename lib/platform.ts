@@ -1,4 +1,4 @@
-import type { PlatformConfig } from './types'
+import type { Creator, PlatformConfig, PlatformId } from './types'
 
 // Order: YouTube → Instagram → X → TikTok → LinkedIn. X is hoisted
 // above TikTok (2026-05-11) because it's flagged as 'suggested' in
@@ -14,3 +14,31 @@ export const PLATFORM_CONFIGS: PlatformConfig[] = [
 ]
 
 export const PLATFORM_LOCK_ID = '__platform__'
+
+/**
+ * Pick the right destination URL for the "click on creator name" link
+ * in the Results table based on the active platform toggle.
+ *
+ * YouTube is always the search backbone, but when the user is browsing
+ * in Instagram / X / TikTok / LinkedIn mode the table should feel like
+ * those platforms — clicking a name opens that platform's profile,
+ * not the YouTube channel.
+ *
+ * Returns the YouTube URL as a safety fallback whenever the platform-
+ * specific field is empty (e.g. during the streaming + enrichment
+ * window when a row is visible but its IG handle hasn't landed yet,
+ * or for a row that just doesn't have a handle on that platform).
+ * The fallback prevents dead clicks; in steady state the platform
+ * filter only shows rows that have the handle, so the fallback is
+ * effectively never hit.
+ */
+export function getPrimaryUrlForPlatform(c: Creator, platform: PlatformId): string {
+  switch (platform) {
+    case 'instagram': return (c.instagram?.trim() || c.channelUrl)
+    case 'twitter':   return (c.twitter?.trim()   || c.channelUrl)
+    case 'tiktok':    return (c.tiktok?.trim()    || c.channelUrl)
+    case 'linkedin':  return (c.linkedin?.trim()  || c.channelUrl)
+    case 'youtube':
+    default:          return c.channelUrl
+  }
+}

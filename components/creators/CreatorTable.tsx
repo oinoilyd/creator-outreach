@@ -6,7 +6,7 @@ import type {
 } from '@/lib/types'
 import { sortCreators } from '@/lib/scoring'
 import { COL_SORT } from '@/lib/columns'
-import { PLATFORM_CONFIGS } from '@/lib/platform'
+import { PLATFORM_CONFIGS, getPrimaryUrlForPlatform } from '@/lib/platform'
 import { AnimatedRow } from '@/components/AnimatedRow'
 import { DismissIcon, PlusCircleIcon, SortIndicator } from '@/components/ui'
 import { renderCell } from './renderCell'
@@ -243,7 +243,19 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                   <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                 </button>
               </td>
-              <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" rel="noopener noreferrer" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
+              <td className="px-4 py-3">
+                <a
+                  href={getPrimaryUrlForPlatform(c, activePlatform)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+                  title={activePlatform === 'youtube'
+                    ? `Open ${c.channelName} on YouTube`
+                    : `Open ${c.channelName} on ${PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label ?? 'YouTube'}`}
+                >
+                  {c.channelName}
+                </a>
+              </td>
               {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
             </AnimatedRow>
           ))}
@@ -274,7 +286,19 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                       <PlusCircleIcon added={outreachIds.has(c.channelId)} />
                     </button>
                   </td>
-                  <td className="px-4 py-3"><a href={c.channelUrl} target="_blank" className="text-blue-800 dark:text-blue-400 hover:underline font-medium">{c.channelName}</a></td>
+                  <td className="px-4 py-3">
+                    <a
+                      href={getPrimaryUrlForPlatform(c, activePlatform)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+                      title={activePlatform === 'youtube'
+                        ? `Open ${c.channelName} on YouTube`
+                        : `Open ${c.channelName} on ${PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label ?? 'YouTube'}`}
+                    >
+                      {c.channelName}
+                    </a>
+                  </td>
                   {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
                 </tr>
               ))}
