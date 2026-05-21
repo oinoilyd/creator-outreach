@@ -27,6 +27,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ClientCollaborator } from '@/lib/types'
 import { resolveCollaboratorShare } from '@/lib/types'
 import { Plus, Trash2, Users } from 'lucide-react'
+import { AddCollaboratorModal } from './AddCollaboratorModal'
 
 interface CollaboratorsListProps {
   collaborators: ClientCollaborator[]
@@ -50,12 +51,11 @@ export function CollaboratorsList({
   budgetCurrency,
   onChange,
 }: CollaboratorsListProps) {
-  function addRow() {
-    onChange([
-      ...collaborators,
-      { id: newId(), role: '', name: '', email: '', phone: '', share: 0, shareType: 'dollar' },
-    ])
-  }
+  // + Add no longer spawns an inline empty row. It opens a focused
+  // modal where the user fills in role/name/email/share, and only on
+  // submit does the row join the list. The section stays in its
+  // clean/generic state until someone is actually on the team.
+  const [addModalOpen, setAddModalOpen] = useState(false)
 
   function commitRow(id: string, patch: Partial<ClientCollaborator>) {
     onChange(collaborators.map(c => (c.id === id ? { ...c, ...patch } : c)))
@@ -63,6 +63,10 @@ export function CollaboratorsList({
 
   function removeRow(id: string) {
     onChange(collaborators.filter(c => c.id !== id))
+  }
+
+  function handleAddSubmit(next: Omit<ClientCollaborator, 'id'>) {
+    onChange([...collaborators, { ...next, id: newId() }])
   }
 
   const currency = (budgetCurrency || 'USD').toUpperCase()
@@ -92,7 +96,7 @@ export function CollaboratorsList({
         </div>
         <button
           type="button"
-          onClick={addRow}
+          onClick={() => setAddModalOpen(true)}
           className="inline-flex items-center gap-1 text-[11.5px] font-medium text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-1 rounded-md transition-colors"
         >
           <Plus className="w-3 h-3" />
@@ -155,6 +159,17 @@ export function CollaboratorsList({
             </>
           )}
         </div>
+      )}
+
+      {/* Add modal — nested on top of ActiveClientDetailModal. Only
+          mounted when open so it doesn't run effects in the background. */}
+      {addModalOpen && (
+        <AddCollaboratorModal
+          budget={budget}
+          budgetCurrency={budgetCurrency}
+          onSubmit={handleAddSubmit}
+          onClose={() => setAddModalOpen(false)}
+        />
       )}
     </div>
   )
