@@ -2300,14 +2300,29 @@ export default function Home() {
               <div className="hidden md:flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground/90 font-medium">Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
+                  // Save the CURRENT platform's state to Supabase
+                  // (fire-and-forget so we don't await).
                   void savePlatformWeights(activePlatform, scoreWeights)
                   void savePlatformNarrative(activePlatform, scoreNarrative)
                   void savePlatformGuidance(activePlatform, guidanceEntries)
-                  const { weights, narrative, guidance } = await loadPlatformState(newPlatform)
-                  setScoreWeights(weights)
-                  setScoreNarrative(narrative)
-                  setGuidanceEntries(guidance)
+                  // Toggle the platform IMMEDIATELY so the UI responds
+                  // on click — header label, column lens, filters all
+                  // flip without waiting for the Supabase round-trip.
+                  // Previously the await above made toggling feel
+                  // chunky (per Dylan 2026-05-21). The brief mismatch
+                  // between activePlatform and scoring weights for the
+                  // ~200-500ms the load takes is benign — search isn't
+                  // re-running and scoring still produces a stable view.
                   setActivePlatform(newPlatform)
+                  try {
+                    const { weights, narrative, guidance } = await loadPlatformState(newPlatform)
+                    setScoreWeights(weights)
+                    setScoreNarrative(narrative)
+                    setGuidanceEntries(guidance)
+                  } catch {
+                    // Keep current scoring state on failure — the
+                    // platform toggle still applies its filter + lens.
+                  }
                 }} />
                 <span className="text-muted-foreground/90 font-medium">creators</span>
               </div>

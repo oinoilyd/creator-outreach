@@ -106,7 +106,9 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                 <span className="text-[9px] font-semibold tracking-wide uppercase">Outreach</span>
               </div>
             </th>
-            <th className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">Channel</th>
+            <th className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">
+              {activePlatform === 'youtube' ? 'Channel' : 'Handle'}
+            </th>
             {visibleCols.map((col, idx) => {
               const sc = COL_SORT[col.id]
               const isOver = dragOverIdx === idx
