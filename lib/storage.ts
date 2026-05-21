@@ -832,18 +832,61 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
   const supabase = createClient()
   const newIds = new Set(entries.map(e => e.id))
 
-  // Delete rows no longer in the list
+  // Read the user's existing rows so we can diff against the
+  // requested new state.
   const { data: existing } = await supabase
     .from('outreach_entries')
     .select('id')
     .eq('user_id', uid)
+  const existingCount = (existing ?? []).length
   const toDelete = (existing ?? []).filter(r => !newIds.has(r.id)).map(r => r.id)
+
+  // ── DATA LOSS SAFEGUARD (2026-05-21, post-Ryan-incident) ────────
+  //
+  // The previous version of this function would obediently delete
+  // every existing row not present in `entries`. That's fine in
+  // theory but catastrophic in practice:
+  //
+  //   1. App loads → getOutreach() hits a transient error (e.g., a
+  //      schema-cache lag right after a migration), returns []
+  //   2. setOutreach([]) — local state is now empty
+  //   3. User does ANY save action (favorite a row, add new lead,
+  //      change status) → saveOutreach([new]) or saveOutreach([])
+  //   4. Diff says "delete everything that was there before" →
+  //      wipes their entire outreach list
+  //
+  // This safeguard refuses suspicious mass-deletions:
+  //   • Block if requested entries is EMPTY but DB has >= 5 rows.
+  //     (Empty saves are valid only when starting from scratch.)
+  //   • Block if the delete would remove > 50% of existing rows
+  //     AND > 10 rows. (Real user-driven deletes rarely batch-delete
+  //     more than half their data at once.)
+  //
+  // Errors instead of silently swallowing so we see the issue in
+  // logs and the upsert can still proceed for any new rows.
   if (toDelete.length > 0) {
-    const { error: delErr } = await supabase.from('outreach_entries').delete().in('id', toDelete)
-    if (delErr) console.error('[saveOutreach] delete failed:', delErr.message)
+    const requestedEmpty = entries.length === 0
+    const wouldDeleteHalf = existingCount > 10
+      && toDelete.length / existingCount > 0.5
+    const suspicious =
+      (requestedEmpty && existingCount >= 5)
+      || wouldDeleteHalf
+    if (suspicious) {
+      console.error(
+        `[saveOutreach] REFUSED bulk delete — user=${uid} ` +
+        `existing=${existingCount} requested=${entries.length} ` +
+        `wouldDelete=${toDelete.length}. Likely a load failure ` +
+        `or stale local state. Skipping delete; upsert continues.`,
+      )
+      // Continue without the delete — preserves existing data, just
+      // upserts whatever the caller actually wanted to write.
+    } else {
+      const { error: delErr } = await supabase.from('outreach_entries').delete().in('id', toDelete)
+      if (delErr) console.error('[saveOutreach] delete failed:', delErr.message)
+    }
   }
 
-  // Upsert the rest
+  // Upsert the rest — always safe (it only writes, never deletes).
   if (entries.length > 0) {
     const { error: upErr } = await supabase
       .from('outreach_entries')
