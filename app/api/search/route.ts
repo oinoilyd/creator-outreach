@@ -906,6 +906,36 @@ async function runBatched(yt: any, queries: string[]): Promise<VideoHit[]> {
   return all
 }
 
+/**
+ * Streaming variant of runBatched — calls onBatch(newHits, batchIdx)
+ * after EACH batch completes, allowing the caller to emit partial
+ * results progressively (SSE / chunked response). Returns the full
+ * accumulated hit list when done, same as runBatched.
+ */
+async function runBatchedStreaming(
+  yt: any,
+  queries: string[],
+  onBatch: (newHits: VideoHit[], batchIdx: number) => Promise<void> | void,
+): Promise<VideoHit[]> {
+  const all: VideoHit[] = []
+  const BATCH = 5
+  const totalBatches = Math.ceil(queries.length / BATCH)
+  for (let i = 0; i < queries.length; i += BATCH) {
+    const batch = queries.slice(i, i + BATCH)
+    const results = await Promise.allSettled(batch.map(q => searchQuery(yt, q)))
+    const batchHits: VideoHit[] = []
+    for (const r of results) {
+      if (r.status === 'fulfilled') batchHits.push(...r.value)
+    }
+    all.push(...batchHits)
+    const batchIdx = Math.floor(i / BATCH)
+    await onBatch(batchHits, batchIdx)
+    if (i + BATCH < queries.length) await delay(300)
+  }
+  void totalBatches  // available for future telemetry
+  return all
+}
+
 // Module-scoped Innertube singleton cache. Was creating a fresh
 // Innertube instance per request (line 966 below), which costs
 // 200-600 ms of session bootstrap time on every cold search. Vercel
@@ -999,6 +1029,13 @@ export async function GET(req: NextRequest) {
   if (!skipSearchCache) {
     const cached = await cacheGet<{ channels: unknown[]; expandedQueries: string[] }>(cacheKey)
     if (cached) {
+      // Even on cache hit, the streaming client wants the SSE shape so
+      // it can use a single code path. Wrap the cached payload as a
+      // single 'chunk' + 'done' so the consumer just appends and
+      // finishes — perceived as instant.
+      if (searchParams.get('stream') === '1') {
+        return streamingCachedResponse(cached.channels as StreamChannel[], cached.expandedQueries)
+      }
       return NextResponse.json(cached)
     }
   }
@@ -1048,6 +1085,28 @@ export async function GET(req: NextRequest) {
     ? [keyword!, ...aiVariants].join(' ')
     : (keyword || keywordsList.join(' '))
   const terms = scoringPhrase.toLowerCase().split(/\s+/).filter(Boolean)
+
+  // ── SSE streaming path ─────────────────────────────────────────
+  // When the client sends ?stream=1, return a text/event-stream
+  // response that emits 'chunk' events as each YouTube-search batch
+  // completes. Each chunk carries channels NEWLY discovered in that
+  // batch (deduped against earlier ones). The accumulated channel
+  // set is cached + dual-written at the end via the same path as
+  // the JSON response. Per Dylan (2026-05-20) — perceived speed
+  // for first results matters more than waiting for the full set.
+  if (searchParams.get('stream') === '1') {
+    return streamingSearchResponse({
+      queries,
+      terms,
+      gl,
+      maxResults,
+      minViews,
+      maxViews,
+      keyword,
+      keywordsList,
+      cacheKey,
+    })
+  }
 
   try {
     const yt = await getInnertubeInstance(gl)
@@ -1311,4 +1370,251 @@ export async function GET(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
+}
+
+// ── Streaming (SSE) ─────────────────────────────────────────────────
+//
+// The streaming path emits progressively as each YouTube-search batch
+// completes. Each chunk carries channels NEWLY discovered in that
+// batch — channels already sent in an earlier chunk are skipped, so
+// the client just appends.
+//
+// Scoring caveat: each chunk uses a snapshot of the channelMap as of
+// that batch. A channel discovered in batch 1 with 1 matching title
+// keeps its initial score even if batch 3 brings 2 more matching
+// titles. The under-scoring is small in practice (most channels'
+// titles come in a single batch) and avoids the worse UX of
+// re-shuffling rows the user is already reading.
+
+interface StreamChannel {
+  channelId: string
+  channelName: string
+  channelUrl: string
+  avgViews: number
+  description: string
+  videoTitles: string[]
+  videoDates: string[]
+  shortDates: string[]
+  subscribers: string
+  email: string
+  relevanceScore: number
+  matchedVia: 'name' | 'title' | 'related'
+  instagram: string
+  twitter: string
+  tiktok: string
+  linkedin: string
+  website: string
+}
+
+interface StreamingOpts {
+  queries: string[]
+  terms: string[]
+  gl: string
+  maxResults: number
+  minViews: number
+  maxViews: number
+  keyword: string | null
+  keywordsList: string[]
+  cacheKey: string
+}
+
+function sseHeaders(): HeadersInit {
+  return {
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-cache, no-transform',
+    connection: 'keep-alive',
+    // Prevent buffering proxies (Vercel/CDN) from holding chunks.
+    'x-accel-buffering': 'no',
+  }
+}
+
+function sseChunk(event: string, data: unknown): Uint8Array {
+  const enc = new TextEncoder()
+  return enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+}
+
+/**
+ * Cache-hit SSE: wrap the cached payload as a single 'chunk' + 'done'
+ * so the streaming client uses one code path regardless of cache state.
+ */
+function streamingCachedResponse(channels: StreamChannel[], expandedQueries: string[]): Response {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(sseChunk('meta', { expandedQueries, cached: true }))
+      if (channels.length > 0) {
+        controller.enqueue(sseChunk('chunk', { channels, batchIdx: 0 }))
+      }
+      controller.enqueue(sseChunk('done', { totalUnfiltered: channels.length, cached: true }))
+      controller.close()
+    },
+  })
+  return new Response(stream, { headers: sseHeaders() })
+}
+
+/**
+ * Cold-path SSE: runs the YouTube search progressively, emitting each
+ * batch's newly-discovered channels with snapshot scoring.
+ */
+function streamingSearchResponse(opts: StreamingOpts): Response {
+  const { queries, terms, gl, maxResults, minViews, maxViews, keyword, keywordsList, cacheKey } = opts
+
+  // parseSubs is duplicated here so the streaming branch is self-
+  // contained — the original lives inside the main handler closure
+  // and isn't reachable from this scope.
+  const parseSubs = (s: string): number => {
+    if (!s) return 0
+    const t = s.toLowerCase().replace(/[, ]/g, '')
+    const m = t.match(/[\d.]+/)
+    if (!m) return 0
+    const n = parseFloat(m[0])
+    if (t.includes('b')) return Math.round(n * 1_000_000_000)
+    if (t.includes('m')) return Math.round(n * 1_000_000)
+    if (t.includes('k')) return Math.round(n * 1_000)
+    return Math.round(n)
+  }
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        try {
+          controller.enqueue(sseChunk(event, data))
+        } catch {
+          // controller already closed — ignore.
+        }
+      }
+
+      send('meta', { expandedQueries: queries, cached: false })
+
+      try {
+        const yt = await getInnertubeInstance(gl)
+
+        // Aggregate channel data across batches. Same shape as the
+        // JSON-path channelMap but rebuilt incrementally so we can
+        // emit only the channels that just became visible in the
+        // latest batch.
+        const channelMap = new Map<string, {
+          name: string
+          views: number[]
+          titles: string[]
+          dates: string[]
+          subscribers: string
+        }>()
+        const sentChannelIds = new Set<string>()
+        const allEmittedChannels: StreamChannel[] = []
+
+        await runBatchedStreaming(yt, queries, async (batchHits, batchIdx) => {
+          // Merge this batch's hits into the cumulative channelMap.
+          for (const h of batchHits) {
+            if (!channelMap.has(h.channelId)) {
+              channelMap.set(h.channelId, {
+                name: h.channelName,
+                views: [],
+                titles: [],
+                dates: [],
+                subscribers: h.subscribers,
+              })
+            }
+            const entry = channelMap.get(h.channelId)!
+            if (h.channelName && !entry.name) entry.name = h.channelName
+            if (h.subscribers && !entry.subscribers) entry.subscribers = h.subscribers
+            if (!isNaN(h.viewCount) && h.viewCount >= 0) entry.views.push(h.viewCount)
+            if (h.title) entry.titles.push(h.title)
+            if (h.date) entry.dates.push(h.date)
+          }
+
+          // Build NEW channels — anything in channelMap not yet emitted.
+          const newChannels: StreamChannel[] = []
+          for (const [channelId, data] of channelMap) {
+            if (sentChannelIds.has(channelId)) continue
+            if (data.views.length === 0) continue
+
+            // Median avgViews — same as the JSON path.
+            const sortedViews = [...data.views].sort((a, b) => a - b)
+            const midIdx = Math.floor(sortedViews.length / 2)
+            const avgViews = sortedViews.length === 0
+              ? 0
+              : sortedViews.length % 2 === 0
+                ? Math.round((sortedViews[midIdx - 1] + sortedViews[midIdx]) / 2)
+                : sortedViews[midIdx]
+            if (avgViews < minViews || avgViews > maxViews) continue
+
+            const channelName = data.name || 'Unknown'
+            const nameScore = scoreBio(channelName.toLowerCase(), terms)
+            const titleScore = data.titles.length
+              ? scoreBio(data.titles.join(' ').toLowerCase(), terms)
+              : 0
+            const relevanceScore = nameScore * 4 + titleScore
+            const subsCount = parseSubs(data.subscribers)
+
+            // Apply the strictest tier upfront (subs > 1M + relevance=0
+            // gets dropped). Mirrors the strict-tier behavior of the
+            // JSON path's first tier. The relaxed tiers in the JSON
+            // path only kick in if total candidates < 30 — we can't
+            // know that mid-stream without buffering everything, so
+            // we stay strict in chunks and let the user see the wider
+            // set as more batches arrive.
+            if (relevanceScore === 0 && subsCount > 1_000_000) continue
+
+            const channel: StreamChannel = {
+              channelId,
+              channelName,
+              channelUrl: `https://www.youtube.com/channel/${channelId}`,
+              avgViews,
+              description: '',
+              videoTitles: [...new Set(data.titles)].slice(0, 3),
+              videoDates: [...new Set(data.dates)].slice(0, 2),
+              shortDates: [],
+              subscribers: data.subscribers,
+              email: '',
+              relevanceScore,
+              matchedVia: nameScore > 0 ? 'name' : titleScore > 0 ? 'title' : 'related',
+              instagram: '',
+              twitter: '',
+              tiktok: '',
+              linkedin: '',
+              website: '',
+            }
+            newChannels.push(channel)
+            sentChannelIds.add(channelId)
+            allEmittedChannels.push(channel)
+          }
+
+          if (newChannels.length > 0) {
+            // Sort the batch by relevance descending so the user sees
+            // the highest-signal new arrivals first within the chunk.
+            newChannels.sort((a, b) => b.relevanceScore - a.relevanceScore)
+            send('chunk', { channels: newChannels, batchIdx })
+          }
+        })
+
+        // Slice + cache the canonical (cap-respecting) set, then notify
+        // the client. Same cache + dual-write side effects as the JSON
+        // path — keeps the next user's search snappy and seeds the
+        // creator_enrichment durable cache.
+        const sortedFinal = [...allEmittedChannels]
+          .sort((a, b) => b.relevanceScore - a.relevanceScore)
+          .slice(0, maxResults)
+        const cachePayload = { channels: sortedFinal, expandedQueries: queries }
+        void cacheSet(cacheKey, cachePayload, CACHE_TTL.searchResults)
+        void bulkSaveSearchResults(sortedFinal as never[], keyword || keywordsList.join(', '))
+
+        send('done', {
+          totalUnfiltered: allEmittedChannels.length,
+          totalReturned: sortedFinal.length,
+          cached: false,
+        })
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        send('error', { message })
+      } finally {
+        try {
+          controller.close()
+        } catch {
+          /* already closed */
+        }
+      }
+    },
+  })
+
+  return new Response(stream, { headers: sseHeaders() })
 }

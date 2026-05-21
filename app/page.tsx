@@ -28,6 +28,7 @@ import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
 import { ActiveClients } from '@/components/active-clients/ActiveClients'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
 import { useKeyboardShortcuts, type ShortcutBinding } from '@/lib/hooks/useKeyboardShortcuts'
+import { consumeSse } from '@/lib/sse-client'
 import { motion } from 'motion/react'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
@@ -1770,18 +1771,88 @@ export default function Home() {
         !(keywordsList && keywordsList.length) &&
         !!kw.trim()
       const expandParam = shouldExpand ? '&expand=true' : ''
-      const allResponses = await Promise.all(
-        regionCodes.map(code => {
+
+      // SSE streaming path — each region streams independently, and
+      // we merge chunks into a running `streamedChannels` list. The
+      // user sees rows pop in as each batch resolves on the server
+      // (~5-8s for the first chunk instead of 30-45s for everything).
+      // Cache hits return a single chunk + done event so the
+      // streaming consumer doesn't need a separate fast-path.
+      const streamedChannels: Creator[] = []
+      const seenStreamIds = new Set<string>()
+      let streamError: string | null = null
+      let firstChunkArrived = false
+      // Render-throttling — if multiple regions land chunks back-to-back
+      // we'd otherwise burst-update the table on every chunk. Buffer to
+      // animation-frame boundaries so React batches the renders.
+      let flushPending = false
+      const flushVisible = () => {
+        flushPending = false
+        if (version !== searchVersion.current) return
+        // Dedupe against dismissed + outreached, apply enriching flag.
+        const visible = streamedChannels.filter(
+          (c: Creator) => !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
+        )
+        const withEnrichingFlag = visible.map(c => ({ ...c, enriching: true as boolean }))
+        setCreators(withEnrichingFlag)
+        if (!firstChunkArrived && visible.length > 0) {
+          firstChunkArrived = true
+          setStatus(`Found ${visible.length} creators (still searching…). Resolving handles…`)
+        } else if (firstChunkArrived) {
+          setStatus(`Found ${visible.length} creators (still searching…). Resolving handles…`)
+        }
+      }
+      const scheduleFlush = () => {
+        if (flushPending) return
+        flushPending = true
+        if (typeof requestAnimationFrame !== 'undefined') {
+          requestAnimationFrame(flushVisible)
+        } else {
+          setTimeout(flushVisible, 0)
+        }
+      }
+
+      await Promise.all(
+        regionCodes.map(async code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}`).then(r => r.json())
+          const url = `/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}&stream=1`
+          try {
+            const resp = await fetch(url)
+            await consumeSse(resp, ev => {
+              if (version !== searchVersion.current) return
+              if (ev.event === 'chunk') {
+                const data = ev.data as { channels?: Creator[] }
+                const newOnes = (data.channels ?? []).filter(c => {
+                  if (seenStreamIds.has(c.channelId)) return false
+                  seenStreamIds.add(c.channelId)
+                  return true
+                })
+                if (newOnes.length > 0) {
+                  streamedChannels.push(...newOnes)
+                  scheduleFlush()
+                }
+              } else if (ev.event === 'error') {
+                const data = ev.data as { message?: string }
+                streamError = data.message ?? 'search failed'
+              }
+              // 'meta' + 'done' events are useful for telemetry but not
+              // strictly needed by the client right now.
+            })
+          } catch (e) {
+            streamError = (e as Error).message
+          }
         })
       )
       if (version !== searchVersion.current) return  // superseded by newer search
-      const firstError = allResponses.find(d => d.error)
-      if (firstError) { setStatus(`Error: ${firstError.error}`); return }
-      // merge and deduplicate by channelId
-      const seenMerge = new Set<string>()
-      const data = { channels: allResponses.flatMap(d => (d.channels as Creator[]) || []).filter(c => { if (seenMerge.has(c.channelId)) return false; seenMerge.add(c.channelId); return true }) }
+      if (streamError) { setStatus(`Error: ${streamError}`); return }
+      // Final flush so any chunk that landed AFTER the last
+      // scheduleFlush is reflected before enrichment kicks off.
+      flushVisible()
+
+      // Build the same `data` shape downstream code expects so we can
+      // hand off to existing dedup + enrichment logic without
+      // refactoring those.
+      const data = { channels: streamedChannels.slice() }
 
       // Track all returned channel IDs so Load More skips them
       ;(data.channels as Creator[]).forEach((c: Creator) => seenChannelIds.current.add(c.channelId))
