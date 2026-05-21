@@ -28,7 +28,6 @@ import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
 import { ActiveClients } from '@/components/active-clients/ActiveClients'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
 import { useKeyboardShortcuts, type ShortcutBinding } from '@/lib/hooks/useKeyboardShortcuts'
-import { consumeSse } from '@/lib/sse-client'
 import { motion } from 'motion/react'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
@@ -1772,23 +1771,23 @@ export default function Home() {
         !!kw.trim()
       const expandParam = shouldExpand ? '&expand=true' : ''
 
-      // ── Parallel streaming + enrichment ─────────────────────────
+      // ── Search (JSON) + parallel enrichment ─────────────────────
       //
-      // Per Dylan 2026-05-21 — the previous flow streamed rows fast
-      // but then waited for streaming to FINISH before kicking off
-      // any enrichment. So metrics (socials + emails) lagged by
-      // 15-30s even though the rows had been visible the whole time.
+      // 2026-05-21 — reverted from SSE streaming back to bulk JSON
+      // fetch. The streaming infrastructure (f6ce170 + ca2cdc2) was
+      // skipping the canonical region-filter / progressive subs-tier
+      // / fallback-queries / global-relevance-sort that the JSON
+      // path applies at the end of search. Result: divorce-attorney
+      // searches surfacing youth-coach channels, and IG/X views
+      // showing fewer relevant matches than the YT-mode IG column.
       //
-      // This version maintains two concurrency-bounded pools
-      // (PhaseA = handles + refined subs/avgViews, PhaseB = emails)
-      // that drain a shared queue. As each chunk arrives from the
-      // SSE stream, new creators are appended to `enriched[]` AND
-      // queued for PhaseA immediately. When PhaseA completes for a
-      // row, that row chains into PhaseB right away. By the time
-      // the search finishes streaming (~25-30s), most rows are
-      // already fully enriched.
+      // The JSON path runs the full canonical processing server-
+      // side and returns the maxResults best matches sorted by
+      // relevance. We then feed THAT full list into the queue-
+      // based parallel enrichment pools from fff4b32 (PhaseA +
+      // PhaseB) so handles + emails populate quickly without
+      // depending on streaming.
       const enriched: Creator[] = []
-      const seenStreamIds = new Set<string>()
       const PHASE_A_CONCURRENCY = 25
       const PHASE_B_CONCURRENCY = 8
       let phaseAActive = 0
@@ -1799,8 +1798,6 @@ export default function Home() {
       let phaseBCompleted = 0
       let phaseAStartedCount = 0
       let phaseBStartedCount = 0
-      let streamError: string | null = null
-      let streamingDone = false
 
       // Throttled flush — coalesce multiple state changes per animation
       // frame so React doesn't re-render N times per second when
@@ -1813,9 +1810,7 @@ export default function Home() {
         // Status updates the running totals so the user can see
         // progress without staring at a static "Searching..." label.
         const total = enriched.length
-        if (!streamingDone) {
-          setStatus(`Found ${total} creators (still searching…). Resolving handles ${phaseACompleted}/${total}…`)
-        } else if (phaseACompleted < total) {
+        if (phaseACompleted < total) {
           setStatus(`Found ${total} creators. Resolving handles ${phaseACompleted}/${total}…`)
         } else if (phaseBCompleted < total) {
           setStatus(`Found ${total} creators. Looking up emails ${phaseBCompleted}/${total}…`)
@@ -1940,57 +1935,54 @@ export default function Home() {
         }
       }
 
-      // Consume the SSE stream from each region in parallel. As each
-      // chunk arrives, append new creators to enriched[] AND queue
-      // them for Phase A immediately.
-      await Promise.all(
-        regionCodes.map(async code => {
-          const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          const url = `/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}&stream=1`
-          try {
+      // Fetch search results from each region in parallel. Each
+      // /api/search response is the canonical processed result set:
+      // server-side region filtering, progressive subs-tier
+      // relaxation, fallback-queries-when-thin, and global relevance
+      // sort all already applied. We just merge by channelId and
+      // hand the unified list to the enrichment pools below.
+      setStatus('Searching YouTube…')
+      let allResponses: Array<{ channels?: Creator[]; error?: string }>
+      try {
+        allResponses = await Promise.all(
+          regionCodes.map(async code => {
+            const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
+            const url = `/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}`
             const resp = await fetch(url)
-            await consumeSse(resp, ev => {
-              if (version !== searchVersion.current) return
-              if (ev.event === 'chunk') {
-                const data = ev.data as { channels?: Creator[] }
-                const newOnes = (data.channels ?? []).filter(c => {
-                  if (seenStreamIds.has(c.channelId)) return false
-                  seenStreamIds.add(c.channelId)
-                  // Drop dismissed + already-outreached up front so
-                  // we don't waste enrichment cost on them.
-                  return !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
-                })
-                for (const c of newOnes) {
-                  const idx = enriched.length
-                  enriched.push({ ...c, enriching: true })
-                  phaseAQueue.push(idx)
-                  // Track for Load More dedup.
-                  seenChannelIds.current.add(c.channelId)
-                }
-                if (newOnes.length > 0) {
-                  tryStartPhaseA()
-                  scheduleFlush()
-                }
-              } else if (ev.event === 'error') {
-                const data = ev.data as { message?: string }
-                streamError = data.message ?? 'search failed'
-              }
-            })
-          } catch (e) {
-            streamError = (e as Error).message
-          }
-        })
-      )
-      streamingDone = true
-      scheduleFlush()
+            return resp.json()
+          })
+        )
+      } catch (e) {
+        if (version === searchVersion.current) {
+          setStatus(`Error: ${(e as Error).message}`)
+        }
+        return
+      }
       if (version !== searchVersion.current) return
-      if (streamError) { setStatus(`Error: ${streamError}`); return }
+      const firstError = allResponses.find(d => d.error)
+      if (firstError?.error) { setStatus(`Error: ${firstError.error}`); return }
+
+      // Merge + dedupe by channelId. Then drop dismissed +
+      // already-outreached up front so we don't waste enrichment
+      // budget on them.
+      const seenMerge = new Set<string>()
+      const allCandidates = allResponses
+        .flatMap(d => (d.channels as Creator[]) || [])
+        .filter(c => {
+          if (seenMerge.has(c.channelId)) return false
+          seenMerge.add(c.channelId)
+          return !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
+        })
+
+      // Track all returned channel IDs so Load More skips them on
+      // the next page.
+      allCandidates.forEach(c => seenChannelIds.current.add(c.channelId))
 
       // Name-match narrowing for handle-shaped inputs (URL/username
-      // mode that fell through to broad search). Applies after stream
-      // completes — fires only when the classifier saw a handle/url
-      // shape. Wasted enrichments on dropped rows are acceptable
-      // since handle-hint searches return a small set anyway.
+      // search that fell through to broad keyword mode). Only fires
+      // when the classifier saw a handle/url shape; pure phrase
+      // searches skip this.
+      let visible: Creator[] = allCandidates
       const inputCls = classifySearchInput(kw)
       const handleHint =
         inputCls.kind === 'handle' ? inputCls.handle :
@@ -2000,7 +1992,7 @@ export default function Home() {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
         const target = norm(handleHint)
         const targetCore = target.replace(/\d+$/, '')
-        const matches = enriched.filter(c => {
+        const matches = allCandidates.filter(c => {
           const n = norm(c.channelName)
           if (!n || !target) return false
           return n === target
@@ -2010,19 +2002,30 @@ export default function Home() {
             || (n.length >= 4 && (target.includes(n) || targetCore.includes(n)))
         })
         if (matches.length > 0) {
-          // Replace enriched with the matches (already mostly enriched).
-          enriched.splice(0, enriched.length, ...matches.slice(0, matches.length <= 3 ? matches.length : 5))
-          scheduleFlush()
+          visible = matches.slice(0, matches.length <= 3 ? matches.length : 5)
           const label = matches.length <= 3
-            ? `Found ${enriched.length} close match${enriched.length === 1 ? '' : 'es'} for @${handleHint}.`
+            ? `Found ${visible.length} close match${visible.length === 1 ? '' : 'es'} for @${handleHint}.`
             : `${matches.length} channels match @${handleHint} — showing the closest 5.`
           setStatus(label)
         }
       }
 
-      // Wait for Phase A to drain on the visible set so we can drop
-      // the blocking spinner at the right moment. Phase B continues
-      // in the background after this resolves.
+      // Push every visible candidate into the enrichment pools at
+      // once. The pool workers respect their concurrency limits so
+      // we won't fan out beyond 25 + 8 in-flight.
+      for (const c of visible) {
+        const idx = enriched.length
+        enriched.push({ ...c, enriching: true })
+        phaseAQueue.push(idx)
+      }
+      setCreators([...enriched])
+      setEnrichProgress({ current: 0, total: enriched.length })
+      setStatus(`Found ${enriched.length} creators. Resolving handles 0/${enriched.length}…`)
+      tryStartPhaseA()
+
+      // Wait for Phase A to drain so we can drop the blocking
+      // spinner at the right moment. Phase B continues in the
+      // background after this resolves.
       while ((phaseAActive > 0 || phaseAQueue.length > 0) && version === searchVersion.current) {
         await new Promise(r => setTimeout(r, 80))
       }
@@ -2030,7 +2033,7 @@ export default function Home() {
       setLoading(false)
 
       // Wait for Phase B to drain so we can show the final status.
-      // The user can already interact while we wait.
+      // The user can interact while we wait.
       while ((phaseBActive > 0 || phaseBQueue.length > 0) && version === searchVersion.current) {
         await new Promise(r => setTimeout(r, 80))
       }
