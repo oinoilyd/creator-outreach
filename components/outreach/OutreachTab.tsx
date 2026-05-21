@@ -20,6 +20,10 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
   onSearchAll: () => void
   bulkRunning: boolean
   profile: UserProfile | null
+  /** Variant of the empty-state. The 'favorites' value is preserved
+   *  here for callers (and legacy URLs) but the Favorites sub-tab was
+   *  removed in v3 — see OutreachSubTabs comment. New code shouldn't
+   *  pass 'favorites'. */
   emptyVariant?: 'all' | 'favorites'
   onOpenEntry?: (id: string) => void
   /** IDs of entries to pin to the top regardless of sort. Lives in the
@@ -37,6 +41,20 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
    *  rendering on subsequent re-renders. */
   onMarkNewInteracted: (id: string) => void
 }) {
+  // "Favorites first" — when on, favorited rows pin to the top of the
+  // current sort. Replaces the old Favorites sub-tab; the favorites-
+  // are-special signal lives inside the same table now.
+  // localStorage so the preference sticks across sessions.
+  const [favoritesFirst, setFavoritesFirstState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    return window.localStorage.getItem('outreach.favoritesFirst') !== 'false'
+  })
+  function setFavoritesFirst(next: boolean) {
+    setFavoritesFirstState(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('outreach.favoritesFirst', String(next))
+    }
+  }
   const visibleCols = colConfig.filter(c => c.visible)
   const [widths, setWidths] = useState<Record<string, number>>(() =>
     Object.fromEntries(colConfig.map(c => [c.id, c.width]))
@@ -152,7 +170,15 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
         .filter(e => recentlyAddedIds.has(e.id))
         .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
       const rest = result.filter(e => !recentlyAddedIds.has(e.id))
-      return [...pinned, ...rest]
+      result = [...pinned, ...rest]
+    }
+    // Favorites pin — applied AFTER recently-added so a recently-added
+    // favorite still sits at the top within the favorites group rather
+    // than getting demoted by the non-favorite recently-added pin.
+    if (favoritesFirst) {
+      const favs = result.filter(e => e.favorite)
+      const rest = result.filter(e => !e.favorite)
+      result = [...favs, ...rest]
     }
     return result
   })()
@@ -216,14 +242,24 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
 
   return (
     <div>
-      <div className="flex justify-end gap-2 mb-3">
-        <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
-          <span className="text-base leading-none">+</span> Add manually
-        </button>
-        <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          Customize Columns
-        </button>
+      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+        {/* Favorites-first toggle (left side) — replaces the old
+            Favorites sub-tab. Pinning is the new "filter to top"
+            behavior the user asked for: one less tab to manage. */}
+        <FavoritesFirstToggle
+          active={favoritesFirst}
+          onChange={setFavoritesFirst}
+          favoritedCount={entries.filter(e => e.favorite).length}
+        />
+        <div className="flex items-center gap-2">
+          <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
+            <span className="text-base leading-none">+</span> Add manually
+          </button>
+          <button onClick={onOpenCustomize} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            Customize Columns
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
         <table className="table-fixed text-sm border-collapse" style={{ width: totalWidth }}>
@@ -306,8 +342,8 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
                           ★
                         </button>
                         {showFavTooltip && (
-                          <div className="absolute left-0 top-7 z-30 w-56 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
-                            Click the star next to any row to favorite it. View only your favorites in <span className="text-amber-700 dark:text-yellow-400">Outreach &rarr; Favorites</span>.
+                          <div className="absolute left-0 top-7 z-30 w-60 rounded-lg border border-border bg-card shadow-xl p-3 text-xs text-foreground/80 normal-case font-normal">
+                            Click the star next to any row to favorite it. With <span className="text-amber-700 dark:text-yellow-400 font-semibold">★ Favorites first</span> on (toolbar above), favorited rows pin to the top of any sort.
                           </div>
                         )}
                       </div>
@@ -507,5 +543,44 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
         )
       })()}
     </div>
+  )
+}
+
+/**
+ * Pill-style toggle that controls whether favorited rows pin to the
+ * top of the current sort. Default ON — preserves the v2 "favorites
+ * are special" UX after we dropped the dedicated tab. Count subtly
+ * shown so the user knows whether the toggle is doing anything.
+ */
+function FavoritesFirstToggle({
+  active, onChange, favoritedCount,
+}: {
+  active: boolean
+  onChange: (next: boolean) => void
+  favoritedCount: number
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!active)}
+      aria-pressed={active}
+      title={active
+        ? 'Favorited rows are pinned to the top of any sort. Click to disable.'
+        : 'Click to pin favorited rows to the top of any sort.'}
+      className={[
+        'inline-flex items-center gap-1.5 text-xs rounded-md px-3 py-1.5 border transition-colors',
+        active
+          ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-yellow-300 hover:bg-amber-500/15'
+          : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80',
+      ].join(' ')}
+    >
+      <span className={active ? 'text-amber-700 dark:text-yellow-400 text-sm leading-none' : 'text-sm leading-none'}>★</span>
+      <span>Favorites first</span>
+      {favoritedCount > 0 && (
+        <span className={active ? 'tabular-nums text-amber-700/70 dark:text-yellow-400/70' : 'tabular-nums text-muted-foreground/65'}>
+          ({favoritedCount})
+        </span>
+      )}
+    </button>
   )
 }

@@ -1,32 +1,31 @@
 'use client'
 
 import React from 'react'
-import { Star, Clock, BarChart3, Briefcase } from 'lucide-react'
+import { Clock, BarChart3, Briefcase } from 'lucide-react'
 import { AnimatedTabs } from '@/components/AnimatedTabs'
 
 /**
  * Sub-tab strip rendered inside the Outreach view.
- * All / Favorites / Follow-ups / Analytics / Active Clients, with
- * badge counts on the action-needed tabs.
+ * All / Follow-ups / Active Clients / Analytics, with badge counts
+ * on the action-needed tabs.
  *
- * Extracted from app/page.tsx as part of the architectural debt
- * cleanup — pure presentational component, takes 4 props, no state,
- * no context. Safe to lift out independently of the larger
- * OutreachTab refactor.
+ * Note: the "Favorites" tab was removed in v3 (2026-05-21). Favorites
+ * are now pinned to the top of the All view via a toggle in
+ * OutreachTab's toolbar — it kills a tab without losing the
+ * "favorites are special" UX. Legacy ?sub=favorites URLs are coerced
+ * to ?sub=all in app/page.tsx.
  */
 
-export type OutreachSubTabId = 'all' | 'favorites' | 'analytics' | 'followups' | 'active'
+export type OutreachSubTabId = 'all' | 'analytics' | 'followups' | 'active'
 
 export function OutreachSubTabs({
   active,
   onChange,
-  favCount,
   dueCount,
   activeClientsCount,
 }: {
   active: OutreachSubTabId
   onChange: (v: OutreachSubTabId) => void
-  favCount: number
   dueCount: number
   /** Count of status='Successful' rows — surfaces as a small badge on
    *  the "Active Clients" tab so users notice when new clients land. */
@@ -34,18 +33,6 @@ export function OutreachSubTabs({
 }) {
   const tabs: { id: OutreachSubTabId; label: React.ReactNode }[] = [
     { id: 'all', label: 'All' },
-    {
-      id: 'favorites',
-      label: (
-        <span className="inline-flex items-center gap-1.5">
-          <Star className="w-3.5 h-3.5" />
-          Favorites
-          {favCount > 0 && (
-            <span className="ml-0.5 text-amber-700 dark:text-yellow-400/70">({favCount})</span>
-          )}
-        </span>
-      ),
-    },
     {
       id: 'followups',
       label: (

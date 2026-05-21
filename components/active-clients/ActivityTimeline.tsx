@@ -49,21 +49,19 @@ const COLORS: Record<ClientActivityEvent['type'], string> = {
 export function ActivityTimeline({ events }: ActivityTimelineProps) {
   const sorted = [...events].sort((a, b) => b.ts - a.ts)
 
+  // Header is intentionally omitted — the consumer (ActivityLogModal)
+  // owns the "Activity log" title. Keeping the title here would be a
+  // duplicate visual element inside the modal body.
   return (
     <div>
-      <div className="flex items-center gap-2 mb-2">
-        <Activity className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
-        <h4 className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
-          Activity
-        </h4>
-      </div>
-
       {sorted.length === 0 ? (
         <p className="text-[12px] text-muted-foreground/70 italic">
           State changes will appear here as you update the engagement.
         </p>
       ) : (
-        <ol className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+        // No max-h here — ActivityLogModal owns scrolling via its
+        // overflow-y-auto body. A double-scroll would feel janky.
+        <ol className="space-y-2">
           {sorted.map((ev, i) => {
             const Icon = ICONS[ev.type] ?? Activity
             return (

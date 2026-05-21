@@ -190,19 +190,23 @@ export default function Home() {
    *   • Survives incognito + cross-device when you copy-paste
    *   • Plays nice with the browser's back/forward buttons
    */
-  function readTabFromUrl(): { tab: ActiveTab; sub: 'all' | 'favorites' | 'analytics' | 'followups' | 'active' } {
+  function readTabFromUrl(): { tab: ActiveTab; sub: 'all' | 'analytics' | 'followups' | 'active' } {
     if (typeof window === 'undefined') return { tab: 'results', sub: 'all' }
     const params = new URLSearchParams(window.location.search)
     const t = params.get('tab')
     const s = params.get('sub')
     const tab: ActiveTab =
       t === 'outreach' || t === 'dismissed' || t === 'results' ? t : 'results'
-    const sub: 'all' | 'favorites' | 'analytics' | 'followups' | 'active' =
-      s === 'favorites' || s === 'analytics' || s === 'followups' || s === 'active' || s === 'all' ? s : 'all'
+    // Legacy ?sub=favorites URLs land on 'all' (the Favorites sub-tab
+    // was removed in v3; favorites now pin via toolbar toggle inside
+    // OutreachTab). Bookmarks shouldn't 404 — they just route to the
+    // tab the user's looking for.
+    const sub: 'all' | 'analytics' | 'followups' | 'active' =
+      s === 'analytics' || s === 'followups' || s === 'active' || s === 'all' ? s : 'all'
     return { tab, sub }
   }
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => readTabFromUrl().tab)
-  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'favorites' | 'analytics' | 'followups' | 'active'>(
+  const [outreachSubTab, setOutreachSubTab] = useState<'all' | 'analytics' | 'followups' | 'active'>(
     () => readTabFromUrl().sub,
   )
   // When LeadDetailModal dispatches `goto-active-client`, this id is
@@ -3504,7 +3508,7 @@ export default function Home() {
                 return d.getTime() <= todayMs
               }).length
               const activeClientsCount = outreach.filter(e => e.status === 'Successful').length
-              return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} favCount={outreach.filter(e => e.favorite).length} dueCount={dueCount} activeClientsCount={activeClientsCount} />
+              return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} dueCount={dueCount} activeClientsCount={activeClientsCount} />
             })()}
             {/* Sub-tab panel — same id/labelledby pattern as the
                 main tabs above. Single wrapping div whose ARIA
@@ -3565,10 +3569,7 @@ export default function Home() {
               />
             ) : (
               <OutreachTab
-                entries={filterOutreachByKeyword(
-                  outreachSubTab === 'favorites' ? outreach.filter(e => e.favorite) : outreach,
-                  keyword,
-                )}
+                entries={filterOutreachByKeyword(outreach, keyword)}
                 colConfig={outreachColConfig}
                 onUpdate={updateOutreachEntry}
                 onRemove={removeOutreachEntry}
@@ -3580,7 +3581,7 @@ export default function Home() {
                 onSearchAll={deepSearchAllOutreach}
                 bulkRunning={outreachBulkRunning}
                 profile={profile}
-                emptyVariant={outreachSubTab === 'favorites' ? 'favorites' : 'all'}
+                emptyVariant="all"
                 onOpenEntry={openLeadDetail}
                 // Disable recently-added pinning when a keyword
                 // filter is active. Keyword search is a "find specific

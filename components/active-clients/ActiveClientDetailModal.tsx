@@ -30,10 +30,10 @@ import type { ActiveClientPatch, WrapUpPayload } from '@/lib/storage'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import {
   X as XIcon, ExternalLink, Loader2, Check, AlertCircle,
-  Play, Pause, CheckCircle2, XCircle, ChevronDown, ChevronRight, Activity,
+  Play, Pause, CheckCircle2, XCircle, Activity,
 } from 'lucide-react'
 import { MilestoneList, DEFAULT_MILESTONES, newMilestoneId } from './MilestoneList'
-import { ActivityTimeline } from './ActivityTimeline'
+import { ActivityLogModal } from './ActivityLogModal'
 import { ContractUpload } from './ContractUpload'
 import { WrapUpEngagementModal } from './WrapUpEngagementModal'
 import { CollaboratorsList } from './CollaboratorsList'
@@ -189,10 +189,11 @@ export function ActiveClientDetailModal({
   // rating, repeat likelihood, testimonial) in one structured pass.
   const [wrapUpOpen, setWrapUpOpen] = useState(false)
 
-  // Activity log is collapsed by default — most of the time users
-  // open the modal to edit fields, not audit history. The disclosure
-  // toggle reveals the timeline when they actually want it.
-  const [activityOpen, setActivityOpen] = useState(false)
+  // Activity log lives in a separate modal — most of the time users
+  // open the engagement modal to edit fields, not audit history. The
+  // footer link opens ActivityLogModal on top of this one when they
+  // actually want to inspect the change log.
+  const [activityLogOpen, setActivityLogOpen] = useState(false)
 
   function setLifecycle(next: ClientLifecycle) {
     if (next === lifecycle) return
@@ -415,31 +416,42 @@ export function ActiveClientDetailModal({
               contractUrl={entry.clientContractUrl}
               onPatch={onPatch}
             />
-
-            {/* Activity — collapsed by default. Click to expand. */}
-            <ActivityDisclosure
-              open={activityOpen}
-              count={(entry.clientActivity ?? []).length}
-              onToggle={() => setActivityOpen(o => !o)}
-            >
-              <ActivityTimeline events={entry.clientActivity ?? []} />
-            </ActivityDisclosure>
           </div>
         </div>
 
         {/* Lifecycle action bar — anchored at the bottom of the modal
             and styled as a real footer-bar so it doesn't get lost.
             Active state is a FILLED button (vs subtle tint) so the
-            current lifecycle reads unambiguously even at a glance. */}
+            current lifecycle reads unambiguously even at a glance.
+            The activity-log link sits beneath "Currently: X" — it's
+            the one place users go to audit history but they shouldn't
+            see the timeline by default (it pulls attention away from
+            editing). */}
         <div className="px-5 py-4 border-t border-border bg-muted/40">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <div className="text-[10.5px] uppercase tracking-wider font-semibold text-muted-foreground">
                 Set lifecycle
               </div>
-              <div className="text-[11px] text-muted-foreground/75 mt-0.5">
-                Currently:{' '}
-                <span className="font-semibold text-foreground">{labelForLifecycle(lifecycle)}</span>
+              <div className="text-[11px] text-muted-foreground/75 mt-0.5 flex items-center gap-2 flex-wrap">
+                <span>
+                  Currently:{' '}
+                  <span className="font-semibold text-foreground">{labelForLifecycle(lifecycle)}</span>
+                </span>
+                <span className="text-muted-foreground/40">·</span>
+                <button
+                  type="button"
+                  onClick={() => setActivityLogOpen(true)}
+                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors"
+                >
+                  <Activity className="w-3 h-3" aria-hidden />
+                  Activity log
+                  {(entry.clientActivity ?? []).length > 0 && (
+                    <span className="tabular-nums text-muted-foreground/65">
+                      ({(entry.clientActivity ?? []).length})
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -492,6 +504,17 @@ export function ActiveClientDetailModal({
           onClose={() => setWrapUpOpen(false)}
         />
       )}
+
+      {/* Activity log — separate modal that opens on top of the
+          detail modal. Strictly click-to-open so the audit history
+          doesn't pull attention away from editing surfaces. */}
+      {activityLogOpen && (
+        <ActivityLogModal
+          channelName={entry.channelName}
+          events={entry.clientActivity ?? []}
+          onClose={() => setActivityLogOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -506,54 +529,6 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-/**
- * Collapsible wrapper around ActivityTimeline. Header shows the event
- * count + chevron and acts as the toggle. Keeps the timeline tucked
- * away by default so the modal leads with edit surfaces, not audit
- * history. Users who want the log click in.
- */
-function ActivityDisclosure({
-  open, count, onToggle, children,
-}: {
-  open: boolean
-  count: number
-  onToggle: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="border border-border/60 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/40 transition-colors text-left"
-      >
-        <div className="flex items-center gap-2">
-          {open
-            ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
-            : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />}
-          <Activity className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
-          <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
-            Activity
-          </span>
-          {count > 0 && (
-            <span className="text-[11px] text-muted-foreground/75 tabular-nums">
-              {count}
-            </span>
-          )}
-        </div>
-        <span className="text-[10.5px] text-muted-foreground/60">
-          {open ? 'Hide' : 'Show'}
-        </span>
-      </button>
-      {open && (
-        <div className="px-3 pb-3 pt-1 border-t border-border/40 bg-background/40">
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
 
 function LifecycleChip({ lifecycle }: { lifecycle: ClientLifecycle }) {
   const styles: Record<ClientLifecycle, string> = {
