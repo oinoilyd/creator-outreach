@@ -2239,16 +2239,17 @@ export default function Home() {
     .filter(c => !emailOnly || !!c.email)
     .filter(c => {
       if (activePlatform === 'youtube') return true
-      // While a row is still enriching, we don't know its social
-      // handles yet — show it provisionally so the table doesn't read
-      // as empty during the search-streaming + Phase-A enrichment
-      // window. Once enrichment completes, the handle field is set
-      // (or stays empty) and the filter applies for real.
-      if (c.enriching) return true
+      // Strict filter — only show rows that ALREADY have the active
+      // platform's handle. Rows appear progressively in IG/X mode as
+      // Phase A enrichment resolves their handles (Phase A runs in
+      // parallel with search streaming, so handles populate within
+      // seconds of each row appearing). The previous "pass through
+      // while enriching" let in rows that turned out NOT to have the
+      // handle, polluting the view; reverted per Dylan 2026-05-21.
       if (activePlatform === 'instagram') return !!c.instagram
-      if (activePlatform === 'tiktok') return !!c.tiktok
-      if (activePlatform === 'twitter') return !!c.twitter
-      if (activePlatform === 'linkedin') return !!c.linkedin
+      if (activePlatform === 'tiktok')    return !!c.tiktok
+      if (activePlatform === 'twitter')   return !!c.twitter
+      if (activePlatform === 'linkedin')  return !!c.linkedin
       return true
     })
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
@@ -3461,10 +3462,10 @@ export default function Home() {
                 // Same pass-through-on-missing-date logic as the main list filter above.
                 (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
                 (!emailOnly || !!c.email) &&
-                // Same "pass through while enriching" hint as the main
-                // list above — don't drop rows whose social handles
-                // haven't been fetched yet.
-                (activePlatform === 'youtube' || c.enriching || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
+                // Strict platform filter — match the main-list behavior
+                // (reverted from the "pass through while enriching"
+                // version on 2026-05-21).
+                (activePlatform === 'youtube' || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
               ) : undefined}
               scoreWeights={scoreWeights}
               scoreNarrative={scoreNarrative}

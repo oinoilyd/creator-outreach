@@ -6,7 +6,7 @@ import type {
 } from '@/lib/types'
 import { sortCreators } from '@/lib/scoring'
 import { COL_SORT } from '@/lib/columns'
-import { PLATFORM_CONFIGS, getPrimaryUrlForPlatform } from '@/lib/platform'
+import { PLATFORM_CONFIGS, getPrimaryUrlForPlatform, getHandleForPlatform } from '@/lib/platform'
 import { AnimatedRow } from '@/components/AnimatedRow'
 import { DismissIcon, PlusCircleIcon, SortIndicator } from '@/components/ui'
 import { renderCell } from './renderCell'
@@ -244,17 +244,7 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                 </button>
               </td>
               <td className="px-4 py-3">
-                <a
-                  href={getPrimaryUrlForPlatform(c, activePlatform)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
-                  title={activePlatform === 'youtube'
-                    ? `Open ${c.channelName} on YouTube`
-                    : `Open ${c.channelName} on ${PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label ?? 'YouTube'}`}
-                >
-                  {c.channelName}
-                </a>
+                <NameCell c={c} activePlatform={activePlatform} />
               </td>
               {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
             </AnimatedRow>
@@ -287,17 +277,7 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <a
-                      href={getPrimaryUrlForPlatform(c, activePlatform)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
-                      title={activePlatform === 'youtube'
-                        ? `Open ${c.channelName} on YouTube`
-                        : `Open ${c.channelName} on ${PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label ?? 'YouTube'}`}
-                    >
-                      {c.channelName}
-                    </a>
+                    <NameCell c={c} activePlatform={activePlatform} />
                   </td>
                   {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
                 </tr>
@@ -378,5 +358,76 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * First-column identity cell. Behavior switches on the active platform:
+ *
+ *   • YouTube      → big YT channel name, links to YT channel
+ *   • Instagram    → big "@iginsta_handle", muted YT channel name underneath,
+ *                    links to the IG profile. Falls back to the YT channel
+ *                    name if no IG handle exists yet (shouldn't happen in
+ *                    steady state since the platform filter drops handle-less
+ *                    rows — only possible during the streaming + Phase A
+ *                    enrichment window).
+ *   • X / TikTok / LinkedIn → same pattern as IG with the appropriate handle.
+ *
+ * Keeping the YT channel name as a secondary signal preserves the cross-
+ * reference for the user (they can still see who the creator is even when
+ * the page reads as an Instagram product).
+ */
+function NameCell({ c, activePlatform }: { c: Creator; activePlatform: PlatformId }) {
+  const url = getPrimaryUrlForPlatform(c, activePlatform)
+  const platformLabel = PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label ?? 'YouTube'
+  if (activePlatform === 'youtube') {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+        title={`Open ${c.channelName} on YouTube`}
+      >
+        {c.channelName}
+      </a>
+    )
+  }
+  // Non-YouTube modes — show the platform handle as the primary label.
+  const handle = getHandleForPlatform(c, activePlatform)
+  if (handle) {
+    return (
+      <div className="flex flex-col">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+          title={`Open @${handle} on ${platformLabel}`}
+        >
+          @{handle}
+        </a>
+        <span
+          className="text-[11px] text-muted-foreground/70 truncate"
+          title={`YouTube channel: ${c.channelName}`}
+        >
+          {c.channelName}
+        </span>
+      </div>
+    )
+  }
+  // Fallback — handle missing (race during enrichment). Show YT name +
+  // link to YT so the click never dead-ends. In steady state the
+  // platform filter drops these rows anyway.
+  return (
+    <a
+      href={c.channelUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+      title={`No ${platformLabel} handle resolved — opens YouTube`}
+    >
+      {c.channelName}
+    </a>
   )
 }

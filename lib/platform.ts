@@ -42,3 +42,41 @@ export function getPrimaryUrlForPlatform(c: Creator, platform: PlatformId): stri
     default:          return c.channelUrl
   }
 }
+
+/**
+ * Extract the bare handle (no @, no URL prefix) for the active
+ * platform from a creator's stored URLs. Returns null when the
+ * platform field is empty OR the stored value doesn't look like
+ * a recognizable handle. Used by the Results table to render
+ * "@handle" as the primary label in IG/X/TikTok modes.
+ */
+export function getHandleForPlatform(c: Creator, platform: PlatformId): string | null {
+  switch (platform) {
+    case 'instagram': return extractHandle(c.instagram, /instagram\.com\/([^/?#]+)/i)
+    case 'twitter':   return extractHandle(c.twitter,   /(?:twitter|x)\.com\/@?([^/?#]+)/i)
+    case 'tiktok':    return extractHandle(c.tiktok,    /tiktok\.com\/@?([^/?#]+)/i)
+    case 'linkedin':  return extractHandle(c.linkedin,  /linkedin\.com\/(?:in|company)\/([^/?#]+)/i)
+    case 'youtube':
+    default:          return null
+  }
+}
+
+function extractHandle(raw: string | undefined | null, urlPattern: RegExp): string | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  // If it's a URL, pull the handle segment.
+  const m = trimmed.match(urlPattern)
+  if (m && m[1]) {
+    const handle = decodeURIComponent(m[1]).trim().replace(/^@/, '')
+    // LinkedIn handles can contain hyphens + underscores; everyone else
+    // uses [a-zA-Z0-9._]. Permissive enough that we don't false-reject.
+    if (handle.length > 0 && handle.length <= 100) return handle
+    return null
+  }
+  // Bare handle (no URL prefix). Accept conservatively.
+  if (/^@?[a-zA-Z0-9._\-]{1,100}$/.test(trimmed)) {
+    return trimmed.replace(/^@/, '')
+  }
+  return null
+}
