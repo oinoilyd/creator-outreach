@@ -1189,6 +1189,8 @@ export async function GET(req: NextRequest) {
       linkedin: string
       website: string
       _subsCount: number  // internal — used by adaptive filter
+      _nameScore: number  // internal — used by topical-focus filter
+      _matchingTitleCount: number  // internal — used by topical-focus filter
     }
     const candidates: Candidate[] = []
     for (const [channelId, data] of channelMap) {
@@ -1211,13 +1213,22 @@ export async function GET(req: NextRequest) {
 
       const channelName = data.name || 'Unknown'
       const nameScore = scoreBio(channelName.toLowerCase(), terms)
-      const titleScore = data.titles.length
-        ? scoreBio(data.titles.join(' ').toLowerCase(), terms)
-        : 0
-      // Combined relevance: channel name match dominates, video-title
-      // match contributes a smaller weight. A channel with title-match
-      // but no name-match still ranks above a pure 'related' channel.
-      const relevanceScore = nameScore * 4 + titleScore
+      // Per-title scoring so we can count how MANY recent videos match,
+      // not just how many term occurrences total (2026-05-21 per Dylan).
+      // A channel where 3 of 3 recent videos are on-topic is a real
+      // niche channel; a channel where 1 of 3 happens to mention the
+      // keyword is a broad-coverage channel (news station, generalist
+      // commentator, etc.) that should be filtered out at the strictest
+      // tier.
+      const titleScores = data.titles.length
+        ? data.titles.map(t => scoreBio(t.toLowerCase(), terms))
+        : []
+      const titleScore = titleScores.reduce((s, n) => s + n, 0)
+      const matchingTitleCount = titleScores.filter(s => s > 0).length
+      // Combined relevance: channel name match dominates, title-match
+      // is weighted by HOW MANY titles match (not just total occurrences).
+      // 3-of-3 title matches now beats 1-of-3 with the same total count.
+      const relevanceScore = nameScore * 4 + titleScore + matchingTitleCount * 2
       const subsCount = parseSubs(data.subscribers)
 
       candidates.push({
@@ -1235,6 +1246,8 @@ export async function GET(req: NextRequest) {
         matchedVia: nameScore > 0 ? 'name' : titleScore > 0 ? 'title' : 'related',
         instagram: '', twitter: '', tiktok: '', linkedin: '', website: '',
         _subsCount: subsCount,
+        _nameScore: nameScore,
+        _matchingTitleCount: matchingTitleCount,
       })
     }
 
@@ -1311,51 +1324,80 @@ export async function GET(req: NextRequest) {
 
     // Adaptive news/mega-network filter (rewritten 2026-05-09):
     //
-    // Five tiers, walked from strictest to loosest. The first tier
+    // Six tiers, walked from strictest to loosest. The first tier
     // that yields >= SOFT_TARGET (30+) wins. For fat niches we keep
     // the strictest filter; for thin niches we relax automatically.
     //
-    //   Tier -1 (strictest, 2026-05-21 per Dylan): drop ALL relevance=0
-    //     channels regardless of size. Only kept channels are ones that
-    //     actually keyword-matched the search. Fixes the "divorce
-    //     attorney → youth coach" complaint.
+    //   Tier -2 (topical-focus, 2026-05-21 per Dylan): channel must be
+    //     dedicated to the niche, not just mention it. Drops broad-
+    //     coverage channels (news stations, generalist commentators)
+    //     that have one accidental keyword hit. Also runs the media
+    //     name-pattern blocklist (CBS, NBC, ABC, FOX, CNN, BBC, etc).
+    //   Tier -1: drop ALL relevance=0 + media-name channels.
     //   Tier 0:  drop relevance=0 AND subs > 1M
     //   Tier 1:  drop relevance=0 AND subs > 5M
     //   Tier 2:  drop relevance=0 AND subs > 20M
     //   Tier 3:  keep everything
+
+    // News/media blocklist. Matches obvious news brands, network
+    // affiliate codes, and generic media name words. Channels whose
+    // NAME hits any of these get dropped at the two strictest tiers.
+    // Falls through to looser tiers (subs-based filtering only) if
+    // the niche is so thin we'd otherwise return nothing.
+    const MEDIA_BRANDS = /\b(?:CBS|NBC|ABC|FOX|CNN|MSNBC|BBC|NPR|PBS|HBO|ESPN|Reuters|Bloomberg|Forbes|Yahoo|Sky News|Al Jazeera|Telemundo|Univision|Newsweek|Vox|Vice News|WSJ|NYT)\b/i
+    const MEDIA_AFFILIATE = /\b(?:ABC|CBS|NBC|FOX|KCBS|WCBS|KNBC|WNBC|KABC|WABC|KTLA|KCAL|KTVU|WPLG|WSVN|KING|KOMO)[0-9]+\b/i
+    const MEDIA_GENERIC = /\b(?:News|Newsroom|TV|Live|Daily|Tribune|Network|Post|Times|Chronicle|Press|Broadcasting|Radio|Magazine|Gazette|Herald|Reporter|Headlines|Breaking|Eyewitness|Affiliate)\b/i
+    const isMedia = (name: string): boolean =>
+      MEDIA_BRANDS.test(name) || MEDIA_AFFILIATE.test(name) || MEDIA_GENERIC.test(name)
+
     const SOFT_TARGET = 30
-    // Special-case the strictest tier with subsCap=-1 sentinel so the
-    // generic predicate below can treat it as "drop all relevance=0".
-    const tiers: Array<{ subsCap: number; label: string }> = [
-      { subsCap: -1,         label: 'strictest-relevant-only' },
-      { subsCap: 1_000_000,  label: 'strict' },
-      { subsCap: 5_000_000,  label: 'relaxed-5M' },
-      { subsCap: 20_000_000, label: 'relaxed-20M' },
-      { subsCap: Infinity,   label: 'unfiltered' },
+    const tiers: Array<{ label: string; predicate: (c: Candidate) => boolean }> = [
+      {
+        // Topical focus: channel is dedicated to the niche, not just
+        // mentioning it once. Pass requires name keyword match OR
+        // 2+ matching titles (real niche channels usually have both;
+        // adjacent-niche channels often pass via multi-title match
+        // against the AI-expanded keyword set).
+        label: 'topical-focus',
+        predicate: c =>
+          !isMedia(c.channelName)
+          && (c._nameScore > 0 || c._matchingTitleCount >= 2),
+      },
+      {
+        // Loosen the topical-focus rule but keep the media blocklist.
+        label: 'strictest-relevant-only',
+        predicate: c => !isMedia(c.channelName) && c.relevanceScore > 0,
+      },
+      {
+        // Original strict tier — relevance OR small subs.
+        label: 'strict',
+        predicate: c => !(c.relevanceScore === 0 && c._subsCount > 1_000_000),
+      },
+      { label: 'relaxed-5M',  predicate: c => !(c.relevanceScore === 0 && c._subsCount > 5_000_000)  },
+      { label: 'relaxed-20M', predicate: c => !(c.relevanceScore === 0 && c._subsCount > 20_000_000) },
+      { label: 'unfiltered',  predicate: () => true },
     ]
     let filtered: Candidate[] = []
     let chosenTier = tiers[0].label
     for (const tier of tiers) {
-      filtered = regionFiltered.filter(c => {
-        // Strictest tier — drop any relevance=0, period.
-        if (tier.subsCap < 0) return c.relevanceScore > 0
-        // Subs-tier filter — drop relevance=0 AND subs above cap.
-        return !(c.relevanceScore === 0 && c._subsCount > tier.subsCap)
-      })
+      filtered = regionFiltered.filter(tier.predicate)
       chosenTier = tier.label
       if (filtered.length >= SOFT_TARGET) break
       // If even unfiltered is thin, that's fine — return what we have.
     }
     console.log(`[search] candidates=${candidates.length} filtered=${filtered.length} tier=${chosenTier} target=${SOFT_TARGET}`)
 
-    // Strip the internal _subsCount field before returning.
+    // Strip the internal scoring fields before returning. _subsCount,
+    // _nameScore, and _matchingTitleCount are only used by the tier
+    // filter above; the client just needs relevanceScore + matchedVia.
     const channels = filtered
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, maxResults)
       .map(c => {
-        // Destructure-and-drop the internal field.
-        const { _subsCount, ...rest } = c
+        const { _subsCount, _nameScore, _matchingTitleCount, ...rest } = c
         void _subsCount
+        void _nameScore
+        void _matchingTitleCount
         return rest
       })
     const payload = { channels, expandedQueries: queries }
