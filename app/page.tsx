@@ -3326,6 +3326,12 @@ export default function Home() {
               emailFirst={emailFirstSort}
               loadMoreBatch={activeTab === 'results' ? loadMoreCreators.filter(c =>
                 !dismissedIds.has(c.channelId) &&
+                // Mirror the "hide from results once added to outreach"
+                // filter we applied to the main list (2026-05-19) — without
+                // this, the "— N additional results —" divider keeps
+                // showing stale rows for creators already in the user's
+                // outreach pipeline.
+                !outreachIds.has(c.channelId) &&
                 c.avgViews >= minViews && c.avgViews <= maxViews &&
                 // Same pass-through-on-missing-date logic as the main list filter above.
                 (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
