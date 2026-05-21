@@ -1501,8 +1501,14 @@ function streamingSearchResponse(opts: StreamingOpts): Response {
         }>()
         const sentChannelIds = new Set<string>()
         const allEmittedChannels: StreamChannel[] = []
+        // Hard cap so we don't stream 700+ channels — matches the
+        // slice(0, maxResults) cap of the JSON path. Without this the
+        // client's `total = creators.length` reads way higher than the
+        // actual usable result count.
+        let capReached = false
 
         await runBatchedStreaming(yt, queries, async (batchHits, batchIdx) => {
+          if (capReached) return
           // Merge this batch's hits into the cumulative channelMap.
           for (const h of batchHits) {
             if (!channelMap.has(h.channelId)) {
@@ -1575,15 +1581,26 @@ function streamingSearchResponse(opts: StreamingOpts): Response {
               website: '',
             }
             newChannels.push(channel)
-            sentChannelIds.add(channelId)
-            allEmittedChannels.push(channel)
           }
 
-          if (newChannels.length > 0) {
-            // Sort the batch by relevance descending so the user sees
-            // the highest-signal new arrivals first within the chunk.
-            newChannels.sort((a, b) => b.relevanceScore - a.relevanceScore)
-            send('chunk', { channels: newChannels, batchIdx })
+          // Sort this batch by relevance so we send the strongest
+          // candidates first within the chunk.
+          newChannels.sort((a, b) => b.relevanceScore - a.relevanceScore)
+
+          // Apply the global maxResults cap. Once the cumulative
+          // sent count reaches the cap, drop any further candidates
+          // (they're lower-relevance than what's already been sent).
+          const headroom = maxResults - allEmittedChannels.length
+          const toSend = headroom > 0 ? newChannels.slice(0, headroom) : []
+          for (const ch of toSend) {
+            sentChannelIds.add(ch.channelId)
+            allEmittedChannels.push(ch)
+          }
+          if (toSend.length > 0) {
+            send('chunk', { channels: toSend, batchIdx })
+          }
+          if (allEmittedChannels.length >= maxResults) {
+            capReached = true
           }
         })
 

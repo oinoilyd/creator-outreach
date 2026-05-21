@@ -2191,6 +2191,12 @@ export default function Home() {
     .filter(c => !emailOnly || !!c.email)
     .filter(c => {
       if (activePlatform === 'youtube') return true
+      // While a row is still enriching, we don't know its social
+      // handles yet — show it provisionally so the table doesn't read
+      // as empty during the search-streaming + Phase-A enrichment
+      // window. Once enrichment completes, the handle field is set
+      // (or stays empty) and the filter applies for real.
+      if (c.enriching) return true
       if (activePlatform === 'instagram') return !!c.instagram
       if (activePlatform === 'tiktok') return !!c.tiktok
       if (activePlatform === 'twitter') return !!c.twitter
@@ -3407,7 +3413,10 @@ export default function Home() {
                 // Same pass-through-on-missing-date logic as the main list filter above.
                 (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
                 (!emailOnly || !!c.email) &&
-                (activePlatform === 'youtube' || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
+                // Same "pass through while enriching" hint as the main
+                // list above — don't drop rows whose social handles
+                // haven't been fetched yet.
+                (activePlatform === 'youtube' || c.enriching || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
               ) : undefined}
               scoreWeights={scoreWeights}
               scoreNarrative={scoreNarrative}
