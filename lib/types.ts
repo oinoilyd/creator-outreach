@@ -196,6 +196,29 @@ export interface OutreachEntry {
    *  Likely-repeat engagement creates a follow-on outreach row that
    *  the user hasn't yet confirmed or denied. */
   engagementStatus?: EngagementStatus | null
+  /** Per-engagement team (editor, designer, videographer, etc.) with
+   *  role, contact info, and a fixed-dollar revenue share. Drives the
+   *  "Personal Revenue" metric (Total Booked − sum of collaborator
+   *  shares). Migration 0032. */
+  clientCollaborators?: ClientCollaborator[]
+}
+
+/** Single collaborator on an active-client engagement.
+ *  Role and share are required; contact info is optional. */
+export interface ClientCollaborator {
+  /** Local UUID — stable id so we can update/delete a specific row
+   *  without using array index (which shifts when others are removed). */
+  id: string
+  /** Free-form role label ("Editor", "Designer", "Videographer", etc).
+   *  No preset list — users type what fits. */
+  role: string
+  name: string
+  email?: string
+  phone?: string
+  /** Fixed dollar amount this collaborator earns from the engagement.
+   *  Subtracted from the engagement's clientBudgetAmount to compute
+   *  the user's personal revenue from the deal. */
+  share: number
 }
 
 // ── Active-client supporting types ─────────────────────────────────

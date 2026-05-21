@@ -264,8 +264,8 @@ export function ActiveClients({ entries, onPatch, onFollowOnCreated, initialSele
         </div>
       )}
 
-      {/* Metric row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+      {/* Metric row — 6 cards on lg+ now that Personal Revenue is in. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         <MetricCard
           label="Clients shown"
           value={metrics.total.toString()}
@@ -277,6 +277,14 @@ export function ActiveClients({ entries, onPatch, onFollowOnCreated, initialSele
           value={formatCurrencyCompact(metrics.totalBudget)}
           sub={metrics.withBudgetCount > 0 ? `${metrics.withBudgetCount} priced` : 'no budgets set'}
           icon={<Wallet className="w-3.5 h-3.5" />}
+        />
+        <MetricCard
+          label="Personal revenue"
+          value={formatCurrencyCompact(metrics.personalRevenue)}
+          sub={metrics.totalCollaboratorShare > 0
+            ? `${formatCurrencyCompact(metrics.totalCollaboratorShare)} to team`
+            : metrics.totalBudget > 0 ? 'no team splits' : null}
+          icon={<TrendingUp className="w-3.5 h-3.5" />}
         />
         <MetricCard
           label="Avg deal"
@@ -610,6 +618,10 @@ interface Metrics {
   contractsCount: number
   avgDurationDays: number | null
   durationCount: number
+  // Collaborator splits (migration 0032)
+  totalCollaboratorShare: number   // sum of all collaborator shares across engagements
+  personalRevenue: number          // totalBudget − totalCollaboratorShare (gross to net)
+  engagementsWithTeam: number      // how many engagements have at least one collaborator
 }
 
 function calcMetrics(list: OutreachEntry[]): Metrics {
@@ -634,6 +646,19 @@ function calcMetrics(list: OutreachEntry[]): Metrics {
     avgDurationDays = Math.round(totalDays / datedEngagements.length)
   }
 
+  // Collaborator splits — sum of all shares across engagements.
+  // Personal Revenue = total booked − everyone else's share.
+  let totalCollaboratorShare = 0
+  let engagementsWithTeam = 0
+  for (const e of list) {
+    const team = e.clientCollaborators ?? []
+    if (team.length > 0) {
+      engagementsWithTeam += 1
+      for (const c of team) totalCollaboratorShare += (c.share || 0)
+    }
+  }
+  const personalRevenue = Math.max(0, totalBudget - totalCollaboratorShare)
+
   return {
     total,
     totalBudget,
@@ -642,6 +667,9 @@ function calcMetrics(list: OutreachEntry[]): Metrics {
     contractsCount,
     avgDurationDays,
     durationCount: datedEngagements.length,
+    totalCollaboratorShare,
+    personalRevenue,
+    engagementsWithTeam,
   }
 }
 

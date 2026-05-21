@@ -36,6 +36,8 @@ import { MilestoneList } from './MilestoneList'
 import { ActivityTimeline } from './ActivityTimeline'
 import { ContractUpload } from './ContractUpload'
 import { WrapUpEngagementModal } from './WrapUpEngagementModal'
+import { CollaboratorsList } from './CollaboratorsList'
+import type { ClientCollaborator } from '@/lib/types'
 
 interface ActiveClientDetailModalProps {
   entry: OutreachEntry
@@ -362,6 +364,19 @@ export function ActiveClientDetailModal({
               onChange={setMilestones}
             />
 
+            <CollaboratorsList
+              collaborators={entry.clientCollaborators ?? []}
+              budget={entry.clientBudgetAmount}
+              budgetCurrency={entry.clientBudgetCurrency}
+              onChange={(next: ClientCollaborator[]) => {
+                onPatch(
+                  { clientCollaborators: next },
+                  diffCollaboratorActivity(entry.clientCollaborators ?? [], next),
+                )
+                setSavedFlash(true)
+              }}
+            />
+
             <ActivityTimeline events={entry.clientActivity ?? []} />
           </div>
         </div>
@@ -553,5 +568,39 @@ function diffMilestoneActivity(
     ts: Date.now(),
     type: 'milestone',
     summary: `Milestones: ${parts.join(', ')}`,
+  }
+}
+
+/**
+ * Diff two collaborator arrays for a single activity-log entry —
+ * same pattern as diffMilestoneActivity. Reports the net effect
+ * (added X, removed Y, share-changed Z) so the timeline stays
+ * readable even when the user is editing multiple fields at once.
+ */
+function diffCollaboratorActivity(
+  prev: import('@/lib/types').ClientCollaborator[],
+  next: import('@/lib/types').ClientCollaborator[],
+): ClientActivityEvent | undefined {
+  const prevById = new Map(prev.map(c => [c.id, c]))
+  const nextById = new Map(next.map(c => [c.id, c]))
+
+  let added = 0, removed = 0, shareChanged = 0
+  for (const c of next) {
+    const before = prevById.get(c.id)
+    if (!before) { added += 1; continue }
+    if ((before.share || 0) !== (c.share || 0)) shareChanged += 1
+  }
+  for (const c of prev) if (!nextById.has(c.id)) removed += 1
+
+  const parts: string[] = []
+  if (added)        parts.push(`added ${added}`)
+  if (removed)      parts.push(`removed ${removed}`)
+  if (shareChanged) parts.push(`updated ${shareChanged} share${shareChanged === 1 ? '' : 's'}`)
+  if (parts.length === 0) return undefined
+
+  return {
+    ts: Date.now(),
+    type: 'note',
+    summary: `Team: ${parts.join(', ')}`,
   }
 }

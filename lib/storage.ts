@@ -14,7 +14,7 @@ import type {
   OutreachEntry, Creator, ScoreWeights, GuidanceEntry,
   ColConfig, OutreachColConfig, PlatformId,
   ClientLifecycle, ClientMilestone, ClientActivityEvent,
-  ClientRepeatLikelihood, EngagementStatus,
+  ClientRepeatLikelihood, EngagementStatus, ClientCollaborator,
 } from './types'
 import { DEFAULT_WEIGHTS } from './scoring'
 
@@ -103,6 +103,10 @@ function rowToOutreach(r: any): OutreachEntry {
     clientTestimonial: r.client_testimonial ?? null,
     clientTestimonialPublic: !!r.client_testimonial_public,
     engagementStatus: (r.engagement_status ?? null) as EngagementStatus | null,
+    // Collaborators (migration 0032)
+    clientCollaborators: Array.isArray(r.client_collaborators)
+      ? (r.client_collaborators as ClientCollaborator[])
+      : [],
   }
 }
 
@@ -204,6 +208,8 @@ export interface ActiveClientPatch {
   clientTestimonial?: string | null
   clientTestimonialPublic?: boolean
   engagementStatus?: EngagementStatus | null
+  // 0032 collaborators
+  clientCollaborators?: ClientCollaborator[]
 }
 
 export async function updateActiveClientFields(
@@ -284,6 +290,11 @@ export async function updateActiveClientFields(
   }
   if ('engagementStatus' in patch) {
     dbUpdate.engagement_status = patch.engagementStatus ?? null
+  }
+  if ('clientCollaborators' in patch) {
+    // JSONB column — cast through unknown because dbUpdate's signature
+    // is keyed for primitives only. Supabase-js accepts the raw shape.
+    ;(dbUpdate as Record<string, unknown>).client_collaborators = patch.clientCollaborators ?? []
   }
 
   const { error } = await supabase
