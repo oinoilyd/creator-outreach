@@ -1794,16 +1794,27 @@ export default function Home() {
       // concurrent we drain a 175-row batch in ~12s when fully
       // uncached, ~3-4s when mostly cached. Phase B stays at 8 to be
       // polite to DuckDuckGo on the email lookup.
+      //
+      // Phase C (background, coverage lift) — fetches recent video
+      // descriptions for rows that finished Phase A without a complete
+      // social profile and runs the shared social-text extractor on
+      // them. Only rows still missing IG/X/TikTok/LinkedIn enqueue.
+      // Concurrency 8 to be polite to YT's video-list page.
       const PHASE_A_CONCURRENCY = 32
       const PHASE_B_CONCURRENCY = 8
+      const PHASE_C_CONCURRENCY = 8
       let phaseAActive = 0
       let phaseBActive = 0
+      let phaseCActive = 0
       const phaseAQueue: number[] = []
       const phaseBQueue: number[] = []
+      const phaseCQueue: number[] = []
       let phaseACompleted = 0
       let phaseBCompleted = 0
+      let phaseCCompleted = 0
       let phaseAStartedCount = 0
       let phaseBStartedCount = 0
+      let phaseCStartedCount = 0
 
       // Throttled flush — coalesce multiple state changes per animation
       // frame so React doesn't re-render N times per second when
@@ -1872,6 +1883,16 @@ export default function Home() {
           // rows still in Phase A.
           phaseBQueue.push(idx)
           tryStartPhaseB()
+          // Chain into Phase C if any platform's handle is still
+          // missing — fetches video descriptions to catch handles
+          // creators only mention in their video bios (background
+          // coverage lift; doesn't block UI). Skip Phase C entirely
+          // for rows that already have all four handles.
+          const row = enriched[idx]
+          if (!row.instagram || !row.twitter || !row.tiktok || !row.linkedin) {
+            phaseCQueue.push(idx)
+            tryStartPhaseC()
+          }
         } catch {
           // Don't propagate — the row stays in its current state
           // and Phase B may still succeed at fetching an email.
@@ -1918,6 +1939,55 @@ export default function Home() {
         }
       }
 
+      async function runPhaseCFor(idx: number) {
+        if (version !== searchVersion.current) return
+        const c = enriched[idx]
+        // Re-check inside the worker — Phase B may have populated
+        // socials by the time this row's Phase C slot opened up.
+        if (c.instagram && c.twitter && c.tiktok && c.linkedin) {
+          return
+        }
+        try {
+          const r = await fetch(`/api/enrich/video-descs?channelId=${encodeURIComponent(c.channelId)}`)
+          if (!r.ok) return
+          const extra = await r.json() as {
+            instagram?: string
+            twitter?: string
+            tiktok?: string
+            linkedin?: string
+          }
+          if (version !== searchVersion.current) return
+          // Only fill in missing handles — never overwrite a handle
+          // we already have (which has higher confidence since it came
+          // from the explicit Links section or /about description).
+          // Re-read the row from enriched[] because Phase B may have
+          // updated it in the meantime.
+          const current = enriched[idx]
+          const merged: Creator = {
+            ...current,
+            instagram: current.instagram || extra.instagram || '',
+            twitter:   current.twitter   || extra.twitter   || '',
+            tiktok:    current.tiktok    || extra.tiktok    || '',
+            linkedin:  current.linkedin  || extra.linkedin  || '',
+          }
+          // Only mutate + flush when we actually found something new.
+          if (
+            merged.instagram !== current.instagram
+            || merged.twitter !== current.twitter
+            || merged.tiktok !== current.tiktok
+            || merged.linkedin !== current.linkedin
+          ) {
+            enriched[idx] = merged
+            scheduleFlush()
+          }
+        } catch {
+          // Background pass — failures are silent. The row's
+          // /about-derived socials (if any) stay as-is.
+        } finally {
+          phaseCCompleted++
+        }
+      }
+
       function tryStartPhaseA() {
         while (phaseAActive < PHASE_A_CONCURRENCY && phaseAQueue.length > 0) {
           const idx = phaseAQueue.shift()!
@@ -1937,6 +2007,17 @@ export default function Home() {
           runPhaseBFor(idx).finally(() => {
             phaseBActive--
             tryStartPhaseB()
+          })
+        }
+      }
+      function tryStartPhaseC() {
+        while (phaseCActive < PHASE_C_CONCURRENCY && phaseCQueue.length > 0) {
+          const idx = phaseCQueue.shift()!
+          phaseCActive++
+          phaseCStartedCount++
+          runPhaseCFor(idx).finally(() => {
+            phaseCActive--
+            tryStartPhaseC()
           })
         }
       }
@@ -2047,8 +2128,14 @@ export default function Home() {
       // Tracking these so the lint doesn't flag "started but never read".
       void phaseAStartedCount
       void phaseBStartedCount
+      void phaseCStartedCount
+      void phaseCCompleted
       setStatus(`Done — ${enriched.length} creators found.`)
       setEnrichProgress({ current: 0, total: 0 })
+      // Phase C may still be running in the background — that's fine,
+      // additional handles trickle in over the next ~15-25s without
+      // blocking the "Done" state. The user can keep working; any
+      // new handles update rows in place.
     } catch (err: any) {
       if (version === searchVersion.current) {
         setStatus(`Error: ${err.message}`)
