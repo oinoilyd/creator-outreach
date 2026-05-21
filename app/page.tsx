@@ -226,6 +226,31 @@ export default function Home() {
     return () => window.removeEventListener('goto-active-client', handler as EventListener)
   }, [])
 
+  // "From outreach log" picker in Active Clients dispatches this
+  // when the user clicks a row to promote. We bump the entry's
+  // status to Successful (which makes it appear in the Active
+  // Clients filtered view) and then preselect it so the
+  // engagement card auto-opens — same end state as the
+  // LeadDetailModal "Add to Active Clients" CTA.
+  //
+  // updateOutreachEntry closes over the live outreach array, so
+  // we keep it in a ref to avoid stale closures inside the listener.
+  const updateOutreachEntryRef = useRef(updateOutreachEntry)
+  useEffect(() => { updateOutreachEntryRef.current = updateOutreachEntry })
+  useEffect(() => {
+    function handler(ev: Event) {
+      const detail = (ev as CustomEvent<{ entryId?: string }>).detail
+      if (!detail?.entryId) return
+      updateOutreachEntryRef.current(detail.entryId, 'status', 'Successful')
+      // Sub-tab stays 'active' since the user is already on it; just
+      // preselect so the engagement card auto-opens once the entry
+      // appears in the Successful-filtered list.
+      setActiveClientPreselect(detail.entryId)
+    }
+    window.addEventListener('promote-outreach-to-active', handler as EventListener)
+    return () => window.removeEventListener('promote-outreach-to-active', handler as EventListener)
+  }, [])
+
   // Sync state → URL on every change. replaceState (not pushState) so the
   // user's back button still goes back to where they came from on this site
   // rather than walking through every tab click.
