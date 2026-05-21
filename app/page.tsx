@@ -1788,7 +1788,13 @@ export default function Home() {
       // PhaseB) so handles + emails populate quickly without
       // depending on streaming.
       const enriched: Creator[] = []
-      const PHASE_A_CONCURRENCY = 25
+      // 2026-05-21 — bumped Phase A 25 → 32. /api/enrich's first
+      // path is the Postgres durable cache (creator_enrichment) which
+      // returns ~50ms per hit; uncached YT scrapes are ~2s. At 32
+      // concurrent we drain a 175-row batch in ~12s when fully
+      // uncached, ~3-4s when mostly cached. Phase B stays at 8 to be
+      // polite to DuckDuckGo on the email lookup.
+      const PHASE_A_CONCURRENCY = 32
       const PHASE_B_CONCURRENCY = 8
       let phaseAActive = 0
       let phaseBActive = 0

@@ -1311,21 +1311,23 @@ export async function GET(req: NextRequest) {
 
     // Adaptive news/mega-network filter (rewritten 2026-05-09):
     //
-    // The earlier hard rule "drop relevance=0 AND subs>1M" was too
-    // aggressive on niche keywords with limited surface area — it
-    // could leave 5-10 results when YouTube has plenty of relevant
-    // creators that just didn't keyword-match perfectly. New behavior:
+    // Five tiers, walked from strictest to loosest. The first tier
+    // that yields >= SOFT_TARGET (30+) wins. For fat niches we keep
+    // the strictest filter; for thin niches we relax automatically.
     //
-    //   Tier 0 (strictest): drop relevance=0 AND subs > 1M
-    //   Tier 1:              drop relevance=0 AND subs > 5M
-    //   Tier 2:              drop relevance=0 AND subs > 20M
-    //   Tier 3 (no filter):  keep everything
-    //
-    // We pick the strictest tier that still yields a healthy result
-    // set (~30+). For thin niches we relax automatically; for fat
-    // ones we keep the original news-org filter teeth.
+    //   Tier -1 (strictest, 2026-05-21 per Dylan): drop ALL relevance=0
+    //     channels regardless of size. Only kept channels are ones that
+    //     actually keyword-matched the search. Fixes the "divorce
+    //     attorney → youth coach" complaint.
+    //   Tier 0:  drop relevance=0 AND subs > 1M
+    //   Tier 1:  drop relevance=0 AND subs > 5M
+    //   Tier 2:  drop relevance=0 AND subs > 20M
+    //   Tier 3:  keep everything
     const SOFT_TARGET = 30
+    // Special-case the strictest tier with subsCap=-1 sentinel so the
+    // generic predicate below can treat it as "drop all relevance=0".
     const tiers: Array<{ subsCap: number; label: string }> = [
+      { subsCap: -1,         label: 'strictest-relevant-only' },
       { subsCap: 1_000_000,  label: 'strict' },
       { subsCap: 5_000_000,  label: 'relaxed-5M' },
       { subsCap: 20_000_000, label: 'relaxed-20M' },
@@ -1334,7 +1336,12 @@ export async function GET(req: NextRequest) {
     let filtered: Candidate[] = []
     let chosenTier = tiers[0].label
     for (const tier of tiers) {
-      filtered = regionFiltered.filter(c => !(c.relevanceScore === 0 && c._subsCount > tier.subsCap))
+      filtered = regionFiltered.filter(c => {
+        // Strictest tier — drop any relevance=0, period.
+        if (tier.subsCap < 0) return c.relevanceScore > 0
+        // Subs-tier filter — drop relevance=0 AND subs above cap.
+        return !(c.relevanceScore === 0 && c._subsCount > tier.subsCap)
+      })
       chosenTier = tier.label
       if (filtered.length >= SOFT_TARGET) break
       // If even unfiltered is thin, that's fine — return what we have.
