@@ -1078,12 +1078,20 @@ export async function GET(req: NextRequest) {
     baseQueries = expandTopic(keyword!)
   }
   const queries = applyRegion(baseQueries, keyword || keywordsList.join(' '), gl)
-  // Relevance terms include the variants too, so a channel that
-  // name-matches "tech YouTuber" but not "tech reviewer" still ranks
-  // above pure 'related' channels.
-  const scoringPhrase = aiVariants.length > 0
-    ? [keyword!, ...aiVariants].join(' ')
-    : (keyword || keywordsList.join(' '))
+  // 2026-05-21 per Dylan: scoring uses ONLY the original keyword's
+  // terms, not the AI variants. The variants stay in `queries` for
+  // YouTube-search discovery (more candidates surfaced) but their
+  // tokens were polluting the scoring vocabulary — variants like
+  // "professional chef" / "food chef" introduced terms ("professional",
+  // "food") that matched finance bros, generalists, and other unrelated
+  // channels who happened to have those generic words in titles.
+  //
+  // Load More (which skips AI expansion) was returning clean results;
+  // initial search wasn't because of this exact issue. By scoring on
+  // the original keyword only, initial search now matches Load More's
+  // precision while still benefiting from variant-driven query
+  // diversity.
+  const scoringPhrase = keyword || keywordsList.join(' ')
   const terms = scoringPhrase.toLowerCase().split(/\s+/).filter(Boolean)
 
   // ── SSE streaming path ─────────────────────────────────────────
