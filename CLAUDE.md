@@ -36,6 +36,69 @@ Three skill bundles are installed at `~/.claude/skills/`:
 
 This rule exists because we burned a half-night cycle of "shipped → broken → reverted." Read [SESSION-NOTES](./SESSION-NOTES.md) if you want the long version. The cycle ends here.
 
+## 🛡️ Data-safety protocol (MANDATORY — non-negotiable)
+
+This section exists because we lost a user's outreach list on 2026-05-20. The cause was a "diff and reconcile" pattern in `lib/storage.ts:saveOutreach()` combined with a PostgREST schema-cache lag after running migration `0028_active_clients.sql`. Full post-mortem in `.brain/project/gotchas.md` under "Data-loss incident 2026-05-20."
+
+**Never let this happen again.** Before ANY task that touches the database — migrations, storage helpers, new write paths, schema changes — execute the protocol below. No exceptions, even for "small" changes.
+
+### Step 1 — Audit data-write paths BEFORE writing the migration / feature
+
+When the task touches table `T`:
+
+1. Grep the codebase for every place writing to `T`:
+   ```bash
+   grep -rn "from('T')" lib/ app/api/ | grep -iE "delete|update|upsert|insert"
+   ```
+2. Open each match. Read the function. Look for:
+   - **"Diff and delete" patterns** — fetch existing, compare to new, delete the difference. CATASTROPHIC if the "new" list ever arrives empty. Replace with single-row writes.
+   - **No guards** on bulk operations. If a function deletes more than 1 row, it needs a sanity check (e.g., refuse if it would wipe >50% of existing rows, or if the local state appears empty but DB has data).
+   - **Stale closures** that can capture an empty array and re-save it.
+   - **Error handling that swallows + returns []**. Silent failures + automatic saves = invisible data loss.
+3. Surface any concerns in chat BEFORE writing migration SQL or new code. Even if Dylan didn't ask.
+
+### Step 2 — Migration safety checklist
+
+Before recommending Dylan run any migration:
+
+- [ ] Migration is idempotent (`IF NOT EXISTS` on creates, `IF EXISTS` on drops)
+- [ ] No `DROP TABLE` / `DROP COLUMN` on tables with user data (NEVER. Use `ALTER ... ADD COLUMN IF NOT EXISTS` to add, leave old columns until proven unused)
+- [ ] No `DELETE` / `TRUNCATE` of user-data tables in the migration body
+- [ ] If adding columns to a hot table (`outreach_entries`, `user_profile`, `creator_enrichment`), warn Dylan about the **PostgREST schema-cache lag (30-60s)** that follows. During this window, app queries on that table can fail. Recommend running during low-traffic hours.
+- [ ] If the migration could destabilize an existing data-write path (per Step 1 audit), block on shipping a code-side guard FIRST.
+
+### Step 3 — Production-readiness preflight
+
+For every push that touches the data layer, surface these questions if they haven't been answered recently:
+
+- "Are Supabase backups configured? Free tier doesn't have them."
+- "Is this change live during active user hours? Consider deploying when traffic is low."
+- "If this fails partway through, what's the recovery path?"
+- "Does this touch any table whose RLS or triggers could mis-fire under load?"
+
+Don't wait to be asked. If the answer to any of these is "I don't know" or "no," flag it.
+
+### Step 4 — After every migration on production tables
+
+- [ ] Verify the deletion audit log (`outreach_entries_deletion_log`) for unexpected entries
+- [ ] Spot-check one user's row count before / after
+- [ ] Confirm `NOTIFY pgrst, 'reload schema';` ran (the PostgREST cache refresh — every migration that adds/changes columns needs this)
+- [ ] If anything looks off, FREEZE and investigate before proceeding
+
+### Step 5 — Code patterns to refuse
+
+These patterns are banned in any new code:
+
+- **Bulk "save the whole list" functions** that delete rows missing from the list. Use single-row helpers: `addX(item)`, `updateXField(id, field, value)`, `removeX(id)`. The existing `saveOutreach()` is grandfathered with safety guards; do not add new functions in this shape.
+- **Empty-array assumptions** as a default fallback. `data ?? []` for a list that's then passed to a save function is a data-loss vector. Either propagate the error or hold the previous good state.
+- **`SELECT *`** without a fallback for missing columns. Use explicit column lists with migration-tolerance fallbacks (`try full → fall back to base`).
+
+### Why this is mandatory
+
+Dylan is paying for Claude Max. Token usage is not a constraint. There is no excuse for "I didn't grep the codebase to check." Read the related files. Do the audit. Surface the risks. Take 2–5 extra minutes per task to avoid losing someone's data again.
+
+---
+
 ## Test-before-push (MANDATORY)
 
 Playwright tests live in `tests/`. Before every `git push`:
