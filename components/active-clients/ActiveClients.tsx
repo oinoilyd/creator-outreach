@@ -19,6 +19,7 @@
 
 import React, { useMemo, useState } from 'react'
 import type { OutreachEntry, ClientActivityEvent } from '@/lib/types'
+import { resolveCollaboratorShare } from '@/lib/types'
 import { ActiveClientCard } from './ActiveClientCard'
 import { ActiveClientDetailModal } from './ActiveClientDetailModal'
 import { LifecycleFilterBar, type LifecycleFilter } from './LifecycleFilterBar'
@@ -648,13 +649,18 @@ function calcMetrics(list: OutreachEntry[]): Metrics {
 
   // Collaborator splits — sum of all shares across engagements.
   // Personal Revenue = total booked − everyone else's share.
+  // Percent-typed shares resolve against THIS engagement's budget,
+  // not the global totalBudget — that's why we resolve per-row before
+  // summing rather than computing as a single global percentage.
   let totalCollaboratorShare = 0
   let engagementsWithTeam = 0
   for (const e of list) {
     const team = e.clientCollaborators ?? []
     if (team.length > 0) {
       engagementsWithTeam += 1
-      for (const c of team) totalCollaboratorShare += (c.share || 0)
+      for (const c of team) {
+        totalCollaboratorShare += resolveCollaboratorShare(c, e.clientBudgetAmount)
+      }
     }
   }
   const personalRevenue = Math.max(0, totalBudget - totalCollaboratorShare)

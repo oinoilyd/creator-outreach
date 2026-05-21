@@ -215,10 +215,33 @@ export interface ClientCollaborator {
   name: string
   email?: string
   phone?: string
-  /** Fixed dollar amount this collaborator earns from the engagement.
+  /** Numeric share value. Interpretation depends on shareType:
+   *   • 'dollar' (default) — fixed dollar amount earned from the deal
+   *   • 'percent'          — percentage of the engagement's budget
    *  Subtracted from the engagement's clientBudgetAmount to compute
    *  the user's personal revenue from the deal. */
   share: number
+  /** How to interpret the `share` value. Defaults to 'dollar' when
+   *  missing (covers entries created before the toggle was added). */
+  shareType?: 'dollar' | 'percent'
+}
+
+/**
+ * Resolve a collaborator's share to a dollar amount given the
+ * engagement's budget. Percentage shares with no budget resolve to 0
+ * (we don't know the base). Use this anywhere personal-revenue or
+ * total-share math is computed so dollar-vs-percent stays consistent.
+ */
+export function resolveCollaboratorShare(
+  c: ClientCollaborator,
+  budget: number | null | undefined,
+): number {
+  const type = c.shareType ?? 'dollar'
+  if (type === 'percent') {
+    if (typeof budget !== 'number' || budget <= 0) return 0
+    return (budget * (c.share || 0)) / 100
+  }
+  return c.share || 0
 }
 
 // ── Active-client supporting types ─────────────────────────────────

@@ -30,9 +30,9 @@ import type { ActiveClientPatch, WrapUpPayload } from '@/lib/storage'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import {
   X as XIcon, ExternalLink, Loader2, Check, AlertCircle,
-  Play, Pause, CheckCircle2, XCircle,
+  Play, Pause, CheckCircle2, XCircle, ChevronDown, ChevronRight, Activity,
 } from 'lucide-react'
-import { MilestoneList } from './MilestoneList'
+import { MilestoneList, DEFAULT_MILESTONES, newMilestoneId } from './MilestoneList'
 import { ActivityTimeline } from './ActivityTimeline'
 import { ContractUpload } from './ContractUpload'
 import { WrapUpEngagementModal } from './WrapUpEngagementModal'
@@ -71,6 +71,37 @@ export function ActiveClientDetailModal({
       document.body.style.overflow = prev
     }
   }, [onClose])
+
+  // Auto-seed default milestones on FIRST open for a brand-new
+  // engagement. "Brand-new" = no current milestones AND no milestone
+  // activity ever recorded. If the user later deletes all defaults,
+  // the activity log keeps the "added 4" entry so we won't re-seed
+  // on the next open. The seed itself fires onPatch → persists →
+  // logs activity, so the guard is self-stabilising.
+  const seededRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current) return
+    const currentMilestones = entry.clientMilestones ?? []
+    if (currentMilestones.length > 0) {
+      seededRef.current = true
+      return
+    }
+    const hasMilestoneHistory = (entry.clientActivity ?? []).some(e => e.type === 'milestone')
+    if (hasMilestoneHistory) {
+      seededRef.current = true
+      return
+    }
+    // First open + no history → seed defaults.
+    seededRef.current = true
+    const seeded: ClientMilestone[] = DEFAULT_MILESTONES.map(m => ({ ...m, id: newMilestoneId() }))
+    onPatch(
+      { clientMilestones: seeded },
+      { ts: Date.now(), type: 'milestone', summary: `Milestones: seeded ${seeded.length} defaults` },
+    )
+    // Intentionally only runs on mount per modal-open. We don't want
+    // it firing again if entry props change underneath us.
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [])
 
   // Local drafts for the text-y fields so typing doesn't churn the
   // parent on every keystroke. We commit on blur (matches v1 card).
@@ -157,6 +188,11 @@ export function ActiveClientDetailModal({
   // immediate lifecycle flip — capture close data (final value,
   // rating, repeat likelihood, testimonial) in one structured pass.
   const [wrapUpOpen, setWrapUpOpen] = useState(false)
+
+  // Activity log is collapsed by default — most of the time users
+  // open the modal to edit fields, not audit history. The disclosure
+  // toggle reveals the timeline when they actually want it.
+  const [activityOpen, setActivityOpen] = useState(false)
 
   function setLifecycle(next: ClientLifecycle) {
     if (next === lifecycle) return
@@ -347,23 +383,11 @@ export function ActiveClientDetailModal({
             </div>
           </div>
 
-          {/* RIGHT — contract + milestones + activity */}
+          {/* RIGHT — featured team section, milestones, contract,
+              and a collapsed activity log. Team & Revenue Share is
+              the primary surface here because it drives the user's
+              Personal Revenue metric and is edited most often. */}
           <div className="space-y-5">
-            <ContractUpload
-              entryId={entry.id}
-              contractPath={entry.clientContractPath}
-              contractName={entry.clientContractName}
-              contractSize={entry.clientContractSize}
-              contractUploadedAt={entry.clientContractUploadedAt}
-              contractUrl={entry.clientContractUrl}
-              onPatch={onPatch}
-            />
-
-            <MilestoneList
-              milestones={entry.clientMilestones ?? []}
-              onChange={setMilestones}
-            />
-
             <CollaboratorsList
               collaborators={entry.clientCollaborators ?? []}
               budget={entry.clientBudgetAmount}
@@ -377,7 +401,29 @@ export function ActiveClientDetailModal({
               }}
             />
 
-            <ActivityTimeline events={entry.clientActivity ?? []} />
+            <MilestoneList
+              milestones={entry.clientMilestones ?? []}
+              onChange={setMilestones}
+            />
+
+            <ContractUpload
+              entryId={entry.id}
+              contractPath={entry.clientContractPath}
+              contractName={entry.clientContractName}
+              contractSize={entry.clientContractSize}
+              contractUploadedAt={entry.clientContractUploadedAt}
+              contractUrl={entry.clientContractUrl}
+              onPatch={onPatch}
+            />
+
+            {/* Activity — collapsed by default. Click to expand. */}
+            <ActivityDisclosure
+              open={activityOpen}
+              count={(entry.clientActivity ?? []).length}
+              onToggle={() => setActivityOpen(o => !o)}
+            >
+              <ActivityTimeline events={entry.clientActivity ?? []} />
+            </ActivityDisclosure>
           </div>
         </div>
 
@@ -457,6 +503,55 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
     <label className="block text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/80 mb-1">
       {children}
     </label>
+  )
+}
+
+/**
+ * Collapsible wrapper around ActivityTimeline. Header shows the event
+ * count + chevron and acts as the toggle. Keeps the timeline tucked
+ * away by default so the modal leads with edit surfaces, not audit
+ * history. Users who want the log click in.
+ */
+function ActivityDisclosure({
+  open, count, onToggle, children,
+}: {
+  open: boolean
+  count: number
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="border border-border/60 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-muted/40 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          {open
+            ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+            : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />}
+          <Activity className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+            Activity
+          </span>
+          {count > 0 && (
+            <span className="text-[11px] text-muted-foreground/75 tabular-nums">
+              {count}
+            </span>
+          )}
+        </div>
+        <span className="text-[10.5px] text-muted-foreground/60">
+          {open ? 'Hide' : 'Show'}
+        </span>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 pt-1 border-t border-border/40 bg-background/40">
+          {children}
+        </div>
+      )}
+    </div>
   )
 }
 

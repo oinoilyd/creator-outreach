@@ -6,16 +6,22 @@
  *
  * Each milestone: { id, label, dueDate, completedAt }. Toggling a
  * checkbox sets/clears completedAt. Editing the label commits on
- * blur. The parent owns persistence (JSONB column via
- * updateActiveClientFields → patch.clientMilestones), so this
- * component is purely a controlled checklist.
+ * blur (not per keystroke — see perf note below).
  *
- * Bulk action: "Use default checklist" seeds with 4 common rows for
- * a new engagement (kickoff, brief, deliverable, invoice). Helpful
- * when a deal just landed and the user hasn't typed anything yet.
+ * Perf note (matches CollaboratorsList v2):
+ *   v1 fired onChange on every label keystroke, which round-tripped to
+ *   Supabase and re-rendered the whole 4000-line page tree each
+ *   character. v2 lifts each row into MilestoneRow with LOCAL label
+ *   state — only commits on blur, Enter, or unmount. Date + toggle
+ *   stay direct (they don't fire per character).
+ *
+ * Bulk action: ActiveClientDetailModal auto-seeds the default list on
+ * first open for a brand-new engagement (no milestone history). The
+ * "Use default checklist" button stays as a fallback for older entries
+ * that pre-date the auto-seed behaviour.
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ClientMilestone } from '@/lib/types'
 import { Plus, Check, Trash2, ListChecks } from 'lucide-react'
 
@@ -24,17 +30,14 @@ interface MilestoneListProps {
   onChange: (next: ClientMilestone[]) => void
 }
 
-const DEFAULT_MILESTONES: Omit<ClientMilestone, 'id'>[] = [
-  { label: 'Kickoff call',     dueDate: '' },
-  { label: 'Brief signed',     dueDate: '' },
+export const DEFAULT_MILESTONES: Omit<ClientMilestone, 'id'>[] = [
+  { label: 'Kickoff call',        dueDate: '' },
+  { label: 'Brief signed',        dueDate: '' },
   { label: 'Deliverable shipped', dueDate: '' },
-  { label: 'Invoice paid',     dueDate: '' },
+  { label: 'Invoice paid',        dueDate: '' },
 ]
 
-function newId(): string {
-  // Cheap unique-enough — no need for full UUID inside a single row's
-  // JSONB array. crypto.randomUUID() exists in modern browsers but
-  // we guard for older runtimes anyway.
+export function newMilestoneId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     try { return (crypto as Crypto).randomUUID() } catch { /* fall through */ }
   }
@@ -47,7 +50,7 @@ export function MilestoneList({ milestones, onChange }: MilestoneListProps) {
   function addMilestone(label: string) {
     const trimmed = label.trim()
     if (!trimmed) return
-    onChange([...milestones, { id: newId(), label: trimmed, dueDate: '' }])
+    onChange([...milestones, { id: newMilestoneId(), label: trimmed, dueDate: '' }])
     setDraft('')
   }
 
@@ -66,7 +69,7 @@ export function MilestoneList({ milestones, onChange }: MilestoneListProps) {
     onChange(milestones.filter(m => m.id !== id))
   }
 
-  function updateLabel(id: string, label: string) {
+  function commitLabel(id: string, label: string) {
     onChange(milestones.map(m => (m.id === id ? { ...m, label } : m)))
   }
 
@@ -76,7 +79,7 @@ export function MilestoneList({ milestones, onChange }: MilestoneListProps) {
 
   function seedDefaults() {
     if (milestones.length > 0) return
-    onChange(DEFAULT_MILESTONES.map(m => ({ ...m, id: newId() })))
+    onChange(DEFAULT_MILESTONES.map(m => ({ ...m, id: newMilestoneId() })))
   }
 
   const completedCount = milestones.filter(m => !!m.completedAt).length
@@ -121,53 +124,16 @@ export function MilestoneList({ milestones, onChange }: MilestoneListProps) {
       {/* Milestone rows */}
       {milestones.length > 0 && (
         <ul className="space-y-1.5 mb-3">
-          {milestones.map(m => {
-            const done = !!m.completedAt
-            return (
-              <li
-                key={m.id}
-                className="flex items-center gap-2 group"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleMilestone(m.id)}
-                  className={[
-                    'shrink-0 inline-flex items-center justify-center w-5 h-5 rounded border transition-colors',
-                    done
-                      ? 'bg-green-500/20 border-green-500/60 text-green-700 dark:text-green-300'
-                      : 'border-border hover:border-foreground/40 text-transparent hover:text-foreground/30',
-                  ].join(' ')}
-                  aria-label={done ? `Uncheck ${m.label}` : `Check ${m.label}`}
-                >
-                  <Check className="w-3 h-3" />
-                </button>
-                <input
-                  type="text"
-                  value={m.label}
-                  onChange={e => updateLabel(m.id, e.target.value)}
-                  className={[
-                    'flex-1 bg-transparent border-0 px-1 py-0.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-purple-500/30 rounded',
-                    done ? 'line-through text-muted-foreground/70' : 'text-foreground',
-                  ].join(' ')}
-                />
-                <input
-                  type="date"
-                  value={m.dueDate || ''}
-                  onChange={e => updateDueDate(m.id, e.target.value)}
-                  className="shrink-0 w-[120px] bg-background border border-border rounded px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple-500/30"
-                  aria-label={`Due date for ${m.label}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeMilestone(m.id)}
-                  className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-red-500 transition-opacity"
-                  aria-label={`Remove ${m.label}`}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </li>
-            )
-          })}
+          {milestones.map(m => (
+            <MilestoneRow
+              key={m.id}
+              row={m}
+              onToggle={() => toggleMilestone(m.id)}
+              onCommitLabel={label => commitLabel(m.id, label)}
+              onUpdateDueDate={d => updateDueDate(m.id, d)}
+              onRemove={() => removeMilestone(m.id)}
+            />
+          ))}
         </ul>
       )}
 
@@ -192,5 +158,87 @@ export function MilestoneList({ milestones, onChange }: MilestoneListProps) {
         </button>
       </div>
     </div>
+  )
+}
+
+// ── Per-row component ─────────────────────────────────────────────────
+// Local state for the label input so per-character typing doesn't
+// re-render the entire modal/page tree. Commits on blur, Enter, or
+// unmount. Date + toggle stay direct — they fire once per change, not
+// per character, so no perf issue.
+
+interface MilestoneRowProps {
+  row: ClientMilestone
+  onToggle: () => void
+  onCommitLabel: (label: string) => void
+  onUpdateDueDate: (date: string) => void
+  onRemove: () => void
+}
+
+function MilestoneRow({
+  row, onToggle, onCommitLabel, onUpdateDueDate, onRemove,
+}: MilestoneRowProps) {
+  const [label, setLabel] = useState(row.label)
+
+  // Re-sync if the underlying row label changes (e.g. seeded by parent).
+  useEffect(() => {
+    if (row.label !== label) setLabel(row.label)
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [row.label])
+
+  // Flush in-progress label on unmount (modal close mid-edit).
+  const latestLabel = useRef(label)
+  latestLabel.current = label
+  useEffect(() => {
+    return () => {
+      if (latestLabel.current !== row.label) onCommitLabel(latestLabel.current)
+    }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [])
+
+  const done = !!row.completedAt
+
+  return (
+    <li className="flex items-center gap-2 group">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={[
+          'shrink-0 inline-flex items-center justify-center w-5 h-5 rounded border transition-colors',
+          done
+            ? 'bg-green-500/20 border-green-500/60 text-green-700 dark:text-green-300'
+            : 'border-border hover:border-foreground/40 text-transparent hover:text-foreground/30',
+        ].join(' ')}
+        aria-label={done ? `Uncheck ${row.label}` : `Check ${row.label}`}
+      >
+        <Check className="w-3 h-3" />
+      </button>
+      <input
+        type="text"
+        value={label}
+        onChange={e => setLabel(e.target.value)}
+        onBlur={() => { if (label !== row.label) onCommitLabel(label) }}
+        onKeyDown={e => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }}
+        className={[
+          'flex-1 bg-transparent border-0 px-1 py-0.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-purple-500/30 rounded',
+          done ? 'line-through text-muted-foreground/70' : 'text-foreground',
+        ].join(' ')}
+      />
+      <input
+        type="date"
+        value={row.dueDate || ''}
+        onChange={e => onUpdateDueDate(e.target.value)}
+        className="shrink-0 w-[120px] bg-background border border-border rounded px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple-500/30"
+        aria-label={`Due date for ${row.label}`}
+      />
+      <button
+        type="button"
+        onClick={onRemove}
+        className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground/60 hover:text-red-500 transition-opacity"
+        aria-label={`Remove ${row.label}`}
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </li>
   )
 }
