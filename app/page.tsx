@@ -1772,35 +1772,57 @@ export default function Home() {
         !!kw.trim()
       const expandParam = shouldExpand ? '&expand=true' : ''
 
-      // SSE streaming path — each region streams independently, and
-      // we merge chunks into a running `streamedChannels` list. The
-      // user sees rows pop in as each batch resolves on the server
-      // (~5-8s for the first chunk instead of 30-45s for everything).
-      // Cache hits return a single chunk + done event so the
-      // streaming consumer doesn't need a separate fast-path.
-      const streamedChannels: Creator[] = []
+      // ── Parallel streaming + enrichment ─────────────────────────
+      //
+      // Per Dylan 2026-05-21 — the previous flow streamed rows fast
+      // but then waited for streaming to FINISH before kicking off
+      // any enrichment. So metrics (socials + emails) lagged by
+      // 15-30s even though the rows had been visible the whole time.
+      //
+      // This version maintains two concurrency-bounded pools
+      // (PhaseA = handles + refined subs/avgViews, PhaseB = emails)
+      // that drain a shared queue. As each chunk arrives from the
+      // SSE stream, new creators are appended to `enriched[]` AND
+      // queued for PhaseA immediately. When PhaseA completes for a
+      // row, that row chains into PhaseB right away. By the time
+      // the search finishes streaming (~25-30s), most rows are
+      // already fully enriched.
+      const enriched: Creator[] = []
       const seenStreamIds = new Set<string>()
+      const PHASE_A_CONCURRENCY = 25
+      const PHASE_B_CONCURRENCY = 8
+      let phaseAActive = 0
+      let phaseBActive = 0
+      const phaseAQueue: number[] = []
+      const phaseBQueue: number[] = []
+      let phaseACompleted = 0
+      let phaseBCompleted = 0
+      let phaseAStartedCount = 0
+      let phaseBStartedCount = 0
       let streamError: string | null = null
-      let firstChunkArrived = false
-      // Render-throttling — if multiple regions land chunks back-to-back
-      // we'd otherwise burst-update the table on every chunk. Buffer to
-      // animation-frame boundaries so React batches the renders.
+      let streamingDone = false
+
+      // Throttled flush — coalesce multiple state changes per animation
+      // frame so React doesn't re-render N times per second when
+      // many enrichments land back-to-back.
       let flushPending = false
       const flushVisible = () => {
         flushPending = false
         if (version !== searchVersion.current) return
-        // Dedupe against dismissed + outreached, apply enriching flag.
-        const visible = streamedChannels.filter(
-          (c: Creator) => !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
-        )
-        const withEnrichingFlag = visible.map(c => ({ ...c, enriching: true as boolean }))
-        setCreators(withEnrichingFlag)
-        if (!firstChunkArrived && visible.length > 0) {
-          firstChunkArrived = true
-          setStatus(`Found ${visible.length} creators (still searching…). Resolving handles…`)
-        } else if (firstChunkArrived) {
-          setStatus(`Found ${visible.length} creators (still searching…). Resolving handles…`)
+        setCreators([...enriched])
+        // Status updates the running totals so the user can see
+        // progress without staring at a static "Searching..." label.
+        const total = enriched.length
+        if (!streamingDone) {
+          setStatus(`Found ${total} creators (still searching…). Resolving handles ${phaseACompleted}/${total}…`)
+        } else if (phaseACompleted < total) {
+          setStatus(`Found ${total} creators. Resolving handles ${phaseACompleted}/${total}…`)
+        } else if (phaseBCompleted < total) {
+          setStatus(`Found ${total} creators. Looking up emails ${phaseBCompleted}/${total}…`)
+        } else {
+          setStatus(`Done — ${total} creators found.`)
         }
+        setEnrichProgress({ current: phaseACompleted, total })
       }
       const scheduleFlush = () => {
         if (flushPending) return
@@ -1812,6 +1834,115 @@ export default function Home() {
         }
       }
 
+      async function runPhaseAFor(idx: number) {
+        if (version !== searchVersion.current) return
+        const c = enriched[idx]
+        try {
+          const params = new URLSearchParams({
+            name: c.channelName, channelId: c.channelId,
+            website: c.website || '', instagram: c.instagram || '',
+            tiktok: c.tiktok || '', description: c.description || '',
+          })
+          params.set('fast', 'true')
+          const r = await fetch(`/api/enrich?${params}`)
+          if (!r.ok) throw new Error(`enrich ${r.status}`)
+          const extra = await r.json()
+          if (version !== searchVersion.current) return
+          // Phase A merges socials + refined subs/avgViews into the
+          // row. enriching stays TRUE so the row keeps showing the
+          // "looking up email" indicator until Phase B writes the
+          // email and flips enriching to false.
+          enriched[idx] = {
+            ...c,
+            enriching: true,
+            email: c.email || extra.email || '',
+            subscribers: c.subscribers || extra.subscribers || '',
+            videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
+            shortDates: (extra.shortDates?.length ? extra.shortDates : c.shortDates) || [],
+            avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : c.avgViews,
+            linkedin: c.linkedin || extra.linkedin || '',
+            instagram: c.instagram || extra.instagram || '',
+            twitter: c.twitter || extra.twitter || '',
+            tiktok: c.tiktok || extra.tiktok || '',
+            website: c.website || extra.website || '',
+          }
+          // Chain into Phase B immediately — emails populate as soon
+          // as a row's handles are resolved, in parallel with other
+          // rows still in Phase A.
+          phaseBQueue.push(idx)
+          tryStartPhaseB()
+        } catch {
+          // Don't propagate — the row stays in its current state
+          // and Phase B may still succeed at fetching an email.
+        } finally {
+          phaseACompleted++
+          scheduleFlush()
+        }
+      }
+
+      async function runPhaseBFor(idx: number) {
+        if (version !== searchVersion.current) return
+        const c = enriched[idx]
+        try {
+          const params = new URLSearchParams({
+            name: c.channelName, channelId: c.channelId,
+            website: c.website || '', instagram: c.instagram || '',
+            tiktok: c.tiktok || '', description: c.description || '',
+          })
+          const r = await fetch(`/api/enrich?${params}`)
+          if (!r.ok) throw new Error(`enrich ${r.status}`)
+          const extra = await r.json()
+          if (version !== searchVersion.current) return
+          enriched[idx] = {
+            ...c,
+            enriching: false,
+            email: c.email || extra.email || '',
+            subscribers: c.subscribers || extra.subscribers || '',
+            videoDates: (extra.videoDates?.length ? extra.videoDates : c.videoDates) || [],
+            shortDates: (extra.shortDates?.length ? extra.shortDates : c.shortDates) || [],
+            avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : c.avgViews,
+            linkedin: c.linkedin || extra.linkedin || '',
+            instagram: c.instagram || extra.instagram || '',
+            twitter: c.twitter || extra.twitter || '',
+            tiktok: c.tiktok || extra.tiktok || '',
+            website: c.website || extra.website || '',
+          }
+        } catch {
+          // Even on failure, drop the enriching flag so the row
+          // doesn't keep showing the spinner forever.
+          enriched[idx] = { ...c, enriching: false }
+        } finally {
+          phaseBCompleted++
+          scheduleFlush()
+        }
+      }
+
+      function tryStartPhaseA() {
+        while (phaseAActive < PHASE_A_CONCURRENCY && phaseAQueue.length > 0) {
+          const idx = phaseAQueue.shift()!
+          phaseAActive++
+          phaseAStartedCount++
+          runPhaseAFor(idx).finally(() => {
+            phaseAActive--
+            tryStartPhaseA()
+          })
+        }
+      }
+      function tryStartPhaseB() {
+        while (phaseBActive < PHASE_B_CONCURRENCY && phaseBQueue.length > 0) {
+          const idx = phaseBQueue.shift()!
+          phaseBActive++
+          phaseBStartedCount++
+          runPhaseBFor(idx).finally(() => {
+            phaseBActive--
+            tryStartPhaseB()
+          })
+        }
+      }
+
+      // Consume the SSE stream from each region in parallel. As each
+      // chunk arrives, append new creators to enriched[] AND queue
+      // them for Phase A immediately.
       await Promise.all(
         regionCodes.map(async code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
@@ -1825,53 +1956,41 @@ export default function Home() {
                 const newOnes = (data.channels ?? []).filter(c => {
                   if (seenStreamIds.has(c.channelId)) return false
                   seenStreamIds.add(c.channelId)
-                  return true
+                  // Drop dismissed + already-outreached up front so
+                  // we don't waste enrichment cost on them.
+                  return !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
                 })
+                for (const c of newOnes) {
+                  const idx = enriched.length
+                  enriched.push({ ...c, enriching: true })
+                  phaseAQueue.push(idx)
+                  // Track for Load More dedup.
+                  seenChannelIds.current.add(c.channelId)
+                }
                 if (newOnes.length > 0) {
-                  streamedChannels.push(...newOnes)
+                  tryStartPhaseA()
                   scheduleFlush()
                 }
               } else if (ev.event === 'error') {
                 const data = ev.data as { message?: string }
                 streamError = data.message ?? 'search failed'
               }
-              // 'meta' + 'done' events are useful for telemetry but not
-              // strictly needed by the client right now.
             })
           } catch (e) {
             streamError = (e as Error).message
           }
         })
       )
-      if (version !== searchVersion.current) return  // superseded by newer search
+      streamingDone = true
+      scheduleFlush()
+      if (version !== searchVersion.current) return
       if (streamError) { setStatus(`Error: ${streamError}`); return }
-      // Final flush so any chunk that landed AFTER the last
-      // scheduleFlush is reflected before enrichment kicks off.
-      flushVisible()
 
-      // Build the same `data` shape downstream code expects so we can
-      // hand off to existing dedup + enrichment logic without
-      // refactoring those.
-      const data = { channels: streamedChannels.slice() }
-
-      // Track all returned channel IDs so Load More skips them
-      ;(data.channels as Creator[]).forEach((c: Creator) => seenChannelIds.current.add(c.channelId))
-
-      // Filter out dismissed and already-outreached channels from results
-      let visible = (data.channels as Creator[]).filter(
-        (c: Creator) => !dismissedIds.has(c.channelId) && !outreachIds.has(c.channelId)
-      )
-
-      // Name-match narrowing for handle-shaped inputs that landed in
-      // broad-keyword mode. Two ways this fires:
-      //   1. User clicked the "Search similar" pill after a username
-      //      lookup failed — they typed `TinaHuang1`, occupation
-      //      search runs, we narrow to channels whose name matches.
-      //   2. User manually picked occupation mode but typed something
-      //      that looks like a handle/url. We still help.
-      // For pure phrase searches (`fitness`, `productivity coach`)
-      // this doesn't fire — classifier returns 'phrase' and we keep
-      // the full keyword pile.
+      // Name-match narrowing for handle-shaped inputs (URL/username
+      // mode that fell through to broad search). Applies after stream
+      // completes — fires only when the classifier saw a handle/url
+      // shape. Wasted enrichments on dropped rows are acceptable
+      // since handle-hint searches return a small set anyway.
       const inputCls = classifySearchInput(kw)
       const handleHint =
         inputCls.kind === 'handle' ? inputCls.handle :
@@ -1880,8 +1999,8 @@ export default function Home() {
       if (handleHint) {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
         const target = norm(handleHint)
-        const targetCore = target.replace(/\d+$/, '') // drop trailing digits (TinaHuang1 → tinahuang)
-        const matches = visible.filter(c => {
+        const targetCore = target.replace(/\d+$/, '')
+        const matches = enriched.filter(c => {
           const n = norm(c.channelName)
           if (!n || !target) return false
           return n === target
@@ -1890,108 +2009,37 @@ export default function Home() {
             || (targetCore.length >= 4 && n.includes(targetCore))
             || (n.length >= 4 && (target.includes(n) || targetCore.includes(n)))
         })
-        if (matches.length > 0 && matches.length <= 3) {
-          visible = matches
-          setStatus(`Found ${matches.length} close match${matches.length === 1 ? '' : 'es'} for @${handleHint}.`)
-        } else if (matches.length > 0) {
-          visible = matches.slice(0, 5)
-          setStatus(`${matches.length} channels match @${handleHint} — showing the closest 5.`)
-        }
-        // matches.length === 0 → keep the full keyword pile, status
-        // stays "Searching..." from the broad-search step.
-      }
-
-      const enriched = visible.map(c => ({ ...c, enriching: true }))
-      setCreators([...enriched])
-      setEnrichProgress({ current: 0, total: enriched.length })
-      setStatus(`Found ${enriched.length} creators. Resolving handles...`)
-
-      // Two-phase enrichment.
-      //
-      // Phase A (fast, blocking): /api/enrich?fast=true for everyone,
-      // BATCH=20 in parallel. ~1.5–2s per creator → ~10–15s for 100.
-      // Returns YouTube /about + videos + shorts only — i.e. all
-      // social handles (IG/TT/X/LinkedIn) + subscribers + recency.
-      // Email column stays empty until Phase B fills it in. The IG /
-      // TikTok / X / LinkedIn filter tabs work immediately at the
-      // end of Phase A.
-      //
-      // Phase B (slow, background): /api/enrich (full mode) for
-      // everyone, BATCH=8 to be polite to DDG. Fills in emails as
-      // they resolve. User keeps interacting; rows update in place.
-      // Doesn't block setLoading(false); the spinner stops after A.
-
-      async function runPhase(fast: boolean, concurrency: number, statusFn: (i: number, total: number) => string) {
-        for (let i = 0; i < enriched.length; i += concurrency) {
-          if (version !== searchVersion.current) return
-          const batchIndices = Array.from({ length: Math.min(concurrency, enriched.length - i) }, (_, k) => i + k)
-          await Promise.all(batchIndices.map(async (idx) => {
-            const c = enriched[idx]
-            try {
-              const params = new URLSearchParams({
-                name: c.channelName, channelId: c.channelId,
-                website: c.website || '', instagram: c.instagram || '',
-                tiktok: c.tiktok || '', description: c.description || '',
-              })
-              if (fast) params.set('fast', 'true')
-              const r = await fetch(`/api/enrich?${params}`)
-              const extra = await r.json()
-              // In Phase A we keep `enriching:true` so the email
-              // column shows "looking..." until Phase B writes the
-              // email. In Phase B we flip it to false.
-              enriched[idx] = {
-                ...c,
-                enriching: fast ? true : false,
-                email: c.email || extra.email || enriched[idx].email || '',
-                subscribers: c.subscribers || extra.subscribers || enriched[idx].subscribers || '',
-                videoDates: (extra.videoDates?.length ? extra.videoDates : enriched[idx].videoDates) || [],
-                shortDates: (extra.shortDates?.length ? extra.shortDates : enriched[idx].shortDates) || [],
-                avgViews: (extra.avgViews != null && !isNaN(extra.avgViews)) ? extra.avgViews : enriched[idx].avgViews,
-                linkedin: c.linkedin || extra.linkedin || enriched[idx].linkedin || '',
-                instagram: c.instagram || extra.instagram || enriched[idx].instagram || '',
-                twitter: c.twitter || extra.twitter || enriched[idx].twitter || '',
-                tiktok: c.tiktok || extra.tiktok || enriched[idx].tiktok || '',
-                website: c.website || extra.website || enriched[idx].website || '',
-              }
-            } catch {
-              if (!fast) enriched[idx] = { ...enriched[idx], enriching: false }
-            }
-          }))
-          if (version === searchVersion.current) {
-            setEnrichProgress({ current: Math.min(i + concurrency, enriched.length), total: enriched.length })
-            setStatus(statusFn(Math.min(i + concurrency, enriched.length), enriched.length))
-            setCreators([...enriched])
-          }
+        if (matches.length > 0) {
+          // Replace enriched with the matches (already mostly enriched).
+          enriched.splice(0, enriched.length, ...matches.slice(0, matches.length <= 3 ? matches.length : 5))
+          scheduleFlush()
+          const label = matches.length <= 3
+            ? `Found ${enriched.length} close match${enriched.length === 1 ? '' : 'es'} for @${handleHint}.`
+            : `${matches.length} channels match @${handleHint} — showing the closest 5.`
+          setStatus(label)
         }
       }
 
-      // Phase A — fast pass (fills socials + subs + recency).
-      await runPhase(
-        true,
-        20,
-        (done, total) => `Resolving handles ${done} / ${total}...`,
-      )
-
+      // Wait for Phase A to drain on the visible set so we can drop
+      // the blocking spinner at the right moment. Phase B continues
+      // in the background after this resolves.
+      while ((phaseAActive > 0 || phaseAQueue.length > 0) && version === searchVersion.current) {
+        await new Promise(r => setTimeout(r, 80))
+      }
       if (version !== searchVersion.current) return
-
-      // Phase A done — user can already see + filter rows. Drop the
-      // blocking spinner and let Phase B trickle emails in.
       setLoading(false)
-      setStatus(`Found ${enriched.length} creators. Looking up emails in background...`)
-      setEnrichProgress({ current: 0, total: enriched.length })
 
-      // Phase B — slow pass, in background. Lower concurrency to be
-      // polite to DDG (we don't want to get rate-limited mid-search).
-      await runPhase(
-        false,
-        8,
-        (done, total) => `Looking up emails ${done} / ${total}...`,
-      )
-
-      if (version === searchVersion.current) {
-        setStatus(`Done — ${enriched.length} creators found.`)
-        setEnrichProgress({ current: 0, total: 0 })
+      // Wait for Phase B to drain so we can show the final status.
+      // The user can already interact while we wait.
+      while ((phaseBActive > 0 || phaseBQueue.length > 0) && version === searchVersion.current) {
+        await new Promise(r => setTimeout(r, 80))
       }
+      if (version !== searchVersion.current) return
+      // Tracking these so the lint doesn't flag "started but never read".
+      void phaseAStartedCount
+      void phaseBStartedCount
+      setStatus(`Done — ${enriched.length} creators found.`)
+      setEnrichProgress({ current: 0, total: 0 })
     } catch (err: any) {
       if (version === searchVersion.current) {
         setStatus(`Error: ${err.message}`)
