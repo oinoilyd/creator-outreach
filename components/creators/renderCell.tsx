@@ -70,7 +70,13 @@ export function renderCell(
     case 'fitScore': {
       return <FitScoreCell key={id} c={c} weights={weights} narrative={narrative} />
     }
-    case 'avgViews':    return <td key={id} className="px-4 py-3">{c.avgViews.toLocaleString()}</td>
+    case 'avgViews':    return (
+      <td key={id} className="px-4 py-3">
+        {c.avgViews > 0
+          ? c.avgViews.toLocaleString()
+          : <span className="text-muted-foreground/40" title="View count not yet available — likely a fetch limit or a channel YouTube couldn't surface stats for">—</span>}
+      </td>
+    )
     case 'subscribers': return <td key={id} className="px-4 py-3 text-foreground/80">{formatSubscribers(c.subscribers)}</td>
     case 'lastVideo': return (
       <td key={id} className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
