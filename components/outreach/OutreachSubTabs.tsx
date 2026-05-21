@@ -9,11 +9,12 @@ import { AnimatedTabs } from '@/components/AnimatedTabs'
  * All / Follow-ups / Active Clients / Analytics, with badge counts
  * on the action-needed tabs.
  *
- * Note: the "Favorites" tab was removed in v3 (2026-05-21). Favorites
- * are now pinned to the top of the All view via a toggle in
- * OutreachTab's toolbar — it kills a tab without losing the
- * "favorites are special" UX. Legacy ?sub=favorites URLs are coerced
- * to ?sub=all in app/page.tsx.
+ * Note: the "Favorites" tab was removed in v3 (2026-05-21). The
+ * ★ column header in OutreachTab is now a regular sort target —
+ * click it to surface favorites at the top, click again to send
+ * them to the bottom, click a third time to clear. No always-on
+ * pinning; favorites surface only when the user asks. Legacy
+ * ?sub=favorites URLs are coerced to ?sub=all in app/page.tsx.
  */
 
 export type OutreachSubTabId = 'all' | 'analytics' | 'followups' | 'active'
