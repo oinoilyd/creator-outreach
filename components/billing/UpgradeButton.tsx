@@ -33,6 +33,28 @@ interface UpgradeLabel {
 }
 
 /**
+ * Compute a compact mobile label from the full label. Used so the
+ * UpgradeButton can show "Trial · 14d left" on desktop but just
+ * "14d" on a phone — the longer string overlaps the wordmark in
+ * the sticky header on narrow screens.
+ */
+export function computeUpgradeLabelCompact(sub: SubscriptionSnapshot): string {
+  if (!sub || !sub.status || sub.status === 'canceled' || sub.status === 'incomplete_expired') {
+    return 'Upgrade'
+  }
+  if (sub.status === 'past_due' || sub.status === 'unpaid') return 'Past due'
+  if (sub.status === 'trialing') {
+    const daysLeft = trialDaysLeft(sub.currentPeriodEnd)
+    const tail = daysLeft != null ? `${daysLeft}d` : 'Trial'
+    return sub.cancelAtPeriodEnd ? `${tail}!` : tail
+  }
+  if (sub.status === 'active') {
+    return sub.cancelAtPeriodEnd ? 'Pro!' : 'Pro'
+  }
+  return sub.status
+}
+
+/**
  * Compute the visible label from subscription state. Pure function —
  * exported so the hamburger menu can render the same string.
  */
@@ -86,10 +108,11 @@ export function UpgradeButton({
   if (!stripeConfigured) return null
 
   const { cta, variant } = computeUpgradeLabel(subscription)
+  const ctaShort = computeUpgradeLabelCompact(subscription)
   const isManage = variant !== 'upgrade'
 
   const base =
-    'inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-[12px] font-medium transition-colors whitespace-nowrap'
+    'inline-flex items-center gap-1.5 rounded-lg border text-[12px] font-medium transition-colors whitespace-nowrap max-sm:px-2 max-sm:py-1.5 sm:px-3 sm:py-2'
   const variantClass =
     variant === 'upgrade'
       ? 'border-purple-500/50 bg-purple-500/10 text-purple-700 dark:text-purple-200 hover:bg-purple-500/20'
@@ -97,10 +120,20 @@ export function UpgradeButton({
         ? 'border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-300 hover:bg-red-500/20'
         : 'border-border bg-card text-muted-foreground hover:text-foreground hover:border-border/80'
 
+  // Two label spans so phones see the compact form ("14d") and
+  // desktops see the full ("Trial · 14d left"). Hidden via Tailwind
+  // responsive classes — no JS branching, no layout shift on resize.
+  const labels = (
+    <>
+      <span className="max-sm:hidden">{cta}</span>
+      <span className="sm:hidden">{ctaShort}</span>
+    </>
+  )
+
   if (!isManage) {
     return (
-      <Link href="/pricing" className={`${base} ${variantClass}`} aria-label="Upgrade">
-        <SparkIcon /> {cta}
+      <Link href="/pricing" className={`${base} ${variantClass}`} aria-label="Upgrade" title={cta}>
+        <SparkIcon /> {labels}
       </Link>
     )
   }
@@ -133,8 +166,10 @@ export function UpgradeButton({
       disabled={loading}
       className={`${base} ${variantClass} disabled:opacity-60`}
       aria-label="Manage subscription"
+      title={cta}
     >
-      <SparkIcon /> {loading ? 'Opening…' : cta}
+      <SparkIcon />
+      {loading ? <span>Opening…</span> : labels}
     </button>
   )
 }

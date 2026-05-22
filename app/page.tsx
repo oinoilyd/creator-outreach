@@ -2446,15 +2446,20 @@ export default function Home() {
           through the blur. Other themes (Rain, Fireworks, Tornado)
           all look fine with the blur, so keep it for them. */}
       <div className={`sticky top-0 z-30 border-b border-border/60 bg-background/40 dark:bg-background/10 ${backdropTheme === 'drift' ? '' : 'backdrop-blur-sm'}`}>
-        <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full px-6' : 'max-w-7xl mx-auto px-8'} py-5`}>
-          <div className="flex items-center justify-between gap-4">
+        {/* Padding: tighter on phones (3) to give the wordmark + trial
+            pill + hamburger enough room to coexist without overlap;
+            generous on desktop (px-6 / px-8 + py-5) as before. */}
+        <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full max-sm:px-3 sm:px-6' : 'max-w-7xl mx-auto max-sm:px-3 sm:px-8'} max-sm:py-3 sm:py-5`}>
+          <div className="flex items-center justify-between gap-4 max-sm:gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity shrink-0">
                 {/* Creator Outreach — confident wordmark. v3 (Dylan
                     2026-05-10): kept the gradient text-fill, sized
                     back up so it sits as a peer with the chunkier
-                    platform pill instead of feeling smaller than it. */}
-                <h1 className="text-2xl font-bold tracking-[-0.02em] leading-none bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent">
+                    platform pill instead of feeling smaller than it.
+                    Mobile: shrink to text-lg so the wordmark + trial
+                    pill + hamburger all fit on a 375px phone. */}
+                <h1 className="font-bold tracking-[-0.02em] leading-none bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent max-sm:text-lg sm:text-2xl">
                   Creator Outreach
                 </h1>
               </Link>
