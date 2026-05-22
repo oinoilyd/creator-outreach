@@ -1,13 +1,18 @@
 'use client'
 
 import React from 'react'
-import { Clock, BarChart3, Briefcase } from 'lucide-react'
+import { Clock, BarChart3, Briefcase, Inbox } from 'lucide-react'
 import { AnimatedTabs } from '@/components/AnimatedTabs'
 
 /**
  * Sub-tab strip rendered inside the Outreach view.
- * All / Follow-ups / Active Clients / Analytics, with badge counts
- * on the action-needed tabs.
+ * Pipeline / Follow-ups / Active Clients / Analytics, with badge
+ * counts on the action-needed tabs.
+ *
+ * Note: the "Pipeline" tab's internal id is still 'all' (not
+ * 'pipeline') because it's encoded in ?sub=… URL params and in
+ * page.tsx state. Renaming the id would break existing bookmarks
+ * for no functional gain — the user-visible label is what matters.
  *
  * Note: the "Favorites" tab was removed in v3 (2026-05-21). The
  * ★ column header in OutreachTab is now a regular sort target —
@@ -33,7 +38,15 @@ export function OutreachSubTabs({
   activeClientsCount?: number
 }) {
   const tabs: { id: OutreachSubTabId; label: React.ReactNode }[] = [
-    { id: 'all', label: 'All' },
+    {
+      id: 'all',
+      label: (
+        <span className="inline-flex items-center gap-1.5">
+          <Inbox className="w-3.5 h-3.5" />
+          Pipeline
+        </span>
+      ),
+    },
     {
       id: 'followups',
       label: (
