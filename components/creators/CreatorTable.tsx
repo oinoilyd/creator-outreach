@@ -248,7 +248,16 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
               <td className="px-4 py-3">
                 <NameCell c={c} activePlatform={activePlatform} />
               </td>
-              {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
+              {visibleCols.map(col => renderCell(
+                col.id, c, scoreWeights, scoreNarrative, profile,
+                deepSearchingIds.has(c.channelId), onDeepSearch,
+                // Suppress the "+ Find IG" affordance on YouTube
+                // platform mode — manual IG hunting is noise when
+                // the lens is YouTube creators. Other platforms
+                // still get the button so an Instagram-first
+                // workflow can fill missing handles.
+                activePlatform === 'youtube' ? undefined : onUpdateInstagram,
+              ))}
             </AnimatedRow>
           ))}
           {loadMoreBatch && loadMoreBatch.length > 0 && (
@@ -281,7 +290,12 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                   <td className="px-4 py-3">
                     <NameCell c={c} activePlatform={activePlatform} />
                   </td>
-                  {visibleCols.map(col => renderCell(col.id, c, scoreWeights, scoreNarrative, profile, deepSearchingIds.has(c.channelId), onDeepSearch, onUpdateInstagram))}
+                  {visibleCols.map(col => renderCell(
+                    col.id, c, scoreWeights, scoreNarrative, profile,
+                    deepSearchingIds.has(c.channelId), onDeepSearch,
+                    // Same YouTube-gate as the primary block above.
+                    activePlatform === 'youtube' ? undefined : onUpdateInstagram,
+                  ))}
                 </tr>
               ))}
             </>
