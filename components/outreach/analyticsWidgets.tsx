@@ -21,13 +21,14 @@
  */
 
 import React from 'react'
+import { motion } from 'motion/react'
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
   PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react'
 import { NumberTicker } from '@/components/NumberTicker'
-import type { BucketPoint } from './analyticsMetrics'
+import type { BucketPoint, DayActivity } from './analyticsMetrics'
 import { deltaPct } from './analyticsMetrics'
 
 // ── Card skeletons ───────────────────────────────────────────────────
@@ -467,6 +468,313 @@ export function MediumConversionRow({
       </div>
       <div className="text-[10.5px] text-muted-foreground mt-1 tabular-nums">
         {reached > 0 ? `${conv}% conversion to active` : 'no outreach yet'}
+      </div>
+    </div>
+  )
+}
+
+// ── Sparkline (small inline area chart) ──────────────────────────────
+
+/**
+ * Sparkline — tiny inline area chart sized for embedding in a stat
+ * card. No axes, no labels — just shape. Recharts under the hood
+ * because it's already in the bundle.
+ */
+export function Sparkline({
+  values, color = 'rgb(168, 85, 247)', height = 28,
+}: {
+  values: number[]
+  color?: string
+  height?: number
+}) {
+  if (values.length === 0) return null
+  const data = values.map((v, i) => ({ i, v }))
+  const id = `sparkGrad-${color.replace(/[^a-zA-Z0-9]/g, '')}`
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor={color} stopOpacity={0.5} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} fill={`url(#${id})`} isAnimationActive={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+
+/**
+ * StatCardWithSparkline — beefier version of StatCard that includes
+ * an inline trend sparkline. Use for the Overview layout where space
+ * is plentiful and visual richness matters. Hero-tier visual.
+ */
+export function StatCardWithSparkline({
+  label, value, sub, previous, sparkData, color = 'rgb(168, 85, 247)', highlight,
+  density = 'comfortable',
+}: {
+  label: string
+  value: number | string
+  sub?: string
+  previous?: number
+  sparkData?: number[]
+  color?: string
+  highlight?: boolean
+  density?: 'comfortable' | 'compact'
+}) {
+  const numeric = typeof value === 'number'
+  const dpct = numeric && previous != null ? deltaPct(value as number, previous) : null
+  const pad = density === 'compact' ? 'p-3.5' : 'p-5'
+  const labelSize = density === 'compact' ? 'text-[10px]' : 'text-[11px]'
+  const valueSize = density === 'compact' ? 'text-2xl' : 'text-3xl'
+
+  return (
+    <div
+      className={[
+        'group relative bg-card/60 border rounded-xl shadow-sm shadow-black/5 transition-all overflow-hidden',
+        pad,
+        highlight ? 'border-red-500/40' : 'border-border hover:border-border/80 hover:shadow-md',
+      ].join(' ')}
+    >
+      {/* Top row: label + delta */}
+      <div className="flex items-center justify-between gap-2 mb-1.5 relative z-10">
+        <div className={`${labelSize} uppercase tracking-wider text-muted-foreground`}>
+          {label}
+        </div>
+        {dpct != null && <DeltaBadge pct={dpct} />}
+      </div>
+      {/* Big value */}
+      <div className={`${valueSize} font-bold tabular-nums tracking-tight relative z-10 ${highlight ? 'text-red-700 dark:text-red-400' : 'text-foreground'}`}>
+        {numeric ? <NumberTicker value={value as number} /> : value}
+      </div>
+      {sub && (
+        <div className="text-[11px] text-muted-foreground mt-1 relative z-10">{sub}</div>
+      )}
+      {/* Sparkline pinned to bottom — full-bleed for impact */}
+      {sparkData && sparkData.length > 1 && (
+        <div className="-mx-1 -mb-1 mt-2 opacity-80 group-hover:opacity-100 transition-opacity">
+          <Sparkline values={sparkData} color={color} height={32} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Animated hero banner ────────────────────────────────────────────
+
+/**
+ * HeroBanner — large cinematic banner with animated gradient backdrop,
+ * giant primary number, supporting metric chips, and optional delta.
+ * Used at the top of the Overview / Cash flow layouts for "wow."
+ *
+ * The gradient is animated (slow shift) via a CSS-driven keyframe
+ * embedded inline — no extra stylesheet needed.
+ */
+export function HeroBanner({
+  primaryLabel, primaryValue, primarySub, primaryDelta, chips, accent = 'purple',
+}: {
+  primaryLabel: string
+  primaryValue: string
+  primarySub?: string
+  primaryDelta?: number | null
+  chips?: { label: string; value: string; sub?: string }[]
+  accent?: 'purple' | 'green' | 'blue' | 'amber'
+}) {
+  const accents = {
+    purple: { from: 'from-purple-500/15', via: 'via-blue-500/8', glow: 'shadow-purple-500/20', dot: 'bg-purple-500' },
+    green:  { from: 'from-green-500/15',  via: 'via-emerald-500/8', glow: 'shadow-green-500/20',  dot: 'bg-green-500' },
+    blue:   { from: 'from-blue-500/15',   via: 'via-cyan-500/8',    glow: 'shadow-blue-500/20',   dot: 'bg-blue-500' },
+    amber:  { from: 'from-amber-500/15',  via: 'via-orange-500/8',  glow: 'shadow-amber-500/20',  dot: 'bg-amber-500' },
+  }[accent]
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className={`relative overflow-hidden bg-gradient-to-br ${accents.from} ${accents.via} to-card/40 border border-border rounded-2xl px-6 py-7 shadow-lg ${accents.glow}`}
+    >
+      {/* Animated decorative blur — slow shift adds life without
+          drawing attention */}
+      <motion.div
+        className={`pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full blur-3xl opacity-40 ${accents.dot}`}
+        aria-hidden
+        animate={{ x: [0, 24, 0], y: [0, -16, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className={`pointer-events-none absolute -bottom-16 -left-16 w-56 h-56 rounded-full blur-3xl opacity-25 ${accents.dot}`}
+        aria-hidden
+        animate={{ x: [0, -20, 0], y: [0, 14, 0] }}
+        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      <div className="relative">
+        <div className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-1">
+          {primaryLabel}
+        </div>
+        <div className="flex items-baseline gap-3 flex-wrap mb-2">
+          <div className="text-5xl md:text-6xl font-bold text-foreground tracking-tight tabular-nums leading-none">
+            {primaryValue}
+          </div>
+          {primaryDelta != null && <DeltaBadge pct={primaryDelta} />}
+        </div>
+        {primarySub && (
+          <div className="text-[13px] text-muted-foreground">{primarySub}</div>
+        )}
+        {chips && chips.length > 0 && (
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2">
+            {chips.map(c => (
+              <div key={c.label} className="flex flex-col">
+                <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground/85">
+                  {c.label}
+                </div>
+                <div className="flex items-baseline gap-2 tabular-nums">
+                  <span className="text-lg font-semibold text-foreground">{c.value}</span>
+                  {c.sub && <span className="text-[11px] text-muted-foreground/80">{c.sub}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
+// ── Calendar heatmap (GitHub-style activity grid) ───────────────────
+
+/**
+ * CalendarHeatmap — GitHub-style contribution grid, 53 columns × 7
+ * rows (1 column = 1 week). Each cell's color intensity reflects
+ * its activity count, bucketed into 5 tiers.
+ *
+ * The data is expected to be exactly `days` cells in chronological
+ * order; we pad the leading edge with empty cells so the grid
+ * starts on a Sunday column. Lightweight hand-built SVG — no charting
+ * library overhead.
+ */
+export function CalendarHeatmap({
+  cells, accent = 'green', height = 132,
+}: {
+  cells: DayActivity[]
+  accent?: 'green' | 'purple' | 'blue'
+  height?: number
+}) {
+  if (cells.length === 0) return null
+
+  // Tier colors — semantic ramp from "no activity" to "very high."
+  // Tier 0 uses a neutral translucent grey so it reads as "empty" in
+  // both light and dark themes without depending on a theme variable.
+  const EMPTY = 'rgba(156, 163, 175, 0.15)'
+  const palette = {
+    green:  [EMPTY, 'rgb(187, 247, 208)', 'rgb(74, 222, 128)', 'rgb(34, 197, 94)',  'rgb(21, 128, 61)'],
+    purple: [EMPTY, 'rgb(216, 180, 254)', 'rgb(168, 85, 247)', 'rgb(126, 34, 206)', 'rgb(88, 28, 135)'],
+    blue:   [EMPTY, 'rgb(191, 219, 254)', 'rgb(59, 130, 246)', 'rgb(29, 78, 216)',  'rgb(30, 58, 138)'],
+  }[accent]
+
+  // Calculate the max count so we can bucket relatively.
+  const maxCount = Math.max(1, ...cells.map(c => c.count))
+  function tier(count: number): number {
+    if (count <= 0) return 0
+    const ratio = count / maxCount
+    if (ratio < 0.25) return 1
+    if (ratio < 0.5)  return 2
+    if (ratio < 0.75) return 3
+    return 4
+  }
+
+  // Build week columns. The first column starts at the first Sunday
+  // ≤ cells[0].date; pad with blanks for any leading non-Sunday days.
+  const leading = cells[0].dayOfWeek  // 0 = Sunday
+  const totalCells = leading + cells.length
+  const weeks = Math.ceil(totalCells / 7)
+  const cellSize = 11
+  const gap = 2
+  const totalWidth = weeks * (cellSize + gap)
+  const totalHeight = 7 * (cellSize + gap)
+
+  // Month labels (each first-of-month gets a label above its column).
+  const monthLabels: { x: number; label: string }[] = []
+  let lastMonth = -1
+  cells.forEach((c, i) => {
+    const d = new Date(c.date)
+    if (d.getMonth() !== lastMonth) {
+      const col = Math.floor((leading + i) / 7)
+      monthLabels.push({ x: col * (cellSize + gap), label: d.toLocaleString('en-US', { month: 'short' }) })
+      lastMonth = d.getMonth()
+    }
+  })
+
+  // Aggregate totals for the badge in the corner.
+  const total = cells.reduce((s, c) => s + c.count, 0)
+  const activeDays = cells.filter(c => c.count > 0).length
+
+  return (
+    <div className="relative">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[11px] text-muted-foreground tabular-nums">
+          <span className="text-foreground font-semibold">{total}</span> events ·{' '}
+          <span className="text-foreground font-semibold">{activeDays}</span> active days
+        </div>
+        <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+          <span>Less</span>
+          {[0, 1, 2, 3, 4].map(t => (
+            <span key={t} className="inline-block w-2.5 h-2.5 rounded-sm border border-border" style={{ background: palette[t] }} />
+          ))}
+          <span>More</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto" style={{ height }}>
+        <svg
+          width={totalWidth}
+          height={totalHeight + 16}
+          viewBox={`0 0 ${totalWidth} ${totalHeight + 16}`}
+          className="block"
+        >
+          {/* Month labels */}
+          {monthLabels.map(({ x, label }) => (
+            <text
+              key={`${x}-${label}`}
+              x={x}
+              y={10}
+              fontSize={9}
+              fill="currentColor"
+              opacity={0.55}
+            >
+              {label}
+            </text>
+          ))}
+          {/* Cells */}
+          <g transform="translate(0, 14)">
+            {cells.map((c, i) => {
+              const idx = leading + i
+              const col = Math.floor(idx / 7)
+              const row = idx % 7
+              const x = col * (cellSize + gap)
+              const y = row * (cellSize + gap)
+              const t = tier(c.count)
+              return (
+                <rect
+                  key={c.date}
+                  x={x}
+                  y={y}
+                  width={cellSize}
+                  height={cellSize}
+                  rx={2}
+                  fill={palette[t]}
+                  className="hover:stroke-foreground/40 transition-[stroke]"
+                  strokeWidth={1}
+                >
+                  <title>{`${c.date}: ${c.count} event${c.count === 1 ? '' : 's'}${
+                    c.count > 0 ? `\n• ${c.added} added\n• ${c.reachedOut} reached out\n• ${c.responded} responded\n• ${c.won} won` : ''
+                  }`}</title>
+                </rect>
+              )
+            })}
+          </g>
+        </svg>
       </div>
     </div>
   )

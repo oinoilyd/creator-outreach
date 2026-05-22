@@ -178,6 +178,87 @@ export function deltaPct(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 100)
 }
 
+// ── Calendar activity (heatmap data) ────────────────────────────────
+
+export interface DayActivity {
+  /** ISO yyyy-MM-dd */
+  date: string
+  /** Combined activity score for the day: added + reached + responded + won. */
+  count: number
+  /** Day of week (0 = Sunday, 6 = Saturday) for grid layout. */
+  dayOfWeek: number
+  added: number
+  reachedOut: number
+  responded: number
+  won: number
+}
+
+/**
+ * Build a per-day activity series spanning roughly the last `days`
+ * calendar days (default 365). Each cell counts the various event
+ * types that happened on that day. Used by the calendar-heatmap
+ * widget — same pattern as GitHub's contribution grid.
+ */
+export function dailyActivity(entries: OutreachEntry[], days = 365): DayActivity[] {
+  const DAY = 24 * 60 * 60 * 1000
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const start = new Date(now.getTime() - (days - 1) * DAY)
+
+  // Pre-fill the grid with zero cells so the heatmap stays a clean
+  // rectangle even with sparse data.
+  const cells: DayActivity[] = []
+  const byKey = new Map<string, DayActivity>()
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start.getTime() + i * DAY)
+    const key = d.toISOString().slice(0, 10)
+    const cell: DayActivity = {
+      date: key,
+      count: 0,
+      dayOfWeek: d.getDay(),
+      added: 0,
+      reachedOut: 0,
+      responded: 0,
+      won: 0,
+    }
+    cells.push(cell)
+    byKey.set(key, cell)
+  }
+
+  function bumpAt(ts: number | null | undefined, field: keyof Pick<DayActivity, 'added' | 'reachedOut' | 'responded' | 'won'>): void {
+    if (!ts) return
+    const d = new Date(ts); if (isNaN(d.getTime())) return
+    d.setHours(0, 0, 0, 0)
+    const key = d.toISOString().slice(0, 10)
+    const cell = byKey.get(key)
+    if (!cell) return  // outside the window
+    cell[field] += 1
+    cell.count = cell.added + cell.reachedOut + cell.responded + cell.won
+  }
+
+  for (const e of entries) {
+    bumpAt(e.addedAt, 'added')
+    if (e.dateReachedOut) bumpAt(new Date(e.dateReachedOut).getTime(), 'reachedOut')
+    if (e.responseDate) {
+      const t = new Date(e.responseDate).getTime()
+      if (e.status === 'Successful' || e.status === 'Rejected') bumpAt(t, 'responded')
+      if (e.status === 'Successful') bumpAt(t, 'won')
+    }
+  }
+
+  return cells
+}
+
+/**
+ * Reduce a BucketPoint[] to a small numeric trend for sparkline use.
+ * Picks the most-recent N buckets so a 365-day range still gets a
+ * readable sparkline (we don't render 365 ticks on a 60-pixel chart).
+ */
+export function sparklineSeries(buckets: BucketPoint[], pick: keyof Pick<BucketPoint, 'added' | 'reachedOut' | 'responded' | 'won'>, max = 24): number[] {
+  if (buckets.length === 0) return []
+  const slice = buckets.slice(-max)
+  return slice.map(b => b[pick])
+}
+
 export function isReachedOut(e: OutreachEntry): boolean {
   return e.status !== 'Not Outreached' && e.status !== ''
 }

@@ -1,85 +1,73 @@
 'use client'
 
 /**
- * OutreachAnalytics v4 — preset-driven dashboard with global time
- * range, density toggle, period-over-period deltas, AI insight card,
- * and Recharts-backed widgets.
+ * OutreachAnalytics v5 — five layouts, click-into picker, cinematic
+ * visuals.
  *
- * Three presets:
- *   • "Sales pipeline"    — funnel, outreach KPIs, velocity, status
- *                            mix, by-medium volume + conversion
- *   • "Active clients"    — engagement KPIs, lifecycle donut,
- *                            completed-engagement quality, wins source
- *   • "Cash flow"         — $ KPIs (booked, personal, avg, completed),
- *                            cumulative-revenue line, $ by medium
+ * Layouts:
+ *   • Overview        — everything visible in one scroll
+ *   • Sales pipeline  — funnel-centric lens
+ *   • Active clients  — engagement health
+ *   • Cash flow       — money in flight and realised
+ *   • Activity        — calendar heatmap focus
  *
- * Global controls (top bar):
- *   • Preset selector — segmented pill control
- *   • Time range     — Last 7d / 30d / 90d / YTD / All / Custom
- *   • Density        — Comfortable / Compact
- *   • Settings gear  — Customize metrics + Export CSV/Excel
+ * Header controls:
+ *   • "Change layout" button → opens AnalyticsLayoutPicker modal
+ *   • Time range — 7d / 30d / 90d / YTD / All
+ *   • Settings gear — customize metrics + export
  *
- * Persistence:
- *   Preset, density, time range live in localStorage. Survives reload
- *   without a DB migration. Custom metrics + AI insight cache also
- *   client-side.
+ * Visual upgrades vs v4:
+ *   • HeroBanner — animated gradient backdrop, giant typography
+ *   • StatCardWithSparkline — inline trend on every key metric
+ *   • CalendarHeatmap — GitHub-style year-at-a-glance
+ *   • Motion transitions between layouts (framer-motion)
+ *   • Anti-template: cream/navy/purple/blue accents per layout, no
+ *     "generic SaaS template" defaults
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import type { OutreachEntry } from '@/lib/types'
 import { CustomMetricCard } from '@/components/outreach/CustomMetricCard'
 import {
   computeMetrics, filterByTimeRange, resolveTimeRange, previousTimeRange,
-  bucketedSeries, type TimeRangeId, type TimeRange, type ComputedMetrics,
+  bucketedSeries, dailyActivity, sparklineSeries,
+  type TimeRangeId, type ComputedMetrics,
 } from '@/components/outreach/analyticsMetrics'
 import {
-  ChartCard, StatCard, FunnelHero, VelocityChart, CumulativeRevenueChart,
-  MediumBarChart, LifecycleDonut, StatusStack, MediumConversionRow,
+  ChartCard, StatCard, StatCardWithSparkline, FunnelHero, HeroBanner,
+  VelocityChart, CumulativeRevenueChart, MediumBarChart, LifecycleDonut,
+  StatusStack, MediumConversionRow, CalendarHeatmap, Sparkline,
 } from '@/components/outreach/analyticsWidgets'
 import { AnalyticsInsightCard } from '@/components/outreach/AnalyticsInsightCard'
 import {
-  Target, Briefcase, Wallet, Award, Activity, Star, TrendingUp,
-  Calendar, LayoutGrid, Rows3,
+  AnalyticsLayoutPicker, LAYOUT_OPTIONS, type LayoutId,
+} from '@/components/outreach/AnalyticsLayoutPicker'
+import {
+  Briefcase, Activity as ActivityIcon, Star, TrendingUp, Calendar,
+  LayoutGrid, ChevronDown, Award,
 } from 'lucide-react'
 
-// ── Preset definitions ──────────────────────────────────────────────
-
-type PresetId = 'sales' | 'active' | 'cash'
-
-const PRESETS: { id: PresetId; label: string; icon: React.ReactNode; description: string }[] = [
-  { id: 'sales',  label: 'Sales pipeline', icon: <Target    className="w-3.5 h-3.5" />, description: 'Lead → reached → responded → won' },
-  { id: 'active', label: 'Active clients', icon: <Briefcase className="w-3.5 h-3.5" />, description: 'Engagement health + quality' },
-  { id: 'cash',   label: 'Cash flow',      icon: <Wallet    className="w-3.5 h-3.5" />, description: 'Booked, personal revenue, deal mix' },
-]
-
-type Density = 'comfortable' | 'compact'
+const LS_LAYOUT = 'creator-outreach.analytics.layout'
+const LS_RANGE  = 'creator-outreach.analytics.range'
 
 const TIME_RANGE_OPTIONS: { id: TimeRangeId; label: string }[] = [
-  { id: 'last7',  label: '7d' },
+  { id: 'last7',  label: '7d'  },
   { id: 'last30', label: '30d' },
   { id: 'last90', label: '90d' },
   { id: 'ytd',   label: 'YTD' },
   { id: 'all',   label: 'All' },
 ]
 
-// ── localStorage keys ───────────────────────────────────────────────
-
-const LS_PRESET   = 'creator-outreach.analytics.preset'
-const LS_DENSITY  = 'creator-outreach.analytics.density'
-const LS_RANGE    = 'creator-outreach.analytics.range'
-
 function readLS<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   if (typeof window === 'undefined') return fallback
   const v = window.localStorage.getItem(key)
   return (v && (allowed as readonly string[]).includes(v)) ? (v as T) : fallback
 }
-
 function writeLS(key: string, value: string): void {
   if (typeof window === 'undefined') return
   try { window.localStorage.setItem(key, value) } catch { /* ignore */ }
 }
-
-// ── Main component ──────────────────────────────────────────────────
 
 export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onExportExcel, onExportCsv }: {
   entries: OutreachEntry[]
@@ -88,22 +76,18 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
   onExportExcel: () => void
   onExportCsv: () => void
 }) {
-  // Persisted prefs
-  const [preset, setPresetState] = useState<PresetId>(() =>
-    readLS<PresetId>(LS_PRESET, ['sales', 'active', 'cash'], 'sales'),
-  )
-  const [density, setDensityState] = useState<Density>(() =>
-    readLS<Density>(LS_DENSITY, ['comfortable', 'compact'], 'comfortable'),
+  const [layout, setLayoutState] = useState<LayoutId>(() =>
+    readLS<LayoutId>(LS_LAYOUT, ['overview', 'sales', 'active', 'cash', 'activity'], 'overview'),
   )
   const [rangeId, setRangeIdState] = useState<TimeRangeId>(() =>
     readLS<TimeRangeId>(LS_RANGE, ['last7', 'last30', 'last90', 'ytd', 'all', 'custom'], 'all'),
   )
+  const [pickerOpen, setPickerOpen] = useState(false)
 
-  function setPreset(v: PresetId)   { setPresetState(v);   writeLS(LS_PRESET, v) }
-  function setDensity(v: Density)   { setDensityState(v);  writeLS(LS_DENSITY, v) }
+  function setLayout(v: LayoutId)    { setLayoutState(v); writeLS(LS_LAYOUT, v) }
   function setRangeId(v: TimeRangeId) { setRangeIdState(v); writeLS(LS_RANGE, v) }
 
-  // Settings gear popover state — same affordance as before.
+  // Settings gear popover state.
   const [showSettings, setShowSettings] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -122,17 +106,28 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
     }
   }, [showSettings])
 
-  // Resolve range + compute metrics for current and previous periods.
   const range = useMemo(() => resolveTimeRange(rangeId), [rangeId])
   const prevRange = useMemo(() => previousTimeRange(range), [range])
-
   const filteredCurrent = useMemo(() => filterByTimeRange(entries, range), [entries, range])
   const filteredPrev    = useMemo(() => prevRange ? filterByTimeRange(entries, prevRange) : null, [entries, prevRange])
-
   const m  = useMemo(() => computeMetrics(filteredCurrent), [filteredCurrent])
   const pm = useMemo(() => filteredPrev ? computeMetrics(filteredPrev) : null, [filteredPrev])
-
   const series = useMemo(() => bucketedSeries(filteredCurrent, range), [filteredCurrent, range])
+  // Calendar uses the full entries set (not time-filtered) so the
+  // year-at-a-glance is always a year. Time range filter still drives
+  // the metric cards on the layout.
+  const calendar = useMemo(() => dailyActivity(entries, 365), [entries])
+
+  // Sparkline data — precomputed once so individual stat cards can
+  // pluck what they need without recomputing the bucketed series.
+  const spark = useMemo(() => ({
+    added:      sparklineSeries(series, 'added'),
+    reachedOut: sparklineSeries(series, 'reachedOut'),
+    responded:  sparklineSeries(series, 'responded'),
+    won:        sparklineSeries(series, 'won'),
+  }), [series])
+
+  const currentLayout = LAYOUT_OPTIONS.find(o => o.id === layout)!
 
   if (entries.length === 0) {
     return (
@@ -146,34 +141,25 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
 
   return (
     <div className="space-y-6">
-      {/* ── Header bar ───────────────────────────────────────────── */}
+      {/* ── Header bar ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        {/* LEFT — preset selector */}
-        <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 border border-border">
-          {PRESETS.map(p => {
-            const active = preset === p.id
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setPreset(p.id)}
-                title={p.description}
-                aria-pressed={active}
-                className={[
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-colors',
-                  active
-                    ? 'bg-card text-foreground shadow-sm border border-border'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                ].join(' ')}
-              >
-                {p.icon}
-                {p.label}
-              </button>
-            )
-          })}
-        </div>
+        {/* Layout switcher — prominent click-into button */}
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card hover:bg-muted/40 hover:border-border/80 transition-colors"
+        >
+          <span className="shrink-0 w-7 h-7 rounded-md bg-gradient-to-br from-purple-500/20 to-blue-500/15 text-purple-700 dark:text-purple-300 flex items-center justify-center">
+            {currentLayout.icon}
+          </span>
+          <span className="flex flex-col items-start min-w-0">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Layout</span>
+            <span className="text-[13px] font-semibold text-foreground -mt-0.5">{currentLayout.title}</span>
+          </span>
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors ml-1" />
+        </button>
 
-        {/* RIGHT — time range + density + settings */}
+        {/* RIGHT — time range + settings */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 border border-border">
             <Calendar className="w-3.5 h-3.5 text-muted-foreground ml-1.5 mr-0.5" aria-hidden />
@@ -198,38 +184,6 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
             })}
           </div>
 
-          <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-1 border border-border" role="group" aria-label="Density">
-            <button
-              type="button"
-              onClick={() => setDensity('comfortable')}
-              aria-pressed={density === 'comfortable'}
-              title="Comfortable density"
-              className={[
-                'w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors',
-                density === 'comfortable'
-                  ? 'bg-card text-foreground shadow-sm border border-border'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
-              ].join(' ')}
-            >
-              <Rows3 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setDensity('compact')}
-              aria-pressed={density === 'compact'}
-              title="Compact density"
-              className={[
-                'w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors',
-                density === 'compact'
-                  ? 'bg-card text-foreground shadow-sm border border-border'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
-              ].join(' ')}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Settings gear */}
           <div ref={settingsRef} className="relative">
             <button
               type="button"
@@ -237,7 +191,7 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
               title="Analytics settings"
               aria-label="Analytics settings"
               aria-expanded={showSettings}
-              className={`flex items-center justify-center w-8 h-8 rounded-md border transition-colors ${
+              className={`flex items-center justify-center w-9 h-9 rounded-lg border transition-colors ${
                 showSettings
                   ? 'border-border bg-muted/60 text-foreground'
                   : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 hover:border-border/80'
@@ -279,20 +233,43 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
         </div>
       </div>
 
-      {/* ── AI insight (always shown, above the preset) ──────────── */}
+      {/* ── AI insight (always shown) ──────────────────────────── */}
       <AnalyticsInsightCard
         current={m}
         previous={pm ?? undefined}
         rangeLabel={range.label}
-        cacheKey={`${preset}-${rangeId}`}
+        cacheKey={`${layout}-${rangeId}`}
       />
 
-      {/* ── Preset body ──────────────────────────────────────────── */}
-      {preset === 'sales'  && <SalesPipelinePreset  m={m} pm={pm} series={series} density={density} />}
-      {preset === 'active' && <ActiveClientsPreset  m={m} pm={pm} density={density} />}
-      {preset === 'cash'   && <CashFlowPreset       m={m} pm={pm} series={series} density={density} />}
+      {/* ── Layout body with motion transition ────────────────── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={layout}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="space-y-5"
+        >
+          {layout === 'overview' && (
+            <OverviewLayout m={m} pm={pm} series={series} spark={spark} calendar={calendar} />
+          )}
+          {layout === 'sales' && (
+            <SalesPipelineLayout m={m} pm={pm} series={series} spark={spark} />
+          )}
+          {layout === 'active' && (
+            <ActiveClientsLayout m={m} pm={pm} />
+          )}
+          {layout === 'cash' && (
+            <CashFlowLayout m={m} pm={pm} series={series} spark={spark} />
+          )}
+          {layout === 'activity' && (
+            <ActivityLayout m={m} calendar={calendar} series={series} />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
-      {/* ── Custom metrics — always available regardless of preset ─ */}
+      {/* Custom metrics — always available regardless of layout */}
       {customMetrics.length > 0 && (
         <div>
           <div className="text-sm font-semibold text-foreground tracking-tight mb-3">
@@ -305,50 +282,212 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
           </div>
         </div>
       )}
+
+      {/* Layout picker modal */}
+      {pickerOpen && (
+        <AnalyticsLayoutPicker
+          current={layout}
+          onPick={setLayout}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
-// ── Presets ──────────────────────────────────────────────────────────
+// ── Layouts ──────────────────────────────────────────────────────────
 
-interface PresetProps {
+interface LayoutProps {
   m: ComputedMetrics
   pm: ComputedMetrics | null
-  density: Density
 }
 
-interface PresetWithSeriesProps extends PresetProps {
+interface LayoutWithSeriesProps extends LayoutProps {
+  series: ReturnType<typeof bucketedSeries>
+  spark: {
+    added: number[]
+    reachedOut: number[]
+    responded: number[]
+    won: number[]
+  }
+}
+
+interface OverviewLayoutProps extends LayoutWithSeriesProps {
+  calendar: ReturnType<typeof dailyActivity>
+}
+
+interface ActivityLayoutProps {
+  /** Activity layout doesn't need previous-period comparison data,
+   *  so we don't extend LayoutProps; the hero shows year-totals
+   *  which aren't time-range-bound. */
+  m: ComputedMetrics
+  calendar: ReturnType<typeof dailyActivity>
   series: ReturnType<typeof bucketedSeries>
 }
 
-function SalesPipelinePreset({ m, pm, series, density }: PresetWithSeriesProps) {
+// Color tokens used across stat cards' sparklines.
+const COLOR = {
+  purple: 'rgb(168, 85, 247)',
+  blue:   'rgb(59, 130, 246)',
+  cyan:   'rgb(6, 182, 212)',
+  green:  'rgb(34, 197, 94)',
+  amber:  'rgb(245, 158, 11)',
+}
+
+/* ── Overview ── Everything on one page. Fixes the v4 "downgrade"
+   feeling of having to flip between presets to see basic info. */
+function OverviewLayout({ m, pm, series, spark, calendar }: OverviewLayoutProps) {
   return (
-    <div className="space-y-5">
+    <>
+      <HeroBanner
+        accent="purple"
+        primaryLabel="Personal revenue"
+        primaryValue={m.personalRevenue > 0 ? `$${m.personalRevenue.toLocaleString()}` : '—'}
+        primarySub={
+          m.totalCollaboratorShare > 0
+            ? `$${m.totalCollaboratorShare.toLocaleString()} to team · $${m.totalBooked.toLocaleString()} total booked`
+            : m.totalBooked > 0
+              ? `$${m.totalBooked.toLocaleString()} total booked · no team splits`
+              : 'no priced engagements yet'
+        }
+        primaryDelta={pm ? deltaSafe(m.personalRevenue, pm.personalRevenue) : undefined}
+        chips={[
+          { label: 'In pipeline',  value: String(m.total) },
+          { label: 'Active now',   value: String(m.activeNow) },
+          { label: 'Win rate',     value: `${m.winRate}%` },
+          { label: 'Avg deal',     value: m.avgDeal > 0 ? `$${Math.round(m.avgDeal).toLocaleString()}` : '—' },
+        ]}
+      />
+
       <FunnelHero
         leads={m.total}
         reachedOut={m.reachedOut}
         responded={m.responseReceived}
         won={m.successful}
         activeNow={m.activeNow}
-        density={density}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard density={density} label="In pipeline"      value={m.total}            previous={pm?.total} />
-        <StatCard density={density} label="Reached out"      value={m.reachedOut}       previous={pm?.reachedOut} />
-        <StatCard density={density} label="Responded"        value={m.responseReceived} previous={pm?.responseReceived} sub="Successful + Rejected" />
-        <StatCard density={density} label="Response rate"    value={`${m.responseRate}%`} sub={`${m.responseReceived} of ${m.reachedOut}`} />
-        <StatCard density={density} label="Win rate"         value={`${m.winRate}%`}     sub={`${m.successful} of ${m.responseReceived}`} />
-        <StatCard density={density} label="Pipeline $"       value={m.pipelineValue > 0 ? `$${m.pipelineValue.toLocaleString()}` : '—'} sub="non-rejected" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <StatCardWithSparkline label="In pipeline"   value={m.total}            previous={pm?.total}            sparkData={spark.added}      color={COLOR.purple} />
+        <StatCardWithSparkline label="Reached out"   value={m.reachedOut}       previous={pm?.reachedOut}       sparkData={spark.reachedOut} color={COLOR.blue}   />
+        <StatCardWithSparkline label="Responded"     value={m.responseReceived} previous={pm?.responseReceived} sparkData={spark.responded}  color={COLOR.cyan}   sub="Successful + Rejected" />
+        <StatCardWithSparkline label="Won"           value={m.successful}       previous={pm?.successful}       sparkData={spark.won}        color={COLOR.green}  />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <ChartCard density={density} title="Velocity" subtitle="Added / reached out / won over time" icon={<Activity className="w-3.5 h-3.5" />}>
+          <ChartCard title="Velocity" subtitle="Added / reached out / won over time" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
             <VelocityChart data={series} />
           </ChartCard>
         </div>
-        <ChartCard density={density} title="Status breakdown" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+        <ChartCard title="Lifecycle" subtitle={`${m.successful} engagement${m.successful === 1 ? '' : 's'}`} icon={<Briefcase className="w-3.5 h-3.5" />}>
+          <LifecycleDonut
+            active={m.lifecycle.active}
+            paused={m.lifecycle.paused}
+            completed={m.lifecycle.completed}
+            churned={m.lifecycle.churned}
+          />
+        </ChartCard>
+      </div>
+
+      <ChartCard title="Activity" subtitle="The year at a glance — every event, every day" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
+        <CalendarHeatmap cells={calendar} accent="purple" />
+      </ChartCard>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <ChartCard title="Status breakdown" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+          <StatusStack
+            successful={m.successful}
+            open={m.open}
+            noResponse={m.noResponse}
+            rejected={m.rejected}
+            notOutreached={m.notOutreached}
+            total={m.total}
+          />
+        </ChartCard>
+        <ChartCard title="By medium" subtitle="Reached vs won by channel" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
+          <MediumBarChart
+            data={[
+              { medium: 'Email',    reached: m.byMedium.Email.reached,    won: m.byMedium.Email.won    },
+              { medium: 'LinkedIn', reached: m.byMedium.LinkedIn.reached, won: m.byMedium.LinkedIn.won },
+              { medium: 'Other',    reached: m.byMedium.Other.reached,    won: m.byMedium.Other.won    },
+            ]}
+          />
+        </ChartCard>
+      </div>
+
+      {m.completedCount > 0 && (
+        <div className="grid md:grid-cols-2 gap-4">
+          <ChartCard title="Client satisfaction" subtitle={`Across ${m.ratedCount} rated completion${m.ratedCount === 1 ? '' : 's'}`} icon={<Award className="w-3.5 h-3.5" />}>
+            {m.avgRating != null ? (
+              <>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <div className="text-3xl font-bold text-foreground tabular-nums">{m.avgRating.toFixed(1)}</div>
+                  <div className="text-sm text-muted-foreground">/ 5.0</div>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <Star
+                      key={n}
+                      className={`w-4 h-4 ${n <= Math.round(m.avgRating!) ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground/30'}`}
+                      aria-hidden
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-[12.5px] text-muted-foreground/75 italic">
+                No ratings yet — fill in the rating when wrapping up.
+              </p>
+            )}
+          </ChartCard>
+          <ChartCard title="Conversion by medium" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+            {(['Email', 'LinkedIn', 'Other'] as const).map(med => {
+              const stats = m.byMedium[med]
+              return (
+                <MediumConversionRow
+                  key={med}
+                  label={med}
+                  reached={stats.reached}
+                  won={stats.won}
+                />
+              )
+            })}
+          </ChartCard>
+        </div>
+      )}
+    </>
+  )
+}
+
+/* ── Sales pipeline ── */
+function SalesPipelineLayout({ m, pm, series, spark }: LayoutWithSeriesProps) {
+  return (
+    <>
+      <FunnelHero
+        leads={m.total}
+        reachedOut={m.reachedOut}
+        responded={m.responseReceived}
+        won={m.successful}
+        activeNow={m.activeNow}
+      />
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <StatCardWithSparkline label="In pipeline"   value={m.total}            previous={pm?.total}            sparkData={spark.added}      color={COLOR.purple} />
+        <StatCardWithSparkline label="Reached out"   value={m.reachedOut}       previous={pm?.reachedOut}       sparkData={spark.reachedOut} color={COLOR.blue} />
+        <StatCardWithSparkline label="Responded"     value={m.responseReceived} previous={pm?.responseReceived} sparkData={spark.responded}  color={COLOR.cyan}   sub="Successful + Rejected" />
+        <StatCard label="Response rate"    value={`${m.responseRate}%`} sub={`${m.responseReceived} of ${m.reachedOut}`} />
+        <StatCard label="Win rate"         value={`${m.winRate}%`}     sub={`${m.successful} of ${m.responseReceived}`} />
+        <StatCard label="Pipeline $"       value={m.pipelineValue > 0 ? `$${m.pipelineValue.toLocaleString()}` : '—'} sub="non-rejected" />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <ChartCard title="Velocity" subtitle="Added / reached out / won over time" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
+            <VelocityChart data={series} />
+          </ChartCard>
+        </div>
+        <ChartCard title="Status breakdown" icon={<TrendingUp className="w-3.5 h-3.5" />}>
           <StatusStack
             successful={m.successful}
             open={m.open}
@@ -361,7 +500,7 @@ function SalesPipelinePreset({ m, pm, series, density }: PresetWithSeriesProps) 
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <ChartCard density={density} title="By medium" subtitle="Reached vs won by channel" icon={<Activity className="w-3.5 h-3.5" />}>
+        <ChartCard title="By medium" subtitle="Reached vs won by channel" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
           <MediumBarChart
             data={[
               { medium: 'Email',    reached: m.byMedium.Email.reached,    won: m.byMedium.Email.won    },
@@ -370,7 +509,7 @@ function SalesPipelinePreset({ m, pm, series, density }: PresetWithSeriesProps) 
             ]}
           />
         </ChartCard>
-        <ChartCard density={density} title="Conversion by medium" subtitle="Outreach → active client rate" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+        <ChartCard title="Conversion by medium" subtitle="Outreach → active client rate" icon={<TrendingUp className="w-3.5 h-3.5" />}>
           {(['Email', 'LinkedIn', 'Other'] as const).map(med => {
             const stats = m.byMedium[med]
             return (
@@ -384,11 +523,12 @@ function SalesPipelinePreset({ m, pm, series, density }: PresetWithSeriesProps) 
           })}
         </ChartCard>
       </div>
-    </div>
+    </>
   )
 }
 
-function ActiveClientsPreset({ m, pm, density }: PresetProps) {
+/* ── Active clients ── */
+function ActiveClientsLayout({ m, pm }: LayoutProps) {
   if (m.successful === 0) {
     return (
       <div className="border border-dashed border-border rounded-xl py-12 px-6 text-center">
@@ -400,18 +540,23 @@ function ActiveClientsPreset({ m, pm, density }: PresetProps) {
     )
   }
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard density={density} label="Total clients"   value={m.successful}                                                          previous={pm?.successful} />
-        <StatCard density={density} label="Total booked"    value={m.totalBooked > 0 ? `$${m.totalBooked.toLocaleString()}` : '—'}        sub={`${m.withBudgetCount} priced`} />
-        <StatCard density={density} label="Personal revenue" value={m.personalRevenue > 0 ? `$${m.personalRevenue.toLocaleString()}` : '—'} sub={m.totalCollaboratorShare > 0 ? `$${m.totalCollaboratorShare.toLocaleString()} to team` : 'no team splits'} />
-        <StatCard density={density} label="Avg deal"        value={m.avgDeal > 0 ? `$${Math.round(m.avgDeal).toLocaleString()}` : '—'}    sub={m.withBudgetCount > 0 ? `${m.withBudgetCount} priced` : undefined} />
-        <StatCard density={density} label="Completed"       value={m.completedCount}                                                       sub={m.totalCompletedValue > 0 ? `$${m.totalCompletedValue.toLocaleString()} realised` : undefined} />
-        <StatCard density={density} label="Avg engagement"  value={m.avgDurationDays != null ? `${m.avgDurationDays}d` : '—'}              sub={m.durationCount > 0 ? `${m.durationCount} dated` : 'no dates set'} />
-      </div>
+    <>
+      <HeroBanner
+        accent="green"
+        primaryLabel="Active engagements"
+        primaryValue={String(m.activeNow)}
+        primarySub={`${m.lifecycle.paused} paused · ${m.lifecycle.completed} completed · ${m.lifecycle.churned} churned`}
+        primaryDelta={pm ? deltaSafe(m.activeNow, pm.activeNow) : undefined}
+        chips={[
+          { label: 'Total clients',     value: String(m.successful) },
+          { label: 'Total booked',      value: m.totalBooked > 0 ? `$${m.totalBooked.toLocaleString()}` : '—' },
+          { label: 'Personal revenue',  value: m.personalRevenue > 0 ? `$${m.personalRevenue.toLocaleString()}` : '—' },
+          { label: 'Avg deal',          value: m.avgDeal > 0 ? `$${Math.round(m.avgDeal).toLocaleString()}` : '—' },
+        ]}
+      />
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <ChartCard density={density} title="Lifecycle" subtitle="Distribution across engagement states" icon={<Briefcase className="w-3.5 h-3.5" />}>
+        <ChartCard title="Lifecycle" subtitle="Distribution across engagement states" icon={<Briefcase className="w-3.5 h-3.5" />}>
           <LifecycleDonut
             active={m.lifecycle.active}
             paused={m.lifecycle.paused}
@@ -422,7 +567,7 @@ function ActiveClientsPreset({ m, pm, density }: PresetProps) {
 
         {m.completedCount > 0 ? (
           <>
-            <ChartCard density={density} title="Client satisfaction" subtitle={`Across ${m.ratedCount} rated completion${m.ratedCount === 1 ? '' : 's'}`} icon={<Award className="w-3.5 h-3.5" />}>
+            <ChartCard title="Client satisfaction" subtitle={`Across ${m.ratedCount} rated completion${m.ratedCount === 1 ? '' : 's'}`} icon={<Award className="w-3.5 h-3.5" />}>
               {m.avgRating != null ? (
                 <>
                   <div className="flex items-baseline gap-2 mb-2">
@@ -445,10 +590,8 @@ function ActiveClientsPreset({ m, pm, density }: PresetProps) {
                 </p>
               )}
             </ChartCard>
-            <ChartCard density={density} title="Repeat likelihood" subtitle="Pulled from wrap-up data" icon={<Activity className="w-3.5 h-3.5" />}>
-              {m.repeatCount > 0 ? (
-                <RepeatBreakdown repeat={m.repeat} total={m.repeatCount} />
-              ) : (
+            <ChartCard title="Repeat likelihood" subtitle="From wrap-up data" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
+              {m.repeatCount > 0 ? <RepeatBreakdown repeat={m.repeat} total={m.repeatCount} /> : (
                 <p className="text-[12.5px] text-muted-foreground/75 italic">
                   No repeat-likelihood data yet — set it when wrapping up.
                 </p>
@@ -463,7 +606,7 @@ function ActiveClientsPreset({ m, pm, density }: PresetProps) {
         )}
       </div>
 
-      <ChartCard density={density} title="Where wins came from" subtitle="What predicts a Successful outcome" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+      <ChartCard title="Where wins came from" subtitle="What predicts a Successful outcome" icon={<TrendingUp className="w-3.5 h-3.5" />}>
         <div className="space-y-2">
           <KVRow label="With contract sent"      value={m.winsWithContract}  sub={`${pct(m.winsWithContract, m.successful)}% of wins`} />
           <KVRow label="With meeting scheduled"  value={m.winsWithMeeting}   sub={`${pct(m.winsWithMeeting, m.successful)}% of wins`} />
@@ -471,16 +614,12 @@ function ActiveClientsPreset({ m, pm, density }: PresetProps) {
           <KVRow label="Avg touchpoints"         value={m.avgTouchpointsToWin ?? '—'} />
         </div>
       </ChartCard>
-    </div>
+    </>
   )
 }
 
-function CashFlowPreset({ m, pm, series, density }: PresetWithSeriesProps) {
-  // Cumulative-won-$ series from the bucketed won counts × avg deal.
-  // Honest about the approximation: we don't have per-deal dollar
-  // history, so this assumes wins in each bucket are valued at the
-  // overall avgDeal. Good enough for a trend line; we'll do real
-  // per-deal $ history once we have an outreach_events log.
+/* ── Cash flow ── */
+function CashFlowLayout({ m, pm, series, spark }: LayoutWithSeriesProps) {
   const cumulative = useMemo(() => {
     const avg = m.avgDeal || 0
     let running = 0
@@ -493,47 +632,134 @@ function CashFlowPreset({ m, pm, series, density }: PresetWithSeriesProps) {
   const outstanding = Math.max(0, m.totalBooked - m.totalCompletedValue)
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard density={density} label="Pipeline $"       value={m.pipelineValue > 0 ? `$${m.pipelineValue.toLocaleString()}` : '—'} sub="non-rejected" />
-        <StatCard density={density} label="Total booked"     value={m.totalBooked > 0 ? `$${m.totalBooked.toLocaleString()}` : '—'} previous={pm?.totalBooked} sub={`${m.withBudgetCount} priced`} />
-        <StatCard density={density} label="Personal revenue" value={m.personalRevenue > 0 ? `$${m.personalRevenue.toLocaleString()}` : '—'} previous={pm?.personalRevenue} sub={m.totalCollaboratorShare > 0 ? `$${m.totalCollaboratorShare.toLocaleString()} to team` : 'no team splits'} />
-        <StatCard density={density} label="Avg deal"         value={m.avgDeal > 0 ? `$${Math.round(m.avgDeal).toLocaleString()}` : '—'} previous={pm?.avgDeal} sub={m.withBudgetCount > 0 ? `${m.withBudgetCount} priced` : undefined} />
-        <StatCard density={density} label="Realised"         value={m.totalCompletedValue > 0 ? `$${m.totalCompletedValue.toLocaleString()}` : '—'} sub={`${m.completedCount} completed`} />
-        <StatCard density={density} label="Outstanding"      value={outstanding > 0 ? `$${outstanding.toLocaleString()}` : '—'} sub="booked − realised" />
+    <>
+      <HeroBanner
+        accent="amber"
+        primaryLabel="Total booked"
+        primaryValue={m.totalBooked > 0 ? `$${m.totalBooked.toLocaleString()}` : '—'}
+        primarySub={
+          m.totalCollaboratorShare > 0
+            ? `$${m.personalRevenue.toLocaleString()} personal · $${m.totalCollaboratorShare.toLocaleString()} to team`
+            : `${m.withBudgetCount} priced engagement${m.withBudgetCount === 1 ? '' : 's'}`
+        }
+        primaryDelta={pm ? deltaSafe(m.totalBooked, pm.totalBooked) : undefined}
+        chips={[
+          { label: 'Personal revenue', value: m.personalRevenue > 0 ? `$${m.personalRevenue.toLocaleString()}` : '—' },
+          { label: 'Avg deal',         value: m.avgDeal > 0 ? `$${Math.round(m.avgDeal).toLocaleString()}` : '—' },
+          { label: 'Realised',         value: m.totalCompletedValue > 0 ? `$${m.totalCompletedValue.toLocaleString()}` : '—' },
+          { label: 'Outstanding',      value: outstanding > 0 ? `$${outstanding.toLocaleString()}` : '—' },
+        ]}
+      />
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <StatCardWithSparkline label="Pipeline $"       value={m.pipelineValue > 0 ? `$${m.pipelineValue.toLocaleString()}` : '—'} sub="non-rejected"             sparkData={spark.added}  color={COLOR.purple} />
+        <StatCardWithSparkline label="Won (volume)"    value={m.successful}        previous={pm?.successful}                       sparkData={spark.won}    color={COLOR.green} />
+        <StatCard label="Completed"   value={m.completedCount}                                                              sub={`${m.totalCompletedValue > 0 ? `$${m.totalCompletedValue.toLocaleString()} realised` : 'none yet'}`} />
+        <StatCard label="Outstanding" value={outstanding > 0 ? `$${outstanding.toLocaleString()}` : '—'}                     sub="booked − realised" />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <ChartCard density={density} title="Cumulative revenue" subtitle="Won deals × avg deal value, accumulated over time" icon={<Activity className="w-3.5 h-3.5" />}>
-            {cumulative.length > 0 && cumulative.some(c => c.cumulative > 0) ? (
-              <CumulativeRevenueChart data={cumulative} />
-            ) : (
-              <div className="py-6 text-center text-[12.5px] text-muted-foreground/85 italic">
-                No won deals in this range yet.
-              </div>
-            )}
-          </ChartCard>
-        </div>
-        <ChartCard density={density} title="Where the $ came from" subtitle="Wins by medium" icon={<TrendingUp className="w-3.5 h-3.5" />}>
-          {(['Email', 'LinkedIn', 'Other'] as const).map(med => {
-            const stats = m.byMedium[med]
-            return (
-              <MediumConversionRow
-                key={med}
-                label={med}
-                reached={stats.reached}
-                won={stats.won}
-              />
-            )
-          })}
-        </ChartCard>
-      </div>
-    </div>
+      <ChartCard title="Cumulative revenue" subtitle="Won deals × avg deal value, accumulated over time" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
+        {cumulative.length > 0 && cumulative.some(c => c.cumulative > 0) ? (
+          <CumulativeRevenueChart data={cumulative} />
+        ) : (
+          <div className="py-6 text-center text-[12.5px] text-muted-foreground/85 italic">
+            No won deals in this range yet.
+          </div>
+        )}
+      </ChartCard>
+
+      <ChartCard title="Where the $ came from" subtitle="Wins by medium" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+        {(['Email', 'LinkedIn', 'Other'] as const).map(med => {
+          const stats = m.byMedium[med]
+          return (
+            <MediumConversionRow
+              key={med}
+              label={med}
+              reached={stats.reached}
+              won={stats.won}
+            />
+          )
+        })}
+      </ChartCard>
+    </>
   )
 }
 
-// ── Small shared helpers ─────────────────────────────────────────────
+/* ── Activity ── Calendar heatmap focused. */
+function ActivityLayout({ m, calendar, series }: ActivityLayoutProps) {
+  const totalCells = calendar.reduce((s, c) => s + c.count, 0)
+  const peakDay = calendar.reduce((best, c) => c.count > (best?.count ?? 0) ? c : best, calendar[0])
+
+  return (
+    <>
+      <HeroBanner
+        accent="blue"
+        primaryLabel="Total events (year)"
+        primaryValue={totalCells.toString()}
+        primarySub={
+          peakDay && peakDay.count > 0
+            ? `Peak day: ${peakDay.date} with ${peakDay.count} events`
+            : 'No activity tracked yet for the past year'
+        }
+        chips={[
+          { label: 'Added (7d)',      value: String(m.addedLast7) },
+          { label: 'Reached (7d)',    value: String(m.reachedLast7) },
+          { label: 'Won (30d)',       value: String(m.wonLast30) },
+          { label: 'Total pipeline',  value: String(m.total) },
+        ]}
+      />
+
+      <ChartCard
+        title="Year in review"
+        subtitle="Every event over the last 365 days — added, reached out, responded, won"
+        icon={<ActivityIcon className="w-3.5 h-3.5" />}
+      >
+        <CalendarHeatmap cells={calendar} accent="green" />
+      </ChartCard>
+
+      <div className="grid lg:grid-cols-3 gap-4">
+        <ChartCard title="Velocity" subtitle="Selected range, bucketed" icon={<ActivityIcon className="w-3.5 h-3.5" />}>
+          <VelocityChart data={series} height={180} />
+        </ChartCard>
+        <ChartCard title="Trend snapshot" subtitle="Last 24 buckets" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+          <SparkRow label="Added"      values={sliceN(series.map(s => s.added))}      color={COLOR.purple} />
+          <SparkRow label="Reached"    values={sliceN(series.map(s => s.reachedOut))} color={COLOR.blue}   />
+          <SparkRow label="Responded"  values={sliceN(series.map(s => s.responded))}  color={COLOR.cyan}   />
+          <SparkRow label="Won"        values={sliceN(series.map(s => s.won))}        color={COLOR.green}  />
+        </ChartCard>
+        <ChartCard title="Status mix" icon={<TrendingUp className="w-3.5 h-3.5" />}>
+          <StatusStack
+            successful={m.successful}
+            open={m.open}
+            noResponse={m.noResponse}
+            rejected={m.rejected}
+            notOutreached={m.notOutreached}
+            total={m.total}
+          />
+        </ChartCard>
+      </div>
+    </>
+  )
+}
+
+// ── Small helpers ────────────────────────────────────────────────────
+
+function sliceN<T>(arr: T[], n = 24): T[] {
+  return arr.slice(-n)
+}
+
+function SparkRow({ label, values, color }: { label: string; values: number[]; color: string }) {
+  const total = values.reduce((s, v) => s + v, 0)
+  return (
+    <div className="flex items-center gap-3 py-1.5 border-t border-border/50 first:border-t-0 first:pt-0">
+      <div className="text-[12px] font-medium text-foreground w-20 shrink-0">{label}</div>
+      <div className="flex-1 min-w-0">
+        <Sparkline values={values} color={color} height={20} />
+      </div>
+      <div className="shrink-0 text-[12px] tabular-nums text-muted-foreground w-10 text-right">{total}</div>
+    </div>
+  )
+}
 
 function KVRow({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
   return (
@@ -545,11 +771,6 @@ function KVRow({ label, value, sub }: { label: string; value: number | string; s
       </div>
     </div>
   )
-}
-
-function pct(num: number, den: number): number {
-  if (!den) return 0
-  return Math.round((num / den) * 100)
 }
 
 function RepeatBreakdown({
@@ -582,4 +803,15 @@ function RepeatBreakdown({
       </div>
     </div>
   )
+}
+
+function pct(num: number, den: number): number {
+  if (!den) return 0
+  return Math.round((num / den) * 100)
+}
+
+function deltaSafe(curr: number, prev: number): number | null {
+  if (!Number.isFinite(curr) || !Number.isFinite(prev)) return null
+  if (prev === 0) return curr === 0 ? 0 : null
+  return Math.round(((curr - prev) / prev) * 100)
 }
