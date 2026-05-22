@@ -260,7 +260,7 @@ function CollaboratorRow({
   return (
     <li className="bg-background border border-border rounded-md p-2.5 group">
       {/* Top row — role + name + remove */}
-      <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-1.5">
         <input
           type="text"
           value={role}
@@ -294,7 +294,7 @@ function CollaboratorRow({
         </div>
       </div>
       {/* Contact row — email + phone */}
-      <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-1.5">
         <input
           type="email"
           value={email}

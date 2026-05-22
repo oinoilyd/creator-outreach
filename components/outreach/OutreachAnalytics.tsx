@@ -141,13 +141,17 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
 
   return (
     <div className="space-y-6">
-      {/* ── Header bar ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      {/* ── Header bar ─────────────────────────────────────────────
+          On phones the row stacks: layout button takes full width
+          (easier tap target), then the time-range + settings cluster
+          gets its own row, justified-between so the gear stays
+          right-aligned. At sm+ everything is one row, as before. */}
+      <div className="flex max-sm:flex-col items-stretch sm:items-center sm:justify-between gap-3 sm:flex-wrap">
         {/* Layout switcher — prominent click-into button */}
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card hover:bg-muted/40 hover:border-border/80 transition-colors"
+          className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-card hover:bg-muted/40 hover:border-border/80 transition-colors max-sm:w-full"
         >
           <span className="shrink-0 w-7 h-7 rounded-md bg-gradient-to-br from-purple-500/20 to-blue-500/15 text-purple-700 dark:text-purple-300 flex items-center justify-center">
             {currentLayout.icon}
@@ -159,10 +163,12 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors ml-1" />
         </button>
 
-        {/* RIGHT — time range + settings */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 border border-border">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground ml-1.5 mr-0.5" aria-hidden />
+        {/* RIGHT — time range + settings. On phone, full-width row
+            with justify-between so the gear hugs the right edge and
+            the range pills span the available space. */}
+        <div className="flex items-center gap-2 max-sm:w-full max-sm:justify-between">
+          <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 border border-border max-sm:flex-1">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground ml-1.5 mr-0.5 max-sm:hidden" aria-hidden />
             {TIME_RANGE_OPTIONS.map(opt => {
               const active = rangeId === opt.id
               return (
@@ -172,7 +178,10 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
                   onClick={() => setRangeId(opt.id)}
                   aria-pressed={active}
                   className={[
-                    'px-2.5 py-1 rounded-md text-[11.5px] font-medium tabular-nums transition-colors',
+                    // Phone: stretch each pill to fill the row evenly
+                    // (makes the cluster look intentional vs cramped)
+                    // and bump padding for a friendlier tap target.
+                    'max-sm:flex-1 rounded-md text-[11.5px] font-medium tabular-nums transition-colors max-sm:px-2 max-sm:py-1.5 sm:px-2.5 sm:py-1',
                     active
                       ? 'bg-card text-foreground shadow-sm border border-border'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',

@@ -304,9 +304,10 @@ export function ActiveClientDetailModal({
         <div className="grid md:grid-cols-2 gap-5 p-5">
           {/* LEFT — fields */}
           <div className="space-y-4">
-            {/* Budget + currency */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
+            {/* Budget + currency — stack on phones so the Currency
+                input doesn't collapse to ~85px; restore 3-col at sm. */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="sm:col-span-2">
                 <FieldLabel>Budget</FieldLabel>
                 <input
                   type="text"
@@ -333,8 +334,8 @@ export function ActiveClientDetailModal({
               </div>
             </div>
 
-            {/* Timeline */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Timeline — stack on phones (date inputs are wide). */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <FieldLabel>Start</FieldLabel>
                 <input
@@ -575,13 +576,20 @@ function LifecycleAction({
       type="button"
       onClick={onClick}
       aria-pressed={isActive}
+      title={label}
       className={[
-        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[12.5px] font-semibold transition-colors',
+        // Larger tap target on mobile (44px height satisfies iOS HIG);
+        // tighter on desktop where you have a mouse pointer.
+        'inline-flex items-center gap-1.5 rounded-md border text-[12.5px] font-semibold transition-colors max-sm:px-2.5 max-sm:py-2 sm:px-3 sm:py-1.5',
         isActive ? activeFilled[accent] : idleStyles[accent],
       ].join(' ')}
     >
       {icon}
-      {label}
+      {/* Label hides below sm to keep all 4 lifecycle buttons on one
+          row on phones. Title attr above provides the same info on
+          long-press, and screen readers still get the aria-pressed
+          state + the visible icon. */}
+      <span className="max-sm:sr-only">{label}</span>
     </button>
   )
 }

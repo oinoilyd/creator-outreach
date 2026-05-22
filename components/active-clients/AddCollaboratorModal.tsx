@@ -156,7 +156,7 @@ export function AddCollaboratorModal({
           className="px-5 py-4 space-y-3"
           onSubmit={e => { e.preventDefault(); handleSubmit() }}
         >
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <FieldLabel>Role</FieldLabel>
               <input
@@ -180,7 +180,7 @@ export function AddCollaboratorModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <FieldLabel>
                 Email <span className="text-muted-foreground/50 normal-case font-normal">(optional)</span>
