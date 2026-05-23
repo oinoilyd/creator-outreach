@@ -68,6 +68,26 @@ export function HamburgerMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
+  // Admin preview mode — only meaningful when the signed-in user is
+  // the admin. Toggling it on hides admin-only menu items so the
+  // admin can see exactly what a normal user sees in the menu.
+  // Persists across reloads via localStorage; defaults off (i.e.
+  // admin sees admin view by default).
+  const isAdmin = userEmail === ADMIN_EMAIL
+  const [previewAsNormal, setPreviewAsNormal] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem('creator-outreach.admin-preview-normal') === 'true'
+    } catch { return false }
+  })
+  function togglePreviewMode() {
+    const next = !previewAsNormal
+    setPreviewAsNormal(next)
+    try { window.localStorage.setItem('creator-outreach.admin-preview-normal', String(next)) } catch { /* ignore */ }
+  }
+  // Whether admin-only items render. False when previewing as
+  // a normal user.
+  const showAdminItems = isAdmin && !previewAsNormal
   // Themes-section gear popover. Per Dylan 2026-05-10 v2: replaces
   // the inline subtitle ("Picks up the active platform's color...")
   // with a gear icon that toggles a small controls panel.
@@ -170,6 +190,33 @@ export function HamburgerMenu({
               </div>
               <div className="mx-4 border-t border-border" />
             </>
+          )}
+
+          {/* Admin-only "View as" toggle — lets the admin see exactly
+              what the menu looks like for a regular user. Hidden for
+              everyone else (renders nothing if !isAdmin). */}
+          {isAdmin && (
+            <div className="px-4 pt-2 pb-1 flex items-center justify-between gap-2">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+                Viewing as
+              </span>
+              <button
+                type="button"
+                onClick={togglePreviewMode}
+                aria-pressed={previewAsNormal}
+                title={previewAsNormal
+                  ? 'Click to switch back to admin view'
+                  : 'Click to preview the menu as a normal user'}
+                className={[
+                  'inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border transition-colors',
+                  previewAsNormal
+                    ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20'
+                    : 'border-purple-500/50 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20',
+                ].join(' ')}
+              >
+                {previewAsNormal ? 'Normal user' : 'Admin'}
+              </button>
+            </div>
           )}
 
           {/* Lead Criteria */}
@@ -281,7 +328,7 @@ export function HamburgerMenu({
             </>
           )}
 
-          {userEmail === ADMIN_EMAIL && (
+          {showAdminItems && (
             <>
               <div className="mx-4 my-1 border-t border-border" />
               <a
