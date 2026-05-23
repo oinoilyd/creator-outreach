@@ -347,20 +347,41 @@ export default function Home() {
     }
   }, [emailFirstSort])
 
-  // Backdrop theme — 4 options ('off' / 'rain' / 'drift' / 'aura'),
-  // each parameterized by the currently-active platform. Pulse was
-  // dropped in v3 (2026-05-10) — its static color tint graduated
-  // into the always-on PlatformShade. Existing localStorage values
-  // of 'pulse' fall through to 'off' on next load.
-  // Defaults 'off' so the app stays minimal until the user opts in.
-  // Persisted to localStorage so the chosen vibe survives sessions.
+  // Backdrop theme — 4 options ('off' / 'rain' / 'drift' / 'fireworks' /
+  // 'tornado'), each parameterized by the currently-active platform.
+  // Pulse was dropped in v3 (2026-05-10) — its static color tint
+  // graduated into the always-on PlatformShade. Existing localStorage
+  // values of 'pulse' fall through to the default.
+  //
+  // 2026-05-23 per Dylan: default flipped from 'off' → 'tornado' so new
+  // users land with a real moment. A one-time migration (keyed by
+  // 'backdrop-theme-default-v2') bumps existing users who still have
+  // the old 'off' default — that key gets set once and never again, so
+  // any subsequent explicit choice (including switching back to 'off')
+  // persists normally. Users who already picked rain/drift/fireworks
+  // keep their pick; only the off-by-default crowd gets nudged.
   const [backdropTheme, setBackdropTheme] = useState<BackdropTheme>(() => {
-    if (typeof window === 'undefined') return 'off'
+    if (typeof window === 'undefined') return 'tornado'
+    const migrationKey = 'backdrop-theme-default-v2'
+    const migrated = window.localStorage.getItem(migrationKey) === 'true'
     const saved = window.localStorage.getItem('backdrop-theme')
+
+    // First time we're applying the new default — bump 'off' (or any
+    // unrecognized value) up to 'tornado'. Mark migrated so we never
+    // override the user's choice again.
+    if (!migrated) {
+      window.localStorage.setItem(migrationKey, 'true')
+      if (saved === 'rain' || saved === 'drift' || saved === 'fireworks' || saved === 'tornado') {
+        return saved
+      }
+      return 'tornado'
+    }
+
+    // Post-migration: respect whatever the user has saved (including 'off').
     if (saved === 'rain' || saved === 'drift' || saved === 'fireworks' || saved === 'tornado' || saved === 'off') {
       return saved
     }
-    return 'off'
+    return 'tornado'
   })
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -628,22 +649,11 @@ export default function Home() {
   // 2026-05-10 v6 per Dylan: one-shot themes (Fireworks/Tornado)
   // SHOULD re-fire when the user switches platforms in the
   // 'Find ___ creators' dropdown — that's the one trigger worth
-  // keeping. They still stay dormant on hard refresh, tab return,
-  // and search (those were too noisy).
-  //
-  // The ref-based dedupe ensures we only fire on actual platform
-  // CHANGES, not on initial mount or on theme/tab changes.
+  // keeping. They still stay dormant on tab return and search
+  // (those were too noisy). The platform-change effect itself lives
+  // further down — it depends on userId which is declared below.
   const prevPlatformRef = useRef<PlatformId>(activePlatform)
-  useEffect(() => {
-    const prev = prevPlatformRef.current
-    if (prev === activePlatform) return // initial mount, no real change
-    prevPlatformRef.current = activePlatform
-    // Only fire if user is actually looking at the backdrop (Results tab).
-    if (activeTab !== 'results') return
-    if (backdropTheme === 'fireworks' || backdropTheme === 'tornado') {
-      triggerSpotlight(spotlightDurationFor(backdropTheme))
-    }
-  }, [activePlatform, activeTab, backdropTheme])
+  const initialFireRef = useRef(false)
 
   const seenChannelIds = useRef<Set<string>>(new Set())
 
@@ -651,6 +661,28 @@ export default function Home() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+
+  // 2026-05-23 per Dylan: one-shot themes (Fireworks/Tornado) fire BOTH
+  // on initial login/page-mount AND on platform switch. The first effect
+  // gives users "the wave" when they land on the app; the second handles
+  // re-firing when they pick a different platform in the dropdown.
+  // initialFireRef guards against re-running the mount fire on every
+  // re-render — once it flips true, only platform changes can re-fire.
+  useEffect(() => {
+    const prev = prevPlatformRef.current
+    const isInitialFire = !initialFireRef.current && userId !== null
+
+    if (!isInitialFire && prev === activePlatform) return // no change worth firing
+    if (prev !== activePlatform) prevPlatformRef.current = activePlatform
+
+    // Only fire if user is actually looking at the backdrop (Results tab).
+    if (activeTab !== 'results') return
+
+    if (backdropTheme === 'fireworks' || backdropTheme === 'tornado') {
+      initialFireRef.current = true
+      triggerSpotlight(spotlightDurationFor(backdropTheme))
+    }
+  }, [activePlatform, activeTab, backdropTheme, userId])
   // Stripe subscription state — populated alongside profile. The fields
   // are nullable because most users haven't subscribed yet; the UI
   // treats null as "no subscription, show pricing CTA".
