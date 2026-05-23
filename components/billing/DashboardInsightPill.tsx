@@ -445,14 +445,6 @@ export function DashboardInsightPill({
 
   const currentInsight = insights.length > 0 && index < insights.length ? insights[index] : ''
 
-  // Truncate the visible pill text so it doesn't push the upgrade
-  // button off-screen. The full text is in the popover.
-  const pillText = (() => {
-    if (loading && !currentInsight) return 'Generating…'
-    if (error) return 'Insight unavailable'
-    return currentInsight || 'Loading…'
-  })()
-
   const formattedAge = generatedAt != null ? formatAge(Date.now() - generatedAt) : ''
   const refreshAdvancesLocally = insights.length > 1 && index < insights.length - 1
   // Aria-only label for the refresh button — the visible UI is
@@ -467,15 +459,16 @@ export function DashboardInsightPill({
         onClick={() => setOpen(v => !v)}
         aria-label="Open insight"
         aria-expanded={open}
+        title="Insight"
         className={[
-          'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium transition-colors max-w-[260px] overflow-hidden',
+          'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium transition-colors',
           open
             ? 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300'
             : 'border-border bg-card text-muted-foreground hover:text-foreground hover:border-border/80',
         ].join(' ')}
       >
         <Sparkles className="w-3.5 h-3.5 shrink-0 text-purple-500" aria-hidden />
-        <span className="truncate whitespace-nowrap">{pillText}</span>
+        <span className="whitespace-nowrap">Insight</span>
       </button>
 
       {open && (
