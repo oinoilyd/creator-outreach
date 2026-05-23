@@ -137,9 +137,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const message = await client.messages.create({
-      model: 'claude-haiku-4-5',
-      // 5 sentences × ~25 tokens each + some structure overhead.
-      max_tokens: 400,
+      // Sonnet, not Haiku — voice/observation quality matters far more
+      // than latency for a single headline insight. Haiku produced
+      // mechanical "you have X, do Y" sentences that read like a
+      // chatbot. Sonnet handles voice + pattern detection meaningfully
+      // better and is still cheap at one call per user per day.
+      model: 'claude-sonnet-4-5',
+      // Generous budget so the model can think a bit before producing
+      // the JSON. 5 sentences × ~30 tokens + some overhead = 200ish,
+      // but room to breathe matters for quality.
+      max_tokens: 500,
       messages: [{ role: 'user', content: prompt }],
     })
     const raw = (message.content[0] as { text?: string }).text?.trim() || ''
@@ -223,100 +230,111 @@ function sanitizeInsight(s: string): string {
  *   4. Follow-ups (Outreach > Follow-ups sub-tab)
  *   5. Active Clients (Outreach > Active Clients sub-tab)
  */
+/**
+ * Empty-state — no entries, no recent searches. Same voice rules
+ * as the live insights. Order mirrors the SURFACES list.
+ */
 const EMPTY_STATE_INSIGHTS: string[] = [
-  'Set your pitch line in Profile before sending — Claude pulls it into every personalized rewrite.',
-  'Run your first search on the Results tab; start broad (e.g. "fitness") then narrow once scoring settles.',
-  'Add a few creators from Results into the Outreach Pipeline before sending — you can edit each one first.',
-  'Once you reach out, set a follow-up date on the lead so it shows up in the Follow-ups queue automatically.',
-  'A creator who marks Successful turns into an Active Client — budget, milestones, and team splits live there.',
+  'Nothing searched yet — the Results tab is where the work starts. Pick a niche and see who shows up.',
+  'Your pipeline is empty. The first lead is the only one that feels hard to add.',
+  "No follow-ups means no one to follow up with — that's about to change once you send your first message.",
+  'Active Clients is still a forward-looking promise. Your first "Successful" creator graduates here automatically.',
+  'Pitch line is empty. Tell the AI what you actually do before asking it to write about you.',
 ]
 
 // ── Prompt ───────────────────────────────────────────────────────────
 
 /**
- * Per-facet briefs. THIS IS THE KEY CONSTRAINT: each facet must
- * anchor on a DIFFERENT TAB of the app so cycling through all 5
- * gives a tour of distinct surfaces, not 5 framings of one
- * outreach observation.
- *
- * NEW and EXPERIENCED variants use the same 5 surfaces, with
- * stage-appropriate framing.
+ * The 5 surfaces of the app, in display order. Each insight lands on
+ * one surface — that's the cross-tab guarantee — but the PROMPT
+ * controls the voice. Voice rules + few-shot examples live below.
  */
-const NEW_FACETS = [
-  { name: 'SOURCING (Results + Dismissed tabs)',
-    brief: 'Reflect on their search activity on the Results tab. Use resultsCount (how many creators are on screen now), recentSearches array (what they have been looking for), and dismissedCount (whether they have already dismissed any). If they have searched but added 0, push them to add a lead. If no searches at all, suggest a starting niche. Do NOT discuss outreach status — that is a different facet.' },
-  { name: 'PIPELINE (Outreach > Pipeline sub-tab)',
-    brief: 'Anchor on the Pipeline sub-tab specifically. Use total, notOutreached, leadsWithEmailNotReached. If they have added leads but reached out to nobody, name that. If they have entries with email captured but sitting at Not Outreached, name THAT specifically. Do NOT mention follow-ups, active clients, or analytics — those are other facets.' },
-  { name: 'FOLLOW-UPS (Outreach > Follow-ups sub-tab)',
-    brief: 'Anchor on the Follow-ups sub-tab. Use followupOverdue, followupDueToday, followupDueThisWeek, and open count. If all those are 0, frame this as "no follow-ups scheduled yet — set a follow-up date when you reach out to your first lead so this queue starts filling in." Do NOT discuss the Pipeline status mix.' },
-  { name: 'ACTIVE CLIENTS (Outreach > Active Clients sub-tab)',
-    brief: 'Anchor on the Active Clients sub-tab. Use activeClientsTotal, activeNow, totalBooked, personalRevenue. If activeClientsTotal is 0, frame it as a forward-looking nudge: "Your first Successful response will create an Active Client where you track budget, milestones, and team splits." Do NOT discuss outreach status.' },
-  { name: 'WORKFLOW SETUP (Profile + Settings + Templates)',
-    brief: 'Anchor on the workflow object. Pick the single most impactful missing piece: !hasPitchLine (urgent — needed for AI rewrites), !gmailConnected (urgent — required to send from app), !customEmailTemplate (nice-to-have), !hasFullName (cosmetic). Name the specific thing missing and how to set it. Do NOT discuss data metrics.' },
+const SURFACES = [
+  { id: 'sourcing',  human: 'Results + Dismissed tabs',           lane: 'sourcing — resultsCount, dismissedCount, dismissalRatio, recentSearches' },
+  { id: 'pipeline',  human: 'Outreach > Pipeline sub-tab',         lane: 'status mix — total, notOutreached, open, noResponse, rejected, leadsWithEmailNotReached, byMedium, responseRate, winRate' },
+  { id: 'followups', human: 'Outreach > Follow-ups sub-tab',       lane: 'queue health — followupOverdue, followupDueToday, followupDueThisWeek' },
+  { id: 'active',    human: 'Outreach > Active Clients sub-tab',   lane: 'engagement state — activeClientsTotal, activeNow, lifecyclePaused/Completed/Churned, totalBooked, personalRevenue, completedRealised, avgRating, repeatDefinitely/Likely/Maybe/No' },
+  { id: 'workflow',  human: 'Profile + Settings + Templates',      lane: 'setup — workflow.hasPitchLine, gmailConnected, customEmailTemplate, hasFullName, hasPhysicalAddress, customIgTemplate, customLinkedinTemplate, mailClient' },
 ] as const
 
-const EXPERIENCED_FACETS = [
-  { name: 'SOURCING (Results + Dismissed tabs)',
-    brief: 'Anchor on the Results + Dismissed tabs. Use resultsCount, dismissedCount, dismissalRatio, addedLast7. If dismissalRatio is high (>30%), comment that the niche may be too broad. If addedLast7 is low and resultsCount is high, name the gap — they are sourcing but not committing. If dismissalRatio is 0, suggest they are being too generous. Do NOT discuss follow-ups, conversion, or active clients.' },
-  { name: 'PIPELINE (Outreach > Pipeline sub-tab)',
-    brief: 'Anchor on the Pipeline sub-tab. Use total, status mix (notOutreached / open / noResponse / rejected / successful), responseRate, winRate, byMedium. Surface the biggest imbalance — too many Opens with no follow-up scheduled? A medium dominating? leadsWithEmailNotReached too high? Do NOT touch the Follow-ups queue specifically (that is a separate facet).' },
-  { name: 'FOLLOW-UPS (Outreach > Follow-ups sub-tab)',
-    brief: 'Anchor on the Follow-ups sub-tab. Use followupOverdue, followupDueToday, followupDueThisWeek. If followupOverdue > 0 that is the lead. If followupDueToday > 0 prompt them to clear it. If all those are 0 but open > 5, point out the Open entries without follow-up dates set. Be specific with counts. Do NOT discuss conversion rates.' },
-  { name: 'ACTIVE CLIENTS (Outreach > Active Clients sub-tab)',
-    brief: 'Anchor on the Active Clients sub-tab. Use activeClientsTotal, activeNow, lifecyclePaused, lifecycleCompleted, totalBooked, personalRevenue, completedRealised, avgRating, repeatDefinitely + repeatLikely. Prioritise: paused clients to reactivate → completed clients with repeatDefinitely/Likely to follow up with for repeats → ratio of personalRevenue to totalBooked if team splits eat a lot. Do NOT discuss outreach metrics.' },
-  { name: 'WORKFLOW + ANALYTICS (Profile + Settings + Analytics tab)',
-    brief: 'Anchor on workflow setup OR Analytics trends. Pick whichever is more interesting: a missing workflow piece (!hasPitchLine, !gmailConnected, !customEmailTemplate) OR a velocity trend from addedLast7 / reachedLast7 / wonLast30 worth commenting on. Do NOT repeat what the other facets cover.' },
-] as const
+/**
+ * Few-shot examples chosen to teach the model what "insightful"
+ * actually means here — pattern detection, contrast, surprise,
+ * micro-narrative. The bad examples are the failure mode we keep
+ * landing in: chatbot framing, generic "you have X / do Y" prose.
+ */
+const GOOD_EXAMPLES = `
+GOOD examples (write like these — voice, contrast, real observation):
+- Sourcing:   "You've dismissed 1 in 3 results lately. Your niche is broader than your taste."
+- Pipeline:   "Six leads have emails sitting idle. You're collecting them like Pokemon, not contacting them."
+- Pipeline:   "Win rate is 38 percent — solid. The bottleneck isn't conversion, it's reach."
+- Follow-ups: "Three follow-ups went stale today. That's not laziness, that's a queue with no design."
+- Active:     "Your only paused client was your biggest budget. The most expensive form of busy is half-pausing."
+- Active:     "Two completed engagements marked 'Definitely repeat' — that's two warm leads you haven't asked."
+- Workflow:   "Your pitch line is empty. The AI is writing for someone who hasn't decided what they sell."
+- Workflow:   "Gmail isn't connected. Every send right now is a copy-paste tax."`
 
-function buildPrompt(metrics: DashboardMetrics, recentSearches: string[], isNew: boolean): string {
-  const facets = isNew ? NEW_FACETS : EXPERIENCED_FACETS
+const BAD_EXAMPLES = `
+BAD examples (NEVER write like these — chatbot voice, generic, action-list):
+- "You have 12 leads in your pipeline. Consider reaching out to start tracking responses."
+- "Your LinkedIn outreach has a 32% conversion rate. Lean in there."
+- "There are 3 follow-ups overdue. Clear them to keep momentum."
+- "You've got 4 active engagements totaling $24,000 booked."
+- "Set your pitch line in Profile to enable AI personalization."
+What's wrong: corporate language ("Consider", "Lean in", "Leverage", "momentum"); action-step suffix tacked on; flat observation with no contrast or implication; reads like a dashboard tooltip, not a person noticing something.`
 
-  const facetBlock = facets
-    .map((f, i) => `${i + 1}. ${f.name}\n   ${f.brief}`)
-    .join('\n\n')
+const VOICE_RULES = `
+VOICE RULES (these are not negotiable):
+- Forbidden words and phrases: "consider", "leverage", "next step", "momentum", "right now", "currently", "metric", "stat", "key", "insight" (yes, ironic), "make sure", "be sure to", "great job", "looking good", "nice work", "perhaps", "might want to".
+- Forbidden sentence shapes: "You have X. [action verb]." / "Your X is Y. [action verb]." — the linked-pair-of-clauses pattern reads like a chatbot.
+- DO use contrast ("X but Y", "X is fine, the problem is Y", "X — but [reframe]").
+- DO use micro-narratives ("X happened, which means Y").
+- DO use surprising framings — comparisons to ordinary life ("Pokemon", "wishlist", "tax"), playful word choices, observations that name a pattern.
+- DO let yourself be slightly opinionated. The user wants a smart friend's read, not a status report.
+- ONE sentence. No semicolons stringing two ideas. Max 22 words.
+- Cite at least one real number or boolean state from the data. Never fabricate.
+- Second person. No greeting words. No emoji. No quotes inside the string.`
 
-  const guidance = isNew
-    ? `USER STATE: NEW. Frame all 5 insights as gentle next-step nudges. Friendly but direct.`
-    : `USER STATE: EXPERIENCED. Be opinionated and specific. No hedging.`
+function buildPrompt(
+  metrics: DashboardMetrics,
+  recentSearches: string[],
+  isNew: boolean,
+): string {
+  const stageNote = isNew
+    ? 'USER STATE: NEW (still ramping). Insights should still be observational and voice-driven, just naturally framed as next-step nudges instead of "you should know" observations.'
+    : 'USER STATE: EXPERIENCED. Be opinionated. Point at patterns, contradictions, and easy wins they have not noticed.'
+
+  const surfaceBlock = SURFACES.map((s, i) =>
+    `${i + 1}. ${s.human}\n   Data in scope: ${s.lane}`,
+  ).join('\n\n')
 
   const searchBlock = recentSearches.length > 0
-    ? `Recent searches: ${recentSearches.slice(0, 5).map(s => `"${s.slice(0, 40)}"`).join(', ')}`
-    : '(No recent search history available — skip search-reflection facet if it applies.)'
+    ? `Recent searches the user has run: ${recentSearches.slice(0, 5).map(s => `"${s.slice(0, 40)}"`).join(', ')}`
+    : '(No recent search history available.)'
 
-  return `You are a heads-up display for a creator-outreach SaaS. The app has 5 distinct surfaces: the Results tab, the Outreach > Pipeline sub-tab, the Outreach > Follow-ups sub-tab, the Outreach > Active Clients sub-tab, and the user's Profile + Settings + Templates area. Write FIVE one-sentence insights, ONE per surface, in the order listed below.
+  return `You're a strategist looking over the shoulder of a freelance creator who uses an outreach CRM. You see their dashboard data. You're going to write FIVE one-sentence observations — the kind a smart friend leaning over the screen would make. Sharp, specific, slightly opinionated. Each one anchored to a different surface of the app so cycling through them gives a tour of where their attention should go.
 
-OUTPUT FORMAT: Return ONLY a JSON array of exactly 5 strings, no other text. Example:
-["Insight 1...", "Insight 2...", "Insight 3...", "Insight 4...", "Insight 5..."]
+OUTPUT FORMAT: Return ONLY a JSON array of exactly 5 strings, no preamble, no markdown.
+["...", "...", "...", "...", "..."]
 
-EACH INSIGHT MUST:
-- Be ONE sentence, max 22 words.
-- Plain prose. No markdown, no emoji, no quotes inside the strings (use plain text only).
-- Cite at least one specific number from the data block below (or a workflow boolean for the WORKFLOW facet).
-- Be in second person ("you", "your").
-- Be opinionated and direct. No greeting words. No hedging.
-- Cite numbers that actually appear in the data block. Never fabricate.
+THE 5 SURFACES (one insight per surface, in this order — the user will see them in this order):
 
-CRITICAL — TAB ANCHORING:
-- Insight #1 talks ONLY about sourcing — Results tab and Dismissed tab signal.
-- Insight #2 talks ONLY about the Pipeline sub-tab — overall status mix of leads.
-- Insight #3 talks ONLY about the Follow-ups sub-tab — overdue / due-today / due-this-week.
-- Insight #4 talks ONLY about Active Clients sub-tab — engagement count / lifecycle / revenue / repeats.
-- Insight #5 talks ONLY about Workflow Setup or Analytics trends — never raw outreach metrics.
+${surfaceBlock}
 
-If two facets would overlap (e.g. both citing total entries), reframe one so it stays in its own lane. A reader cycling through should see five completely different parts of the app discussed.
+${VOICE_RULES}
 
-${guidance}
+${GOOD_EXAMPLES}
 
-THE 5 FACETS (use exactly these 5, in this order):
+${BAD_EXAMPLES}
 
-${facetBlock}
+WHEN THE DATA IS THIN for a surface (e.g. followupOverdue=0 AND followupDueToday=0 AND followupDueThisWeek=0 — there's no story in the queue): name THAT — frame it as the absence ("Nothing on the follow-up queue — either you're between waves, or no leads have a date attached") — but stay observational, never default to "add a follow-up date next time you reach out" boilerplate.
 
-If a facet has truly no signal in the data (e.g. FOLLOW-UPS but all three follow-up counts are 0), still write something useful — frame it as a forward-looking nudge about that surface ("no follow-ups scheduled yet — set a date when you reach out next") — do NOT skip the slot and do NOT pivot to another facet's territory.
+${stageNote}
 
-Current state:
+THE DATA:
 ${JSON.stringify(metrics, null, 2)}
 
 ${searchBlock}
 
-Return the JSON array now. No preamble, no labels, no markdown fences.`
+Return the JSON array now. Five sharp observations, one per surface, in voice. No preamble.`
 }

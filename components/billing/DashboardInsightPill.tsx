@@ -428,12 +428,11 @@ export function DashboardInsightPill({
   })()
 
   const formattedAge = generatedAt != null ? formatAge(Date.now() - generatedAt) : ''
-  // What does the refresh button do if clicked right now? Determines
-  // the title + icon variant in the popover.
   const refreshAdvancesLocally = insights.length > 1 && index < insights.length - 1
-  const refreshLabel = refreshAdvancesLocally
-    ? `Next insight (${index + 1} of ${insights.length})`
-    : 'Fetch fresh insights'
+  // Aria-only label for the refresh button — the visible UI is
+  // intentionally counter-free so the experience reads like a stream
+  // of observations rather than "you are viewing item N of M."
+  const refreshLabel = refreshAdvancesLocally ? 'Next insight' : 'Fetch fresh insights'
 
   return (
     <div ref={popoverRef} className="relative hidden md:block">
@@ -461,16 +460,9 @@ export function DashboardInsightPill({
               <Sparkles className="w-3.5 h-3.5" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12.5px] font-semibold text-foreground">Heads-up</span>
-                {insights.length > 1 && (
-                  <span className="text-[10px] font-medium tabular-nums text-purple-700 dark:text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
-                    {index + 1}/{insights.length}
-                  </span>
-                )}
-              </div>
+              <div className="text-[12.5px] font-semibold text-foreground">Heads-up</div>
               <div className="text-[10.5px] text-muted-foreground/75">
-                {generatedAt != null ? `Batch generated ${formattedAge}` : 'Loading…'}
+                {generatedAt != null ? `${formattedAge}` : 'Loading…'}
               </div>
             </div>
             <button
@@ -507,19 +499,36 @@ export function DashboardInsightPill({
                 <div className="h-3 bg-muted/60 rounded animate-pulse w-8/12" />
               </div>
             ) : (
-              <p className="text-[13px] leading-relaxed text-foreground/90">
+              <p className="text-[13.5px] leading-relaxed text-foreground/90">
                 {currentInsight}
               </p>
             )}
-            {/* Subtle hint that the refresh button does local cycling
-                until exhausted. Hidden once they've seen all 5 — the
-                title-attr on the button is enough at that point. */}
-            {refreshAdvancesLocally && !loading && !error && (
-              <p className="mt-2 text-[10.5px] text-muted-foreground/65">
-                Click <RefreshCw className="inline w-2.5 h-2.5 mb-0.5" aria-hidden /> for the next insight in this batch.
-              </p>
-            )}
           </div>
+
+          {/* Subtle progress dots — implementation detail surfaced
+              visually but without literal "1 of 5" copy. Each dot
+              filled in matches the index; refresh advances one dot
+              at a time. Hidden when there's only one item. */}
+          {insights.length > 1 && !error && (
+            <div
+              className="flex items-center justify-center gap-1.5 pb-3"
+              aria-hidden
+            >
+              {insights.map((_, i) => (
+                <span
+                  key={i}
+                  className={[
+                    'w-1.5 h-1.5 rounded-full transition-colors',
+                    i === index
+                      ? 'bg-purple-500'
+                      : i < index
+                        ? 'bg-purple-500/40'
+                        : 'bg-muted-foreground/25',
+                  ].join(' ')}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
