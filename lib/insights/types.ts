@@ -18,6 +18,12 @@ export interface DashboardMetrics {
   pipelineValue: number
   leadsWithEmailNotReached: number
   byMedium: Record<'Email' | 'LinkedIn' | 'Other', { reached: number; won: number }>
+  /** Top specific "Other" channel names the user has typed into the
+   *  mediumOther field, ranked by reach count. Lets insights name
+   *  the real channel ("Twitter DM", "in-person", "referral") instead
+   *  of the lumped "Other" label. Empty array when no entries have
+   *  medium='Other' or the mediumOther field is blank. */
+  topMediumOther: Array<{ name: string; reached: number; won: number }>
 
   // Follow-ups sub-tab
   followupOverdue: number

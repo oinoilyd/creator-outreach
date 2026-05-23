@@ -166,13 +166,33 @@ function projectMetrics(input: {
     LinkedIn: { reached: 0, won: 0 },
     Other:    { reached: 0, won: 0 },
   }
+  // Track the specific "Other" channel names the user has typed so
+  // we can render real names ("Twitter DM", "Instagram DM", "in
+  // person") instead of the lumped "Other" placeholder.
+  const otherByName = new Map<string, { reached: number; won: number }>()
   for (const e of entries) {
     if (!isReachedOut(e)) continue
     const med: 'Email' | 'LinkedIn' | 'Other' =
       (e.medium === 'Email' || e.medium === 'LinkedIn') ? e.medium : 'Other'
     byMedium[med].reached += 1
     if (e.status === 'Successful') byMedium[med].won += 1
+    if (med === 'Other') {
+      const rawName = (e.mediumOther || '').trim()
+      // Skip empties — we only want named buckets. Lowercase for
+      // deduping then re-cap for display.
+      if (rawName) {
+        const key = rawName.toLowerCase()
+        const slot = otherByName.get(key) ?? { reached: 0, won: 0 }
+        slot.reached += 1
+        if (e.status === 'Successful') slot.won += 1
+        otherByName.set(key, slot)
+      }
+    }
   }
+  const topMediumOther = Array.from(otherByName.entries())
+    .map(([name, stats]) => ({ name: titleCase(name), reached: stats.reached, won: stats.won }))
+    .sort((a, b) => b.reached - a.reached)
+    .slice(0, 3)
 
   // ── Sourcing tab signal (Results + Dismissed) ──
   // Dismissal ratio expressed against the total "considered" pool
@@ -206,6 +226,7 @@ function projectMetrics(input: {
     responseRate, winRate, pipelineValue,
     leadsWithEmailNotReached,
     byMedium,
+    topMediumOther,
 
     // Follow-ups sub-tab
     followupOverdue,
@@ -236,7 +257,12 @@ function projectMetrics(input: {
 function readCache(uid: string): CachedDashboardInsight | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = window.localStorage.getItem(`creator-outreach.dashboard-insight.${uid}`)
+    // Cache key has v2 suffix — v1 stored LLM-era insights, which
+    // were not the rule-based detector output. Bumping the key
+    // forces a refetch so users on the old cache see the new
+    // detector output immediately on next page load instead of
+    // waiting out the 24h TTL.
+    const raw = window.localStorage.getItem(`creator-outreach.dashboard-insight-v2.${uid}`)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<CachedDashboardInsight>
     if (
@@ -259,7 +285,7 @@ function writeCache(uid: string, value: CachedDashboardInsight): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(
-      `creator-outreach.dashboard-insight.${uid}`,
+      `creator-outreach.dashboard-insight-v2.${uid}`,
       JSON.stringify(value),
     )
   } catch { /* localStorage unavailable */ }
@@ -545,4 +571,22 @@ function formatAge(ms: number): string {
   const d = Math.round(hr / 24)
   if (d < 7) return `${d}d ago`
   return `${Math.round(d / 7)}w ago`
+}
+
+/**
+ * Lowercase a user-typed channel name into Title Case for display.
+ * Handles a few common shapes: "twitter dm" -> "Twitter DM",
+ * "in person" -> "In Person", "phone" -> "Phone". Words that are
+ * already all-caps acronyms (DM, SMS) get preserved.
+ */
+function titleCase(input: string): string {
+  return input
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(w => {
+      // Preserve known acronyms.
+      if (/^(dm|sms|fyi|ig)$/i.test(w)) return w.toUpperCase()
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+    })
+    .join(' ')
 }

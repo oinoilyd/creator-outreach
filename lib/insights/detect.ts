@@ -62,7 +62,7 @@ export function detectFindings(m: DashboardMetrics): Finding[] {
       id: 'sourcing.window-shopping',
       severity: 'medium',
       surface: 'sourcing',
-      sentence: `${m.resultsCount} creators on screen but only ${plural(m.addedLast7, 'added')} this week — browsing isn't sourcing.`,
+      sentence: `${m.resultsCount} creators in Results, ${m.addedLast7 === 0 ? 'none' : `only ${m.addedLast7}`} added in the last 7 days. The rest are window-shopping.`,
     })
   }
 
@@ -115,9 +115,12 @@ export function detectFindings(m: DashboardMetrics): Finding[] {
     })
   }
 
-  // Channel disparity — only if both have non-trivial sample size.
+  // Channel disparity (Email vs LinkedIn) — only if both have
+  // non-trivial sample size. Skipped if Other dominates everything;
+  // that gets its own detector below.
   const em = m.byMedium.Email
   const li = m.byMedium.LinkedIn
+  const ot = m.byMedium.Other
   if (em.reached >= 4 && li.reached >= 4) {
     const emRate = rate(em.won, em.reached)
     const liRate = rate(li.won, li.reached)
@@ -138,13 +141,63 @@ export function detectFindings(m: DashboardMetrics): Finding[] {
     }
   }
 
+  // "Other" dominates — most reach-outs (and most wins) are in
+  // channels other than Email/LinkedIn. Surface the SPECIFIC top
+  // Other channel by name from the topMediumOther breakdown, not
+  // the generic "Other" label. Without that breakdown we'd just
+  // be saying "you do most things in Other" which means nothing.
+  const totalReached = em.reached + li.reached + ot.reached
+  if (ot.reached >= 5 && totalReached > 0 && ot.reached / totalReached >= 0.6) {
+    const top = m.topMediumOther[0]
+    if (top && top.reached >= Math.ceil(ot.reached * 0.5)) {
+      // One specific channel accounts for most of the Other bucket —
+      // call it out by name with its real conversion rate.
+      const topRate = rate(top.won, top.reached)
+      if (top.won > 0) {
+        findings.push({
+          id: 'pipeline.other-channel-named-winning',
+          severity: 'high',
+          surface: 'pipeline',
+          sentence: `${top.name} is doing the heavy lifting — ${top.reached} reach-outs, ${top.won} won (${topRate}%). Email and LinkedIn are sitting out.`,
+        })
+      } else {
+        findings.push({
+          id: 'pipeline.other-channel-named-no-wins',
+          severity: 'medium',
+          surface: 'pipeline',
+          sentence: `${top.reached} reach-outs via ${top.name}, none won yet. Try Email or LinkedIn for the next batch and compare.`,
+        })
+      }
+    } else if (m.topMediumOther.length === 0) {
+      // Entries are marked Other but the user never typed what Other
+      // actually was — surface that gap so they can fill it in for
+      // future analytics.
+      findings.push({
+        id: 'pipeline.other-channel-unnamed',
+        severity: 'medium',
+        surface: 'pipeline',
+        sentence: `Most reach-outs (${ot.reached}) are logged as "Other" with no specific channel named. Fill in the Other field on those rows to see what's actually working.`,
+      })
+    } else {
+      // Multiple named Other channels, no single dominant one — list
+      // the top two by reach so the user sees what they're using.
+      const names = m.topMediumOther.slice(0, 2).map(t => t.name).join(' and ')
+      findings.push({
+        id: 'pipeline.other-channels-mixed',
+        severity: 'medium',
+        surface: 'pipeline',
+        sentence: `Most reach-outs are split between ${names} — neither Email nor LinkedIn is getting your attention. That's a choice worth examining.`,
+      })
+    }
+  }
+
   // Quiet pipeline (lots in flight, no activity this week).
   if (m.total >= 10 && m.addedLast7 === 0 && m.reachedLast7 === 0) {
     findings.push({
       id: 'pipeline.quiet',
       severity: 'high',
       surface: 'pipeline',
-      sentence: `${m.total} leads in pipeline, zero activity this week. The pipeline doesn't move itself.`,
+      sentence: `${m.total} leads in pipeline, none touched in the last 7 days. You stalled.`,
     })
   }
 
@@ -231,7 +284,7 @@ export function detectFindings(m: DashboardMetrics): Finding[] {
         id: 'active.paused',
         severity: 'medium',
         surface: 'active',
-        sentence: `${plural(m.lifecyclePaused, 'engagement', 'engagements')} sitting paused. Reactivate them or mark them churned — the limbo costs you focus.`,
+        sentence: `${plural(m.lifecyclePaused, 'engagement', 'engagements')} sitting Paused. Reactivate or mark Churned — limbo is the worst category.`,
       })
     }
 
