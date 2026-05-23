@@ -2470,15 +2470,34 @@ export default function Home() {
       // Wait for Phase A to drain so we can drop the blocking
       // spinner at the right moment. Phase B continues in the
       // background after this resolves.
+      //
+      // 2026-05-23 per Dylan ("second search has endlessly loaded
+      // and wont let you change the search or anything"): bounded
+      // by a hard 45s max-wait. If Phase A doesn't drain in 45s
+      // it's almost certainly a hung enrichment request (no
+      // explicit timeout on fetch()). We break out, mark the
+      // search complete with whatever we have, and let the user
+      // search again. The `finally` block below guarantees
+      // setLoading(false) fires regardless.
+      const POLL_DEADLINE_MS = 45_000
+      const phaseADeadline = Date.now() + POLL_DEADLINE_MS
       while ((phaseAActive > 0 || phaseAQueue.length > 0) && version === searchVersion.current) {
+        if (Date.now() > phaseADeadline) {
+          console.warn('[search] Phase A drain timeout — proceeding with partial enrichment.')
+          break
+        }
         await new Promise(r => setTimeout(r, 80))
       }
       if (version !== searchVersion.current) return
-      setLoading(false)
 
       // Wait for Phase B to drain so we can show the final status.
-      // The user can interact while we wait.
+      // The user can interact while we wait. Bounded same as Phase A.
+      const phaseBDeadline = Date.now() + POLL_DEADLINE_MS
       while ((phaseBActive > 0 || phaseBQueue.length > 0) && version === searchVersion.current) {
+        if (Date.now() > phaseBDeadline) {
+          console.warn('[search] Phase B drain timeout — finalizing with partial contact data.')
+          break
+        }
         await new Promise(r => setTimeout(r, 80))
       }
       if (version !== searchVersion.current) return
@@ -2496,6 +2515,15 @@ export default function Home() {
     } catch (err: any) {
       if (version === searchVersion.current) {
         setStatus(`Error: ${err.message}`)
+      }
+    } finally {
+      // Belt-and-suspenders: ALWAYS clear loading if we're still the
+      // current search. The earlier try/catch had setLoading(false)
+      // inline at the end of the happy path, but a hung polling loop
+      // could prevent it from being reached. Moving it here
+      // guarantees the UI unblocks even when something stalls — the
+      // user can always start a new search.
+      if (version === searchVersion.current) {
         setLoading(false)
       }
     }

@@ -176,12 +176,32 @@ export async function fetchInstagramMetrics(handle: string): Promise<InstagramGr
 
   const url = `https://graph.facebook.com/v22.0/${igBusinessId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(token)}`
 
+  // 2026-05-23 per Dylan: IG metrics fill rate regressed from 90%+
+  // to a lower rate. Most likely cause: Meta Graph API requests
+  // hang under rate-pressure (the QStash worker has its own
+  // timeout, but without a fetch-level abort the response never
+  // resolves and the worker times out without writing a result).
+  // Adding a 10s AbortController timeout so the fetch always
+  // resolves — either with data or a clean failure — and the
+  // worker can log/skip and move on instead of hanging.
   let json: BusinessDiscoveryResponse
   try {
-    const res = await fetch(url, { method: 'GET' })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10_000)
+    let res: Response
+    try {
+      res = await fetch(url, { method: 'GET', signal: controller.signal })
+    } finally {
+      clearTimeout(timeoutId)
+    }
     json = await res.json()
   } catch (e) {
-    console.warn(`[ig-graph] fetch failed for @${cleaned}:`, (e as Error).message)
+    const msg = (e as Error).message
+    const isAbort = (e as Error).name === 'AbortError'
+    console.warn(
+      `[ig-graph] fetch ${isAbort ? 'timed out (10s)' : 'failed'} for @${cleaned}:`,
+      msg,
+    )
     return null
   }
 
