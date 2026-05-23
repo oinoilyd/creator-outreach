@@ -53,6 +53,7 @@ import { DismissedTab } from '@/components/DismissedTab'
 import { PlatformDropdown } from '@/components/PlatformDropdown'
 import { HamburgerMenu } from '@/components/HamburgerMenu'
 import { UpgradeButton, computeUpgradeLabel } from '@/components/billing/UpgradeButton'
+import { DashboardInsightPill } from '@/components/billing/DashboardInsightPill'
 // Lazy-loaded modal mounts (2026-05-09). Each of these only renders
 // after a user click — there's no reason for them to ride along on
 // the initial JS bundle. Switching to next/dynamic with the named-
@@ -1613,6 +1614,19 @@ export default function Home() {
     modeOverride?: SearchMode,
   ) => {
     if (!kw.trim() && !(keywordsList && keywordsList.length)) return
+    // Capture the keyword for the DashboardInsightPill's "recent
+    // searches" memory. Stored in localStorage as a deduped FIFO of
+    // up to 10 entries. Best-effort: any error silently no-ops since
+    // it's a UX nicety, not a correctness concern.
+    try {
+      const labelForHistory = kw.trim() || (keywordsList ?? []).filter(Boolean).join(', ')
+      if (labelForHistory) {
+        const raw = window.localStorage.getItem('creator-outreach.recentSearches')
+        const prior: string[] = raw ? JSON.parse(raw) : []
+        const next = [labelForHistory, ...prior.filter(s => s !== labelForHistory)].slice(0, 10)
+        window.localStorage.setItem('creator-outreach.recentSearches', JSON.stringify(next))
+      }
+    } catch { /* ignore */ }
     const version = ++searchVersion.current
     setLoading(true)
     setCreators([])
@@ -2497,6 +2511,14 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {/* Dashboard insight pill — Claude-generated one-liner
+                  on the user's current state. Hidden below md so it
+                  doesn't fight the wordmark + trial pill + hamburger
+                  for horizontal space on phones. Click opens a
+                  popover with the full sentence + refresh. */}
+              {userId && (
+                <DashboardInsightPill entries={outreach} userId={userId} />
+              )}
               {/* Upgrade / Manage CTA — hides when Stripe isn't
                   configured (e.g. dev/preview without env vars). */}
               <UpgradeButton
