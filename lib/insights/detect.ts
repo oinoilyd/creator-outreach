@@ -53,9 +53,15 @@ function money(n: number): string {
 function generators(m: DashboardMetrics): Array<string | null> {
   return [
     // ── Pipeline overview ────────────────────────────────────────
+    // Light narrative beats: pure stat for ordinary values, light
+    // framing at extremes so the reader has context for the number.
 
     m.total > 0
-      ? `${plural(m.total, 'lead')} in your pipeline.`
+      ? m.total >= 50
+        ? `${plural(m.total, 'lead')} in your pipeline — deep bench.`
+        : m.total >= 25
+          ? `${plural(m.total, 'lead')} in your pipeline — solid working set.`
+          : `${plural(m.total, 'lead')} in your pipeline.`
       : null,
 
     // Reached-out ratio gets a light narrative when the split is
@@ -72,16 +78,34 @@ function generators(m: DashboardMetrics): Array<string | null> {
         })()
       : null,
 
-    m.reachedOut >= 3
-      ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')}.`
+    // Response rate — frame at extremes only, plain in the middle.
+    m.reachedOut >= 5
+      ? m.responseRate >= 40
+        ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — above the usual cold-outreach range.`
+        : m.responseRate < 15
+          ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — opening isn't quite landing yet.`
+          : `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')}.`
       : null,
 
-    m.responseReceived >= 3
-      ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses).`
+    // Win rate — frame at extremes only.
+    m.responseReceived >= 5
+      ? m.winRate >= 50
+        ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — over half closing.`
+        : m.winRate < 20
+          ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — most responses aren't converting.`
+          : `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses).`
       : null,
 
+    // Pipeline value — add per-lead context when sample is meaningful.
     m.pipelineValue > 0
-      ? `${money(m.pipelineValue)} in pipeline value across non-rejected leads.`
+      ? (() => {
+          const nonRejected = m.total - m.rejected
+          if (nonRejected >= 5) {
+            const perLead = Math.round(m.pipelineValue / nonRejected)
+            return `${money(m.pipelineValue)} in pipeline value — averaging ${money(perLead)} per non-rejected lead.`
+          }
+          return `${money(m.pipelineValue)} in pipeline value across non-rejected leads.`
+        })()
       : null,
 
     // ── Activity (recency) ──────────────────────────────────────
