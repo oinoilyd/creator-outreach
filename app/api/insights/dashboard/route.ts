@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
       messages: [{ role: 'user', content: prompt }],
     })
     const raw = (message.content[0] as { text?: string }).text?.trim() || ''
-    const insights = parseFiveInsights(raw)
+    const insights = parseInsights(raw)
 
     if (insights.length < 3) {
       // Model returned something we couldn't parse — log + fall back
@@ -179,11 +179,11 @@ export async function POST(req: NextRequest) {
 // ── Parsing ──────────────────────────────────────────────────────────
 
 /**
- * Parse a Claude response into exactly the insight strings. We ask
- * for a JSON array of 5 strings but Claude occasionally adds prose
- * preambles or markdown fences. This is tolerant of both.
+ * Parse a Claude response into the insight strings. We ask for a
+ * JSON array of 3 strings; this is tolerant of stray markdown
+ * fences and preamble.
  */
-function parseFiveInsights(raw: string): string[] {
+function parseInsights(raw: string): string[] {
   // Try strict JSON parse first.
   const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
   try {
@@ -203,7 +203,7 @@ function parseFiveInsights(raw: string): string[] {
     .split(/\n+/)
     .map(line => line.trim())
     .map(line => line.replace(/^["'\d)(\[\]\.\-\*\s•]+/, '').trim())
-    .filter(line => line.length >= 12 && line.length <= 280)
+    .filter(line => line.length >= 12 && line.length <= 320)
     .map(s => sanitizeInsight(s))
     .filter(Boolean)
   return candidates.slice(0, 5)
@@ -231,69 +231,74 @@ function sanitizeInsight(s: string): string {
  *   5. Active Clients (Outreach > Active Clients sub-tab)
  */
 /**
- * Empty-state — no entries, no recent searches. Same voice rules
- * as the live insights. Order mirrors the SURFACES list.
+ * Empty-state — no entries, no recent searches. Three observations
+ * in the same voice as the live ones.
  */
 const EMPTY_STATE_INSIGHTS: string[] = [
-  'Nothing searched yet — the Results tab is where the work starts. Pick a niche and see who shows up.',
-  'Your pipeline is empty. The first lead is the only one that feels hard to add.',
-  "No follow-ups means no one to follow up with — that's about to change once you send your first message.",
-  'Active Clients is still a forward-looking promise. Your first "Successful" creator graduates here automatically.',
-  'Pitch line is empty. Tell the AI what you actually do before asking it to write about you.',
+  'Nothing searched yet. The Results tab is where the work starts — pick a niche and see who shows up.',
+  'Pipeline is empty. The first lead is the only one that feels hard to add.',
+  'Pitch line is blank. Tell the AI what you actually do before asking it to write on your behalf.',
 ]
 
 // ── Prompt ───────────────────────────────────────────────────────────
 
 /**
- * The 5 surfaces of the app, in display order. Each insight lands on
- * one surface — that's the cross-tab guarantee — but the PROMPT
- * controls the voice. Voice rules + few-shot examples live below.
- */
-const SURFACES = [
-  { id: 'sourcing',  human: 'Results + Dismissed tabs',           lane: 'sourcing — resultsCount, dismissedCount, dismissalRatio, recentSearches' },
-  { id: 'pipeline',  human: 'Outreach > Pipeline sub-tab',         lane: 'status mix — total, notOutreached, open, noResponse, rejected, leadsWithEmailNotReached, byMedium, responseRate, winRate' },
-  { id: 'followups', human: 'Outreach > Follow-ups sub-tab',       lane: 'queue health — followupOverdue, followupDueToday, followupDueThisWeek' },
-  { id: 'active',    human: 'Outreach > Active Clients sub-tab',   lane: 'engagement state — activeClientsTotal, activeNow, lifecyclePaused/Completed/Churned, totalBooked, personalRevenue, completedRealised, avgRating, repeatDefinitely/Likely/Maybe/No' },
-  { id: 'workflow',  human: 'Profile + Settings + Templates',      lane: 'setup — workflow.hasPitchLine, gmailConnected, customEmailTemplate, hasFullName, hasPhysicalAddress, customIgTemplate, customLinkedinTemplate, mailClient' },
-] as const
-
-/**
- * Few-shot examples chosen to teach the model what "insightful"
- * actually means here — pattern detection, contrast, surprise,
- * micro-narrative. The bad examples are the failure mode we keep
- * landing in: chatbot framing, generic "you have X / do Y" prose.
+ * Few-shot examples chosen to teach the model what real insight
+ * looks like: fact + contrast + inference. Direct voice, no cute
+ * metaphors (those just produce parody on the next call).
+ *
+ * The bad examples capture the failure mode we have repeatedly hit:
+ * "you have X. do Y." chatbot prose.
  */
 const GOOD_EXAMPLES = `
-GOOD examples (write like these — voice, contrast, real observation):
-- Sourcing:   "You've dismissed 1 in 3 results lately. Your niche is broader than your taste."
-- Pipeline:   "Six leads have emails sitting idle. You're collecting them like Pokemon, not contacting them."
-- Pipeline:   "Win rate is 38 percent — solid. The bottleneck isn't conversion, it's reach."
-- Follow-ups: "Three follow-ups went stale today. That's not laziness, that's a queue with no design."
-- Active:     "Your only paused client was your biggest budget. The most expensive form of busy is half-pausing."
-- Active:     "Two completed engagements marked 'Definitely repeat' — that's two warm leads you haven't asked."
-- Workflow:   "Your pitch line is empty. The AI is writing for someone who hasn't decided what they sell."
-- Workflow:   "Gmail isn't connected. Every send right now is a copy-paste tax."`
+GOOD examples — read like a sharp colleague spotting the real story:
+
+Pattern + inference:
+- "LinkedIn replies are at 38%, Email at 12%. You're sending three times more Email than you should."
+- "60% of recent results dismissed. The keyword is broader than what you'll actually pitch."
+- "Six leads with emails captured, zero reach-outs. You've built a contact list, not a pipeline."
+- "5 follow-ups overdue while 12 new leads landed this week. You're sourcing faster than you're closing."
+
+Contrast that names something they hadn't framed yet:
+- "Win rate is 38% — that's not the bottleneck. You only reached 7 people this week."
+- "Two completed clients marked 'Definitely repeat' but neither has a follow-up date. Those are warm leads, not done deals."
+- "Booked $12,000, kept $4,800 after team splits. Either raise prices or rework the share structure."
+- "Pitch line is empty. Every AI rewrite is starting from 'you do… something'."
+
+Honest absence (when data is thin, name the void cleanly):
+- "Nothing in the follow-up queue. Either you're between cycles or every Open lead is missing a date."
+- "No completed engagements yet. Once one wraps, this view shows realised revenue and repeat-likelihood data."
+`
 
 const BAD_EXAMPLES = `
-BAD examples (NEVER write like these — chatbot voice, generic, action-list):
+BAD examples — these are what we are NOT writing:
+
+Chatbot voice with action-step suffix:
 - "You have 12 leads in your pipeline. Consider reaching out to start tracking responses."
-- "Your LinkedIn outreach has a 32% conversion rate. Lean in there."
 - "There are 3 follow-ups overdue. Clear them to keep momentum."
-- "You've got 4 active engagements totaling $24,000 booked."
 - "Set your pitch line in Profile to enable AI personalization."
-What's wrong: corporate language ("Consider", "Lean in", "Leverage", "momentum"); action-step suffix tacked on; flat observation with no contrast or implication; reads like a dashboard tooltip, not a person noticing something.`
+
+Flat number recitation with no observation:
+- "You've got 4 active engagements totaling $24,000 booked."
+- "Your LinkedIn outreach has a 32% conversion rate."
+
+Forced cleverness — trying too hard:
+- "You're collecting them like Pokemon, not contacting them like prospects."
+- "The most expensive form of busy is half-pausing."
+- "Your only paused client was the biggest. That's the most expensive form of busy."
+
+What's wrong with the cute examples: forced metaphors read as performance, not observation. A real friend doesn't reach for analogies — they just name the pattern. Write like the GOOD examples, not the cute ones.
+`
 
 const VOICE_RULES = `
-VOICE RULES (these are not negotiable):
-- Forbidden words and phrases: "consider", "leverage", "next step", "momentum", "right now", "currently", "metric", "stat", "key", "insight" (yes, ironic), "make sure", "be sure to", "great job", "looking good", "nice work", "perhaps", "might want to".
-- Forbidden sentence shapes: "You have X. [action verb]." / "Your X is Y. [action verb]." — the linked-pair-of-clauses pattern reads like a chatbot.
-- DO use contrast ("X but Y", "X is fine, the problem is Y", "X — but [reframe]").
-- DO use micro-narratives ("X happened, which means Y").
-- DO use surprising framings — comparisons to ordinary life ("Pokemon", "wishlist", "tax"), playful word choices, observations that name a pattern.
-- DO let yourself be slightly opinionated. The user wants a smart friend's read, not a status report.
-- ONE sentence. No semicolons stringing two ideas. Max 22 words.
-- Cite at least one real number or boolean state from the data. Never fabricate.
-- Second person. No greeting words. No emoji. No quotes inside the string.`
+VOICE RULES:
+- Forbidden filler words: "consider", "leverage", "next step", "momentum", "right now", "currently", "make sure", "be sure to", "great job", "looking good", "nice work", "perhaps", "might want to".
+- Forbidden shape: "You have X. [Verb] it." — the dashboard-tooltip pattern. Always pair a fact with an inference or contrast, never with a bare action.
+- Cite at least one real number or boolean state from the JSON. Round numbers, but never invent. If you say "lately" or "this week", the number must come from addedLast7 / reachedLast7 / wonLast30.
+- Do NOT claim trends ("is rising", "dropping", "improving") — there is only one snapshot. You can compare two fields within the snapshot (X vs Y), but not the same field over time.
+- 1-2 sentences. Max 35 words. Direct, sharp, slightly opinionated.
+- Second person. No greetings. No emoji. No quotes inside the JSON strings.
+`
 
 function buildPrompt(
   metrics: DashboardMetrics,
@@ -301,25 +306,22 @@ function buildPrompt(
   isNew: boolean,
 ): string {
   const stageNote = isNew
-    ? 'USER STATE: NEW (still ramping). Insights should still be observational and voice-driven, just naturally framed as next-step nudges instead of "you should know" observations.'
-    : 'USER STATE: EXPERIENCED. Be opinionated. Point at patterns, contradictions, and easy wins they have not noticed.'
-
-  const surfaceBlock = SURFACES.map((s, i) =>
-    `${i + 1}. ${s.human}\n   Data in scope: ${s.lane}`,
-  ).join('\n\n')
+    ? 'STAGE: The user is still ramping. Observations should be observational first, mildly nudge-y second. Do not overreach — if there are 3 leads, do not pretend there is a deep pattern to draw out.'
+    : 'STAGE: The user is experienced. Point at contradictions, easy wins they have not noticed, or patterns the dashboard does not surface on its own.'
 
   const searchBlock = recentSearches.length > 0
-    ? `Recent searches the user has run: ${recentSearches.slice(0, 5).map(s => `"${s.slice(0, 40)}"`).join(', ')}`
-    : '(No recent search history available.)'
+    ? `Recent searches: ${recentSearches.slice(0, 5).map(s => `"${s.slice(0, 40)}"`).join(', ')}`
+    : '(No recent searches captured.)'
 
-  return `You're a strategist looking over the shoulder of a freelance creator who uses an outreach CRM. You see their dashboard data. You're going to write FIVE one-sentence observations — the kind a smart friend leaning over the screen would make. Sharp, specific, slightly opinionated. Each one anchored to a different surface of the app so cycling through them gives a tour of where their attention should go.
+  return `You are reading a freelance creator's outreach-CRM dashboard. Write THREE observations — the kind a sharp colleague would make leaning over the screen. Each one points at the ACTUAL story in the data: a contradiction, a gap, a contrast worth noticing.
 
-OUTPUT FORMAT: Return ONLY a JSON array of exactly 5 strings, no preamble, no markdown.
-["...", "...", "...", "...", "..."]
+OUTPUT FORMAT: Return ONLY a JSON array of exactly 3 strings, no preamble, no markdown.
+["...", "...", "..."]
 
-THE 5 SURFACES (one insight per surface, in this order — the user will see them in this order):
+WHAT MAKES THIS HARD:
+The data is small. Most of the time there is no glaring drama. Your job is to find the real signal, not invent drama where there is none. If only one thing is genuinely interesting, the other two slots can be honest "absence" observations (see GOOD examples below) — never filler nags.
 
-${surfaceBlock}
+DO NOT enforce one-per-tab variety. Pick the 3 most interesting things in the data, regardless of which surface they came from. If two of the three are about the Pipeline because Pipeline is where the story is, fine.
 
 ${VOICE_RULES}
 
@@ -327,7 +329,11 @@ ${GOOD_EXAMPLES}
 
 ${BAD_EXAMPLES}
 
-WHEN THE DATA IS THIN for a surface (e.g. followupOverdue=0 AND followupDueToday=0 AND followupDueThisWeek=0 — there's no story in the queue): name THAT — frame it as the absence ("Nothing on the follow-up queue — either you're between waves, or no leads have a date attached") — but stay observational, never default to "add a follow-up date next time you reach out" boilerplate.
+ANTI-FABRICATION:
+- Only cite values that LITERALLY appear in the JSON below. If the JSON has responseRate=0, you cannot say "response rate is low" — there's no signal because no one has been reached. Say "Nothing reached out yet" instead.
+- The byMedium block has reached + won counts. You can compare ratios across mediums BUT only if reached > 3 for each side of the comparison. With tiny samples, the difference is noise.
+- Workflow booleans (hasPitchLine, gmailConnected, etc.) can be cited as-is.
+- recentSearches strings can be cited as quotes ("you've been searching cooking, fitness, dance").
 
 ${stageNote}
 
@@ -336,5 +342,5 @@ ${JSON.stringify(metrics, null, 2)}
 
 ${searchBlock}
 
-Return the JSON array now. Five sharp observations, one per surface, in voice. No preamble.`
+Return the JSON array of 3 strings now. No preamble.`
 }
