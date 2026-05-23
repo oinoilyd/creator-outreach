@@ -51,7 +51,6 @@ const TIPS: string[] = [
   "New Active Client engagements get 4 default milestones — kickoff, brief, deliverable, invoice. Edit or remove as needed.",
   "Click the trial pill in the top bar to open the Stripe billing portal — manage your subscription, payment method, invoices.",
   "The Outreach > Pipeline tab is where you live day-to-day. The ★ column header is sortable to surface favorites.",
-  "Hover any column header in Results to see its tooltip explaining what the value means.",
   "Set a physical address in Profile — required by US CAN-SPAM rules for commercial emails. The composer warns you if it's missing.",
 ]
 

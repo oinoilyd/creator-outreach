@@ -59,9 +59,11 @@ function generators(m: DashboardMetrics): Array<string | null> {
     m.total > 0
       ? m.total >= 50
         ? `${plural(m.total, 'lead')} in your pipeline — deep bench.`
-        : m.total >= 25
+        : m.total >= 20
           ? `${plural(m.total, 'lead')} in your pipeline — solid working set.`
-          : `${plural(m.total, 'lead')} in your pipeline.`
+          : m.total >= 5
+            ? `${plural(m.total, 'lead')} in your pipeline — bench is forming.`
+            : `${plural(m.total, 'lead')} in your pipeline — early days.`
       : null,
 
     // Reached-out ratio gets a light narrative when the split is
@@ -78,29 +80,35 @@ function generators(m: DashboardMetrics): Array<string | null> {
         })()
       : null,
 
-    // Response rate — frame at extremes only, plain in the middle.
+    // Response rate — every range gets a frame so the number reads
+    // in context rather than as a bare percentage.
     m.reachedOut >= 5
-      ? m.responseRate >= 40
-        ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — above the usual cold-outreach range.`
-        : m.responseRate < 15
-          ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — opening isn't quite landing yet.`
-          : `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')}.`
+      ? m.responseRate >= 35
+        ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — strong return.`
+        : m.responseRate >= 20
+          ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — solid baseline.`
+          : m.responseRate >= 10
+            ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — middling for cold outreach.`
+            : `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — the message isn't catching.`
       : null,
 
-    // Win rate — frame at extremes only.
+    // Win rate — every range gets a frame.
     m.responseReceived >= 5
       ? m.winRate >= 50
         ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — over half closing.`
-        : m.winRate < 20
-          ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — most responses aren't converting.`
-          : `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses).`
+        : m.winRate >= 30
+          ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — respectable close rate.`
+          : m.winRate >= 15
+            ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — under half of responses convert.`
+            : `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — most replies aren't converting.`
       : null,
 
-    // Pipeline value — add per-lead context when sample is meaningful.
+    // Pipeline value — per-lead average kicks in at lower sample so
+    // it fires for more users.
     m.pipelineValue > 0
       ? (() => {
           const nonRejected = m.total - m.rejected
-          if (nonRejected >= 5) {
+          if (nonRejected >= 3) {
             const perLead = Math.round(m.pipelineValue / nonRejected)
             return `${money(m.pipelineValue)} in pipeline value — averaging ${money(perLead)} per non-rejected lead.`
           }
