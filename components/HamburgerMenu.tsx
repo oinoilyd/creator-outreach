@@ -88,6 +88,23 @@ export function HamburgerMenu({
   // Whether admin-only items render. False when previewing as
   // a normal user.
   const showAdminItems = isAdmin && !previewAsNormal
+  // Appearance super-item — wraps the (formerly top-level) Light/Dark
+  // toggle, Themes backdrop picker, and Spotlight controls into a
+  // single collapsed entry. Click "Appearance" to expand. Saves one
+  // top-level slot in the menu and groups everything visual under
+  // one roof. Persists collapse state in localStorage so power users
+  // who keep it open don't have to re-expand every session.
+  const [appearanceExpanded, setAppearanceExpanded] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem('creator-outreach.menu.appearance-expanded') === 'true'
+    } catch { return false }
+  })
+  function toggleAppearance() {
+    const next = !appearanceExpanded
+    setAppearanceExpanded(next)
+    try { window.localStorage.setItem('creator-outreach.menu.appearance-expanded', String(next)) } catch { /* ignore */ }
+  }
   // Themes-section gear popover. Per Dylan 2026-05-10 v2: replaces
   // the inline subtitle ("Picks up the active platform's color...")
   // with a gear icon that toggles a small controls panel.
@@ -222,7 +239,7 @@ export function HamburgerMenu({
           {/* Lead Criteria */}
           <button
             onClick={() => { onOpenScoreSettings(); setOpen(false) }}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
             <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
@@ -236,7 +253,7 @@ export function HamburgerMenu({
           {/* Profile */}
           <button
             onClick={() => { onOpenProfile(); setOpen(false) }}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
             <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -255,7 +272,7 @@ export function HamburgerMenu({
           {onOpenTemplates && (
             <button
               onClick={() => { onOpenTemplates(); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
             >
               <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -275,7 +292,7 @@ export function HamburgerMenu({
           {onStartTour && (
             <button
               onClick={() => { onStartTour(); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
             >
               <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -296,7 +313,7 @@ export function HamburgerMenu({
               <div className="mx-4 my-1 border-t border-border" />
               <button
                 onClick={() => setImportExpanded(v => !v)}
-                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+                className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
               >
                 <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
@@ -334,7 +351,7 @@ export function HamburgerMenu({
               <a
                 href="/admin"
                 onClick={() => setOpen(false)}
-                className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+                className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
               >
                 <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
@@ -352,11 +369,49 @@ export function HamburgerMenu({
 
           <div className="mx-4 my-1 border-t border-border" />
 
+          {/* Appearance — single expandable super-item that wraps the
+              Light/Dark theme toggle, backdrop Themes picker, and
+              Spotlight controls. Saves a top-level menu slot and
+              groups everything visual under one roof. Collapsed by
+              default; the expanded state persists in localStorage. */}
+          <button
+            type="button"
+            onClick={toggleAppearance}
+            aria-expanded={appearanceExpanded}
+            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+          >
+            <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
+              {/* Palette icon — represents all visual settings */}
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-foreground font-medium leading-tight">Appearance</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+                {backdropTheme && backdropTheme !== 'off' ? ` · ${backdropTheme}` : ''}
+              </div>
+            </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0 transition-transform ${appearanceExpanded ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Appearance contents — only render when expanded. Wraps
+              the prior top-level Theme toggle + Themes section + all
+              spotlight controls into a single collapsed group. */}
+          {appearanceExpanded && (
+            <div className="bg-muted/20 border-y border-border/40">
           {/* Theme toggle */}
           {themeMounted && (
             <button
               onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
             >
               <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
                 {theme === 'dark' ? (
@@ -583,6 +638,9 @@ export function HamburgerMenu({
               </div>
             </div>
           )}
+            </div>
+          )}
+          {/* end Appearance super-item */}
 
           <div className="mx-4 my-1 border-t border-border" />
 
@@ -595,7 +653,7 @@ export function HamburgerMenu({
             <a
               href={subscriptionHref}
               onClick={() => setOpen(false)}
-              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
             >
               <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -623,7 +681,7 @@ export function HamburgerMenu({
           <a
             href="/roadmap"
             onClick={() => setOpen(false)}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
             <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -641,7 +699,7 @@ export function HamburgerMenu({
           {/* Contact Us */}
           <button
             onClick={() => { window.open('mailto:dmeehanj@gmail.com', '_blank'); setOpen(false) }}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
             <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
@@ -681,7 +739,7 @@ export function HamburgerMenu({
           {/* Sign out */}
           <button
             onClick={signOut}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
             <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
