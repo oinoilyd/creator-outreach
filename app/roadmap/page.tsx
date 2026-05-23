@@ -132,7 +132,7 @@ export default async function PipelinePage() {
   const onRadarCount = ON_RADAR_ITEMS.length
 
   return (
-    <main className="min-h-screen text-[#0F1733] dark:text-white font-[family-name:var(--font-geist-sans)] bg-[#FCFAF6] dark:bg-[#0A0E15]">
+    <main className="min-h-screen text-foreground bg-background font-[family-name:var(--font-geist-sans)]">
       <LandingTopNav isAuthed={isAuthed} />
 
       {/* HERO — top padding intentionally tight; the back-link sits
@@ -149,7 +149,7 @@ export default async function PipelinePage() {
             {isAuthed ? (
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#0F1733] hover:bg-[#E85D2F] dark:bg-[#F2A261] dark:text-[#0F1733] dark:hover:bg-white transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md text-[14px] font-semibold text-primary-foreground bg-gradient-to-br from-brand to-brand-2 hover:opacity-90 transition-opacity shadow-sm shadow-brand/20"
               >
                 <span aria-hidden>&larr;</span>
                 Back to app
@@ -157,30 +157,30 @@ export default async function PipelinePage() {
             ) : (
               <Link
                 href="/landing"
-                className="inline-flex items-center gap-1.5 text-[13px] text-[#0F1733]/55 dark:text-white/55 hover:text-[#E85D2F] dark:hover:text-[#F2A261] transition-colors"
+                className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-brand transition-colors"
               >
                 <span aria-hidden>&larr;</span>
                 Back to home
               </Link>
             )}
           </div>
-          <div className="inline-flex items-center gap-2 mb-5 px-2.5 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[10.5px] uppercase tracking-[0.2em] text-[#9C3D1F] dark:text-[#F2A261] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]" />
+          <div className="inline-flex items-center gap-2 mb-5 px-2.5 py-1 rounded-full bg-brand/10 border border-brand/30 text-[10.5px] uppercase tracking-[0.2em] text-brand font-bold dark:text-brand-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand" />
             Roadmap
           </div>
           <h1
-            className="font-semibold tracking-[-0.03em] leading-[1] text-[#0F1733] dark:text-white"
+            className="font-semibold tracking-[-0.03em] leading-[1] text-foreground"
             style={{ fontSize: 'clamp(2.5rem, 5.5vw, 4.5rem)' }}
           >
             What&apos;s coming next.{' '}
             <span
-              className="italic font-normal text-[#E85D2F] dark:text-[#F2A261]"
+              className="italic font-normal bg-gradient-to-br from-brand to-brand-2 bg-clip-text text-transparent"
               style={{ fontFamily: 'var(--font-newsreader), Georgia, serif' }}
             >
               The actual queue.
             </span>
           </h1>
-          <p className="mt-6 max-w-[64ch] text-[16px] md:text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.65]">
+          <p className="mt-6 max-w-[64ch] text-[16px] md:text-[17px] text-muted-foreground leading-[1.65]">
             Forward-looking only. Validating items are feature-complete and currently
             being exercised end-to-end with our first cohort of users before broader
             release. No marketing-quarter calendar behind any of this — the list is
@@ -189,14 +189,14 @@ export default async function PipelinePage() {
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <a
               href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20roadmap%20feedback"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#E85D2F] hover:bg-[#9C3D1F] transition-colors"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[14px] font-semibold text-primary-foreground bg-gradient-to-br from-brand to-brand-2 hover:opacity-90 transition-opacity shadow-sm shadow-brand/20"
             >
               Vote on the queue
               <span aria-hidden>&rarr;</span>
             </a>
             <a
               href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20roadmap%20suggestion"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[14px] font-semibold text-[#0F1733] dark:text-white border border-[#0F1733]/15 dark:border-white/15 hover:border-[#0F1733] dark:hover:border-white transition-colors"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[14px] font-semibold text-foreground border border-border hover:border-foreground transition-colors"
             >
               Suggest something missing
             </a>
@@ -205,7 +205,10 @@ export default async function PipelinePage() {
       </section>
 
       {/* SUMMARY METRICS — auto-derived from the lane arrays so adding an
-          item updates the count automatically. */}
+          item updates the count automatically. Big numbers ride the
+          brand gradient so they pop without needing a hardcoded accent
+          color, and the gradient ties the marketing CTAs to these
+          summary cards via the same violet→teal sweep. */}
       <section className="px-6 pb-12">
         <div className="max-w-[1180px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
           {[
@@ -215,19 +218,18 @@ export default async function PipelinePage() {
           ].map(s => (
             <div
               key={s.label}
-              className="rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#131826] p-4 md:p-5"
-              style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.04)' }}
+              className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-sm shadow-foreground/[0.03]"
             >
               <div
-                className="font-semibold tracking-[-0.025em] text-[#E85D2F] dark:text-[#F2A261] leading-none mb-2"
+                className="font-semibold tracking-[-0.025em] bg-gradient-to-br from-brand to-brand-2 bg-clip-text text-transparent leading-none mb-2"
                 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.25rem)' }}
               >
                 {s.n}
               </div>
-              <div className="text-[12.5px] font-semibold text-[#0F1733] dark:text-white leading-[1.4]">
+              <div className="text-[12.5px] font-semibold text-foreground leading-[1.4]">
                 {s.label}
               </div>
-              <div className="text-[11px] text-[#0F1733]/55 dark:text-white/55 mt-0.5">
+              <div className="text-[11px] text-muted-foreground mt-0.5">
                 {s.sub}
               </div>
             </div>
@@ -239,28 +241,33 @@ export default async function PipelinePage() {
           On the radar. Shipped items intentionally NOT included here —
           a roadmap is what's coming, not a changelog of what's done.
           The const array is still named PAUSED_ITEMS internally so we
-          don't break older revisions; user-facing label is "Validating". */}
-      <section className="px-6 py-14 md:py-20 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
+          don't break older revisions; user-facing label is "Validating".
+
+          Lane accents: amber (validating — semantic "in progress"),
+          brand violet (up next — primary brand color, the lane closest
+          to ship), brand-2 teal (on the radar — secondary brand for
+          longer-term). Tornado-aligned. */}
+      <section className="px-6 py-14 md:py-20 bg-card border-y border-border">
         <div className="max-w-[1180px] mx-auto">
           <div className="grid md:grid-cols-3 gap-8 md:gap-10">
             <RoadmapLane
               label="Validating"
               count={validatingCount}
-              accent="#CA8A04"
+              accent="oklch(0.62 0.155 70)"
               caption="Built + feature-complete. Validating the end-to-end manual workflow before re-enabling automation."
               items={PAUSED_ITEMS}
             />
             <RoadmapLane
               label="Up next"
               count={upNextCount}
-              accent="#E85D2F"
+              accent="oklch(0.40 0.265 290)"
               caption="Queued. 1–4 weeks out."
               items={UP_NEXT_ITEMS}
             />
             <RoadmapLane
               label="On the radar"
               count={onRadarCount}
-              accent="#1B6FB5"
+              accent="oklch(0.50 0.150 215)"
               caption="Researching. Vote to bump."
               items={ON_RADAR_ITEMS}
             />
@@ -269,20 +276,20 @@ export default async function PipelinePage() {
       </section>
 
       {/* FOOTER CTA */}
-      <section className="px-6 pb-20 border-t border-[#0F1733]/8 dark:border-white/10">
+      <section className="px-6 pb-20 border-t border-border">
         <div className="max-w-[1180px] mx-auto pt-12 md:pt-16 flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-[58ch]">
-            <h2 className="font-semibold tracking-[-0.02em] text-[24px] md:text-[28px] mb-3">
+            <h2 className="font-semibold tracking-[-0.02em] text-[24px] md:text-[28px] mb-3 text-foreground">
               Move something up the queue.
             </h2>
-            <p className="text-[15px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
+            <p className="text-[15px] text-muted-foreground leading-[1.6]">
               Email what you&apos;d use today and what would unblock you tomorrow.
               The pipeline reorders fast when there&apos;s real demand for an item.
             </p>
           </div>
           <a
             href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20roadmap%20vote"
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[14px] font-semibold text-white bg-[#0F1733] hover:bg-[#E85D2F] dark:bg-[#F2A261] dark:text-[#0F1733] dark:hover:bg-white transition-colors"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md text-[14px] font-semibold text-primary-foreground bg-gradient-to-br from-brand to-brand-2 hover:opacity-90 transition-opacity shadow-sm shadow-brand/20"
           >
             Email me
             <span aria-hidden>&rarr;</span>

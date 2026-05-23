@@ -3,6 +3,12 @@
  * + item count + caption, vertical accent stripe on the left, and
  * a stack of compact item cards. Used on the dedicated /roadmap
  * page.
+ *
+ * Accepts an `accent` color so each lane (Validating / Up next /
+ * On the radar) can carry its own semantic hue. Cards themselves
+ * sit on the app's bg-card token; hover state borrows the lane's
+ * accent so the lanes feel cohesive without a hardcoded brand
+ * accent on every card.
  */
 export function RoadmapLane({
   label,
@@ -33,21 +39,21 @@ export function RoadmapLane({
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accent }} />
             {label}
           </span>
-          <span className="text-[12px] font-semibold tracking-tight text-[#0F1733]/45 dark:text-white/45">
+          <span className="text-[12px] font-semibold tracking-tight text-muted-foreground">
             {count} item{count !== 1 ? 's' : ''}
           </span>
         </div>
-        <p className="text-[12.5px] text-[#0F1733]/55 dark:text-white/55">{caption}</p>
+        <p className="text-[12.5px] text-muted-foreground">{caption}</p>
       </div>
       <div className="space-y-3">
         {items.map(it => (
           <article
             key={it.title}
-            className="rounded-lg border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-4 transition-colors hover:border-[#E85D2F]/40"
-            style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.04)' }}
+            className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/30 shadow-sm shadow-foreground/[0.03]"
+            style={{ ['--lane-accent' as string]: accent }}
           >
-            <h3 className="text-[14.5px] font-semibold tracking-[-0.01em] mb-1.5 leading-[1.3]">{it.title}</h3>
-            <p className="text-[13px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{it.body}</p>
+            <h3 className="text-[14.5px] font-semibold tracking-[-0.01em] mb-1.5 leading-[1.3] text-foreground">{it.title}</h3>
+            <p className="text-[13px] text-muted-foreground leading-[1.55]">{it.body}</p>
           </article>
         ))}
       </div>
