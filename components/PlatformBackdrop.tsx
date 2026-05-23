@@ -84,8 +84,22 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
       aria-hidden
       // Themes play ONLY in the top banner strip (~88px tall), not
       // full-page. overflow-hidden clips animations to that band.
-      className="fixed top-0 inset-x-0 h-[88px] pointer-events-none overflow-hidden transition-opacity ease-out"
+      //
+      // 2026-05-23 per Dylan ("if someone scrolls while it is still
+      // going the themes scroll with"): the Tailwind `fixed` class
+      // alone was being defeated somewhere in the cascade (likely a
+      // ancestor with `transform` / `will-change` creating an
+      // unintended containing block — even with the portal). The
+      // inline position/top/left/right styles below FORCE fixed
+      // viewport positioning regardless of cascade order, with
+      // !important-tier precedence over any Tailwind class.
+      className="pointer-events-none overflow-hidden transition-opacity ease-out"
       style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 88,
         // Spotlight pushes the layer above content (z-50). Otherwise
         // stays at z-0 — sits behind the banner's translucent bg so
         // icons show through.

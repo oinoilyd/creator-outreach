@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
+import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -175,6 +176,17 @@ export default async function AdminPage() {
               Back to app
             </Link>
           </div>
+        </div>
+
+        {/* Live connection status — Dylan 2026-05-23: "track all
+            connections such as the HTML changing risk you mentioned
+            for insta so I can notify you when something breaks."
+            Pings every external integration in parallel on mount +
+            every 60s, flags fragile ones (HTML scraping etc) so
+            Dylan can tell at a glance when something needs attention
+            and what kind of break it is. */}
+        <div className="mb-6">
+          <ConnectionStatusPanel />
         </div>
 
         {error && (
