@@ -314,51 +314,59 @@ export function detectFindings(m: DashboardMetrics): Finding[] {
   }
 
   // ── WORKFLOW SETUP ──────────────────────────────────────────────
+  // Note: these are signpost-style. They tell you what's missing AND
+  // where to fix it, because workflow gaps without a destination read
+  // as nagging. Severity is calibrated to actual user impact:
+  // pitch-line (changes every send) > address (legal compliance) >
+  // gmail (just a smoother send) > custom-template (polish).
 
   // Pitch line empty + already sending.
   if (!m.workflow.hasPitchLine && m.reachedOut > 0) {
     findings.push({
       id: 'workflow.no-pitch-line',
-      severity: 'high',
+      severity: 'medium',
       surface: 'workflow',
-      sentence: `Pitch line is blank. Every AI rewrite is writing for someone who hasn't decided what they sell.`,
+      sentence: `Pitch line is blank. Set it in Profile (hamburger menu) — the AI rewrite leans on it for every send.`,
     })
   } else if (!m.workflow.hasPitchLine && m.total > 0) {
     findings.push({
       id: 'workflow.no-pitch-line-soft',
-      severity: 'medium',
+      severity: 'low',
       surface: 'workflow',
-      sentence: `Pitch line is blank. Set it in Profile before you start reaching out — the AI rewrites depend on it.`,
+      sentence: `Pitch line is blank. Worth setting in Profile before the first reach-out so AI rewrites have something to work with.`,
     })
   }
 
-  // Gmail not connected, doing real outreach.
-  if (!m.workflow.gmailConnected && m.reachedOut >= 5) {
+  // Gmail not connected. Note: sending still works (opens Gmail
+  // compose pre-filled) — this is "could be smoother," not broken.
+  // Low severity, only fires once the user has done enough sends
+  // that the extra click adds up.
+  if (!m.workflow.gmailConnected && m.reachedOut >= 10) {
     findings.push({
       id: 'workflow.gmail-disconnected',
-      severity: 'high',
+      severity: 'low',
       surface: 'workflow',
-      sentence: `${plural(m.reachedOut, 'reach-out')} sent and Gmail still isn't connected — every send is a copy-paste tax.`,
+      sentence: `${plural(m.reachedOut, 'send')} have routed through Gmail compose. Connect Gmail in the hamburger menu if you want Send to dispatch directly instead.`,
     })
   }
 
-  // Wins on default email template — time to customize.
+  // Wins on default email template — capture what's working.
   if (m.successful >= 3 && !m.workflow.customEmailTemplate) {
     findings.push({
       id: 'workflow.no-custom-email',
       severity: 'low',
       surface: 'workflow',
-      sentence: `${plural(m.successful, 'win')} on the default email template. Custom is overdue — capture what's already working.`,
+      sentence: `${plural(m.successful, 'win')} on the default email template. Edit it in Profile → Templates to lock in what already converts.`,
     })
   }
 
-  // Sender's physical address missing — CAN-SPAM risk for serious senders.
+  // Sender's physical address missing — CAN-SPAM legal requirement.
   if (!m.workflow.hasPhysicalAddress && m.reachedOut >= 10) {
     findings.push({
       id: 'workflow.no-address',
       severity: 'medium',
       surface: 'workflow',
-      sentence: `No physical address set on your profile. US CAN-SPAM rules require one in every commercial email — add it before you scale up.`,
+      sentence: `Physical address missing from Profile. US CAN-SPAM rules require one in every commercial email — add it before scaling up.`,
     })
   }
 

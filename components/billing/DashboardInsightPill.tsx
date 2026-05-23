@@ -531,30 +531,10 @@ export function DashboardInsightPill({
             )}
           </div>
 
-          {/* Subtle progress dots — implementation detail surfaced
-              visually but without literal "1 of 5" copy. Each dot
-              filled in matches the index; refresh advances one dot
-              at a time. Hidden when there's only one item. */}
-          {insights.length > 1 && !error && (
-            <div
-              className="flex items-center justify-center gap-1.5 pb-3"
-              aria-hidden
-            >
-              {insights.map((_, i) => (
-                <span
-                  key={i}
-                  className={[
-                    'w-1.5 h-1.5 rounded-full transition-colors',
-                    i === index
-                      ? 'bg-purple-500'
-                      : i < index
-                        ? 'bg-purple-500/40'
-                        : 'bg-muted-foreground/25',
-                  ].join(' ')}
-                />
-              ))}
-            </div>
-          )}
+          {/* Intentionally no progress indicator — the refresh
+              button speaks for itself. Surfacing "this is item N of
+              M" makes the experience feel like a slideshow rather
+              than a stream of observations. */}
         </div>
       )}
     </div>
