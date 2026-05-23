@@ -212,15 +212,21 @@ export function renderOutreachCell(
       return <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-foreground" />
     case 'status': {
       // "Needs classification" hint: when the inbound webhook stamped
-      // responseDate but the user hasn't moved status off "No Response"
-      // (or earlier states) yet — they got a reply and need to read +
-      // classify as Open / Successful / Rejected. Surfaces as a small
-      // mail badge above the dropdown.
+      // responseDate but the user hasn't actively classified yet —
+      // they got a reply and should read + classify as Open /
+      // Successful / Rejected. Surfaces as a small mail badge above
+      // the dropdown.
+      //
+      // 2026-05-23 per Dylan: removed 'No Response' from the trigger
+      // list. That status IS a classification — the user has actively
+      // said "this lead never replied meaningfully." Re-surfacing the
+      // "you got a reply" nag at that point overrides the user's
+      // own choice. Pill now only shows for genuinely un-classified
+      // rows (Not Outreached / empty status), which is what an
+      // inbound-webhook-without-user-action looks like.
       const needsClassification =
         !!e.responseDate &&
-        (e.status === 'No Response' ||
-          e.status === 'Not Outreached' ||
-          e.status === '')
+        (e.status === 'Not Outreached' || e.status === '')
       return (
         <div className="flex flex-col gap-0.5">
           {needsClassification && (
