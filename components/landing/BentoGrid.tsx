@@ -113,7 +113,9 @@ function CropImage({
         // image fills the container with no letterbox. If browsers
         // round dims down by a fraction, contain falls back to a
         // tiny letterbox in the bg color rather than clipping pixels.
-        className="block w-full h-full object-contain"
+        // screenshot-light-flip inverts the dark-mode capture to look
+        // light-mode-native; see globals.css for the filter.
+        className="block w-full h-full object-contain screenshot-light-flip"
         style={{ objectPosition: position }}
       />
     </motion.div>

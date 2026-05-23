@@ -62,7 +62,7 @@ export function OperatorConsole() {
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-2xl border border-border bg-[#0E121C]"
+      className="relative w-full overflow-hidden rounded-2xl border border-border bg-card"
       style={{
         aspectRatio: '2472 / 1182',
         boxShadow: '0 50px 100px -40px oklch(0.18 0.045 275 / 0.30), 0 25px 50px -20px oklch(0.40 0.265 290 / 0.18)',
@@ -75,7 +75,7 @@ export function OperatorConsole() {
         fill
         priority
         sizes="(min-width: 1280px) 760px, 100vw"
-        className="object-contain"
+        className="object-contain screenshot-light-flip"
       />
 
       <div className="absolute inset-0 pointer-events-none">

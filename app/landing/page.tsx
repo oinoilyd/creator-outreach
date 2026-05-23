@@ -297,7 +297,7 @@ export default async function LandingPage() {
             </div>
             <ScreenshotZoom caption="Results — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
+                className="relative rounded-xl overflow-hidden border border-border bg-card shadow-lg shadow-foreground/[0.08]"
                 style={{
                   // Aspect ratio of the actual screenshot file so it
                   // fits without cropping. results.png is 2472×1182.
@@ -309,7 +309,7 @@ export default async function LandingPage() {
                   alt="Creator Outreach lead sourcing — results table with AI fit scores, inline emails, and per-creator social handles"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
-                  className="object-contain"
+                  className="object-contain screenshot-light-flip"
                 />
               </div>
             </ScreenshotZoom>
@@ -341,7 +341,7 @@ export default async function LandingPage() {
             </div>
             <ScreenshotZoom className="md:order-1" caption="Outreach board — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
+                className="relative rounded-xl overflow-hidden border border-border bg-card shadow-lg shadow-foreground/[0.08]"
                 style={{
                   // outreach.png is 2784×1122 — aspect 2.48
                   aspectRatio: '2784 / 1122',
@@ -352,7 +352,7 @@ export default async function LandingPage() {
                   alt="Outreach board — every pitched creator in one queue with status pills, medium tracker, and follow-up cadence per row"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
-                  className="object-contain"
+                  className="object-contain screenshot-light-flip"
                 />
               </div>
             </ScreenshotZoom>
@@ -384,7 +384,7 @@ export default async function LandingPage() {
             </div>
             <ScreenshotZoom caption="Analytics — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
+                className="relative rounded-xl overflow-hidden border border-border bg-card shadow-lg shadow-foreground/[0.08]"
                 style={{
                   // analytics.png is 2822×1088 — aspect 2.59
                   aspectRatio: '2822 / 1088',
@@ -395,7 +395,7 @@ export default async function LandingPage() {
                   alt="Outreach analytics dashboard — win rate, response rate, pipeline value KPIs with status breakdown and outreach-by-medium split"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
-                  className="object-contain"
+                  className="object-contain screenshot-light-flip"
                 />
               </div>
             </ScreenshotZoom>
@@ -432,7 +432,7 @@ export default async function LandingPage() {
                 wrong aspect ratio. Verified pixel-correct here. */}
             <ScreenshotZoom className="md:order-1" caption="Follow-ups view — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
+                className="relative rounded-xl overflow-hidden border border-border bg-card shadow-lg shadow-foreground/[0.08]"
                 style={{
                   aspectRatio: '2810 / 1234',
                 }}
@@ -442,7 +442,7 @@ export default async function LandingPage() {
                   alt="Follow-ups queue — overdue and due-today creator contacts sorted by days since last reach-out, with one-click cadence reset"
                   fill
                   sizes="(min-width: 1280px) 600px, 100vw"
-                  className="object-contain"
+                  className="object-contain screenshot-light-flip"
                 />
               </div>
             </ScreenshotZoom>

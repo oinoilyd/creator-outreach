@@ -185,6 +185,37 @@ html.dark {
   orbs in the hero only.
 */
 
+/*
+  Marketing screenshot light-mode flip (2026-05-23).
+
+  The /public/screenshots/*.png files were captured when the in-app
+  theme was dark mode. After the marketing palette unification, the
+  /landing and /roadmap chrome is now light-mode-native — but those
+  baked-dark screenshots stand out against the light bg like
+  uncalibrated windows into a different product.
+
+  The `invert(1) hue-rotate(180deg)` combo is a classic CSS trick to
+  flip a dark capture to light WITHOUT mangling the hues:
+    1. invert(1)   — black↔white, red↔cyan, blue↔yellow swap
+    2. hue-rotate(180deg) — rotates the inverted hues back so platform
+       brand colors (YouTube red, IG pink, TikTok cyan, LinkedIn blue)
+       still read approximately correct.
+
+  The small saturate/brightness tweaks soften the result so it
+  doesn't look like a forced inversion. Skin tones in any creator
+  avatars will look slightly off — known tradeoff vs. capturing
+  fresh light-mode PNGs.
+
+  Dark mode: filter is disabled so the original capture (which is
+  already dark) renders as-is.
+*/
+.screenshot-light-flip {
+  filter: invert(1) hue-rotate(180deg) saturate(0.92) brightness(0.97);
+}
+html.dark .screenshot-light-flip {
+  filter: none;
+}
+
 /* Animated gradient beam traveling along a card border (Magic UI BorderBeam).
    The component sets --duration / --delay; this drives offset-distance from
    0 to 100% so the gradient sweep makes one lap per cycle. */

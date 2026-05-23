@@ -41,7 +41,11 @@ export function ScreenshotFrame({
         <img
           src={src}
           alt={alt ?? 'Product screenshot'}
-          className={cn('block w-full h-auto', imgClassName)}
+          // screenshot-light-flip inverts the dark-mode capture to
+          // look light-mode-native on the marketing page; see
+          // globals.css. Disabled automatically in dark mode so the
+          // original dark screenshot renders as-is.
+          className={cn('block w-full h-auto screenshot-light-flip', imgClassName)}
         />
       ) : (
         children
