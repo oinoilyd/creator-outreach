@@ -32,6 +32,18 @@ type Dimension = {
   accent: string
 }
 
+// Dimension accents are literal oklch strings so they can be
+// interpolated into inline SVG attrs and `style={{ background: ... }}`
+// gradients (CSS custom properties don't resolve inside template
+// literals). Most ride the brand violet/teal pair to tie the dial
+// to the in-app brand mark; the green stays semantic ("reachable"
+// reads as green); the purple is intentionally distinct so all six
+// dimensions still visually separate.
+const ACCENT_BRAND = 'oklch(0.40 0.265 290)' // matches --brand (light)
+const ACCENT_BRAND_2 = 'oklch(0.50 0.150 215)' // matches --brand-2 (light)
+const ACCENT_BRAND_DARK = 'oklch(0.68 0.240 290)' // matches --brand (dark)
+const ACCENT_BRAND_2_DARK = 'oklch(0.80 0.135 215)' // matches --brand-2 (dark)
+
 const DIMENSIONS: Dimension[] = [
   {
     key: 'recency',
@@ -39,7 +51,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'How recently they posted',
     detail:
       'Posts within the last 7 days earn full credit. The score steps down at 30, 60, and 90 days. Stale accounts (no post in 90+ days) drop to a floor. Re-tunable per platform — daily IG posters and weekly LinkedIn posters get scored against different cadences.',
-    accent: '#F2A261',
+    accent: ACCENT_BRAND_2_DARK,
   },
   {
     key: 'reach',
@@ -47,7 +59,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'Audience size that fits your goal',
     detail:
       'Based on subscriber count and average views per recent post. The default sweet spot is 10K–50K avg views (where most outreach actually converts), with partial credit for smaller and larger creators. Adjust the band per niche — micro-influencer campaigns weight differently than enterprise sponsorships.',
-    accent: '#E85D2F',
+    accent: ACCENT_BRAND_DARK,
   },
   {
     key: 'reachability',
@@ -63,7 +75,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'Content + audience match for your size of lead',
     detail:
       'How tightly the creator matches what you typed. Name match, title match, recent-post topical match all roll in. Combined with your preferred subscriber range and avg-view band, so a 50K-sub fit reads differently than a 5M-sub fit even when the topic matches.',
-    accent: '#1B6FB5',
+    accent: ACCENT_BRAND_2,
   },
   {
     key: 'quality',
@@ -79,7 +91,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'Any criterion you can describe',
     detail:
       'Type something like "based in the US" or "talks about value investing" or "posts long-form weekly" and the AI scores every result against it as an additional weighted dimension. Re-rank live as you tweak.',
-    accent: '#F2A261',
+    accent: ACCENT_BRAND_2_DARK,
   },
 ]
 
@@ -108,14 +120,22 @@ export function StatBandSpotlight() {
 
   return (
     <section className="px-6 pt-20 md:pt-28 pb-20 md:pb-28">
-      <div className="max-w-[1280px] mx-auto bg-[#0F1733] rounded-3xl px-6 sm:px-8 py-14 md:py-20 text-white relative overflow-hidden">
-        {/* Multi-layer ambient glows — terracotta + amber breathing
-            radials behind the band. */}
+      {/* Always-dark spotlight band. Substrate uses the dark-mode
+          --background oklch value literally so the band reads the
+          same in light and dark themes — it's an intentional
+          contrast section that the brand violet/teal glows
+          breathe across. */}
+      <div
+        className="max-w-[1280px] mx-auto rounded-3xl px-6 sm:px-8 py-14 md:py-20 text-white relative overflow-hidden"
+        style={{ background: 'oklch(0.08 0.005 280)' }}
+      >
+        {/* Multi-layer ambient glows — brand violet + brand teal
+            breathing radials behind the band. */}
         <div
           aria-hidden
           className="absolute -top-1/3 -right-1/4 w-[680px] h-[680px] pointer-events-none motion-reduce:hidden"
           style={{
-            background: 'radial-gradient(closest-side, rgba(232,93,47,0.28), transparent 70%)',
+            background: 'radial-gradient(closest-side, oklch(0.40 0.265 290 / 0.35), transparent 70%)',
             animation: 'sb-breath 9s ease-in-out infinite',
           }}
         />
@@ -123,7 +143,7 @@ export function StatBandSpotlight() {
           aria-hidden
           className="absolute -bottom-1/3 -left-1/4 w-[600px] h-[600px] pointer-events-none motion-reduce:hidden"
           style={{
-            background: 'radial-gradient(closest-side, rgba(242,162,97,0.18), transparent 70%)',
+            background: 'radial-gradient(closest-side, oklch(0.50 0.150 215 / 0.25), transparent 70%)',
             animation: 'sb-breath 11s ease-in-out infinite reverse',
           }}
         />
@@ -142,7 +162,10 @@ export function StatBandSpotlight() {
 
         <div className="relative">
           <div className="text-center max-w-[700px] mx-auto mb-12 md:mb-14">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#F2A261] mb-3 font-semibold">
+            <div
+              className="text-[12px] uppercase tracking-[0.2em] mb-3 font-semibold"
+              style={{ color: ACCENT_BRAND_2_DARK }}
+            >
               What&apos;s actually under the hood
             </div>
             <h2
@@ -160,7 +183,15 @@ export function StatBandSpotlight() {
             </div>
 
             <div className="md:col-span-7">
-              <div className="inline-flex items-center gap-2 mb-4 px-2.5 py-1 rounded-full bg-[#F2A261]/10 border border-[#F2A261]/30 text-[11px] uppercase tracking-[0.18em] text-[#F2A261] font-bold">
+              <div
+                className="inline-flex items-center gap-2 mb-4 px-2.5 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-bold"
+                style={{
+                  backgroundColor: 'oklch(0.80 0.135 215 / 0.10)',
+                  borderWidth: 1,
+                  borderColor: 'oklch(0.80 0.135 215 / 0.30)',
+                  color: ACCENT_BRAND_2_DARK,
+                }}
+              >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" />
                 </svg>
@@ -178,25 +209,41 @@ export function StatBandSpotlight() {
                 platform, plug in any custom criterion you can name.
               </p>
 
-              {/* Clickable chip cloud */}
+              {/* Clickable chip cloud — selected chip uses brand teal
+                  on dark; custom chip uses a teal-tinted background;
+                  rest are neutral white-alpha pills. */}
               <div className="flex flex-wrap gap-2 mb-5">
                 {DIMENSIONS.map(d => {
                   const isSelected = d.key === selected
                   const isCustom = d.key === 'custom'
+                  let chipStyle: React.CSSProperties | undefined
+                  let chipClass =
+                    'inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-medium transition-all duration-200 cursor-pointer border '
+                  if (isSelected) {
+                    chipStyle = {
+                      backgroundColor: ACCENT_BRAND_2_DARK,
+                      borderColor: ACCENT_BRAND_2_DARK,
+                      color: 'oklch(0.08 0.005 280)',
+                      boxShadow: '0 0 24px oklch(0.80 0.135 215 / 0.45)',
+                    }
+                  } else if (isCustom) {
+                    chipStyle = {
+                      backgroundColor: 'oklch(0.80 0.135 215 / 0.15)',
+                      borderColor: 'oklch(0.80 0.135 215 / 0.40)',
+                      color: ACCENT_BRAND_2_DARK,
+                    }
+                  } else {
+                    chipClass +=
+                      'bg-white/[0.08] text-white/85 border-white/15 hover:bg-white/[0.12] hover:border-white/30'
+                  }
                   return (
                     <button
                       key={d.key}
                       type="button"
                       onClick={() => setSelected(d.key)}
                       aria-pressed={isSelected}
-                      className={
-                        'inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-medium transition-all duration-200 cursor-pointer ' +
-                        (isSelected
-                          ? 'bg-[#F2A261] text-[#0F1733] border border-[#F2A261] shadow-[0_0_24px_rgba(242,162,97,0.45)]'
-                          : isCustom
-                          ? 'bg-[#F2A261]/15 text-[#F2A261] border border-[#F2A261]/40 hover:bg-[#F2A261]/25'
-                          : 'bg-white/8 text-white/85 border border-white/15 hover:bg-white/12 hover:border-white/30')
-                      }
+                      className={chipClass}
+                      style={chipStyle}
                     >
                       {d.label}
                     </button>
@@ -344,7 +391,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin 38s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="156" fill="none" stroke="rgba(242,162,97,0.25)" strokeWidth="1" strokeDasharray="2 8" />
+        <circle cx="160" cy="160" r="156" fill="none" stroke="oklch(0.80 0.135 215 / 0.25)" strokeWidth="1" strokeDasharray="2 8" />
       </svg>
       {/* RING 2 — finer dashes, counter-rotation */}
       <svg
@@ -353,7 +400,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin-rev 28s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="142" fill="none" stroke="rgba(232,93,47,0.40)" strokeWidth="1.2" strokeDasharray="1 4" />
+        <circle cx="160" cy="160" r="142" fill="none" stroke="oklch(0.68 0.240 290 / 0.40)" strokeWidth="1.2" strokeDasharray="1 4" />
       </svg>
       {/* RING 3 — medium rotation */}
       <svg
@@ -362,7 +409,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin 22s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="128" fill="none" stroke="rgba(242,162,97,0.50)" strokeWidth="1" strokeDasharray="3 9" />
+        <circle cx="160" cy="160" r="128" fill="none" stroke="oklch(0.80 0.135 215 / 0.50)" strokeWidth="1" strokeDasharray="3 9" />
       </svg>
       {/* RING 4 — middle thick-dash, counter-rotation */}
       <svg
@@ -371,7 +418,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin-rev 36s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="110" fill="none" stroke="rgba(232,93,47,0.55)" strokeWidth="1.5" strokeDasharray="6 14" />
+        <circle cx="160" cy="160" r="110" fill="none" stroke="oklch(0.68 0.240 290 / 0.55)" strokeWidth="1.5" strokeDasharray="6 14" />
       </svg>
 
       {/* COMET 1 — orbits ring 3 (r=128) */}
@@ -383,9 +430,9 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full">
           <defs>
             <linearGradient id="sb-comet-1" x1="0%" y1="50%" x2="100%" y2="50%">
-              <stop offset="0%" stopColor="rgba(242,162,97,0)" />
-              <stop offset="50%" stopColor="rgba(242,162,97,0.6)" />
-              <stop offset="100%" stopColor="#F2A261" />
+              <stop offset="0%" stopColor="oklch(0.80 0.135 215 / 0)" />
+              <stop offset="50%" stopColor="oklch(0.80 0.135 215 / 0.6)" />
+              <stop offset="100%" stopColor="oklch(0.80 0.135 215)" />
             </linearGradient>
           </defs>
           <path
@@ -395,7 +442,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
             strokeWidth="2"
             strokeLinecap="round"
           />
-          <circle cx="220" cy="52" r="3" fill="#F2A261" />
+          <circle cx="220" cy="52" r="3" fill="oklch(0.80 0.135 215)" />
         </svg>
       </div>
 
@@ -408,9 +455,9 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full">
           <defs>
             <linearGradient id="sb-comet-2" x1="0%" y1="50%" x2="100%" y2="50%">
-              <stop offset="0%" stopColor="rgba(232,93,47,0)" />
-              <stop offset="60%" stopColor="rgba(232,93,47,0.4)" />
-              <stop offset="100%" stopColor="#E85D2F" />
+              <stop offset="0%" stopColor="oklch(0.68 0.240 290 / 0)" />
+              <stop offset="60%" stopColor="oklch(0.68 0.240 290 / 0.4)" />
+              <stop offset="100%" stopColor="oklch(0.68 0.240 290)" />
             </linearGradient>
           </defs>
           <path
@@ -420,7 +467,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
             strokeWidth="1.5"
             strokeLinecap="round"
           />
-          <circle cx="232" cy="28" r="2.5" fill="#E85D2F" />
+          <circle cx="232" cy="28" r="2.5" fill="oklch(0.68 0.240 290)" />
         </svg>
       </div>
 
@@ -431,7 +478,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{
           animation: 'sb-radar-sweep 6s linear infinite',
           background:
-            'conic-gradient(from 0deg, transparent 0deg, transparent 318deg, rgba(242,162,97,0.18) 348deg, rgba(242,162,97,0.40) 358deg, transparent 360deg)',
+            'conic-gradient(from 0deg, transparent 0deg, transparent 318deg, oklch(0.80 0.135 215 / 0.18) 348deg, oklch(0.80 0.135 215 / 0.40) 358deg, transparent 360deg)',
           maskImage: 'radial-gradient(circle at center, transparent 26%, black 30%, black 58%, transparent 62%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 26%, black 30%, black 58%, transparent 62%)',
         }}
@@ -443,7 +490,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{
           animation: 'sb-radar-sweep-rev 4s linear infinite',
           background:
-            'conic-gradient(from 0deg, transparent 0deg, transparent 340deg, rgba(232,93,47,0.20) 355deg, rgba(232,93,47,0.50) 359deg, transparent 360deg)',
+            'conic-gradient(from 0deg, transparent 0deg, transparent 340deg, oklch(0.68 0.240 290 / 0.20) 355deg, oklch(0.68 0.240 290 / 0.50) 359deg, transparent 360deg)',
           maskImage: 'radial-gradient(circle at center, transparent 12%, black 16%, black 28%, transparent 32%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 12%, black 16%, black 28%, transparent 32%)',
         }}
@@ -461,7 +508,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
               cx={cx}
               cy={cy}
               r={p.size}
-              fill="#F2A261"
+              fill="oklch(0.80 0.135 215)"
               style={{
                 animation: `sb-twinkle 2.6s ease-in-out infinite`,
                 animationDelay: `${p.delay}s`,
@@ -476,13 +523,13 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
       <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full" aria-hidden>
         <defs>
           <linearGradient id="sb-orbital-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#F2A261" />
-            <stop offset="100%" stopColor="#E85D2F" />
+            <stop offset="0%" stopColor="oklch(0.80 0.135 215)" />
+            <stop offset="100%" stopColor="oklch(0.68 0.240 290)" />
           </linearGradient>
           <radialGradient id="sb-orbital-core" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stopColor="#F2A261" stopOpacity="0.95" />
-            <stop offset="50%" stopColor="#E85D2F" stopOpacity="0.65" />
-            <stop offset="100%" stopColor="#E85D2F" stopOpacity="0" />
+            <stop offset="0%" stopColor="oklch(0.80 0.135 215)" stopOpacity="0.95" />
+            <stop offset="50%" stopColor="oklch(0.68 0.240 290)" stopOpacity="0.65" />
+            <stop offset="100%" stopColor="oklch(0.68 0.240 290)" stopOpacity="0" />
           </radialGradient>
           <radialGradient id="sb-pulse-aura" cx="0.5" cy="0.5" r="0.5">
             <stop offset="0%" stopColor={accent} stopOpacity="0.4" />
@@ -525,7 +572,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
               y1={y1}
               x2={x2}
               y2={y2}
-              stroke="rgba(242,162,97,0.6)"
+              stroke="oklch(0.80 0.135 215 / 0.6)"
               strokeWidth="1"
               strokeLinecap="round"
             />

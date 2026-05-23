@@ -13,8 +13,9 @@ import { useEffect, useRef, useState } from 'react'
  * "AI-designed everything stacked together."
  *
  * Sharpening pass:
- *   - Single accent color (terracotta) across every chapter — no
- *     per-chapter hue variation
+ *   - Single accent color (brand violet) across every chapter — no
+ *     per-chapter hue variation. Brand violet matches the in-app
+ *     "C" tile mark, so atmospheric layers tie to the brand.
  *   - Italic-serif kept on the section H2 only; chapter headlines
  *     are single-font sans, single weight
  *   - Type scale tightened: chapter numeral down ~50%, chapter h3
@@ -81,27 +82,34 @@ const CHAPTERS: Chapter[] = [
 
 // Single accent color used across every chapter — no more
 // per-chapter hue variation. That was AI-template behavior.
+//
+// Accent values are literal oklch strings matching --brand (light
+// mode primary). Inline gradients / SVG fills need literal color
+// strings (CSS custom properties don't interpolate inside template
+// literals), so we hardcode the same oklch values the tokens
+// resolve to. Keeps the atmospheric layers tied to the brand mark.
 const ACCENT = {
-  primary: '#E85D2F',
-  primaryDark: '#F2A261',
-  soft: 'rgba(232,93,47,0.08)',
-  ring: 'rgba(232,93,47,0.30)',
-  glow: 'rgba(232,93,47,0.40)',
+  primary: 'oklch(0.40 0.265 290)',
+  primaryDark: 'oklch(0.68 0.240 290)',
+  soft: 'oklch(0.40 0.265 290 / 0.08)',
+  ring: 'oklch(0.40 0.265 290 / 0.30)',
+  glow: 'oklch(0.40 0.265 290 / 0.40)',
 }
 
 export function WhyThisExists() {
   return (
     <section
       id="customers"
-      className="relative px-6 py-24 md:py-32 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10 overflow-hidden"
+      className="relative px-6 py-24 md:py-32 scroll-mt-24 bg-card border-y border-border overflow-hidden"
     >
-      {/* AMBIENT BACKDROP — blueprint grid + two breathing washes */}
+      {/* AMBIENT BACKDROP — blueprint grid + two breathing washes
+          tinted on the brand violet/teal pair (was terracotta). */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none opacity-[0.04] dark:opacity-[0.08]"
         style={{
           backgroundImage:
-            'linear-gradient(to right, rgba(15,23,51,0.6) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,23,51,0.6) 1px, transparent 1px)',
+            'linear-gradient(to right, oklch(0.18 0.045 275 / 0.6) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.18 0.045 275 / 0.6) 1px, transparent 1px)',
           backgroundSize: '32px 32px',
           maskImage: 'radial-gradient(ellipse 80% 70% at center, black 30%, transparent 90%)',
           WebkitMaskImage: 'radial-gradient(ellipse 80% 70% at center, black 30%, transparent 90%)',
@@ -111,7 +119,7 @@ export function WhyThisExists() {
         aria-hidden
         className="absolute -top-1/3 -right-1/4 w-[800px] h-[800px] pointer-events-none opacity-[0.10] dark:opacity-[0.15] motion-reduce:hidden"
         style={{
-          background: 'radial-gradient(closest-side, rgba(232,93,47,0.6), transparent 70%)',
+          background: 'radial-gradient(closest-side, oklch(0.40 0.265 290 / 0.6), transparent 70%)',
           animation: 'wte-breath 14s ease-in-out infinite',
         }}
       />
@@ -119,7 +127,7 @@ export function WhyThisExists() {
         aria-hidden
         className="absolute -bottom-1/3 -left-1/4 w-[680px] h-[680px] pointer-events-none opacity-[0.07] dark:opacity-[0.11] motion-reduce:hidden"
         style={{
-          background: 'radial-gradient(closest-side, rgba(242,162,97,0.5), transparent 70%)',
+          background: 'radial-gradient(closest-side, oklch(0.50 0.150 215 / 0.5), transparent 70%)',
           animation: 'wte-breath 18s ease-in-out infinite reverse',
         }}
       />
@@ -128,23 +136,23 @@ export function WhyThisExists() {
         {/* SECTION HEADER — italic-serif emphasis kept here only.
             Tighter scale than before. */}
         <header className="max-w-[760px] mb-20 md:mb-28">
-          <div className="inline-flex items-center gap-2 mb-5 px-2.5 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[10.5px] uppercase tracking-[0.2em] text-[#9C3D1F] dark:text-[#F2A261] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]" />
+          <div className="inline-flex items-center gap-2 mb-5 px-2.5 py-1 rounded-full bg-brand/10 border border-brand/30 text-[10.5px] uppercase tracking-[0.2em] text-brand dark:text-brand-2 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand" />
             Why this exists
           </div>
           <h2
-            className="font-semibold tracking-[-0.03em] leading-[1] text-[#0F1733] dark:text-white"
+            className="font-semibold tracking-[-0.03em] leading-[1] text-foreground"
             style={{ fontSize: 'clamp(2.25rem, 5vw, 4rem)' }}
           >
             Three walls in creator outreach.{' '}
             <span
-              className="italic font-normal text-[#E85D2F] dark:text-[#F2A261]"
+              className="italic font-normal bg-gradient-to-br from-brand to-brand-2 bg-clip-text text-transparent"
               style={{ fontFamily: 'var(--font-newsreader), Georgia, serif' }}
             >
               Three answers.
             </span>
           </h2>
-          <p className="mt-5 max-w-[58ch] text-[16px] text-[#0F1733]/65 dark:text-white/65 leading-[1.6]">
+          <p className="mt-5 max-w-[58ch] text-[16px] text-muted-foreground leading-[1.6]">
             Three places creator outreach kept breaking down. Each one
             is now built into the tool, because the workaround was where
             the pipeline kept dying.
@@ -230,19 +238,19 @@ function Chapter({ chapter, flipped }: { chapter: Chapter; flipped: boolean }) {
       <div className="mb-10 md:mb-14 flex items-center gap-4" style={fadeUp(0)}>
         <span
           aria-hidden
-          className="font-bold tracking-[-0.04em] leading-none font-mono text-[#E85D2F] dark:text-[#F2A261] select-none"
+          className="font-bold tracking-[-0.04em] leading-none font-mono text-brand dark:text-brand-2 select-none"
           style={{ fontSize: 'clamp(2.25rem, 4vw, 3.5rem)' }}
         >
           {chapter.num}
         </span>
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#E85D2F]/10 dark:bg-[#F2A261]/15 border border-[#E85D2F]/25 dark:border-[#F2A261]/25 text-[10.5px] uppercase tracking-[0.2em] font-bold text-[#9C3D1F] dark:text-[#F2A261]">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand/10 border border-brand/25 text-[10.5px] uppercase tracking-[0.2em] font-bold text-brand dark:text-brand-2">
           <span
-            className="w-1.5 h-1.5 rounded-full bg-[#E85D2F]"
+            className="w-1.5 h-1.5 rounded-full bg-brand"
             style={{ animation: 'wte-pulse-dot 2.4s ease-in-out infinite' }}
           />
           {chapter.tag}
         </span>
-        <span className="flex-1 h-px bg-[#0F1733]/10 dark:bg-white/10" />
+        <span className="flex-1 h-px bg-border" />
       </div>
 
       {/* CONTENT GRID */}
@@ -252,14 +260,14 @@ function Chapter({ chapter, flipped }: { chapter: Chapter; flipped: boolean }) {
           {/* Pain headline — single sans, no italic-serif emphasis.
               Tighter scale than before (2-3.25rem → 1.5-2.5rem). */}
           <h3
-            className="font-semibold tracking-[-0.025em] leading-[1.1] text-[#0F1733] dark:text-white mb-6"
+            className="font-semibold tracking-[-0.025em] leading-[1.1] text-foreground mb-6"
             style={{ fontSize: 'clamp(1.5rem, 2.8vw, 2.25rem)', ...fadeUp(80) }}
           >
             {chapter.pain}
           </h3>
 
           <blockquote
-            className="relative pl-4 mb-7 text-[15.5px] md:text-[16px] text-[#0F1733]/72 dark:text-white/72 leading-[1.65] border-l-2 border-[#E85D2F]/35 dark:border-[#F2A261]/40"
+            className="relative pl-4 mb-7 text-[15.5px] md:text-[16px] text-muted-foreground leading-[1.65] border-l-2 border-brand/35"
             style={fadeUp(160)}
           >
             {chapter.note}
@@ -269,24 +277,23 @@ function Chapter({ chapter, flipped }: { chapter: Chapter; flipped: boolean }) {
               tighter padding. Still anchored visually by the
               checkmark + accent label. */}
           <div
-            className="relative rounded-xl border bg-[#E85D2F]/[0.04] dark:bg-[#F2A261]/[0.06] border-[#E85D2F]/20 dark:border-[#F2A261]/25 p-4 md:p-5"
+            className="relative rounded-xl border bg-brand/[0.04] border-brand/20 p-4 md:p-5"
             style={fadeUp(220)}
           >
             <div className="flex items-start gap-3">
               <span
                 aria-hidden
-                className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#E85D2F] text-white shrink-0"
-                style={{ boxShadow: '0 0 16px rgba(232,93,47,0.45)' }}
+                className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-brand to-brand-2 text-primary-foreground shrink-0 shadow-md shadow-brand/40"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <polyline points="5 12 10 17 19 7" />
                 </svg>
               </span>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[#9C3D1F] dark:text-[#F2A261] mb-1">
+                <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-brand dark:text-brand-2 mb-1">
                   In the tool
                 </div>
-                <p className="text-[14.5px] text-[#0F1733]/88 dark:text-white/88 leading-[1.6]">
+                <p className="text-[14.5px] text-foreground/85 leading-[1.6]">
                   {chapter.answer}
                 </p>
               </div>
@@ -468,17 +475,17 @@ function ScreenshotHero({
       }}
     >
       <div
-        className="relative rounded-2xl overflow-hidden border border-[#0F1733]/15 dark:border-white/15 bg-[#0E121C]"
+        className="relative rounded-2xl overflow-hidden border border-border bg-[#0E121C]"
         style={{
           aspectRatio: aspect,
-          boxShadow: '0 36px 72px -32px rgba(15,23,51,0.40), 0 16px 32px -12px rgba(232,93,47,0.18)',
+          boxShadow: '0 36px 72px -32px oklch(0.18 0.045 275 / 0.40), 0 16px 32px -12px oklch(0.40 0.265 290 / 0.18)',
         }}
       >
         <div
           aria-hidden
           className="absolute top-0 inset-x-0 h-[2px] z-10"
           style={{
-            background: 'linear-gradient(90deg, transparent, rgba(232,93,47,0.85) 30%, rgba(242,162,97,0.85) 70%, transparent)',
+            background: 'linear-gradient(90deg, transparent, oklch(0.40 0.265 290 / 0.85) 30%, oklch(0.50 0.150 215 / 0.85) 70%, transparent)',
           }}
         />
         <Image

@@ -62,10 +62,10 @@ export function OperatorConsole() {
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-2xl border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+      className="relative w-full overflow-hidden rounded-2xl border border-border bg-[#0E121C]"
       style={{
         aspectRatio: '2472 / 1182',
-        boxShadow: '0 50px 100px -40px rgba(15,23,51,0.30), 0 25px 50px -20px rgba(232,93,47,0.15)',
+        boxShadow: '0 50px 100px -40px oklch(0.18 0.045 275 / 0.30), 0 25px 50px -20px oklch(0.40 0.265 290 / 0.18)',
       }}
       aria-label="Creator Outreach app — live results table for a 'day trader' search across five platforms"
     >
@@ -85,7 +85,8 @@ export function OperatorConsole() {
             className="oc-sweep absolute inset-x-0 h-12"
             style={{
               top: 0,
-              background: 'linear-gradient(180deg, transparent, rgba(232, 93, 47, 0.16), transparent)',
+              // Brand violet sweep — matches the in-app brand mark.
+              background: 'linear-gradient(180deg, transparent, oklch(0.40 0.265 290 / 0.20), transparent)',
               mixBlendMode: 'plus-lighter',
             }}
           />

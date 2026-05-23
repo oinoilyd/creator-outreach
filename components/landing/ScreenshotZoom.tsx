@@ -94,7 +94,7 @@ export function ScreenshotZoom({
             setOpen(true)
           }
         }}
-        className={`group relative w-full cursor-zoom-in transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85D2F] focus-visible:ring-offset-2 rounded-2xl ${className}`}
+        className={`group relative w-full cursor-zoom-in transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 rounded-2xl ${className}`}
         aria-label="Click to view full size"
       >
         {children}

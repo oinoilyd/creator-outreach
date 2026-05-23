@@ -154,6 +154,9 @@ export const PLATFORM_MARKS = [
   { name: 'YouTube', Glyph: YouTubeMark, accent: '#FF0000' },
   { name: 'Instagram', Glyph: InstagramMark, accent: '#E1306C' },
   { name: 'TikTok', Glyph: TikTokMark, accent: '#FE2C55' },
-  { name: 'X', Glyph: XMark, accent: '#0F1733' },
+  // X's actual brand mark is a black wordmark. Accent uses the
+  // canonical X black (previously this incorrectly reused the
+  // marketing navy palette, which only coincided in hue).
+  { name: 'X', Glyph: XMark, accent: '#0F141A' },
   { name: 'LinkedIn', Glyph: LinkedInMark, accent: '#0A66C2' },
 ] as const

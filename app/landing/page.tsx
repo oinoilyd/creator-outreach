@@ -11,8 +11,10 @@ import { createClient } from '@/lib/supabase/server'
 /**
  * /landing — production marketing site.
  *
- * Style: Apollo-style premium B2B prospecting. Cream-white substrate,
- * navy primary (#0F1733), single warm accent (terracotta #E85D2F).
+ * Style: Apollo-style premium B2B prospecting. Built on the app's
+ * semantic palette (bg-background substrate, text-foreground primary,
+ * brand violet→teal gradient for CTAs/accents) so the pre-sign-in
+ * marketing surface matches the signed-in app exactly.
  *
  * Hero centerpiece is OperatorConsole — an anime.js-driven console
  * visual that runs an end-to-end loop of the product (search query
@@ -97,7 +99,7 @@ export default async function LandingPage() {
 
   return (
     <main
-      className="min-h-screen overflow-x-clip text-[#0F1733] dark:text-white font-[family-name:var(--font-geist-sans)] bg-[#FCFAF6] dark:bg-[#0A0E15]"
+      className="min-h-screen overflow-x-clip text-foreground bg-background font-[family-name:var(--font-geist-sans)]"
     >
       <script
         type="application/ld+json"
@@ -119,7 +121,7 @@ export default async function LandingPage() {
             >
               The modern way to source and pitch creators.
             </h1>
-            <p className="mt-7 max-w-[54ch] text-[17px] md:text-[18px] text-[#0F1733]/70 dark:text-white/70 leading-[1.55]">
+            <p className="mt-7 max-w-[54ch] text-[17px] md:text-[18px] text-muted-foreground leading-[1.55]">
               Lead sourcing by occupation with an AI fit score that
               ranks every result against your criteria. Email + social
               handles inline. Templated outreach for the platform you
@@ -129,20 +131,20 @@ export default async function LandingPage() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href={isAuthed ? '/' : '/auth/signup'}
-                className="inline-flex items-center gap-2 bg-[#0F1733] text-white hover:bg-[#1F2A52] px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
+                className="inline-flex items-center gap-2 bg-gradient-to-br from-brand to-brand-2 text-primary-foreground hover:opacity-90 transition-opacity shadow-sm shadow-brand/20 px-7 py-3.5 rounded-md font-semibold text-[15px]"
               >
                 {isAuthed ? 'Open the app' : 'Start 14-day free trial'}
                 <span aria-hidden>→</span>
               </Link>
               <a
                 href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
-                className="inline-flex items-center gap-2 bg-white text-[#0F1733] hover:bg-[#0F1733] hover:text-white px-7 py-3.5 rounded-md font-semibold text-[15px] border border-[#0F1733]/15 dark:border-white/15 hover:border-[#0F1733] transition-colors"
+                className="inline-flex items-center gap-2 bg-card text-foreground border border-border hover:border-foreground hover:bg-card px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
               >
                 Talk to the founder
               </a>
             </div>
-            <div className="mt-10 pt-7 border-t border-[#0F1733]/10 dark:border-white/10">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/45 dark:text-white/45 mb-3 font-semibold">
+            <div className="mt-10 pt-7 border-t border-border">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-3 font-semibold">
                 Built for anyone reaching out to creators
               </div>
               {/* Persona list — single paragraph with inline middle-
@@ -150,7 +152,7 @@ export default async function LandingPage() {
                   separator span has whitespace-nowrap so a "·" never
                   ends up alone at line-start. The whole list flows as
                   natural prose at any viewport width. */}
-              <p className="text-[14px] text-[#0F1733]/60 dark:text-white/60 font-medium leading-[1.7]">
+              <p className="text-[14px] text-muted-foreground font-medium leading-[1.7]">
                 {[
                   'Podcasters',
                   'Editors',
@@ -165,7 +167,7 @@ export default async function LandingPage() {
                   <span key={label}>
                     {label}
                     {i < arr.length - 1 && (
-                      <span aria-hidden className="mx-2 text-[#0F1733]/20 dark:text-white/20">
+                      <span aria-hidden className="mx-2 text-muted-foreground/40">
                         ·
                       </span>
                     )}
@@ -189,14 +191,14 @@ export default async function LandingPage() {
           operator's workflow. The KPI/analytics callouts that lived
           here previously moved into the Analytics product narrative
           (#analytics) where they belong. */}
-      <section id="solutions" className="px-6 py-20 md:py-28 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
+      <section id="solutions" className="px-6 py-20 md:py-28 bg-card border-y border-border">
         <div className="max-w-[1280px] mx-auto">
           <div className="max-w-[680px] mb-12 md:mb-16">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">The four-step loop</div>
-            <h2 className="font-semibold tracking-[-0.025em]" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-brand mb-4 font-semibold">The four-step loop</div>
+            <h2 className="font-semibold tracking-[-0.025em] text-foreground" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
               Sourcing. Fit score. Outreach. Follow-ups.
             </h2>
-            <p className="mt-5 text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
+            <p className="mt-5 text-[17px] text-muted-foreground leading-[1.55]">
               Find leads by occupation. Score them with a customizable
               AI fit score. Reach out from a built-in CRM with
               templated messages for the platform you target. Stay on
@@ -274,11 +276,11 @@ export default async function LandingPage() {
         <div id="sourcing" className="px-6 pt-20 md:pt-28 pb-12 md:pb-16 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">01 / Sourcing</div>
-              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <div className="text-[12px] uppercase tracking-[0.2em] text-brand mb-4 font-semibold">01 / Sourcing</div>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5 text-foreground" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Lead sourcing by occupation, scored on fit.
               </h2>
-              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
+              <p className="text-[16px] text-muted-foreground leading-[1.6] mb-6">
                 Search any occupation, industry, or field. Each result
                 comes back with email + social handles attached and a
                 fit score that explains itself in plain English (Strong
@@ -286,7 +288,7 @@ export default async function LandingPage() {
                 a sentence.
               </p>
               <CustomizableChip />
-              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
+              <ul className="space-y-2.5 text-[15px] text-foreground/85">
                 <Bullet>Customizable AI fit score — any criteria you can name and measure</Bullet>
                 <Bullet>Email + LinkedIn + Instagram handles inline per result</Bullet>
                 <Bullet>Filter by region, audience size, last-posted recency, follower count</Bullet>
@@ -295,12 +297,11 @@ export default async function LandingPage() {
             </div>
             <ScreenshotZoom caption="Results — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
                 style={{
                   // Aspect ratio of the actual screenshot file so it
                   // fits without cropping. results.png is 2472×1182.
                   aspectRatio: '2472 / 1182',
-                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
                 }}
               >
                 <Image
@@ -319,11 +320,11 @@ export default async function LandingPage() {
         <div id="outreach" className="px-6 py-12 md:py-16 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div className="md:order-2">
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">02 / Outreach</div>
-              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <div className="text-[12px] uppercase tracking-[0.2em] text-brand mb-4 font-semibold">02 / Outreach</div>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5 text-foreground" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Every conversation in one queue.
               </h2>
-              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
+              <p className="text-[16px] text-muted-foreground leading-[1.6] mb-6">
                 The Outreach board collects every creator you&apos;ve pitched —
                 channel, email, product, status, medium. Status pills track
                 Successful / Open / Rejected. Sub-tabs split out Favorites,
@@ -331,7 +332,7 @@ export default async function LandingPage() {
                 per creator.
               </p>
               <CustomizableChip />
-              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
+              <ul className="space-y-2.5 text-[15px] text-foreground/85">
                 <Bullet>Customizable status pills, mediums, and pipeline stages</Bullet>
                 <Bullet>Status: Successful · Open · Rejected · No Response (rename or add your own)</Bullet>
                 <Bullet>Medium tracker per row (Email / LinkedIn / Other — add your own channel)</Bullet>
@@ -340,11 +341,10 @@ export default async function LandingPage() {
             </div>
             <ScreenshotZoom className="md:order-1" caption="Outreach board — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
                 style={{
                   // outreach.png is 2784×1122 — aspect 2.48
                   aspectRatio: '2784 / 1122',
-                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
                 }}
               >
                 <Image
@@ -363,11 +363,11 @@ export default async function LandingPage() {
         <div id="analytics" className="px-6 py-12 md:py-16 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">03 / Analytics</div>
-              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <div className="text-[12px] uppercase tracking-[0.2em] text-brand mb-4 font-semibold">03 / Analytics</div>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5 text-foreground" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Win rate, response rate, pipeline value.
               </h2>
-              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
+              <p className="text-[16px] text-muted-foreground leading-[1.6] mb-6">
                 Seven default KPIs across the top — In Pipeline, Reached
                 Out, Response Received, Response Rate, Win Rate, Pipeline $,
                 Stale Follow-ups. Plus 30+ customizable metrics you can plug
@@ -375,7 +375,7 @@ export default async function LandingPage() {
                 split, velocity card.
               </p>
               <CustomizableChip />
-              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
+              <ul className="space-y-2.5 text-[15px] text-foreground/85">
                 <Bullet>7 default KPI cards · 30+ customizable metrics — pin whichever ones matter to you</Bullet>
                 <Bullet>Status breakdown bar (Successful / Open / No Response / Rejected)</Bullet>
                 <Bullet>Outreach-by-medium split (Email / LinkedIn / Other)</Bullet>
@@ -384,11 +384,10 @@ export default async function LandingPage() {
             </div>
             <ScreenshotZoom caption="Analytics — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
                 style={{
                   // analytics.png is 2822×1088 — aspect 2.59
                   aspectRatio: '2822 / 1088',
-                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
                 }}
               >
                 <Image
@@ -407,11 +406,11 @@ export default async function LandingPage() {
         <div id="followups" className="px-6 py-12 md:py-16 pb-20 md:pb-28 scroll-mt-24">
           <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div className="md:order-2">
-              <div className="text-[12px] uppercase tracking-[0.2em] text-[#E85D2F] mb-4 font-semibold">04 / Follow-ups</div>
-              <h2 className="font-semibold tracking-[-0.02em] mb-5" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
+              <div className="text-[12px] uppercase tracking-[0.2em] text-brand mb-4 font-semibold">04 / Follow-ups</div>
+              <h2 className="font-semibold tracking-[-0.02em] mb-5 text-foreground" style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)' }}>
                 Cadenced reminders so silence doesn&apos;t leak pipeline.
               </h2>
-              <p className="text-[16px] text-[#0F1733]/70 dark:text-white/70 leading-[1.6] mb-6">
+              <p className="text-[16px] text-muted-foreground leading-[1.6] mb-6">
                 Set a reminder cadence per creator the moment you reach out.
                 The Follow-ups tab surfaces every contact that&apos;s due
                 today, sorted by who&apos;s gone cold longest. Mark
@@ -419,7 +418,7 @@ export default async function LandingPage() {
                 of dates, no calendar manual entry.
               </p>
               <CustomizableChip />
-              <ul className="space-y-2.5 text-[15px] text-[#0F1733]/85 dark:text-white/85">
+              <ul className="space-y-2.5 text-[15px] text-foreground/85">
                 <Bullet>Customizable cadence per creator (3 / 7 / 14 / 30 days, or your own interval)</Bullet>
                 <Bullet>Dedicated Follow-ups sub-tab — only what&apos;s due today / overdue</Bullet>
                 <Bullet>Reset on click — marks the contact as followed-up + restarts the cadence</Bullet>
@@ -433,10 +432,9 @@ export default async function LandingPage() {
                 wrong aspect ratio. Verified pixel-correct here. */}
             <ScreenshotZoom className="md:order-1" caption="Follow-ups view — click to zoom; ESC to close.">
               <div
-                className="relative rounded-xl overflow-hidden border border-[#0F1733]/10 dark:border-white/10 bg-[#0E121C]"
+                className="relative rounded-xl overflow-hidden border border-border bg-[#0E121C] shadow-lg shadow-foreground/[0.08]"
                 style={{
                   aspectRatio: '2810 / 1234',
-                  boxShadow: '0 30px 60px -25px rgba(15,23,51,0.20)',
                 }}
               >
                 <Image
@@ -474,13 +472,13 @@ export default async function LandingPage() {
           it's the recommended plan (2 months free vs monthly).
           CTAs route through /pricing so the actual subscribe action
           flows through the auth-aware checkout there. */}
-      <section id="pricing" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-white dark:bg-[#131826] border-y border-[#0F1733]/8 dark:border-white/10">
+      <section id="pricing" className="px-6 pb-20 md:pb-28 scroll-mt-24 bg-card border-y border-border">
         <div className="max-w-[1100px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12">
-            <h2 className="font-semibold tracking-[-0.025em] mb-5" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
+            <h2 className="font-semibold tracking-[-0.025em] mb-5 text-foreground" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
               Start with a 14-day free trial.
             </h2>
-            <p className="max-w-[58ch] mx-auto text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
+            <p className="max-w-[58ch] mx-auto text-[17px] text-muted-foreground leading-[1.55]">
               No charges until your trial ends. Cancel anytime from the customer portal.
             </p>
           </div>
@@ -533,20 +531,20 @@ export default async function LandingPage() {
       {/* FOOTER — wordmark only (the rounded "C" tile in the nav was
           already a generic Stripe-Notion-Linear placeholder; doubling
           it in the footer made the brand read as not-yet-designed).
-          Footer keeps just the wordmark with a thin terracotta
-          underscore that matches the section accent. */}
-      <footer className="bg-white dark:bg-[#131826] border-t border-[#0F1733]/10 dark:border-white/10 px-6 py-14">
+          Footer keeps just the wordmark with a thin brand-violet
+          underscore that matches the in-app brand mark. */}
+      <footer className="bg-card border-t border-border px-6 py-14">
         <div className="max-w-[1280px] mx-auto grid md:grid-cols-6 gap-8">
           <div className="md:col-span-2">
             <Link href="/landing" className="inline-block mb-4">
-              <span className="font-semibold tracking-[-0.01em] text-[18px] text-[#0F1733] dark:text-white border-b-2 border-[#E85D2F] pb-0.5">
+              <span className="font-semibold tracking-[-0.01em] text-[18px] text-foreground border-b-2 border-brand pb-0.5">
                 Creator Outreach
               </span>
             </Link>
-            <p className="text-[13px] text-[#0F1733]/60 dark:text-white/60 leading-[1.55] max-w-[36ch]">
+            <p className="text-[13px] text-muted-foreground leading-[1.55] max-w-[36ch]">
               The modern way to source, score, and pitch creators. Built for the operators who actually send the messages.
             </p>
-            <div className="mt-6 text-[12px] text-[#0F1733]/50 dark:text-white/50">© 2026 Creator Outreach</div>
+            <div className="mt-6 text-[12px] text-muted-foreground">© 2026 Creator Outreach</div>
           </div>
           {/* "Customers" anchor was removed — there's no #customers
               section on the page, and footer links into nowhere are
@@ -570,14 +568,14 @@ export default async function LandingPage() {
 
 function SolutionTile({ icon, title, body, step }: { icon: React.ReactNode; title: string; body: string; step?: string }) {
   return (
-    <div className="group relative rounded-xl border border-[#0F1733]/10 dark:border-white/10 bg-white dark:bg-[#1A2034] p-6 hover:-translate-y-1 transition-transform overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(15,23,51,0.05)' }}>
+    <div className="group relative rounded-xl border border-border bg-card p-6 hover:-translate-y-1 transition-transform overflow-hidden shadow-sm shadow-foreground/[0.03]">
       {/* Hover affordance — arrow appears top-right on hover. Different
           from the platform-tile left-stripe and the resource-card
           chevron-trail; each card type has its own hover reveal so the
           page doesn't read as one repeated -translate-y-1 lift. */}
       <span
         aria-hidden
-        className="absolute top-4 right-4 text-[#E85D2F] opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-200"
+        className="absolute top-4 right-4 text-brand opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-200"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="7" y1="17" x2="17" y2="7" />
@@ -585,17 +583,17 @@ function SolutionTile({ icon, title, body, step }: { icon: React.ReactNode; titl
         </svg>
       </span>
       <div className="flex items-center gap-3 mb-4">
-        <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#E85D2F]/10 text-[#E85D2F] [&>svg]:w-5 [&>svg]:h-5">
+        <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-brand/10 text-brand [&>svg]:w-5 [&>svg]:h-5">
           {icon}
         </span>
         {step && (
-          <span className="text-[11px] uppercase tracking-[0.2em] text-[#0F1733]/40 dark:text-white/40 font-bold font-mono">
+          <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70 font-bold font-mono">
             Step {step}
           </span>
         )}
       </div>
-      <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2">{title}</h3>
-      <p className="text-[14px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">{body}</p>
+      <h3 className="text-[18px] font-semibold tracking-[-0.01em] mb-2 text-foreground">{title}</h3>
+      <p className="text-[14px] text-muted-foreground leading-[1.55]">{body}</p>
     </div>
   )
 }
@@ -608,7 +606,7 @@ function SolutionTile({ icon, title, body, step }: { icon: React.ReactNode; titl
  */
 function CustomizableChip() {
   return (
-    <div className="inline-flex items-center gap-1.5 mb-5 px-2.5 py-1 rounded-full bg-[#E85D2F]/10 border border-[#E85D2F]/30 text-[10px] uppercase tracking-[0.18em] font-bold text-[#9C3D1F] dark:text-[#F2A261] dark:bg-[#F2A261]/10 dark:border-[#F2A261]/30">
+    <div className="inline-flex items-center gap-1.5 mb-5 px-2.5 py-1 rounded-full bg-brand/10 border border-brand/30 text-[10px] uppercase tracking-[0.18em] font-bold text-brand dark:text-brand-2">
       <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" />
       </svg>
@@ -620,7 +618,7 @@ function CustomizableChip() {
 function Bullet({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5">
-      <span className="text-[#E85D2F] font-bold mt-0.5 shrink-0">✓</span>
+      <span className="text-brand font-bold mt-0.5 shrink-0">✓</span>
       <span>{children}</span>
     </li>
   )
@@ -640,6 +638,10 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
   // sits at the bottom of every card regardless of bullet count —
   // the Beta and Coming-soon cards have different feature counts,
   // and the CTAs need to align horizontally across both.
+  //
+  // Featured variant rides the brand violet→teal gradient (same gradient
+  // as the "C" tile mark and the hero CTA) so the recommended-plan card
+  // visually ties back to the brand. Non-featured sits on bg-card.
   return (
     <div
       // Both variants get a 1px border so the inner content area (and
@@ -650,23 +652,22 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
       // CTAs 2px apart in width.
       className={`rounded-2xl p-7 md:p-8 flex flex-col border ${
         featured
-          ? 'bg-[#0F1733] text-white border-transparent'
-          : 'bg-white dark:bg-[#131826] border-[#0F1733]/10 dark:border-white/10'
+          ? 'bg-gradient-to-br from-brand to-brand-2 text-primary-foreground border-transparent shadow-lg shadow-brand/30'
+          : 'bg-card text-foreground border-border'
       }`}
-      style={featured ? { boxShadow: '0 30px 60px -30px rgba(15,23,51,0.4)' } : undefined}
     >
-      <div className={`text-[13px] uppercase tracking-[0.18em] mb-3 font-semibold ${featured ? 'text-[#F2A261]' : 'text-[#E85D2F]'}`}>{tier}</div>
+      <div className={`text-[13px] uppercase tracking-[0.18em] mb-3 font-semibold ${featured ? 'text-primary-foreground/80' : 'text-brand'}`}>{tier}</div>
       <div className="font-semibold tracking-[-0.025em] mb-1" style={{ fontSize: 'clamp(2.25rem, 4vw, 3rem)' }}>{price}</div>
-      <div className={`text-[13px] mb-6 ${featured ? 'text-white/55' : 'text-[#0F1733]/55 dark:text-white/55'}`}>{priceSub}</div>
+      <div className={`text-[13px] mb-6 ${featured ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{priceSub}</div>
       <ul className="space-y-2.5 mb-7 text-[14px] flex-1">
         {features.map(f => (
           <li key={f} className="flex items-start gap-2.5">
-            <span className={featured ? 'text-[#F2A261] font-bold mt-0.5 shrink-0' : 'text-[#E85D2F] font-bold mt-0.5 shrink-0'}>✓</span>
-            <span className={featured ? 'text-white/90' : 'text-[#0F1733]/85 dark:text-white/85'}>{f}</span>
+            <span className={featured ? 'text-primary-foreground font-bold mt-0.5 shrink-0' : 'text-brand font-bold mt-0.5 shrink-0'}>✓</span>
+            <span className={featured ? 'text-primary-foreground/90' : 'text-foreground/85'}>{f}</span>
           </li>
         ))}
       </ul>
-      <Link href={ctaHref} className={`mt-auto flex w-full items-center justify-center gap-1.5 px-5 py-3 rounded-md font-semibold text-[15px] whitespace-nowrap transition-colors ${featured ? 'bg-white text-[#0F1733] hover:bg-[#F2A261]' : 'bg-[#0F1733] text-white hover:bg-[#E85D2F]'}`}>
+      <Link href={ctaHref} className={`mt-auto flex w-full items-center justify-center gap-1.5 px-5 py-3 rounded-md font-semibold text-[15px] whitespace-nowrap transition-opacity ${featured ? 'bg-background text-foreground hover:opacity-90' : 'bg-gradient-to-br from-brand to-brand-2 text-primary-foreground hover:opacity-90 shadow-sm shadow-brand/20'}`}>
         {cta} <span aria-hidden>→</span>
       </Link>
     </div>
@@ -677,11 +678,11 @@ function PricingCard({ tier, price, priceSub, features, cta, ctaHref, featured =
 function FooterCol({ heading, links }: { heading: string; links: [string, string][] }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/50 dark:text-white/50 mb-4 font-semibold">{heading}</div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-4 font-semibold">{heading}</div>
       <ul className="space-y-2">
         {links.map(([label, href]) => (
           <li key={label}>
-            <Link href={href} className="text-[13px] text-[#0F1733]/70 dark:text-white/70 hover:text-[#0F1733] transition-colors">{label}</Link>
+            <Link href={href} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">{label}</Link>
           </li>
         ))}
       </ul>
@@ -697,12 +698,12 @@ function FooterCol({ heading, links }: { heading: string; links: [string, string
 function FooterColPlaceholder({ heading, labels }: { heading: string; labels: string[] }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-[0.18em] text-[#0F1733]/50 dark:text-white/50 mb-4 font-semibold">{heading}</div>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-4 font-semibold">{heading}</div>
       <ul className="space-y-2">
         {labels.map(label => (
-          <li key={label} className="text-[13px] text-[#0F1733]/55 dark:text-white/55">
+          <li key={label} className="text-[13px] text-muted-foreground">
             {label}
-            <span className="ml-1.5 text-[11px] uppercase tracking-[0.14em] text-[#0F1733]/40 dark:text-white/40">— soon</span>
+            <span className="ml-1.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/70">— soon</span>
           </li>
         ))}
       </ul>
