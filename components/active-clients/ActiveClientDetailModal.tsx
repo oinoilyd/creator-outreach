@@ -420,71 +420,89 @@ export function ActiveClientDetailModal({
           </div>
         </div>
 
-        {/* Lifecycle action bar — anchored at the bottom of the modal
-            and styled as a real footer-bar so it doesn't get lost.
-            Active state is a FILLED button (vs subtle tint) so the
-            current lifecycle reads unambiguously even at a glance.
-            The activity-log link sits beneath "Currently: X" — it's
-            the one place users go to audit history but they shouldn't
-            see the timeline by default (it pulls attention away from
-            editing). */}
-        <div className="px-5 py-4 border-t border-border bg-muted/40">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <div className="text-[10.5px] uppercase tracking-wider font-semibold text-muted-foreground">
-                Set lifecycle
-              </div>
-              <div className="text-[11px] text-muted-foreground/75 mt-0.5 flex items-center gap-2 flex-wrap">
-                <span>
-                  Currently:{' '}
-                  <span className="font-semibold text-foreground">{labelForLifecycle(lifecycle)}</span>
+        {/* Lifecycle footer — redesigned 2026-05-23 per Dylan
+            ("the bottom where it's like active churned etc, that
+            can be visually different/better"). Treat the current
+            state as the HERO and the lifecycle buttons as actions,
+            instead of 4 equal buttons with one filled.
+
+            Top row: live pulse dot + uppercase state name in state
+            color + contextual one-line description ("This engagement
+            is in motion" etc) + activity log link aligned right.
+
+            Bottom row: 4-button lifecycle ladder. The current state
+            is filled with state color + soft glow; idle states get
+            a hint of their accent on hover. Buttons lift on hover
+            (translate-y-px) so they read as interactive cards. */}
+        <div className="px-5 pt-4 pb-5 border-t border-border bg-muted/40">
+          <div className="flex items-center gap-3 mb-3.5 flex-wrap">
+            {/* Live pulse dot — color matches current state. Pulses
+                via the same Tailwind ping animation used on the
+                marketing site's "Live" badge. */}
+            <span
+              aria-hidden
+              className={`relative inline-flex items-center justify-center w-2.5 h-2.5 rounded-full shrink-0 ${lifecycleDotBg(lifecycle)}`}
+            >
+              <span className={`absolute inset-0 rounded-full ${lifecycleDotBg(lifecycle)} animate-ping opacity-70`} />
+            </span>
+            {/* State name + description. */}
+            <div className="flex items-baseline gap-2.5 min-w-0 flex-1">
+              <span className={`text-[14px] font-bold tracking-[0.04em] uppercase whitespace-nowrap ${lifecycleTextColor(lifecycle)}`}>
+                {labelForLifecycle(lifecycle)}
+              </span>
+              <span className="text-[12px] text-muted-foreground truncate">
+                {lifecycleDescription(lifecycle)}
+              </span>
+            </div>
+            {/* Activity log — right-aligned, subtle but discoverable. */}
+            <button
+              type="button"
+              onClick={() => setActivityLogOpen(true)}
+              className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              <Activity className="w-3.5 h-3.5" aria-hidden />
+              <span>Activity log</span>
+              {(entry.clientActivity ?? []).length > 0 && (
+                <span className="tabular-nums text-muted-foreground/65">
+                  ({(entry.clientActivity ?? []).length})
                 </span>
-                <span className="text-muted-foreground/40">·</span>
-                <button
-                  type="button"
-                  onClick={() => setActivityLogOpen(true)}
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors"
-                >
-                  <Activity className="w-3 h-3" aria-hidden />
-                  Activity log
-                  {(entry.clientActivity ?? []).length > 0 && (
-                    <span className="tabular-nums text-muted-foreground/65">
-                      ({(entry.clientActivity ?? []).length})
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <LifecycleAction
-                icon={<Play className="w-3.5 h-3.5" />}
-                label="Active"
-                accent="green"
-                isActive={lifecycle === 'active'}
-                onClick={() => setLifecycle('active')}
-              />
-              <LifecycleAction
-                icon={<Pause className="w-3.5 h-3.5" />}
-                label="Paused"
-                accent="amber"
-                isActive={lifecycle === 'paused'}
-                onClick={() => setLifecycle('paused')}
-              />
-              <LifecycleAction
-                icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                label="Completed"
-                accent="blue"
-                isActive={lifecycle === 'completed'}
-                onClick={() => setLifecycle('completed')}
-              />
-              <LifecycleAction
-                icon={<XCircle className="w-3.5 h-3.5" />}
-                label="Churned"
-                accent="rose"
-                isActive={lifecycle === 'churned'}
-                onClick={() => setLifecycle('churned')}
-              />
-            </div>
+              )}
+              <span aria-hidden className="text-muted-foreground/50">→</span>
+            </button>
+          </div>
+
+          {/* Lifecycle ladder — 4 designed buttons. Grid layout so
+              they share equal width on desktop; stacks 2×2 on
+              narrow viewports for thumb-friendly tapping. */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <LifecycleAction
+              icon={<Play className="w-3.5 h-3.5" />}
+              label="Active"
+              accent="green"
+              isActive={lifecycle === 'active'}
+              onClick={() => setLifecycle('active')}
+            />
+            <LifecycleAction
+              icon={<Pause className="w-3.5 h-3.5" />}
+              label="Paused"
+              accent="amber"
+              isActive={lifecycle === 'paused'}
+              onClick={() => setLifecycle('paused')}
+            />
+            <LifecycleAction
+              icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+              label="Completed"
+              accent="blue"
+              isActive={lifecycle === 'completed'}
+              onClick={() => setLifecycle('completed')}
+            />
+            <LifecycleAction
+              icon={<XCircle className="w-3.5 h-3.5" />}
+              label="Churned"
+              accent="rose"
+              isActive={lifecycle === 'churned'}
+              onClick={() => setLifecycle('churned')}
+            />
           </div>
         </div>
       </motion.div>
@@ -554,22 +572,22 @@ function LifecycleAction({
   isActive: boolean
   onClick: () => void
 }) {
-  // Filled in active state so the current lifecycle is unambiguous —
-  // a glance at the bar tells you which slot you're in without
-  // having to compare tint intensities.
+  // Active state: filled with state color + soft glow shadow. The
+  // shadow uses the matching color/30 so the button "lifts" off the
+  // muted footer background, signaling "this is where you are."
   const activeFilled: Record<'green' | 'amber' | 'blue' | 'rose', string> = {
-    green: 'bg-green-500 hover:bg-green-500 border-green-500 text-white shadow-sm shadow-green-500/30',
-    amber: 'bg-amber-500 hover:bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-500/30',
-    blue:  'bg-blue-500  hover:bg-blue-500  border-blue-500  text-white shadow-sm shadow-blue-500/30',
-    rose:  'bg-rose-500  hover:bg-rose-500  border-rose-500  text-white shadow-sm shadow-rose-500/30',
+    green: 'bg-green-500 border-green-500 text-white shadow-md shadow-green-500/35 ring-1 ring-green-500/20',
+    amber: 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/35 ring-1 ring-amber-500/20',
+    blue:  'bg-blue-500  border-blue-500  text-white shadow-md shadow-blue-500/35  ring-1 ring-blue-500/20',
+    rose:  'bg-rose-500  border-rose-500  text-white shadow-md shadow-rose-500/35  ring-1 ring-rose-500/20',
   }
-  // Idle state — accent-tinted hover so each button still hints at
-  // its color before the user commits.
+  // Idle state — accent-tinted hover. Buttons lift on hover
+  // (translate-y-px) for an interactive-card feel.
   const idleStyles: Record<'green' | 'amber' | 'blue' | 'rose', string> = {
-    green: 'bg-background border-border text-muted-foreground hover:text-green-700 dark:hover:text-green-300 hover:border-green-500/40 hover:bg-green-500/5',
-    amber: 'bg-background border-border text-muted-foreground hover:text-amber-700 dark:hover:text-amber-300 hover:border-amber-500/40 hover:bg-amber-500/5',
-    blue:  'bg-background border-border text-muted-foreground hover:text-blue-700  dark:hover:text-blue-300  hover:border-blue-500/40  hover:bg-blue-500/5',
-    rose:  'bg-background border-border text-muted-foreground hover:text-rose-700  dark:hover:text-rose-300  hover:border-rose-500/40  hover:bg-rose-500/5',
+    green: 'bg-background border-border text-foreground/70 hover:text-green-700 dark:hover:text-green-300 hover:border-green-500/50 hover:bg-green-500/[0.06] hover:shadow-sm hover:shadow-green-500/15 hover:-translate-y-px',
+    amber: 'bg-background border-border text-foreground/70 hover:text-amber-700 dark:hover:text-amber-300 hover:border-amber-500/50 hover:bg-amber-500/[0.06] hover:shadow-sm hover:shadow-amber-500/15 hover:-translate-y-px',
+    blue:  'bg-background border-border text-foreground/70 hover:text-blue-700  dark:hover:text-blue-300  hover:border-blue-500/50  hover:bg-blue-500/[0.06]  hover:shadow-sm hover:shadow-blue-500/15  hover:-translate-y-px',
+    rose:  'bg-background border-border text-foreground/70 hover:text-rose-700  dark:hover:text-rose-300  hover:border-rose-500/50  hover:bg-rose-500/[0.06]  hover:shadow-sm hover:shadow-rose-500/15  hover:-translate-y-px',
   }
   return (
     <button
@@ -578,18 +596,16 @@ function LifecycleAction({
       aria-pressed={isActive}
       title={label}
       className={[
-        // Larger tap target on mobile (44px height satisfies iOS HIG);
-        // tighter on desktop where you have a mouse pointer.
-        'inline-flex items-center gap-1.5 rounded-md border text-[12.5px] font-semibold transition-colors max-sm:px-2.5 max-sm:py-2 sm:px-3 sm:py-1.5',
+        // Equal-width grid item (parent uses grid-cols-2/4). Buttons
+        // are now block-level so they fill the grid cell — no more
+        // "tight on mouse, generous on touch" branch since the grid
+        // handles sizing. Vertical layout: icon left, label right.
+        'inline-flex items-center justify-center gap-2 rounded-lg border text-[13px] font-semibold transition-all duration-150 py-2.5 px-3',
         isActive ? activeFilled[accent] : idleStyles[accent],
       ].join(' ')}
     >
       {icon}
-      {/* Label hides below sm to keep all 4 lifecycle buttons on one
-          row on phones. Title attr above provides the same info on
-          long-press, and screen readers still get the aria-pressed
-          state + the visible icon. */}
-      <span className="max-sm:sr-only">{label}</span>
+      <span>{label}</span>
     </button>
   )
 }
@@ -598,6 +614,51 @@ function LifecycleAction({
 
 function labelForLifecycle(l: ClientLifecycle): string {
   return l.charAt(0).toUpperCase() + l.slice(1)
+}
+
+/**
+ * One-line contextual description for the current lifecycle state.
+ * Shown next to the big state name at the top of the footer so the
+ * user understands what the state MEANS, not just its label.
+ */
+function lifecycleDescription(l: ClientLifecycle): string {
+  switch (l) {
+    case 'active':    return 'In motion — engagement is currently progressing.'
+    case 'paused':    return 'Holding pattern — no active work right now.'
+    case 'completed': return 'Closed — engagement wrapped successfully.'
+    case 'churned':   return 'Ended — engagement closed without completion.'
+    default:          return ''
+  }
+}
+
+/**
+ * Tailwind background class for the pulse dot — matches the lifecycle
+ * accent color. Used for the live pulse indicator at the top of the
+ * footer.
+ */
+function lifecycleDotBg(l: ClientLifecycle): string {
+  switch (l) {
+    case 'active':    return 'bg-green-500'
+    case 'paused':    return 'bg-amber-500'
+    case 'completed': return 'bg-blue-500'
+    case 'churned':   return 'bg-rose-500'
+    default:          return 'bg-muted-foreground'
+  }
+}
+
+/**
+ * Text color for the uppercase state name in the footer hero. Matches
+ * the lifecycle accent. Dark-mode variant a touch lighter so it
+ * reads against the muted bg.
+ */
+function lifecycleTextColor(l: ClientLifecycle): string {
+  switch (l) {
+    case 'active':    return 'text-green-700 dark:text-green-300'
+    case 'paused':    return 'text-amber-700 dark:text-amber-300'
+    case 'completed': return 'text-blue-700 dark:text-blue-300'
+    case 'churned':   return 'text-rose-700 dark:text-rose-300'
+    default:          return 'text-foreground'
+  }
 }
 
 function formatMoney(amount: number, currency: string): string {
