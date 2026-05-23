@@ -47,7 +47,12 @@ interface CacheEntryUnavailable {
   fetchedAt: string
 }
 
-const cacheKey = (handle: string) => `ig-metrics:v1:${handle}`
+// MUST stay in sync with /api/instagram-fetch's igMetricsCacheKey.
+// 2026-05-23: bumped v1 → v2 alongside the per-failure-mode TTL fix
+// in the worker. Catastrophic if these drift — the writer would
+// write to one key and the reader would check the other, producing
+// a 0% fill rate (Dylan caught this within minutes of the deploy).
+const cacheKey = (handle: string) => `ig-metrics:v2:${handle.toLowerCase()}`
 
 export async function GET(req: NextRequest) {
   const auth = await requireUser()
@@ -93,12 +98,26 @@ export async function GET(req: NextRequest) {
   //    handle; subsequent searches see the cached result for 7 days.
   const scraped = await scrapeInstagramProfile(handle)
   if (!scraped) {
-    // Tombstone — don't retry this handle for 24h.
-    await cacheSet(cacheKey(handle), { unavailable: true, fetchedAt: new Date().toISOString() }, 60 * 60 * 24)
+    // 2026-05-23: dropped scrape-fail tombstone TTL from 24h → 5min.
+    // The original 24h was the same anti-pattern that killed the
+    // Meta-API fill rate (single rate-limit / login-wall poisoned
+    // a handle for a full day). Public IG login walls are usually
+    // a few-minute transient throttle, not a permanent state, so
+    // 5min lets us retry on the next search after a brief cooldown.
+    await cacheSet(
+      cacheKey(handle),
+      {
+        unavailable: true,
+        reason: 'scrape_failed',
+        detail: 'IG returned login wall or 404',
+        fetchedAt: new Date().toISOString(),
+      },
+      5 * 60,
+    )
     return NextResponse.json({
       status: 'unavailable',
       handle,
-      reason: 'IG returned login wall or 404',
+      reason: 'not resolvable — scrape returned login wall or 404',
     })
   }
 
