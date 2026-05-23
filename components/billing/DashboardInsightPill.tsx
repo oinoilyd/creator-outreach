@@ -262,7 +262,7 @@ function readCache(uid: string): CachedDashboardInsight | null {
     // forces a refetch so users on the old cache see the new
     // detector output immediately on next page load instead of
     // waiting out the 24h TTL.
-    const raw = window.localStorage.getItem(`creator-outreach.dashboard-insight-v3.${uid}`)
+    const raw = window.localStorage.getItem(`creator-outreach.dashboard-insight-v4.${uid}`)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<CachedDashboardInsight>
     if (
@@ -285,7 +285,7 @@ function writeCache(uid: string, value: CachedDashboardInsight): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(
-      `creator-outreach.dashboard-insight-v3.${uid}`,
+      `creator-outreach.dashboard-insight-v4.${uid}`,
       JSON.stringify(value),
     )
   } catch { /* localStorage unavailable */ }
