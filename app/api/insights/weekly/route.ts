@@ -43,6 +43,13 @@ interface InsightMetrics {
   byMedium: Record<'Email' | 'LinkedIn' | 'Other', { reached: number; won: number }>
 }
 
+/** Analytics layouts surface different lenses on the same data. The
+ *  insight is more useful when it leans into what the user is
+ *  currently looking at, rather than narrating the whole pipeline
+ *  every time. Each layout gets a different "focus" guidance line
+ *  in the prompt. */
+type InsightLayout = 'overview' | 'sales' | 'active' | 'cash' | 'activity'
+
 interface InsightRequestBody {
   /** Current period metrics (already-computed client-side). */
   current: InsightMetrics
@@ -50,6 +57,9 @@ interface InsightRequestBody {
   previous?: InsightMetrics
   /** Human label for the current period ("Last 30 days"). */
   rangeLabel: string
+  /** Which analytics layout the user is viewing. Drives the prompt's
+   *  focus line. Optional for backward compat (defaults to overview). */
+  layout?: InsightLayout
 }
 
 interface InsightResponse {
@@ -90,7 +100,11 @@ export async function POST(req: NextRequest) {
   }
 
   const safeRangeLabel = (body.rangeLabel || 'this period').slice(0, 60)
-  const prompt = buildPrompt(body.current, body.previous, safeRangeLabel)
+  const layout: InsightLayout = (
+    body.layout === 'sales' || body.layout === 'active' ||
+    body.layout === 'cash' || body.layout === 'activity'
+  ) ? body.layout : 'overview'
+  const prompt = buildPrompt(body.current, body.previous, safeRangeLabel, layout)
 
   try {
     const message = await client.messages.create({
@@ -122,10 +136,26 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function buildPrompt(current: InsightMetrics, previous: InsightMetrics | undefined, rangeLabel: string): string {
+/** Per-layout "focus" guidance — tells the model which slice of the
+ *  metrics to lean into. The data block stays the full payload so the
+ *  model still has context; the focus line shapes what gets surfaced. */
+const LAYOUT_FOCUS: Record<InsightLayout, string> = {
+  overview: 'FOCUS: broad pipeline view. Pick whichever metric moved most — outreach volume, conversion, revenue, or engagement. No single lens; surface what is most newsworthy across the whole funnel.',
+  sales: 'FOCUS: outreach → win conversion. Lean into response rate, win rate, by-medium performance (Email vs LinkedIn vs Other), velocity of reach-outs, stale follow-ups. Do NOT discuss engagement-side details (lifecycle, ratings, repeat likelihood) — those are a separate lens.',
+  active: 'FOCUS: active-client health. Lean into how many are active right now, lifecycle distribution (paused / completed / churned), completed engagements, and — if data exists — average satisfaction and repeat likelihood. Do NOT discuss outreach response rates or by-medium volume.',
+  cash: 'FOCUS: money. Lean into total booked, personal revenue (net of team splits), avg deal value, completed-engagement realised value, and pipeline $. If a team split exists (totalCollaboratorShare > 0), mention what fraction of booked the user keeps. Do NOT discuss lifecycle quality or response rates.',
+  activity: 'FOCUS: cadence and velocity. Lean into addedLast7, reachedLast7, wonLast30 — how active has the user been recently? Are they speeding up or slowing down? Do NOT discuss lifecycle quality, satisfaction ratings, or medium breakdowns unless directly tied to a velocity change.',
+}
+
+function buildPrompt(
+  current: InsightMetrics,
+  previous: InsightMetrics | undefined,
+  rangeLabel: string,
+  layout: InsightLayout,
+): string {
   // Surface the most newsworthy delta — bucket the current+previous
   // numbers into a clean comparison block. Model decides which to lead
-  // with based on size of change.
+  // with based on size of change AND the layout focus line below.
   const deltaBlock = previous
     ? `Previous period (same length, immediately before):
 ${JSON.stringify(previous, null, 2)}`
@@ -135,11 +165,13 @@ ${JSON.stringify(previous, null, 2)}`
 
 CRITICAL FORMATTING:
 - Plain prose, no markdown, no bullet points, no emoji.
-- Lead with the single most newsworthy trend or anomaly (biggest change vs previous, or biggest absolute number if no previous).
+- Lead with the single most newsworthy trend or anomaly within the focus area (biggest change vs previous, or biggest absolute number if no previous).
 - Include at least one specific number from the data.
 - Close with one short, opinionated, actionable suggestion ("double down on LinkedIn", "follow up on the 4 stale opens", etc.).
 - Do NOT hedge ("you might consider", "perhaps"). Direct, useful, opinionated.
 - Refer to the user in second person ("you", "your").
+
+${LAYOUT_FOCUS[layout]}
 
 Current period (${rangeLabel}):
 ${JSON.stringify(current, null, 2)}

@@ -30,8 +30,16 @@ interface AnalyticsInsightCardProps {
   previous?: ComputedMetrics
   /** Display label for the current range ("Last 30 days"). */
   rangeLabel: string
-  /** Cache key suffix so each user gets their own cached insight. */
+  /** Cache key suffix so each user gets their own cached insight.
+   *  Should include layout + range so switching either invalidates
+   *  the cache and triggers a fresh fetch. */
   cacheKey: string
+  /** Which analytics layout the user is on. Forwarded to the API
+   *  so Claude leans into the right slice of metrics. */
+  layout?: 'overview' | 'sales' | 'active' | 'cash' | 'activity'
+  /** Pretty name for the current layout — shown as a chip next to
+   *  the range so the user can see what the AI is narrating. */
+  layoutLabel?: string
 }
 
 interface CachedInsight {
@@ -96,7 +104,7 @@ function writeCache(cacheKey: string, value: CachedInsight): void {
 }
 
 export function AnalyticsInsightCard({
-  current, previous, rangeLabel, cacheKey,
+  current, previous, rangeLabel, cacheKey, layout, layoutLabel,
 }: AnalyticsInsightCardProps) {
   const [insight, setInsight] = useState<string>('')
   const [generatedAt, setGeneratedAt] = useState<number | null>(null)
@@ -118,6 +126,7 @@ export function AnalyticsInsightCard({
           current: projectForServer(current),
           previous: previous ? projectForServer(previous) : undefined,
           rangeLabel,
+          layout,
         }),
       })
       const json = await res.json() as { insight?: string; generatedAt?: number; error?: string }
@@ -181,6 +190,15 @@ export function AnalyticsInsightCard({
               <h3 className="text-[13.5px] font-semibold text-foreground tracking-tight">
                 Weekly insight
               </h3>
+              {/* Layout chip — narrated alongside the range so the
+                  user knows which lens the AI is focused on. Subtle
+                  purple tint differentiates from the neutral range
+                  chip. */}
+              {layoutLabel && (
+                <span className="text-[10.5px] text-purple-700 dark:text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded font-medium">
+                  {layoutLabel}
+                </span>
+              )}
               <span className="text-[10.5px] text-muted-foreground/75 bg-muted/60 px-1.5 py-0.5 rounded">
                 {rangeLabel}
               </span>

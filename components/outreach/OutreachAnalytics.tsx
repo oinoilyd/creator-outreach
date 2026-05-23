@@ -248,6 +248,8 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
         previous={pm ?? undefined}
         rangeLabel={range.label}
         cacheKey={`${layout}-${rangeId}`}
+        layout={layout}
+        layoutLabel={currentLayout.title}
       />
 
       {/* ── Layout body with motion transition ────────────────── */}
