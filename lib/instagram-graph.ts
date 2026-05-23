@@ -148,20 +148,54 @@ export function extractInstagramHandle(input: string): string {
 }
 
 /**
- * Fetch IG metrics via Meta Business Discovery. Returns null when:
- *   - env vars missing (graceful degrade)
- *   - target account is personal (Meta returns no business_discovery)
- *   - target account doesn't exist
- *   - API error (logged, not thrown)
+ * Discriminated result from fetchInstagramMetrics. Lets the caller
+ * (e.g. /api/instagram-fetch) distinguish "this account is genuinely
+ * a personal IG and won't ever return metrics" (long cache TTL is
+ * fine) from "transient failure — try again in 5 min" (short TTL).
  *
- * Caller should treat null as "no metrics available, skip storage."
+ * Added 2026-05-23 to fix the fill-rate regression: the prior code
+ * returned `null` for every failure and the worker cached a 24h
+ * "unavailable" tombstone, so one Meta API outage / rate-limit burst
+ * could poison hundreds of valid Business accounts for a full day.
  */
-export async function fetchInstagramMetrics(handle: string): Promise<InstagramGraphMetrics | null> {
+export type InstagramFetchResult =
+  | { status: 'ok'; metrics: InstagramGraphMetrics }
+  /** Confirmed personal/unauthorized account — caller may cache long. */
+  | { status: 'personal'; reason: string }
+  /** Confirmed not-found — caller may cache long. */
+  | { status: 'not_found'; reason: string }
+  /** Rate-limited by Meta. Caller should cache SHORT and retry soon. */
+  | { status: 'rate_limited'; reason: string }
+  /** Token expired / auth failure. Caller should cache SHORT — we
+   *  need to refresh the token, not blacklist the handle. */
+  | { status: 'auth_error'; reason: string }
+  /** Network error / abort / unknown. Caller should cache SHORT. */
+  | { status: 'transient'; reason: string }
+  /** Env not configured — graceful degrade. */
+  | { status: 'not_configured'; reason: string }
+
+/**
+ * Fetch IG metrics via Meta Business Discovery. Returns a
+ * discriminated result so the caller can choose the right cache TTL
+ * for each failure mode (see InstagramFetchResult above).
+ *
+ * Common Meta error codes seen in practice:
+ *   - 110: "Not a valid Instagram Business or Creator Account" (personal)
+ *   - 100: "Object with ID ... does not exist" (account doesn't exist)
+ *   - 24:  "Application request limit reached" (rate limit)
+ *   - 4:   "Application request limit reached" (rate limit, alt code)
+ *   - 17:  "User request limit reached" (per-user rate limit)
+ *   - 190: "Invalid OAuth access token" (refresh needed)
+ *   - 102: "Session has expired"
+ */
+export async function fetchInstagramMetrics(handle: string): Promise<InstagramFetchResult> {
   if (!isInstagramGraphConfigured()) {
-    return null
+    return { status: 'not_configured', reason: 'Meta env vars missing' }
   }
   const cleaned = extractInstagramHandle(handle)
-  if (!cleaned) return null
+  if (!cleaned) {
+    return { status: 'not_found', reason: `could not extract handle from "${handle}"` }
+  }
 
   const igBusinessId = process.env.META_IG_BUSINESS_ID!
   const token = process.env.META_LONG_LIVED_TOKEN!
@@ -202,22 +236,47 @@ export async function fetchInstagramMetrics(handle: string): Promise<InstagramGr
       `[ig-graph] fetch ${isAbort ? 'timed out (10s)' : 'failed'} for @${cleaned}:`,
       msg,
     )
-    return null
+    return { status: 'transient', reason: isAbort ? 'fetch timed out (10s)' : `network error: ${msg}` }
   }
 
   if (json.error) {
-    // Common errors:
-    //   - code 110: "Not a valid Instagram Business or Creator Account" (personal acct)
-    //   - code 24: "Application request limit reached" (rate limit)
-    //   - code 190: "Invalid OAuth access token" (expired token, refresh)
-    console.warn(`[ig-graph] API error @${cleaned} code=${json.error.code} msg="${json.error.message}"`)
-    return null
+    const code = json.error.code
+    const msg = json.error.message
+    console.warn(`[ig-graph] API error @${cleaned} code=${code} msg="${msg}"`)
+
+    // Rate limit family — short cache so we retry within minutes,
+    // not days. Meta gives us 200 calls/hour total on Business
+    // Discovery, but bursty workloads can throttle individual
+    // handles even when we're under the global cap.
+    if (code === 4 || code === 17 || code === 24 || code === 32 || code === 613) {
+      return { status: 'rate_limited', reason: `Meta rate limit (code ${code}): ${msg}` }
+    }
+    // Auth — also short cache because we need to fix our token,
+    // not blacklist the handle.
+    if (code === 102 || code === 190) {
+      return { status: 'auth_error', reason: `auth error (code ${code}): ${msg}` }
+    }
+    // Account doesn't exist (code 100 is the typical "does not
+    // exist" object-not-found family).
+    if (code === 100) {
+      return { status: 'not_found', reason: `not found (code 100): ${msg}` }
+    }
+    // Confirmed personal / unauthorized account.
+    if (code === 110) {
+      return { status: 'personal', reason: `personal IG account (code 110)` }
+    }
+    // Unknown error code — treat as transient so we retry instead
+    // of locking the handle in for a day.
+    return { status: 'transient', reason: `API error code=${code}: ${msg}` }
   }
 
   const bd = json.business_discovery
   if (!bd) {
-    console.log(`[ig-graph] no business_discovery for @${cleaned} (personal account or not found)`)
-    return null
+    // No error AND no business_discovery — usually means the user
+    // is private/personal but Meta didn't return error code 110.
+    // Cache as 'personal' so we don't retry forever.
+    console.log(`[ig-graph] no business_discovery for @${cleaned} (likely personal account or private)`)
+    return { status: 'personal', reason: 'no business_discovery in response' }
   }
 
   const recentMedia = (bd.media?.data || []).map(m => ({
@@ -239,17 +298,20 @@ export async function fetchInstagramMetrics(handle: string): Promise<InstagramGr
     bd.followers_count > 0 ? avgEngagementPerPost / bd.followers_count : 0
 
   return {
-    username: bd.username,
-    followers: bd.followers_count,
-    follows: bd.follows_count,
-    mediaCount: bd.media_count,
-    biography: bd.biography || '',
-    website: bd.website || '',
-    profilePictureUrl: bd.profile_picture_url || '',
-    name: bd.name || '',
-    recentMedia,
-    avgLikesPerPost,
-    engagementRate,
-    fetchedAt: new Date().toISOString(),
+    status: 'ok',
+    metrics: {
+      username: bd.username,
+      followers: bd.followers_count,
+      follows: bd.follows_count,
+      mediaCount: bd.media_count,
+      biography: bd.biography || '',
+      website: bd.website || '',
+      profilePictureUrl: bd.profile_picture_url || '',
+      name: bd.name || '',
+      recentMedia,
+      avgLikesPerPost,
+      engagementRate,
+      fetchedAt: new Date().toISOString(),
+    },
   }
 }

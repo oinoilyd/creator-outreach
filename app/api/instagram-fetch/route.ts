@@ -23,9 +23,16 @@ interface JobPayload {
   ytChannelId?: string
 }
 
-/** Cache key for IG metrics. Lowercased handle, no @. */
+/** Cache key for IG metrics. Lowercased handle, no @.
+ *
+ * 2026-05-23: bumped v1 → v2 alongside the TTL-per-failure-mode
+ * fix. The bump invalidates all existing 24h tombstones from the
+ * legacy single-TTL code path, so users see the fill-rate
+ * improvement immediately on next search rather than having to
+ * wait up to 24h for the old tombstones to age out. v2 entries
+ * are written by the new code with the per-mode TTLs. */
 function igMetricsCacheKey(handle: string): string {
-  return `ig-metrics:v1:${handle.toLowerCase()}`
+  return `ig-metrics:v2:${handle.toLowerCase()}`
 }
 
 /** Service-role Supabase client. Bypasses RLS — only the worker uses this. */
@@ -85,14 +92,54 @@ export async function POST(req: NextRequest) {
   }
 
   // 6. Hit Meta Graph API.
-  const metrics = await fetchInstagramMetrics(handle)
-  if (!metrics) {
-    // Personal account, doesn't exist, rate-limited, or token expired.
-    // Cache a tombstone for 1 day so we don't retry on every search.
-    await cacheSet(cacheKey, { unavailable: true, fetchedAt: new Date().toISOString() }, 60 * 60 * 24)
-    console.log(`[ig-fetch] no metrics for @${handle} (likely personal account)`)
-    return NextResponse.json({ unavailable: true })
+  //
+  // 2026-05-23 per Dylan: BIG fix. Previously every non-ok result
+  // got a 24h "unavailable" tombstone — one Meta rate-limit burst
+  // or transient outage could poison hundreds of valid Business
+  // accounts for a full day, killing the fill rate. fetchInstagramMetrics
+  // now returns a discriminated result so we can right-size the
+  // TTL per failure mode:
+  //
+  //   - 'ok'             → real metrics, full creatorEnrichment TTL (7d)
+  //   - 'personal'       → confirmed personal account, 7d TTL (won't
+  //                        change soon — long cache is fine)
+  //   - 'not_found'      → confirmed account doesn't exist, 7d TTL
+  //   - 'rate_limited'   → Meta throttled us — 5 min TTL, retry soon
+  //   - 'auth_error'     → our token broke — 5 min TTL, fix env then retry
+  //   - 'transient'      → network / timeout / unknown — 5 min TTL
+  //   - 'not_configured' → no env, skip entirely (no tombstone)
+  const SHORT_FAILURE_TTL = 5 * 60        // 5 min — retry transient failures soon
+  const LONG_FAILURE_TTL = 60 * 60 * 24 * 7 // 7 days — confirmed personal/not-found
+
+  const result = await fetchInstagramMetrics(handle)
+
+  if (result.status === 'not_configured') {
+    console.log(`[ig-fetch] not configured for @${handle}, skipping (no tombstone)`)
+    return NextResponse.json({ skipped: 'not configured' })
   }
+
+  if (result.status !== 'ok') {
+    const ttl =
+      result.status === 'personal' || result.status === 'not_found'
+        ? LONG_FAILURE_TTL
+        : SHORT_FAILURE_TTL
+    await cacheSet(
+      cacheKey,
+      {
+        unavailable: true,
+        reason: result.status,
+        detail: result.reason,
+        fetchedAt: new Date().toISOString(),
+      },
+      ttl,
+    )
+    console.log(
+      `[ig-fetch] @${handle} → ${result.status} (TTL ${ttl}s): ${result.reason}`,
+    )
+    return NextResponse.json({ unavailable: true, reason: result.status })
+  }
+
+  const metrics = result.metrics
 
   // 7. Write to Redis (hot cache, 7d TTL).
   await cacheSet(cacheKey, metrics, CACHE_TTL.creatorEnrichment)
