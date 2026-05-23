@@ -289,6 +289,49 @@ function SectionLabel({ label }: { label: string }) {
 }
 
 // ── Variant 1: Merged super-items ────────────────────────────────────
+// The 3 grouped items (Settings / Appearance / Help & Info) expand
+// inline in the preview so the reader can see what each contains.
+// In production those would open a tabbed modal or popover — the
+// inline expansion is just a preview affordance.
+
+function ExpandableRow({
+  icon, label, sublabel, children,
+}: {
+  icon: React.ReactNode
+  label: string
+  sublabel?: string
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+      >
+        <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm text-foreground font-medium leading-tight">{label}</div>
+          {sublabel && <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{sublabel}</div>}
+        </div>
+        {open
+          ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
+          : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60 mt-1 shrink-0" />}
+      </button>
+      {open && (
+        <div className="border-t border-border/40 bg-muted/20 py-1">
+          {children}
+          <div className="px-4 py-1.5 text-[10px] italic text-muted-foreground/60">
+            Preview only — in production this opens a focused modal/popover, not an inline accordion.
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 
 function MergedVariant() {
   return (
@@ -296,13 +339,26 @@ function MergedVariant() {
       <MenuHeader />
       <Row icon={<GraduationCap className="w-4 h-4" />} label="Take a tour" sublabel="90-second walkthrough" />
       <Divider />
-      <Row icon={<SettingsIcon className="w-4 h-4" />} label="Settings" sublabel="Profile, Lead Criteria, Templates" />
+      <ExpandableRow icon={<SettingsIcon className="w-4 h-4" />} label="Settings" sublabel="Profile, Lead Criteria, Templates">
+        <CompactRow icon={<User className="w-3.5 h-3.5" />} label="Profile" />
+        <CompactRow icon={<SettingsIcon className="w-3.5 h-3.5" />} label="Lead Criteria" />
+        <CompactRow icon={<FileText className="w-3.5 h-3.5" />} label="Templates" />
+      </ExpandableRow>
       <Row icon={<Download className="w-4 h-4" />} label="Import" sublabel="Outreach or Dismissed from Excel" />
       <Divider />
-      <Row icon={<Palette className="w-4 h-4" />} label="Appearance" sublabel="Theme, backdrop themes" />
+      <ExpandableRow icon={<Palette className="w-4 h-4" />} label="Appearance" sublabel="Theme, backdrop themes">
+        <CompactRow icon={<Sun className="w-3.5 h-3.5" />} label="Light mode" />
+        <CompactRow icon={<Moon className="w-3.5 h-3.5" />} label="Dark mode" />
+        <CompactRow icon={<Palette className="w-3.5 h-3.5" />} label="Themes (backdrop)" />
+        <CompactRow icon={<Sparkles className="w-3.5 h-3.5" />} label="Spotlight" />
+      </ExpandableRow>
       <Row icon={<CreditCard className="w-4 h-4" />} label="Subscription" sublabel="Trial · 14d left" />
       <Divider />
-      <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & Info" sublabel="Roadmap, Contact, Legal" />
+      <ExpandableRow icon={<HelpCircle className="w-4 h-4" />} label="Help & Info" sublabel="Roadmap, Contact, Legal">
+        <CompactRow icon={<Map className="w-3.5 h-3.5" />} label="Roadmap" />
+        <CompactRow icon={<Mail className="w-3.5 h-3.5" />} label="Contact us" />
+        <CompactRow icon={<Scale className="w-3.5 h-3.5" />} label="Legal" />
+      </ExpandableRow>
       <Divider />
       <Row icon={<LogOut className="w-4 h-4" />} label="Sign out" />
     </div>
