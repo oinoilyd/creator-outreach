@@ -1,18 +1,21 @@
 'use client'
 
 /**
- * PlatformBackdrop — animated theme layer (Rain / Drift / Fireworks).
+ * PlatformBackdrop — animated theme layer (Rain / Drift / Fireworks /
+ * Tornado).
  *
  * 2026-05-10 v5 per Dylan:
- *   • Fireworks is now spotlight-only — a phased ONE-SHOT 15-second
- *     show that auto-triggers when the user picks the theme. Phases:
- *       0–9s   scattered bursts at random points
- *       9–12s  ramp-up — bursts come faster and bigger
- *       12–15s GRAND FINALE — simultaneous mega-bursts ending with
- *              a "Creator Outreach" text easter-egg pop-up.
+ *   • Fireworks is now spotlight-only — a phased ONE-SHOT show that
+ *     auto-triggers when the user picks the theme. Phases:
+ *       0–4.5s   scattered bursts at random points
+ *       4.5–5.4s grand finale — simultaneous mega-bursts ending on
+ *                a dead-center capper.
  *     If theme === 'fireworks' but spotlight is off, the whole layer
  *     returns null (no continuous loop). Re-trigger via the spotlight
  *     button or by re-selecting Fireworks.
+ *
+ * 2026-05-23 per Dylan: dropped the "Creator Outreach" text easter
+ * egg that previously closed the fireworks show. Wasn't landing.
  *
  * Earlier (v4):
  *   • Re-key INNER layer on platform change so icons restart with the
@@ -227,8 +230,11 @@ function DriftLayer({ color, iconPath, boosted }: { color: string; iconPath: str
  *   Act 3 (12–14s):  GRAND FINALE — six near-simultaneous bursts
  *                    spread across the screen + one mega-burst dead
  *                    center.
- *   Easter egg (13–15s): "Creator Outreach" text drops in, peaks at
- *                    ~14s with platform-color glow, fades by 15s.
+ *
+ * 2026-05-23 per Dylan: the "Creator Outreach" easter-egg text was
+ * removed — "not good enough." Show now ends on the mega-burst with
+ * no wordmark reveal. Component left in for now but no longer
+ * referenced.
  *
  * No `repeat: Infinity` — every motion element plays exactly once,
  * so the layer goes idle after 15s. Parent clears spotlight at that
@@ -320,64 +326,11 @@ function FireworksShow({ color, iconPath }: { color: string; iconPath: string })
         </motion.svg>
       ))}
 
-      {/* Easter-egg text — drops in during the finale, gentle spring
-          rise, holds visible for ~1.8s, then fades. x/y translate
-          stays at -50% throughout so framer's `scale` keyframes don't
-          clobber the centering. Per Dylan 2026-05-10 v2: gentler
-          overshoot (1.08 vs 1.18) + long hold for readability. v4:
-          delay slid 8.0 → 5.0 to match the further-trimmed timeline;
-          ends at 8.5s just as spotlight clears. */}
-      <CreatorOutreachEasterEgg color={color} delay={5.0} />
+      {/* 2026-05-23 per Dylan: removed the "Creator Outreach"
+          easter-egg wordmark — it wasn't landing. Show now ends on
+          the dead-center mega-burst (5.4s) and goes idle, no text
+          reveal. Spotlight still clears at the normal 8.5s mark. */}
     </>
-  )
-}
-
-// ── Easter-egg text component (shared by Fireworks + Tornado) ───────
-
-function CreatorOutreachEasterEgg({ color, delay }: { color: string; delay: number }) {
-  return (
-    <motion.div
-      aria-hidden
-      initial={{ x: '-50%', y: '-50%', scale: 0.35, opacity: 0 }}
-      animate={{
-        x: '-50%',
-        y: '-50%',
-        scale: [0.35, 1.08, 1.0, 1.0, 0.98],
-        opacity: [0, 1, 1, 1, 0],
-      }}
-      transition={{
-        duration: 3.5,
-        delay,
-        // Per-segment easing — soft overshoot, gentle settle, linear
-        // hold (no drift), easeIn for the fade so it 'closes' rather
-        // than evaporates.
-        ease: ['easeOut', 'easeInOut', 'linear', 'easeIn'],
-        times: [0, 0.18, 0.32, 0.85, 1],
-      }}
-      style={{
-        position: 'absolute',
-        left: '50%',
-        top: '50%',
-        willChange: 'transform, opacity',
-        pointerEvents: 'none',
-      }}
-    >
-      <div
-        style={{
-          // Banner-scaled — was clamp(2.5rem, 7vw, 5.5rem) for full-page.
-          // Now sized to fit comfortably inside the 88px banner strip.
-          fontSize: 'clamp(0.9rem, 1.6vw, 1.25rem)',
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
-          color,
-          textShadow: `0 0 6px ${color}, 0 0 14px ${color}, 0 0 22px ${color}`,
-          whiteSpace: 'nowrap',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-        }}
-      >
-        Creator Outreach
-      </div>
-    </motion.div>
   )
 }
 

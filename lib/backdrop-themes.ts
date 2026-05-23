@@ -35,7 +35,7 @@ export const BACKDROP_THEMES: { id: BackdropTheme; label: string; description: s
   { id: 'off',       label: 'Off',       description: 'No animation — color shade stays on by default.' },
   { id: 'rain',      label: 'Rain',      description: 'Platform logos fall from the top, slow + sparse.' },
   { id: 'drift',     label: 'Drift',     description: 'Logos float upward like bubbles. Subtle.' },
-  { id: 'fireworks', label: 'Fireworks', description: 'Bursts of the platform icon explode outward. Ends with a Creator Outreach finale. Bold.' },
+  { id: 'fireworks', label: 'Fireworks', description: 'Bursts of the platform icon explode outward, building to a dead-center mega-burst finale. Bold.' },
   { id: 'tornado',   label: 'Tornado',   description: 'A swirling column of platform logos sweeps the page twice, then disappears.' },
 ]
 
