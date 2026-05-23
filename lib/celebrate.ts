@@ -1,49 +1,51 @@
 // celebrateSuccess — the "deal closed" moment.
 //
-// Design intent (2026-05-23 v4 per Dylan: "horrible, do a full
-// visual and design remodel — details man details"):
+// Design intent (2026-05-23 v5 per Dylan: "on web I feel like it
+// could be better" — desktop has 5-10x the screen real estate of
+// mobile, so the same burst size reads as small in proportion):
 //
 //   This is the single biggest dopamine moment in the whole app —
 //   the user just turned a creator from a lead into a paying client.
-//   Three earlier iterations all looked like a stock confetti dump.
-//   This rewrite layers FIVE distinct visual systems on top of each
-//   other to make the moment feel earned, not algorithmic:
+//   Six distinct visual systems layered on top of each other:
 //
 //     1. Center flash      — radial gradient glow that punches in,
 //                            blooms, and fades. Brand violet→teal,
-//                            scales from 0 to 480px over 700ms. Sets
-//                            the "something just happened HERE" anchor.
-//     2. Main burst         — 90 particles erupting radially from
-//                            center. Mixed shapes (rectangles,
-//                            squares, circles), mixed sizes (6-14px),
-//                            mixed colors (6-tone brand palette),
-//                            each with unique velocity, gravity-
-//                            affected, drag-decayed, rotating
-//                            independently.
-//     3. Secondary burst    — 35 more pieces 100ms later, off-center,
-//                            for layered richness.
-//     4. Streamers          — 18 long thin ribbons (3×22px) shooting
-//                            at higher initial velocity. Read as
-//                            "party streamers" mixed in with the
-//                            confetti.
-//     5. Sparkles           — 22 bright white dots with box-shadow
-//                            glow that POP (scale 0→1.4→0) at random
-//                            positions across the screen, staggered
-//                            0-700ms, each lasting 400ms. Adds the
-//                            "fireflies in the air" feel that pure
-//                            confetti can't give you.
+//                            anchors the moment to a specific spot.
+//     2. Main burst         — radial explosion of mixed-shape confetti
+//                            from origin point (default screen
+//                            center). Each piece has its own
+//                            velocity, gravity, drag, rotation, life.
+//     3. Secondary burst    — more pieces 100ms later for layered
+//                            richness so the eye doesn't catch a
+//                            single wave.
+//     4. Streamers          — long thin ribbons shooting at higher
+//                            velocity. Read as party streamers.
+//     5. Sparkles           — bright white dots with violet+blue glow
+//                            popping (scale 0→1.4→0) at random
+//                            positions across the upper viewport,
+//                            staggered 0-700ms. "Fireflies in the
+//                            air" highlight that confetti can't give.
+//     6. Rain wash          — additional confetti falling from above
+//                            the top edge across the full viewport
+//                            width with slight horizontal drift. Fills
+//                            the whole screen so desktop celebrations
+//                            feel proportional to viewport size, not
+//                            stuck around the click point.
 //
-//   Everything runs on requestAnimationFrame physics — not Web
-//   Animations API keyframes — so each particle gets real gravity,
-//   real drag, real spin. No baked-in trajectory; the result feels
-//   organic instead of "all 80 pieces follow the same curve."
+//   Particle counts scale with viewport width (sizeMultiplier 1×-2×)
+//   so mobile gets the original densities and a 4K desktop gets ~2×
+//   the pieces. The radial burst spreads further on desktop too.
+//
+// Physics:
+//   requestAnimationFrame loop with real gravity, drag, and spin
+//   decay. Frame-rate-aware so stutters don't teleport particles.
 //
 // Why no canvas-confetti library:
-//   v2/v3 used it; v3 added a DOM fallback alongside; v4 drops the
+//   v2/v3 used it; v3 added a DOM fallback alongside; v4 dropped the
 //   library entirely. Owning the whole render gives us tighter
 //   control over layering, color, and physics, and eliminates the
-//   mystery "fires on mobile but not desktop" behavior that the
-//   library exhibited in our app's z-index/overflow context.
+//   mystery "fires on mobile but not desktop" behavior the library
+//   exhibited in our app's z-index/overflow context.
 //
 // Accessibility:
 //   prefers-reduced-motion users skip the particle storm and get a
@@ -104,31 +106,49 @@ export function celebrateSuccess(originX?: number, originY?: number) {
     return
   }
 
+  // Viewport-aware particle multiplier (v5 per Dylan: "on web I feel
+  // like it could be better"). Desktop has roughly 5-10× the pixel
+  // area of mobile — at fixed counts the burst gets visually thin on
+  // big monitors. We scale linearly between 1× (under 900px wide,
+  // i.e. mobile/tablet) and 2× (1800px+, i.e. desktop), capped at 2×
+  // so a 4K monitor doesn't get a particle storm that tanks framerate.
+  const sizeMultiplier = Math.min(2, Math.max(1, window.innerWidth / 900))
+
   // Container holds all spawned elements — single removal at the end.
   const container = makeContainer()
 
   // Layer 1 — center flash (always first, anchors the whole moment).
-  spawnCenterFlash(container, ox, oy)
+  // Scales with viewport too so it punches proportionally.
+  spawnCenterFlash(container, ox, oy, sizeMultiplier)
 
   // Layer 5 — sparkles (staggered start, run independently of the
   // physics loop because their lifecycle is short + pop-based).
-  spawnSparkles(container)
+  spawnSparkles(container, sizeMultiplier)
 
-  // Layers 2-4 — physics-driven particles.
+  // Layer 6 — rain wash from above the top edge. Fills the screen
+  // width on desktop so the celebration feels proportional to the
+  // viewport, not stuck at the origin point. Independent of the
+  // central physics loop (its own loop, own gravity tuning).
+  spawnRainWash(sizeMultiplier)
+
+  // Layers 2-4 — physics-driven particles from origin.
   const particles: Particle[] = []
-  // Main burst (90 mixed-shape confetti).
-  for (let i = 0; i < 90; i++) {
-    particles.push(spawnConfetti(container, ox, oy, /* delayFrames */ 0))
+  // Main burst — confetti count scales with viewport.
+  const mainCount = Math.round(90 * sizeMultiplier)
+  for (let i = 0; i < mainCount; i++) {
+    particles.push(spawnConfetti(container, ox, oy, /* delayFrames */ 0, sizeMultiplier))
   }
-  // Streamer ribbons (18, higher velocity, longer life).
-  for (let i = 0; i < 18; i++) {
-    particles.push(spawnStreamer(container, ox, oy))
+  // Streamer ribbons.
+  const streamerCount = Math.round(18 * sizeMultiplier)
+  for (let i = 0; i < streamerCount; i++) {
+    particles.push(spawnStreamer(container, ox, oy, sizeMultiplier))
   }
-  // Secondary burst at +100ms (35 more for layering).
+  // Secondary burst at +100ms.
+  const secondaryCount = Math.round(35 * sizeMultiplier)
   window.setTimeout(() => {
     if (!container.isConnected) return
-    for (let i = 0; i < 35; i++) {
-      particles.push(spawnConfetti(container, ox, oy, 0))
+    for (let i = 0; i < secondaryCount; i++) {
+      particles.push(spawnConfetti(container, ox, oy, 0, sizeMultiplier))
     }
   }, 100)
 
@@ -197,8 +217,11 @@ function makeContainer(): HTMLDivElement {
  * Center flash — a radial gradient bloom that punches in, peaks, and
  * fades. Anchors the celebration to a specific point on screen.
  * Brand violet→teal so it ties to the in-app brand mark.
+ *
+ * Peak scale scales with the viewport multiplier so it covers a
+ * proportional fraction of the screen on desktop.
  */
-function spawnCenterFlash(container: HTMLDivElement, ox: number, oy: number) {
+function spawnCenterFlash(container: HTMLDivElement, ox: number, oy: number, sizeMultiplier: number) {
   const flash = document.createElement('div')
   Object.assign(flash.style, {
     position: 'fixed',
@@ -217,12 +240,17 @@ function spawnCenterFlash(container: HTMLDivElement, ox: number, oy: number) {
     zIndex: String(Z_INDEX),
   } satisfies Partial<CSSStyleDeclaration>)
   container.appendChild(flash)
+  // Peak + final scale grow with viewport — on a desktop the flash
+  // actually covers a meaningful chunk of the screen instead of being
+  // a tiny pop in the center.
+  const peakScale = 22 * sizeMultiplier
+  const finalScale = peakScale * 1.3
   flash.animate(
     [
       { transform: 'scale(0)', opacity: 0 },
-      { transform: 'scale(8)', opacity: 1, offset: 0.18 },
-      { transform: 'scale(22)', opacity: 0.55, offset: 0.55 },
-      { transform: 'scale(28)', opacity: 0 },
+      { transform: `scale(${peakScale * 0.35})`, opacity: 1, offset: 0.18 },
+      { transform: `scale(${peakScale})`, opacity: 0.55, offset: 0.55 },
+      { transform: `scale(${finalScale})`, opacity: 0 },
     ],
     { duration: 700, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
   )
@@ -234,12 +262,16 @@ function spawnCenterFlash(container: HTMLDivElement, ox: number, oy: number) {
  * Spawn one confetti particle. Mixed shape (rectangle / square /
  * circle), mixed size, mixed color. Radial launch direction with
  * randomized speed.
+ *
+ * `sizeMultiplier` boosts initial velocity so pieces travel further
+ * on wider viewports — keeps the burst proportional to screen size.
  */
 function spawnConfetti(
   container: HTMLDivElement,
   ox: number,
   oy: number,
   delayFrames: number,
+  sizeMultiplier: number,
 ): Particle {
   const el = document.createElement('div')
   const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
@@ -295,9 +327,10 @@ function spawnConfetti(
   // Radial launch. Angle anywhere 0-360°; speed varied so the cloud
   // doesn't look uniform. Bias slightly upward (subtract a small
   // amount from vy) so the burst feels like an upward explosion
-  // before gravity pulls it down.
+  // before gravity pulls it down. Speed scales with viewport size so
+  // desktop pieces travel further (proportional to screen).
   const angle = Math.random() * Math.PI * 2
-  const speed = 6 + Math.random() * 10 // 6-16 px/frame
+  const speed = (6 + Math.random() * 10) * sizeMultiplier // 6-16 px/frame, scaled
   const vx = Math.cos(angle) * speed
   // Bias initial vy upward — gravity will overcome it. Mix of upward
   // and downward launches feels more organic than "all pieces shoot up."
@@ -324,7 +357,7 @@ function spawnConfetti(
  * the confetti. Higher initial velocity than confetti pieces so they
  * shoot further before gravity takes them.
  */
-function spawnStreamer(container: HTMLDivElement, ox: number, oy: number): Particle {
+function spawnStreamer(container: HTMLDivElement, ox: number, oy: number, sizeMultiplier: number): Particle {
   const el = document.createElement('div')
   const color = STREAMER_COLORS[Math.floor(Math.random() * STREAMER_COLORS.length)]
 
@@ -347,8 +380,9 @@ function spawnStreamer(container: HTMLDivElement, ox: number, oy: number): Parti
   container.appendChild(el)
 
   const angle = Math.random() * Math.PI * 2
-  // Faster than confetti.
-  const speed = 11 + Math.random() * 9 // 11-20 px/frame
+  // Faster than confetti — scaled by viewport so desktop streamers
+  // travel proportionally further before gravity wins.
+  const speed = (11 + Math.random() * 9) * sizeMultiplier // 11-20 px/frame, scaled
   const vx = Math.cos(angle) * speed
   const vy = Math.sin(angle) * speed - 3 - Math.random() * 4 // upward bias
 
@@ -372,9 +406,12 @@ function spawnStreamer(container: HTMLDivElement, ox: number, oy: number): Parti
  * Bright white pops scattered across the screen — adds "fireflies"
  * to the celebration. Each sparkle pops in, holds briefly, and pops
  * out. Independent of the physics loop because they don't move.
+ *
+ * Count scales with viewport so desktop gets more fireflies
+ * (proportional to screen area).
  */
-function spawnSparkles(container: HTMLDivElement) {
-  const count = 22
+function spawnSparkles(container: HTMLDivElement, sizeMultiplier: number) {
+  const count = Math.round(22 * sizeMultiplier)
   for (let i = 0; i < count; i++) {
     const sparkle = document.createElement('div')
     const size = 5 + Math.random() * 4 // 5-9px
@@ -411,6 +448,169 @@ function spawnSparkles(container: HTMLDivElement) {
       { duration: 480, delay, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
     )
   }
+}
+
+// ── Rain wash (Layer 6 — added v5 for desktop) ─────────────────────
+
+/**
+ * Rain wash — additional confetti pieces falling from above the top
+ * edge of the viewport across the full screen width, with a slight
+ * side-to-side wobble. Fills the entire viewport area so desktop
+ * celebrations feel proportional to screen size rather than stuck
+ * near the click origin.
+ *
+ * Implementation choice:
+ *   This layer runs in its own container + its own physics loop,
+ *   independent of the central burst. Gravity is gentler (so pieces
+ *   fall in a leisurely cascade) and pieces start above the viewport
+ *   (negative y) so they enter from the top edge naturally instead
+ *   of "popping in."
+ *
+ *   On mobile this adds 30-ish pieces falling across a narrow screen
+ *   — still nice. On desktop the same code scales to ~60 pieces
+ *   spread across a 1920px-wide screen — totally different visual
+ *   weight, same code path.
+ *
+ *   The container is removed when the last piece falls off the
+ *   bottom or reaches end of life.
+ */
+function spawnRainWash(sizeMultiplier: number) {
+  const container = makeContainer()
+  const count = Math.round(30 * sizeMultiplier)
+  const RAIN_GRAVITY = 0.18 // gentler than the central burst — leisurely fall
+  const PIECE_LIFE = 200 // ~3.3s @ 60fps, longer than central pieces
+
+  interface RainPiece {
+    el: HTMLDivElement
+    x: number
+    y: number
+    vx: number
+    vy: number
+    /** Sine-wave amplitude for side-to-side flutter as it falls. */
+    swayAmp: number
+    /** Phase offset for the sway so pieces don't all flutter in sync. */
+    swayPhase: number
+    /** Frequency of the sway (radians/frame). */
+    swayFreq: number
+    rotation: number
+    spin: number
+    life: number
+  }
+
+  const pieces: RainPiece[] = []
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div')
+    const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
+    // Same shape mix as the central burst — keeps the visual language
+    // consistent across both layers.
+    const shapeRoll = Math.random()
+    let width: number
+    let height: number
+    let borderRadius: string
+    if (shapeRoll < 0.5) {
+      width = 5 + Math.random() * 4 // 5-9px
+      height = width * (1.6 + Math.random() * 0.6)
+      borderRadius = '1.5px'
+    } else if (shapeRoll < 0.85) {
+      const s = 6 + Math.random() * 4
+      width = s
+      height = s
+      borderRadius = '2px'
+    } else {
+      const s = 5 + Math.random() * 3
+      width = s
+      height = s
+      borderRadius = '50%'
+    }
+
+    // Random x across full viewport width. Y starts ABOVE the
+    // viewport (negative) so they enter naturally with stagger.
+    const startX = Math.random() * window.innerWidth
+    const startY = -50 - Math.random() * 200 // up to 250px above viewport
+
+    Object.assign(el.style, {
+      position: 'fixed',
+      left: `${startX}px`,
+      top: `${startY}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+      marginLeft: `${-width / 2}px`,
+      marginTop: `${-height / 2}px`,
+      backgroundColor: color,
+      borderRadius,
+      pointerEvents: 'none',
+      willChange: 'transform, opacity',
+      boxShadow: `0 0 0 0.5px ${color}, 0 0 4px ${hexWithAlpha(color, 0.25)}`,
+      zIndex: String(Z_INDEX),
+    } satisfies Partial<CSSStyleDeclaration>)
+    container.appendChild(el)
+
+    pieces.push({
+      el,
+      x: startX,
+      y: startY,
+      // Slight initial vx for organic drift.
+      vx: (Math.random() - 0.5) * 1.2,
+      // Initial downward velocity so pieces start moving immediately.
+      vy: 1.5 + Math.random() * 1.5,
+      swayAmp: 0.3 + Math.random() * 0.5, // px peak swing per frame
+      swayPhase: Math.random() * Math.PI * 2,
+      swayFreq: 0.05 + Math.random() * 0.04, // radians/frame — slow wobble
+      rotation: Math.random() * 360,
+      spin: (Math.random() - 0.5) * 8, // -4 to +4 deg/frame, slower than burst
+      life: PIECE_LIFE,
+    })
+  }
+
+  let lastTime = performance.now()
+  let frame = 0
+  function tick(now: number) {
+    const dt = Math.min(3, (now - lastTime) / 16.67)
+    lastTime = now
+    frame += dt
+
+    let alive = 0
+    for (let i = pieces.length - 1; i >= 0; i--) {
+      const p = pieces[i]
+      p.life -= dt
+      if (p.life <= 0 || p.y > window.innerHeight + 100) {
+        p.el.remove()
+        pieces.splice(i, 1)
+        continue
+      }
+      alive++
+
+      // Physics: gravity, drag, plus a sine-wave horizontal sway.
+      p.vy += RAIN_GRAVITY * dt
+      p.vx *= Math.pow(0.99, dt)
+      const sway = Math.sin(frame * p.swayFreq + p.swayPhase) * p.swayAmp
+      p.x += (p.vx + sway) * dt
+      p.y += p.vy * dt
+      p.rotation += p.spin * dt
+
+      // Fade across last 30% of life or as it leaves bottom.
+      const ageRatio = 1 - p.life / PIECE_LIFE
+      let opacity = 1
+      if (ageRatio > 0.7) {
+        opacity = Math.max(0, 1 - (ageRatio - 0.7) / 0.3)
+      }
+      // Also fade if approaching viewport bottom — feels natural.
+      const distFromBottom = window.innerHeight - p.y
+      if (distFromBottom < 60) {
+        opacity = Math.min(opacity, Math.max(0, distFromBottom / 60))
+      }
+
+      p.el.style.transform = `translate3d(${p.x - parseFloat(p.el.style.left)}px, ${p.y - parseFloat(p.el.style.top)}px, 0) rotate(${p.rotation}deg)`
+      p.el.style.opacity = String(opacity)
+    }
+
+    if (alive > 0) {
+      requestAnimationFrame(tick)
+    } else {
+      container.remove()
+    }
+  }
+  requestAnimationFrame(tick)
 }
 
 // ── Reduced-motion variant ─────────────────────────────────────────
