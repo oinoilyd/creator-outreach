@@ -77,7 +77,13 @@ export function WrapUpEngagementModal({ entry, onSubmit, onClose }: WrapUpEngage
   const [extrasOpen, setExtrasOpen] = useState<boolean>(false)
   const [testimonial, setTestimonial] = useState<string>('')
   const [testimonialPublic, setTestimonialPublic] = useState<boolean>(false)
-  const [referrals, setReferrals] = useState<string>('')
+  // Referrals are now structured rows (Dylan 2026-05-23): each row
+  // gets dispatched as a new Outreach entry when the engagement
+  // closes, in addition to being logged as text in the wrap-up
+  // notes block (for back-compat with the existing referrals
+  // string field). Name is required; contact is freetext (handle,
+  // email, URL — whatever the client gave you).
+  const [referralRows, setReferralRows] = useState<Array<{ id: string; name: string; contact: string }>>([])
   const [deliverableUrls, setDeliverableUrls] = useState<string>('')
   const [wrapUpNote, setWrapUpNote] = useState<string>('')
 
@@ -136,6 +142,17 @@ export function WrapUpEngagementModal({ entry, onSubmit, onClose }: WrapUpEngage
       setSubmitting(false)
       return
     }
+    // Build the legacy referrals text from the structured rows so
+    // the wrap-up notes block continues to log "Referrals: ..." for
+    // back-compat with prior wrap-ups + any analytics that may scan
+    // the notes field. Empty-name rows are filtered out.
+    const validReferrals = referralRows.filter(r => r.name.trim() !== '')
+    const referralsText = validReferrals.length === 0
+      ? undefined
+      : validReferrals
+          .map(r => r.contact.trim() ? `${r.name.trim()} (${r.contact.trim()})` : r.name.trim())
+          .join('; ')
+
     const result = await onSubmit({
       finalValue: valueNum,
       completionDate,
@@ -143,7 +160,7 @@ export function WrapUpEngagementModal({ entry, onSubmit, onClose }: WrapUpEngage
       repeatLikelihood: repeat,
       testimonial: testimonial.trim() || undefined,
       testimonialPublic,
-      referrals: referrals.trim() || undefined,
+      referrals: referralsText,
       deliverableUrls: deliverableUrls.trim() || undefined,
       wrapUpNote: wrapUpNote.trim() || undefined,
     })
@@ -152,6 +169,29 @@ export function WrapUpEngagementModal({ entry, onSubmit, onClose }: WrapUpEngage
       setError(result.error || 'Save failed.')
       return
     }
+
+    // Dispatch all referrals as new Outreach entries in ONE batched
+    // event (Dylan 2026-05-23: "the REFERRALS MENTIONED should be a
+    // 'add' that spawns an entry... and it can add to the outreach
+    // tab"). Single batched event so the page-level handler can
+    // build N entries and call saveOutreach() once — firing N
+    // separate events would race against React batching and only
+    // the last one's update would persist.
+    if (validReferrals.length > 0) {
+      window.dispatchEvent(
+        new CustomEvent('add-outreach-from-referrals', {
+          detail: {
+            referrals: validReferrals.map(r => ({
+              name: r.name.trim(),
+              contact: r.contact.trim(),
+            })),
+            sourceEngagementId: entry.id,
+            sourceChannelName: entry.channelName || null,
+          },
+        }),
+      )
+    }
+
     onClose()
   }
 
@@ -357,18 +397,104 @@ export function WrapUpEngagementModal({ entry, onSubmit, onClose }: WrapUpEngage
                   </label>
                 </div>
 
-                {/* Referrals */}
+                {/* Referrals — now a structured list (Dylan 2026-05-23).
+                    Each row will be added as a new entry in the
+                    Outreach tab when the engagement closes, so the
+                    user doesn't lose warm-intro leads to a freetext
+                    paragraph they never re-read. */}
                 <div>
-                  <FieldLabel htmlFor="wrap-referrals">Referrals mentioned</FieldLabel>
-                  <textarea
-                    id="wrap-referrals"
-                    rows={2}
-                    value={referrals}
-                    onChange={e => setReferrals(e.target.value)}
-                    placeholder="Names + contacts of anyone they suggested you reach out to"
+                  <FieldLabel>Referrals mentioned</FieldLabel>
+                  <p className="mb-2 text-[11px] text-muted-foreground/80 leading-snug">
+                    Each referral becomes a new entry in your Outreach tab when this engagement closes.
+                  </p>
+
+                  {referralRows.length > 0 && (
+                    <div className="space-y-1.5 mb-2">
+                      {referralRows.map((row, i) => (
+                        <div
+                          key={row.id}
+                          className="flex items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-1.5"
+                        >
+                          {/* Index dot — purely decorative, gives a
+                              "list of leads" feel vs floating inputs. */}
+                          <span
+                            aria-hidden
+                            className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold tabular-nums shrink-0"
+                          >
+                            {i + 1}
+                          </span>
+
+                          {/* Name — required for the entry to be
+                              spawned. Empty rows are silently
+                              dropped at submit time. */}
+                          <input
+                            type="text"
+                            value={row.name}
+                            onChange={e =>
+                              setReferralRows(prev =>
+                                prev.map(r => r.id === row.id ? { ...r, name: e.target.value } : r),
+                              )
+                            }
+                            placeholder="Name"
+                            disabled={submitting}
+                            className="flex-1 min-w-0 bg-transparent border-0 text-[13px] focus:outline-none focus:ring-0 disabled:opacity-60"
+                          />
+
+                          {/* Contact freetext — catch-all for
+                              email/handle/URL/note. Best-guess parsed
+                              by the page-level handler when it
+                              builds the OutreachEntry. */}
+                          <input
+                            type="text"
+                            value={row.contact}
+                            onChange={e =>
+                              setReferralRows(prev =>
+                                prev.map(r => r.id === row.id ? { ...r, contact: e.target.value } : r),
+                              )
+                            }
+                            placeholder="@handle, email, or link"
+                            disabled={submitting}
+                            className="flex-1 min-w-0 bg-transparent border-0 text-[13px] text-muted-foreground focus:text-foreground focus:outline-none focus:ring-0 disabled:opacity-60"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReferralRows(prev => prev.filter(r => r.id !== row.id))
+                            }
+                            disabled={submitting}
+                            className="inline-flex items-center justify-center w-6 h-6 rounded text-muted-foreground/60 hover:text-rose-600 hover:bg-rose-500/10 transition-colors shrink-0 disabled:opacity-40"
+                            aria-label={`Remove referral ${i + 1}`}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setReferralRows(prev => [
+                        ...prev,
+                        { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: '', contact: '' },
+                      ])
+                    }
                     disabled={submitting}
-                    className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-[13px] resize-y focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/50 disabled:opacity-60"
-                  />
+                    className="
+                      inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md
+                      border border-dashed border-border bg-background/30
+                      text-[12px] font-medium text-muted-foreground
+                      hover:text-foreground hover:border-foreground/40 hover:bg-muted/50
+                      transition-colors disabled:opacity-50
+                    "
+                  >
+                    <span aria-hidden className="text-[14px] leading-none">+</span>
+                    {referralRows.length === 0 ? 'Add referral' : 'Add another'}
+                  </button>
                 </div>
 
                 {/* Deliverable URLs */}

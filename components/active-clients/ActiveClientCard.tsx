@@ -108,6 +108,17 @@ export function ActiveClientCard({ entry, onOpen }: ActiveClientCardProps) {
         </div>
       )}
 
+      {/* Under-budget flag — only renders for completed engagements
+          where the captured final value undershot the contract budget
+          by >0.5% (same threshold as WrapUpEngagementModal +
+          ActiveClientDetailModal hero). Surfaces pricing slippage in
+          the Completed tab list view, so the user can scan and spot
+          patterns without clicking into each card.
+
+          Sits ABOVE the contract row so it's the first non-header
+          thing the eye lands on after the milestone bar. */}
+      <UnderBudgetCardFlag entry={entry} lifecycle={lifecycle} />
+
       {/* Contract indicator */}
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/75">
         {hasContract ? (
@@ -126,6 +137,57 @@ export function ActiveClientCard({ entry, onOpen }: ActiveClientCardProps) {
         </span>
       </div>
     </button>
+  )
+}
+
+/**
+ * UnderBudgetCardFlag — compact pill flag on the Active Client card.
+ * Mirrors the detail-modal hero's flag so the Completed tab list
+ * view surfaces under-contract closes without requiring the user to
+ * click into each card. Same >0.5% threshold + currency formatter.
+ */
+function UnderBudgetCardFlag({
+  entry,
+  lifecycle,
+}: {
+  entry: OutreachEntry
+  lifecycle: ClientLifecycle
+}) {
+  if (lifecycle !== 'completed') return null
+  const budget = entry.clientBudgetAmount
+  const finalValue = entry.clientFinalValue
+  if (typeof budget !== 'number' || budget <= 0) return null
+  if (typeof finalValue !== 'number') return null
+
+  const delta = finalValue - budget
+  const pct = (delta / budget) * 100
+  if (pct >= -0.5) return null
+
+  const absDelta = Math.abs(delta)
+  const absPct = Math.abs(pct)
+  const currency = entry.clientBudgetCurrency || 'USD'
+  let amountText: string
+  try {
+    amountText = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+      maximumFractionDigits: 0,
+    }).format(absDelta)
+  } catch {
+    amountText = `${currency.toUpperCase()} ${absDelta.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  }
+
+  return (
+    <div
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-[10.5px] font-semibold leading-tight mb-2.5"
+      title={`Closed below the contract budget — ${amountText} short (${absPct.toFixed(absPct < 10 ? 1 : 0)}%).`}
+    >
+      <span aria-hidden className="text-amber-600 dark:text-amber-400">⚠</span>
+      <span>Under contract</span>
+      <span className="text-amber-700/80 dark:text-amber-300/80 font-normal tabular-nums">
+        −{amountText} ({absPct.toFixed(absPct < 10 ? 1 : 0)}%)
+      </span>
+    </div>
   )
 }
 

@@ -270,6 +270,110 @@ export default function Home() {
     return () => window.removeEventListener('promote-outreach-to-active', handler as EventListener)
   }, [])
 
+  // 2026-05-23 per Dylan: wrap-up modal dispatches this when the
+  // engagement closes with referrals captured. Each referral becomes
+  // a fresh OutreachEntry in the user's pipeline so warm intros
+  // don't get lost in a notes paragraph they never re-read.
+  //
+  // Single batched event (not one-per-referral) so multiple
+  // referrals all land in a single saveOutreach() call — firing N
+  // events would race against React batching and only the last
+  // would persist.
+  //
+  // Contact field is freetext; we best-effort parse it:
+  //   • email-like ("foo@bar.com")     → entry.email
+  //   • URL-like ("https://...")       → entry.channelUrl
+  //   • anything else                  → stashed in entry.notes
+  useEffect(() => {
+    function handler(ev: Event) {
+      const detail = (ev as CustomEvent<{
+        referrals?: Array<{ name: string; contact: string }>
+        sourceChannelName?: string | null
+      }>).detail
+      if (!detail?.referrals?.length) return
+
+      const sourceLabel = detail.sourceChannelName
+        ? `Referral from ${detail.sourceChannelName}`
+        : 'Referral'
+
+      const newEntries: OutreachEntry[] = detail.referrals
+        .filter(r => r.name.trim() !== '')
+        .map((r, i) => {
+          const trimmedName = r.name.trim()
+          const trimmedContact = r.contact.trim()
+          const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedContact)
+          const isUrl = /^https?:\/\//i.test(trimmedContact)
+
+          // Synthesize a unique channelId — referrals don't have a
+          // real YouTube/IG channel ID yet. Prefix `referral-` so a
+          // future search-then-add for the real channel won't
+          // collide.
+          const channelId = `referral-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`
+
+          // Notes block: source + any non-email/non-URL contact text
+          // (e.g. "@handle on twitter" or "met at conference").
+          const contactNote = !isEmail && !isUrl && trimmedContact ? trimmedContact : ''
+          const notes = [sourceLabel, contactNote].filter(Boolean).join('\n')
+
+          return {
+            id: `${channelId}-${Date.now()}`,
+            channelId,
+            channelName: trimmedName,
+            channelUrl: isUrl ? trimmedContact : '',
+            description: '',
+            email: isEmail ? trimmedContact : '',
+            product: '',
+            favorite: false,
+            reachedOut: false,
+            medium: '',
+            mediumOther: '',
+            headerUsed: '',
+            status: 'Not Outreached',
+            addedAt: Date.now(),
+            trackingId: Math.random().toString(36).slice(2, 10),
+            notes,
+            followUpDate: '',
+            dateReachedOut: '',
+            touchpoints: '',
+            responseDate: '',
+            subscribers: '',
+            avgViews: 0,
+            fitScore: 0,
+            linkedin: '',
+            instagram: '',
+            twitter: '',
+            tiktok: '',
+            website: '',
+            contentNiche: '',
+            phone: '',
+            dealValue: '',
+            contractSent: false,
+            meetingScheduled: '',
+          } satisfies OutreachEntry
+        })
+
+      if (newEntries.length === 0) return
+
+      // Functional update so this listener doesn't close over a
+      // stale `outreach` value (the listener registers once at mount).
+      setOutreach(prev => {
+        const next = [...newEntries, ...prev]
+        setOutreachIds(new Set(next.map(e => e.channelId)))
+        void persistOutreach(next)
+        return next
+      })
+      // Pin the new entries to the top of the Outreach tab so the
+      // user can see them when they switch over.
+      setRecentlyAddedIds(prev => {
+        const updated = new Set(prev)
+        for (const e of newEntries) updated.add(e.id)
+        return updated
+      })
+    }
+    window.addEventListener('add-outreach-from-referrals', handler as EventListener)
+    return () => window.removeEventListener('add-outreach-from-referrals', handler as EventListener)
+  }, [])
+
   // Tour-driven navigation. The product tour fires this event to
   // ferry the user between tabs/sub-tabs as it walks through the
   // app. Same pattern as the other CustomEvent navigators above.
