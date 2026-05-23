@@ -2515,9 +2515,19 @@ export default function Home() {
                   on the user's current state. Hidden below md so it
                   doesn't fight the wordmark + trial pill + hamburger
                   for horizontal space on phones. Click opens a
-                  popover with the full sentence + refresh. */}
+                  popover with the full sentence + refresh.
+                  The pill pulls signal from every tab: Results
+                  count, Dismissed count, Outreach status mix +
+                  follow-up queue + Active Clients depth, and
+                  workflow setup (profile + templates). */}
               {userId && (
-                <DashboardInsightPill entries={outreach} userId={userId} />
+                <DashboardInsightPill
+                  entries={outreach}
+                  userId={userId}
+                  resultsCount={creators.length}
+                  dismissedCount={dismissed.length}
+                  profile={profile}
+                />
               )}
               {/* Upgrade / Manage CTA — hides when Stripe isn't
                   configured (e.g. dev/preview without env vars). */}

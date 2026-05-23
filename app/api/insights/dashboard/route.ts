@@ -25,7 +25,12 @@ import { requireUser, rateLimit } from '@/lib/api-auth'
 
 const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
 
+/**
+ * Cross-tab metrics payload. Client builds this in
+ * DashboardInsightPill.projectMetrics() — keep the shape in sync.
+ */
 interface DashboardMetrics {
+  // Outreach Pipeline sub-tab
   total: number
   reachedOut: number
   responseReceived: number
@@ -37,14 +42,50 @@ interface DashboardMetrics {
   responseRate: number
   winRate: number
   pipelineValue: number
-  stale: number
+  leadsWithEmailNotReached: number
+  byMedium: Record<'Email' | 'LinkedIn' | 'Other', { reached: number; won: number }>
+
+  // Follow-ups sub-tab
+  followupOverdue: number
+  followupDueToday: number
+  followupDueThisWeek: number
+
+  // Analytics sub-tab (velocity)
   addedLast7: number
   reachedLast7: number
   wonLast30: number
+
+  // Active Clients sub-tab
+  activeClientsTotal: number
   activeNow: number
+  lifecyclePaused: number
+  lifecycleCompleted: number
+  lifecycleChurned: number
   totalBooked: number
   personalRevenue: number
-  byMedium: Record<'Email' | 'LinkedIn' | 'Other', { reached: number; won: number }>
+  completedRealised: number
+  avgRating: number | null
+  repeatDefinitely: number
+  repeatLikely: number
+  repeatMaybe: number
+  repeatNo: number
+
+  // Results + Dismissed tabs (sourcing)
+  resultsCount: number
+  dismissedCount: number
+  dismissalRatio: number
+
+  // Profile + Settings + Templates (workflow setup)
+  workflow: {
+    hasPitchLine: boolean
+    hasFullName: boolean
+    hasPhysicalAddress: boolean
+    gmailConnected: boolean
+    customEmailTemplate: boolean
+    customIgTemplate: boolean
+    customLinkedinTemplate: boolean
+    mailClient: string
+  }
 }
 
 interface DashboardRequestBody {
@@ -172,45 +213,59 @@ function sanitizeInsight(s: string): string {
 
 // ── Empty state ──────────────────────────────────────────────────────
 
+/**
+ * Empty-state starter prompts — one anchored to each tab so a brand-
+ * new user cycling through gets a tour of the surfaces:
+ *
+ *   1. Workflow Setup (Profile / Settings)
+ *   2. Sourcing (Results tab)
+ *   3. Pipeline (Outreach > Pipeline sub-tab)
+ *   4. Follow-ups (Outreach > Follow-ups sub-tab)
+ *   5. Active Clients (Outreach > Active Clients sub-tab)
+ */
 const EMPTY_STATE_INSIGHTS: string[] = [
-  'Start by running a search on the Results tab to find creators in your niche.',
-  'Try a broad niche first (e.g. "fitness" or "cooking"), then narrow once you see how scoring behaves.',
-  'Add creators from results to your Outreach pipeline before sending — you can review and edit before any message goes out.',
-  'Connect Gmail via the hamburger menu to send outreach directly from the app rather than copying templates.',
-  'Set your pitch line in your profile before sending — Claude uses it to personalize each message.',
+  'Set your pitch line in Profile before sending — Claude pulls it into every personalized rewrite.',
+  'Run your first search on the Results tab; start broad (e.g. "fitness") then narrow once scoring settles.',
+  'Add a few creators from Results into the Outreach Pipeline before sending — you can edit each one first.',
+  'Once you reach out, set a follow-up date on the lead so it shows up in the Follow-ups queue automatically.',
+  'A creator who marks Successful turns into an Active Client — budget, milestones, and team splits live there.',
 ]
 
 // ── Prompt ───────────────────────────────────────────────────────────
 
 /**
- * Per-facet briefs. Each facet is one of the 5 insights returned.
- * Two lists — NEW vs EXPERIENCED — because the relevant angles
- * differ at each user stage.
+ * Per-facet briefs. THIS IS THE KEY CONSTRAINT: each facet must
+ * anchor on a DIFFERENT TAB of the app so cycling through all 5
+ * gives a tour of distinct surfaces, not 5 framings of one
+ * outreach observation.
+ *
+ * NEW and EXPERIENCED variants use the same 5 surfaces, with
+ * stage-appropriate framing.
  */
 const NEW_FACETS = [
-  { name: 'WHAT YOU HAVE DONE',
-    brief: 'Concretely review what the user has accomplished — leads added, channels explored, searches run. Honour their effort. Specific numbers ("you have added 3 leads", "you have run 5 searches").' },
-  { name: 'NEXT CONCRETE STEP',
-    brief: 'Pick the next 1-action move that unblocks them. If they have leads but reached out to nobody → tell them to reach out. If they have entries with email but never reached out → name that gap. If only searches but no entries added → tell them to add a lead.' },
-  { name: 'SEARCH REFLECTION',
-    brief: 'Comment on the recent searches they ran (use the strings provided). Suggest a sharper variant or broader variant, or recommend adding a creator from those results. If no recent searches, skip this facet and write about the most relevant other gap.' },
-  { name: 'STATUS GAP',
-    brief: 'Name a specific gap in their pipeline: entries sitting at Not Outreached, Opens with no follow-up date, leads with emails sitting idle. Then say what to do about it.' },
-  { name: 'MOMENTUM',
-    brief: 'Comment on how recent their activity is — addedLast7, reachedLast7. Are they ramping up or stalling? Cite specific numbers. End with a next-step.' },
+  { name: 'SOURCING (Results + Dismissed tabs)',
+    brief: 'Reflect on their search activity on the Results tab. Use resultsCount (how many creators are on screen now), recentSearches array (what they have been looking for), and dismissedCount (whether they have already dismissed any). If they have searched but added 0, push them to add a lead. If no searches at all, suggest a starting niche. Do NOT discuss outreach status — that is a different facet.' },
+  { name: 'PIPELINE (Outreach > Pipeline sub-tab)',
+    brief: 'Anchor on the Pipeline sub-tab specifically. Use total, notOutreached, leadsWithEmailNotReached. If they have added leads but reached out to nobody, name that. If they have entries with email captured but sitting at Not Outreached, name THAT specifically. Do NOT mention follow-ups, active clients, or analytics — those are other facets.' },
+  { name: 'FOLLOW-UPS (Outreach > Follow-ups sub-tab)',
+    brief: 'Anchor on the Follow-ups sub-tab. Use followupOverdue, followupDueToday, followupDueThisWeek, and open count. If all those are 0, frame this as "no follow-ups scheduled yet — set a follow-up date when you reach out to your first lead so this queue starts filling in." Do NOT discuss the Pipeline status mix.' },
+  { name: 'ACTIVE CLIENTS (Outreach > Active Clients sub-tab)',
+    brief: 'Anchor on the Active Clients sub-tab. Use activeClientsTotal, activeNow, totalBooked, personalRevenue. If activeClientsTotal is 0, frame it as a forward-looking nudge: "Your first Successful response will create an Active Client where you track budget, milestones, and team splits." Do NOT discuss outreach status.' },
+  { name: 'WORKFLOW SETUP (Profile + Settings + Templates)',
+    brief: 'Anchor on the workflow object. Pick the single most impactful missing piece: !hasPitchLine (urgent — needed for AI rewrites), !gmailConnected (urgent — required to send from app), !customEmailTemplate (nice-to-have), !hasFullName (cosmetic). Name the specific thing missing and how to set it. Do NOT discuss data metrics.' },
 ] as const
 
 const EXPERIENCED_FACETS = [
-  { name: 'ACTION QUEUE',
-    brief: 'Stale follow-ups overdue (stale field), todays follow-ups, Opens sitting too long without a touch. Be specific about counts. If stale=0 and there are no obvious overdue items, surface a different action item instead.' },
-  { name: 'CONVERSION PERFORMANCE',
-    brief: 'responseRate and winRate. Which medium (Email / LinkedIn / Other) is outperforming the rest in the byMedium block? Cite the percentage. Recommend leaning in there.' },
-  { name: 'REVENUE STATE',
-    brief: 'totalBooked, personalRevenue, recent wins (wonLast30) worth doubling-down on. Mention dollars. If totalBooked is 0 but pipelineValue > 0, comment on pipeline-vs-realised.' },
-  { name: 'RECENT TRAJECTORY',
-    brief: 'addedLast7, reachedLast7, wonLast30 — are they speeding up or slowing down? Compare to prior pace if possible. Cite numbers.' },
-  { name: 'ENGAGEMENT HEALTH',
-    brief: 'activeNow vs successful (how many of the wins are still active). Anything sitting paused (look at completed/churned if mentioned). Completed wins are repeat-candidates. If activeNow=0 but successful>0, that itself is the story.' },
+  { name: 'SOURCING (Results + Dismissed tabs)',
+    brief: 'Anchor on the Results + Dismissed tabs. Use resultsCount, dismissedCount, dismissalRatio, addedLast7. If dismissalRatio is high (>30%), comment that the niche may be too broad. If addedLast7 is low and resultsCount is high, name the gap — they are sourcing but not committing. If dismissalRatio is 0, suggest they are being too generous. Do NOT discuss follow-ups, conversion, or active clients.' },
+  { name: 'PIPELINE (Outreach > Pipeline sub-tab)',
+    brief: 'Anchor on the Pipeline sub-tab. Use total, status mix (notOutreached / open / noResponse / rejected / successful), responseRate, winRate, byMedium. Surface the biggest imbalance — too many Opens with no follow-up scheduled? A medium dominating? leadsWithEmailNotReached too high? Do NOT touch the Follow-ups queue specifically (that is a separate facet).' },
+  { name: 'FOLLOW-UPS (Outreach > Follow-ups sub-tab)',
+    brief: 'Anchor on the Follow-ups sub-tab. Use followupOverdue, followupDueToday, followupDueThisWeek. If followupOverdue > 0 that is the lead. If followupDueToday > 0 prompt them to clear it. If all those are 0 but open > 5, point out the Open entries without follow-up dates set. Be specific with counts. Do NOT discuss conversion rates.' },
+  { name: 'ACTIVE CLIENTS (Outreach > Active Clients sub-tab)',
+    brief: 'Anchor on the Active Clients sub-tab. Use activeClientsTotal, activeNow, lifecyclePaused, lifecycleCompleted, totalBooked, personalRevenue, completedRealised, avgRating, repeatDefinitely + repeatLikely. Prioritise: paused clients to reactivate → completed clients with repeatDefinitely/Likely to follow up with for repeats → ratio of personalRevenue to totalBooked if team splits eat a lot. Do NOT discuss outreach metrics.' },
+  { name: 'WORKFLOW + ANALYTICS (Profile + Settings + Analytics tab)',
+    brief: 'Anchor on workflow setup OR Analytics trends. Pick whichever is more interesting: a missing workflow piece (!hasPitchLine, !gmailConnected, !customEmailTemplate) OR a velocity trend from addedLast7 / reachedLast7 / wonLast30 worth commenting on. Do NOT repeat what the other facets cover.' },
 ] as const
 
 function buildPrompt(metrics: DashboardMetrics, recentSearches: string[], isNew: boolean): string {
@@ -228,7 +283,7 @@ function buildPrompt(metrics: DashboardMetrics, recentSearches: string[], isNew:
     ? `Recent searches: ${recentSearches.slice(0, 5).map(s => `"${s.slice(0, 40)}"`).join(', ')}`
     : '(No recent search history available — skip search-reflection facet if it applies.)'
 
-  return `You are a heads-up display for a creator-outreach SaaS. Write FIVE distinct one-sentence insights about the user's current state. Each one anchored to a different facet of the data — they MUST cover materially different ground, not five rewordings of the same observation.
+  return `You are a heads-up display for a creator-outreach SaaS. The app has 5 distinct surfaces: the Results tab, the Outreach > Pipeline sub-tab, the Outreach > Follow-ups sub-tab, the Outreach > Active Clients sub-tab, and the user's Profile + Settings + Templates area. Write FIVE one-sentence insights, ONE per surface, in the order listed below.
 
 OUTPUT FORMAT: Return ONLY a JSON array of exactly 5 strings, no other text. Example:
 ["Insight 1...", "Insight 2...", "Insight 3...", "Insight 4...", "Insight 5..."]
@@ -236,10 +291,19 @@ OUTPUT FORMAT: Return ONLY a JSON array of exactly 5 strings, no other text. Exa
 EACH INSIGHT MUST:
 - Be ONE sentence, max 22 words.
 - Plain prose. No markdown, no emoji, no quotes inside the strings (use plain text only).
-- Cite at least one specific number from the data block below.
+- Cite at least one specific number from the data block below (or a workflow boolean for the WORKFLOW facet).
 - Be in second person ("you", "your").
-- Be opinionated and direct. No greeting words. No hedging ("might want to", "perhaps").
+- Be opinionated and direct. No greeting words. No hedging.
 - Cite numbers that actually appear in the data block. Never fabricate.
+
+CRITICAL — TAB ANCHORING:
+- Insight #1 talks ONLY about sourcing — Results tab and Dismissed tab signal.
+- Insight #2 talks ONLY about the Pipeline sub-tab — overall status mix of leads.
+- Insight #3 talks ONLY about the Follow-ups sub-tab — overdue / due-today / due-this-week.
+- Insight #4 talks ONLY about Active Clients sub-tab — engagement count / lifecycle / revenue / repeats.
+- Insight #5 talks ONLY about Workflow Setup or Analytics trends — never raw outreach metrics.
+
+If two facets would overlap (e.g. both citing total entries), reframe one so it stays in its own lane. A reader cycling through should see five completely different parts of the app discussed.
 
 ${guidance}
 
@@ -247,9 +311,7 @@ THE 5 FACETS (use exactly these 5, in this order):
 
 ${facetBlock}
 
-If a facet has truly no signal in the data (e.g. ACTION QUEUE but stale=0 AND open=0), still write something useful by reframing within that facet — do NOT skip the slot and do NOT repeat another facet's framing.
-
-The 5 insights must read as 5 different framings of 5 different parts of the data. A reader cycling through them should learn 5 distinct things about themselves.
+If a facet has truly no signal in the data (e.g. FOLLOW-UPS but all three follow-up counts are 0), still write something useful — frame it as a forward-looking nudge about that surface ("no follow-ups scheduled yet — set a date when you reach out next") — do NOT skip the slot and do NOT pivot to another facet's territory.
 
 Current state:
 ${JSON.stringify(metrics, null, 2)}

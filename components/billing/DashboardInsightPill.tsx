@@ -21,7 +21,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, RefreshCw, Loader2, AlertCircle, X as XIcon } from 'lucide-react'
-import type { OutreachEntry } from '@/lib/types'
+import type { OutreachEntry, UserProfile } from '@/lib/types'
 
 const STALE_MS = 24 * 60 * 60 * 1000  // 24 hours
 
@@ -35,9 +35,28 @@ interface CachedDashboardInsight {
   generatedAt: number
 }
 
-/** Reduce an OutreachEntry[] to the smallest payload the dashboard
- *  endpoint needs. Keeps the request body tiny. */
-function projectMetrics(entries: OutreachEntry[]) {
+/**
+ * Build the cross-tab metrics payload the dashboard endpoint uses.
+ * Pulls signal from EVERY tab + sub-tab in the app so Claude can
+ * produce 5 genuinely different insights — one per surface — rather
+ * than 5 rewordings of the same outreach observation.
+ *
+ * Tabs the payload covers:
+ *   • Results       — currentResultsCount, recentSearchCount
+ *   • Dismissed     — dismissedCount, dismissalRatio
+ *   • Outreach > Pipeline   — total / status mix / pipeline $ / by-medium
+ *   • Outreach > Follow-ups — overdue + due-today + due-this-week
+ *   • Outreach > Active Clients — count / lifecycle / quality / repeats / budget
+ *   • Outreach > Analytics  — addedLast7 / reachedLast7 / wonLast30 / conversion
+ *   • Profile / Settings    — workflow setup completeness flags
+ */
+function projectMetrics(input: {
+  entries: OutreachEntry[]
+  resultsCount: number
+  dismissedCount: number
+  profile: UserProfile | null
+}) {
+  const { entries, resultsCount, dismissedCount, profile } = input
   const isReachedOut = (e: OutreachEntry) => e.status !== 'Not Outreached' && e.status !== ''
   const total = entries.length
   const reachedOut = entries.filter(isReachedOut).length
@@ -57,13 +76,31 @@ function projectMetrics(entries: OutreachEntry[]) {
       return sum + (Number.isFinite(n) ? n : 0)
     }, 0)
 
+  // ── Follow-up queue specifics (drives the Follow-ups sub-tab) ──
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const stale = entries.filter(e => {
+  const todayMs = today.getTime()
+  const sevenDaysOut = todayMs + 7 * 24 * 60 * 60 * 1000
+
+  const followupOverdue = entries.filter(e => {
     if (!e.followUpDate || e.status !== 'Open') return false
     const t = new Date(e.followUpDate).getTime()
-    return Number.isFinite(t) && t < today.getTime()
+    return Number.isFinite(t) && t < todayMs
   }).length
 
+  const followupDueToday = entries.filter(e => {
+    if (!e.followUpDate || e.status !== 'Open') return false
+    const d = new Date(e.followUpDate)
+    d.setHours(0, 0, 0, 0)
+    return d.getTime() === todayMs
+  }).length
+
+  const followupDueThisWeek = entries.filter(e => {
+    if (!e.followUpDate || e.status !== 'Open') return false
+    const t = new Date(e.followUpDate).getTime()
+    return Number.isFinite(t) && t >= todayMs && t < sevenDaysOut
+  }).length
+
+  // ── Velocity (Analytics tab signal) ──
   const SEVEN_D_AGO = Date.now() - 7 * 24 * 60 * 60 * 1000
   const THIRTY_D_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000
   const addedLast7 = entries.filter(e => e.addedAt > SEVEN_D_AGO).length
@@ -78,15 +115,21 @@ function projectMetrics(entries: OutreachEntry[]) {
     return Number.isFinite(t) && t > THIRTY_D_AGO
   }).length
 
+  // ── Active Clients sub-tab depth ──
   const activeClients = entries.filter(e => e.status === 'Successful')
-  const activeNow = activeClients.filter(e => (e.clientLifecycle ?? 'active') === 'active').length
+  const lifecycleActive    = activeClients.filter(e => (e.clientLifecycle ?? 'active') === 'active').length
+  const lifecyclePaused    = activeClients.filter(e => e.clientLifecycle === 'paused').length
+  const lifecycleCompleted = activeClients.filter(e => e.clientLifecycle === 'completed').length
+  const lifecycleChurned   = activeClients.filter(e => e.clientLifecycle === 'churned').length
+
   const withBudget = activeClients.filter(e => typeof e.clientBudgetAmount === 'number' && e.clientBudgetAmount! > 0)
   const totalBooked = withBudget.reduce((s, e) => s + (e.clientBudgetAmount || 0), 0)
+  const completedRealised = activeClients
+    .filter(e => e.clientLifecycle === 'completed')
+    .reduce((s, e) => s + (e.clientFinalValue || 0), 0)
 
-  // Mimic the analytics resolveCollaboratorShare — but we don't need
-  // exact dollar precision for a one-line insight, so we treat any
-  // collaborator shares as dollar amounts (the common case) and
-  // subtract them.
+  // Collaborator splits — approximate (treat percent as % of that
+  // engagement's budget); good enough for a one-line narrative.
   let totalCollabShare = 0
   for (const e of activeClients) {
     const team = e.clientCollaborators ?? []
@@ -100,6 +143,24 @@ function projectMetrics(entries: OutreachEntry[]) {
   }
   const personalRevenue = Math.max(0, totalBooked - totalCollabShare)
 
+  // Quality / repeat — pulled from wrap-up data.
+  const ratings = activeClients
+    .filter(e => e.clientLifecycle === 'completed')
+    .map(e => e.clientRating)
+    .filter((n): n is number => typeof n === 'number' && n > 0)
+  const avgRating = ratings.length > 0
+    ? Math.round((ratings.reduce((s, n) => s + n, 0) / ratings.length) * 10) / 10
+    : null
+
+  let repeatDefinitely = 0, repeatLikely = 0, repeatMaybe = 0, repeatNo = 0
+  for (const e of activeClients.filter(c => c.clientLifecycle === 'completed')) {
+    if (e.clientRepeatLikelihood === 'definitely') repeatDefinitely += 1
+    else if (e.clientRepeatLikelihood === 'likely') repeatLikely += 1
+    else if (e.clientRepeatLikelihood === 'maybe')  repeatMaybe += 1
+    else if (e.clientRepeatLikelihood === 'no')     repeatNo += 1
+  }
+
+  // ── By-medium (Analytics signal — drives "which channel is winning") ──
   const byMedium = {
     Email:    { reached: 0, won: 0 },
     LinkedIn: { reached: 0, won: 0 },
@@ -113,12 +174,62 @@ function projectMetrics(entries: OutreachEntry[]) {
     if (e.status === 'Successful') byMedium[med].won += 1
   }
 
+  // ── Sourcing tab signal (Results + Dismissed) ──
+  // Dismissal ratio expressed against the total "considered" pool
+  // (added + dismissed). High ratio = picky / niche may be too broad.
+  const considered = total + dismissedCount
+  const dismissalRatio = considered > 0
+    ? Math.round((dismissedCount / considered) * 100)
+    : 0
+
+  // Entries that have email captured but were never reached out to —
+  // a strong "next-action" signal for the Pipeline tab.
+  const leadsWithEmailNotReached = entries.filter(e =>
+    !!e.email && (e.status === 'Not Outreached' || e.status === ''),
+  ).length
+
+  // ── Workflow setup (Profile + Settings + Templates) ──
+  const workflow = {
+    hasPitchLine:           !!(profile?.pitchLine && profile.pitchLine.trim().length > 0),
+    hasFullName:            !!(profile?.fullName && profile.fullName.trim().length > 0),
+    hasPhysicalAddress:     !!(profile?.physicalAddress && profile.physicalAddress.trim().length > 0),
+    gmailConnected:         !!profile?.unipileAccountId,
+    customEmailTemplate:    !!profile?.emailTemplate,
+    customIgTemplate:       !!profile?.igDmTemplate,
+    customLinkedinTemplate: !!profile?.linkedinDmTemplate,
+    mailClient:             profile?.mailClient ?? 'default',
+  }
+
   return {
+    // Outreach core
     total, reachedOut, responseReceived, successful, rejected, open, noResponse, notOutreached,
-    responseRate, winRate, pipelineValue, stale,
-    addedLast7, reachedLast7, wonLast30,
-    activeNow, totalBooked, personalRevenue,
+    responseRate, winRate, pipelineValue,
+    leadsWithEmailNotReached,
     byMedium,
+
+    // Follow-ups sub-tab
+    followupOverdue,
+    followupDueToday,
+    followupDueThisWeek,
+
+    // Velocity / Analytics
+    addedLast7, reachedLast7, wonLast30,
+
+    // Active Clients sub-tab
+    activeClientsTotal: activeClients.length,
+    activeNow: lifecycleActive,
+    lifecyclePaused, lifecycleCompleted, lifecycleChurned,
+    totalBooked, personalRevenue, completedRealised,
+    avgRating,
+    repeatDefinitely, repeatLikely, repeatMaybe, repeatNo,
+
+    // Sourcing (Results + Dismissed tabs)
+    resultsCount,
+    dismissedCount,
+    dismissalRatio,
+
+    // Workflow / Profile / Templates
+    workflow,
   }
 }
 
@@ -155,12 +266,20 @@ function writeCache(uid: string, value: CachedDashboardInsight): void {
 }
 
 export function DashboardInsightPill({
-  entries, userId,
+  entries, userId, resultsCount = 0, dismissedCount = 0, profile = null,
 }: {
   entries: OutreachEntry[]
   /** Used as the localStorage cache key suffix so each user's
    *  insight stays separate on shared machines. */
   userId: string
+  /** Current Results-tab creator count. Drives the SOURCING facet. */
+  resultsCount?: number
+  /** Dismissed-tab creator count. Drives the SOURCING facet
+   *  (dismissal ratio). */
+  dismissedCount?: number
+  /** User profile — drives the WORKFLOW SETUP facet (pitch line,
+   *  Gmail connected, custom templates). */
+  profile?: UserProfile | null
 }) {
   // We store the whole array of 5 insights + the currently-displayed
   // index. Refresh cycles through the array locally; only after all
@@ -226,7 +345,7 @@ export function DashboardInsightPill({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          metrics: projectMetrics(entries),
+          metrics: projectMetrics({ entries, resultsCount, dismissedCount, profile }),
           recentSearches,
           daysSinceFirstEntry,
         }),
