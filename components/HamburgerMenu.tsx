@@ -7,6 +7,28 @@ import { BACKDROP_THEMES, type BackdropTheme } from '@/lib/backdrop-themes'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
+/**
+ * Right-pointing chevron — universal "this row goes somewhere" cue.
+ * Sits at the right edge of every navigable row. Default faded so it
+ * doesn't shout, brightens + slides right on hover so the row feels
+ * actively clickable rather than static text. Picked up via group-hover
+ * from the parent <button>.
+ */
+function ChevronRight() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-3 h-3 text-muted-foreground/40 group-hover:text-muted-foreground group-hover:translate-x-0.5 shrink-0 ml-auto transition-all"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2.5}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
+  )
+}
+
 export function HamburgerMenu({
   userEmail,
   userFullName,
@@ -239,27 +261,29 @@ export function HamburgerMenu({
           {/* Lead Criteria */}
           <button
             onClick={() => { onOpenScoreSettings(); setOpen(false) }}
-            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+            <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             </span>
             <div className="min-w-0">
               <div className="text-[12.5px] text-foreground font-medium leading-tight">Lead Criteria</div>
             </div>
+            <ChevronRight />
           </button>
 
           {/* Profile */}
           <button
             onClick={() => { onOpenProfile(); setOpen(false) }}
-            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+            <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             </span>
             <div className="min-w-0">
               <div className="text-[12.5px] text-foreground font-medium leading-tight">Profile</div>
             </div>
+            <ChevronRight />
           </button>
 
           {/* Templates — per-platform message editor. Slots directly under
@@ -270,9 +294,9 @@ export function HamburgerMenu({
           {onOpenTemplates && (
             <button
               onClick={() => { onOpenTemplates(); setOpen(false) }}
-              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
@@ -280,6 +304,7 @@ export function HamburgerMenu({
               <div className="min-w-0">
                 <div className="text-[12.5px] text-foreground font-medium leading-tight">Templates</div>
               </div>
+              <ChevronRight />
             </button>
           )}
 
@@ -289,9 +314,9 @@ export function HamburgerMenu({
           {onStartTour && (
             <button
               onClick={() => { onStartTour(); setOpen(false) }}
-              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
@@ -300,6 +325,7 @@ export function HamburgerMenu({
               <div className="min-w-0">
                 <div className="text-[12.5px] text-foreground font-medium leading-tight">Take a tour</div>
               </div>
+              <ChevronRight />
             </button>
           )}
 
@@ -309,9 +335,9 @@ export function HamburgerMenu({
               <div className="mx-4 my-1 border-t border-border" />
               <button
                 onClick={() => setImportExpanded(v => !v)}
-                className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
               >
-                <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+                <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </span>
                 <div className="min-w-0 flex-1">
@@ -319,20 +345,27 @@ export function HamburgerMenu({
                 </div>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className={`w-4 h-4 text-muted-foreground mt-0.5 shrink-0 transition-transform ${importExpanded ? 'rotate-180' : ''}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  className={`w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-muted-foreground shrink-0 transition-all ${importExpanded ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
                 ><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </button>
               {importExpanded && (
-                <div className="bg-background/50">
+                <div className="bg-muted/30 border-y border-border/40 relative">
+                  {/* Left accent rail — signals these rows belong to the Import group above */}
+                  <div className="absolute left-6 top-0 bottom-0 w-px bg-border/60" aria-hidden="true" />
                   {importChildren.map((c, i) => (
                     <button
                       key={i}
                       onClick={c.onClick}
-                      className="w-full pl-12 pr-4 py-2.5 text-left hover:bg-muted transition-colors block"
+                      className="w-full pl-10 pr-4 py-2.5 text-left hover:bg-muted transition-colors block group"
                     >
-                      <div className="text-sm text-foreground leading-tight">{c.label}</div>
-                      {c.sublabel && <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{c.sublabel}</div>}
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] text-foreground leading-tight">{c.label}</div>
+                          {c.sublabel && <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{c.sublabel}</div>}
+                        </div>
+                        <ChevronRight />
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -346,14 +379,15 @@ export function HamburgerMenu({
               <a
                 href="/admin"
                 onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
               >
-                <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+                <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
                 </span>
                 <div className="min-w-0">
                   <div className="text-[12.5px] text-foreground font-medium leading-tight">Admin</div>
                 </div>
+                <ChevronRight />
               </a>
               {/* "Seed test data" was here until 2026-05-11 — moved to
                   /admin/page.tsx so all admin dev tools live together
@@ -372,9 +406,9 @@ export function HamburgerMenu({
             type="button"
             onClick={toggleAppearance}
             aria-expanded={appearanceExpanded}
-            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+            <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
               {/* Palette icon — represents all visual settings */}
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
@@ -389,8 +423,8 @@ export function HamburgerMenu({
             </div>
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className={`w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0 transition-transform ${appearanceExpanded ? 'rotate-180' : ''}`}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              className={`w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-muted-foreground mt-1 shrink-0 transition-all ${appearanceExpanded ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
@@ -398,16 +432,22 @@ export function HamburgerMenu({
 
           {/* Appearance contents — only render when expanded. Wraps
               the prior top-level Theme toggle + Themes section + all
-              spotlight controls into a single collapsed group. */}
+              spotlight controls into a single collapsed group. Strong
+              tint + left accent rail signals nesting under Appearance
+              so the children don't read as siblings to top-level
+              items. */}
           {appearanceExpanded && (
-            <div className="bg-muted/20 border-y border-border/40">
+            <div className="bg-muted/40 border-y border-border/60 relative">
+              {/* Left accent rail — runs the full height of the expanded
+                  section so every child reads as "belongs to Appearance". */}
+              <div className="absolute left-6 top-0 bottom-0 w-px bg-border/70" aria-hidden="true" />
           {/* Theme toggle */}
           {themeMounted && (
             <button
               onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setOpen(false) }}
-              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 pl-10 pr-4 py-2 text-left hover:bg-muted/60 transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
                 {theme === 'dark' ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="4" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" /></svg>
                 ) : (
@@ -418,6 +458,7 @@ export function HamburgerMenu({
                 <div className="text-[12.5px] text-foreground font-medium leading-tight">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Switch interface theme</div>
               </div>
+              <ChevronRight />
             </button>
           )}
 
@@ -429,7 +470,7 @@ export function HamburgerMenu({
               opens a settings panel (duration etc.) so the menu stays
               compact. */}
           {onBackdropThemeChange && (
-            <div className="px-4 py-3 border-t border-border/60">
+            <div className="pl-10 pr-4 py-3 border-t border-border/60">
               <div className="flex items-start gap-3">
                 <span className="text-muted-foreground mt-0.5 shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -647,14 +688,14 @@ export function HamburgerMenu({
             <a
               href={subscriptionHref}
               onClick={() => setOpen(false)}
-              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </span>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="text-[12.5px] text-foreground font-medium leading-tight">
                   {subscriptionLabel?.cta ?? 'Pricing'}
                 </div>
@@ -662,6 +703,7 @@ export function HamburgerMenu({
                   {subscriptionLabel?.status ?? 'Plans & checkout'}
                 </div>
               </div>
+              <ChevronRight />
             </a>
           )}
 
@@ -675,9 +717,9 @@ export function HamburgerMenu({
           <a
             href="/roadmap"
             onClick={() => setOpen(false)}
-            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+            <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
@@ -685,6 +727,7 @@ export function HamburgerMenu({
             <div className="min-w-0">
               <div className="text-[12.5px] text-foreground font-medium leading-tight">Roadmap</div>
             </div>
+            <ChevronRight />
           </a>
 
           <div className="mx-4 my-1 border-t border-border" />
@@ -692,14 +735,15 @@ export function HamburgerMenu({
           {/* Contact Us */}
           <button
             onClick={() => { window.open('mailto:dmeehanj@gmail.com', '_blank'); setOpen(false) }}
-            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+            <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
             </span>
             <div className="min-w-0">
               <div className="text-[12.5px] text-foreground font-medium leading-tight">Contact us</div>
             </div>
+            <ChevronRight />
           </button>
 
           {/* Legal — Terms / Privacy / Refunds / Cookies. Compact
@@ -728,12 +772,14 @@ export function HamburgerMenu({
 
           <div className="mx-4 my-1 border-t border-border" />
 
-          {/* Sign out */}
+          {/* Sign out — destructive action, no chevron-right (it's not
+              navigation in the usual sense). Hover state still brightens
+              icon + text so the row reads as interactive. */}
           <button
             onClick={signOut}
-            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+            <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             </span>
             <div className="min-w-0">
