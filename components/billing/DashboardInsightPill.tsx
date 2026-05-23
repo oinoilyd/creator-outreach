@@ -26,13 +26,13 @@ import type { OutreachEntry } from '@/lib/types'
 const STALE_MS = 24 * 60 * 60 * 1000  // 24 hours
 
 interface CachedDashboardInsight {
-  insight: string
+  /** Five insights generated together — each tied to a different
+   *  facet of the user's data. Cycling through them on refresh
+   *  surfaces materially different framings, not paraphrases. */
+  insights: string[]
+  /** Index of the currently-visible insight in the array. */
+  index: number
   generatedAt: number
-  /** Monotonic refresh counter persisted so successive manual
-   *  refreshes rotate through different prompt facets server-side
-   *  rather than re-asking with the same context (which produces
-   *  paraphrased duplicates). */
-  refreshIndex?: number
 }
 
 /** Reduce an OutreachEntry[] to the smallest payload the dashboard
@@ -128,13 +128,16 @@ function readCache(uid: string): CachedDashboardInsight | null {
     const raw = window.localStorage.getItem(`creator-outreach.dashboard-insight.${uid}`)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<CachedDashboardInsight>
-    if (!parsed || typeof parsed.insight !== 'string' || typeof parsed.generatedAt !== 'number') {
-      return null
-    }
+    if (
+      !parsed ||
+      !Array.isArray(parsed.insights) ||
+      parsed.insights.length === 0 ||
+      typeof parsed.generatedAt !== 'number'
+    ) return null
     return {
-      insight: parsed.insight,
+      insights: parsed.insights.filter((v): v is string => typeof v === 'string'),
+      index: typeof parsed.index === 'number' && parsed.index >= 0 ? parsed.index : 0,
       generatedAt: parsed.generatedAt,
-      refreshIndex: typeof parsed.refreshIndex === 'number' ? parsed.refreshIndex : 0,
     }
   } catch {
     return null
@@ -159,20 +162,19 @@ export function DashboardInsightPill({
    *  insight stays separate on shared machines. */
   userId: string
 }) {
-  const [insight, setInsight] = useState<string>('')
+  // We store the whole array of 5 insights + the currently-displayed
+  // index. Refresh cycles through the array locally; only after all
+  // 5 have been shown does the next refresh hit the API for fresh
+  // ones. That guarantees genuine variety (5 facets, asked in one
+  // call so Claude makes them mutually different) and is also free
+  // for refreshes 2-5.
+  const [insights, setInsights] = useState<string[]>([])
+  const [index, setIndex] = useState(0)
   const [generatedAt, setGeneratedAt] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
-  // Server-side facet rotation needs to know which refresh we're on.
-  // Ref instead of state because we don't need a re-render when it
-  // bumps — only the next API call cares.
-  const refreshIndexRef = useRef<number>(0)
-  // Holds the last-rendered insight so the refresh path can pass it
-  // back to the server as "don't repeat this." Mirrors what's in
-  // state/cache but synchronously accessible inside async fetches.
-  const lastInsightRef = useRef<string>('')
 
   // Click-outside / Escape close behavior for the popover.
   useEffect(() => {
@@ -203,7 +205,7 @@ export function DashboardInsightPill({
     ? Math.floor((Date.now() - earliestEntryMs) / (24 * 60 * 60 * 1000))
     : null
 
-  async function generate(): Promise<void> {
+  async function fetchFreshBatch(): Promise<void> {
     setLoading(true)
     setError(null)
     try {
@@ -227,29 +229,19 @@ export function DashboardInsightPill({
           metrics: projectMetrics(entries),
           recentSearches,
           daysSinceFirstEntry,
-          // Server uses these to (a) tell Claude what NOT to repeat
-          // and (b) rotate which facet to lean into across refreshes.
-          previousInsight: lastInsightRef.current || undefined,
-          refreshIndex: refreshIndexRef.current,
         }),
       })
-      const json = await res.json() as { insight?: string; generatedAt?: number; error?: string }
-      if (!res.ok || !json.insight) {
+      const json = await res.json() as { insights?: string[]; generatedAt?: number; error?: string }
+      if (!res.ok || !Array.isArray(json.insights) || json.insights.length === 0) {
         setError(json.error || `Failed (HTTP ${res.status})`)
         return
       }
-      setInsight(json.insight)
-      setGeneratedAt(json.generatedAt ?? Date.now())
-      lastInsightRef.current = json.insight
-      // Bump rotation for the NEXT refresh so we don't land on the
-      // same facet twice in a row.
-      const nextIndex = refreshIndexRef.current + 1
-      refreshIndexRef.current = nextIndex
-      writeCache(userId, {
-        insight: json.insight,
-        generatedAt: json.generatedAt ?? Date.now(),
-        refreshIndex: nextIndex,
-      })
+      const fresh = json.insights.filter((s): s is string => typeof s === 'string' && s.length > 0)
+      const at = json.generatedAt ?? Date.now()
+      setInsights(fresh)
+      setIndex(0)
+      setGeneratedAt(at)
+      writeCache(userId, { insights: fresh, index: 0, generatedAt: at })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Network error')
     } finally {
@@ -257,40 +249,72 @@ export function DashboardInsightPill({
     }
   }
 
+  /**
+   * Handler for the popover refresh button. Within a fresh batch,
+   * each click advances to the next of the 5 insights (instant, no
+   * API call). After the last one is shown, the next click fetches
+   * a brand-new batch of 5.
+   */
+  async function nextOrFetch(): Promise<void> {
+    if (insights.length === 0) {
+      await fetchFreshBatch()
+      return
+    }
+    if (index < insights.length - 1) {
+      const next = index + 1
+      setIndex(next)
+      writeCache(userId, {
+        insights,
+        index: next,
+        generatedAt: generatedAt ?? Date.now(),
+      })
+      return
+    }
+    // Exhausted current batch → fetch new 5.
+    await fetchFreshBatch()
+  }
+
   // Hydrate from cache on mount; auto-fetch when stale or first run.
   useEffect(() => {
     if (entries.length === 0) {
-      // No data → use a deterministic empty-state, no LLM call.
-      setInsight('Start by running a search on the Results tab to find creators in your niche.')
+      // Empty pipeline → no LLM call. The deterministic empty-state
+      // copy already lives server-side (5 starter prompts) but we
+      // mirror one here so the pill renders immediately without a
+      // round-trip.
+      setInsights(['Start by running a search on the Results tab to find creators in your niche.'])
+      setIndex(0)
       setGeneratedAt(Date.now())
-      lastInsightRef.current = ''
-      refreshIndexRef.current = 0
       return
     }
     const cached = readCache(userId)
     const stale = cached && Date.now() - cached.generatedAt > STALE_MS
     if (cached && !stale) {
-      setInsight(cached.insight)
+      setInsights(cached.insights)
+      setIndex(Math.min(cached.index, cached.insights.length - 1))
       setGeneratedAt(cached.generatedAt)
-      // Persist rotation + last-insight across page reloads so the
-      // server keeps cycling facets even after a hard refresh.
-      lastInsightRef.current = cached.insight
-      refreshIndexRef.current = cached.refreshIndex ?? 0
       return
     }
-    void generate()
+    void fetchFreshBatch()
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [userId, entries.length])
+
+  const currentInsight = insights.length > 0 && index < insights.length ? insights[index] : ''
 
   // Truncate the visible pill text so it doesn't push the upgrade
   // button off-screen. The full text is in the popover.
   const pillText = (() => {
-    if (loading && !insight) return 'Generating…'
+    if (loading && !currentInsight) return 'Generating…'
     if (error) return 'Insight unavailable'
-    return insight || 'Loading…'
+    return currentInsight || 'Loading…'
   })()
 
   const formattedAge = generatedAt != null ? formatAge(Date.now() - generatedAt) : ''
+  // What does the refresh button do if clicked right now? Determines
+  // the title + icon variant in the popover.
+  const refreshAdvancesLocally = insights.length > 1 && index < insights.length - 1
+  const refreshLabel = refreshAdvancesLocally
+    ? `Next insight (${index + 1} of ${insights.length})`
+    : 'Fetch fresh insights'
 
   return (
     <div ref={popoverRef} className="relative hidden md:block">
@@ -318,17 +342,24 @@ export function DashboardInsightPill({
               <Sparkles className="w-3.5 h-3.5" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[12.5px] font-semibold text-foreground">Heads-up</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12.5px] font-semibold text-foreground">Heads-up</span>
+                {insights.length > 1 && (
+                  <span className="text-[10px] font-medium tabular-nums text-purple-700 dark:text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                    {index + 1}/{insights.length}
+                  </span>
+                )}
+              </div>
               <div className="text-[10.5px] text-muted-foreground/75">
-                {generatedAt != null ? `Updated ${formattedAge}` : 'Loading…'}
+                {generatedAt != null ? `Batch generated ${formattedAge}` : 'Loading…'}
               </div>
             </div>
             <button
               type="button"
-              onClick={generate}
+              onClick={nextOrFetch}
               disabled={loading}
-              aria-label="Refresh"
-              title="Regenerate"
+              aria-label={refreshLabel}
+              title={refreshLabel}
               className="text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors p-1 rounded hover:bg-muted/40"
             >
               {loading
@@ -351,14 +382,22 @@ export function DashboardInsightPill({
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
                 <span>{error}</span>
               </div>
-            ) : loading && !insight ? (
+            ) : loading && !currentInsight ? (
               <div className="space-y-1.5">
                 <div className="h-3 bg-muted/60 rounded animate-pulse w-11/12" />
                 <div className="h-3 bg-muted/60 rounded animate-pulse w-8/12" />
               </div>
             ) : (
               <p className="text-[13px] leading-relaxed text-foreground/90">
-                {insight}
+                {currentInsight}
+              </p>
+            )}
+            {/* Subtle hint that the refresh button does local cycling
+                until exhausted. Hidden once they've seen all 5 — the
+                title-attr on the button is enough at that point. */}
+            {refreshAdvancesLocally && !loading && !error && (
+              <p className="mt-2 text-[10.5px] text-muted-foreground/65">
+                Click <RefreshCw className="inline w-2.5 h-2.5 mb-0.5" aria-hidden /> for the next insight in this batch.
               </p>
             )}
           </div>
