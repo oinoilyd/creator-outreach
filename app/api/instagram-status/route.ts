@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: 'invalid_handle' }, { status: 400 })
   }
 
-  // 1. Hot cache check — covers both Meta-API-written entries and
-  //    prior scrape-written entries.
+  // 1. Hot cache check — covers Meta-API-written entries, prior
+  //    scrape-written entries, and short-TTL tombstones.
   const cached = await cacheGet<CacheEntryReady | CacheEntryUnavailable>(cacheKey(handle))
   if (cached) {
     if ('unavailable' in cached && cached.unavailable) {
@@ -85,58 +85,74 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: 'ready', handle, metrics: cached })
   }
 
-  // 2. Meta API path — if configured, the QStash worker is in flight;
-  //    return 'pending' so frontend keeps polling. Worker will write
-  //    to cache and the next poll will hit branch 1.
+  // 2. INLINE SCRAPE — Dylan 2026-05-23 v4 ("instagram metrics are
+  //    still not pulling in at all... 90% success rate").
+  //
+  //    Previously this path only ran when Meta Graph wasn't configured.
+  //    That meant: if Meta IS configured but the QStash worker is
+  //    broken / slow / its env keys rotated / its credit ran out,
+  //    we'd return 'pending' forever, the frontend would poll a
+  //    handful of times, give up, and the row stays empty. Result:
+  //    apparent fill rate at the mercy of QStash health.
+  //
+  //    Fix: always attempt the scrape on first poll, regardless of
+  //    Meta config. The scrape gives us the headline numbers
+  //    (followers, follows, posts, bio) — exactly the fields the
+  //    Outreach table renders. If Meta IS configured, the QStash
+  //    worker still runs in the background and writes the richer
+  //    payload (engagement rate, recent media) which overwrites the
+  //    scrape cache when it lands. The user gets data on the FIRST
+  //    poll, not when QStash decides to deliver.
+  //
+  //    Cache TTL choice (15 min for scrape data): short enough that
+  //    the Meta worker's 7-day write can take over cleanly when it
+  //    completes, long enough that re-searches within the session
+  //    don't re-scrape unnecessarily.
+  const scraped = await scrapeInstagramProfile(handle)
+  if (scraped) {
+    const cacheValue: CacheEntryReady = {
+      username: scraped.username,
+      followers: scraped.followers,
+      follows: scraped.follows,
+      posts: scraped.posts,
+      mediaCount: scraped.posts,         // alias for Meta-shape parity
+      biography: scraped.biography,
+      name: scraped.name,
+      profilePictureUrl: scraped.profilePictureUrl,
+      source: scraped.source,
+      fetchedAt: scraped.fetchedAt,
+    }
+    // 15-min TTL for scrape — gives the Meta worker (if configured)
+    // a window to overwrite with richer data. The Meta worker writes
+    // with CACHE_TTL.creatorEnrichment (7 days).
+    const scrapeTTL = isInstagramGraphConfigured() ? 15 * 60 : CACHE_TTL.creatorEnrichment
+    await cacheSet(cacheKey(handle), cacheValue, scrapeTTL)
+    return NextResponse.json({ status: 'ready', handle, metrics: cacheValue })
+  }
+
+  // 3. Scrape failed AND Meta is configured — the worker might still
+  //    succeed (different code path, has token auth). Return 'pending'
+  //    so the frontend polls again; worker should land within ~10s.
   if (isInstagramGraphConfigured()) {
     return NextResponse.json({ status: 'pending', handle })
   }
 
-  // 3. Scrape fallback — Meta not configured. Hit IG public page
-  //    inline, write the result to cache (so future polls hit branch
-  //    1 in sub-10ms), return immediately. ~1-3s on first hit per
-  //    handle; subsequent searches see the cached result for 7 days.
-  const scraped = await scrapeInstagramProfile(handle)
-  if (!scraped) {
-    // 2026-05-23: dropped scrape-fail tombstone TTL from 24h → 5min.
-    // The original 24h was the same anti-pattern that killed the
-    // Meta-API fill rate (single rate-limit / login-wall poisoned
-    // a handle for a full day). Public IG login walls are usually
-    // a few-minute transient throttle, not a permanent state, so
-    // 5min lets us retry on the next search after a brief cooldown.
-    await cacheSet(
-      cacheKey(handle),
-      {
-        unavailable: true,
-        reason: 'scrape_failed',
-        detail: 'IG returned login wall or 404',
-        fetchedAt: new Date().toISOString(),
-      },
-      5 * 60,
-    )
-    return NextResponse.json({
-      status: 'unavailable',
-      handle,
-      reason: 'not resolvable — scrape returned login wall or 404',
-    })
-  }
-
-  // Cache the scrape result. Same shape as Meta cache (subset of
-  // fields), 7d TTL. The frontend doesn't care which source filled
-  // the cache.
-  const cacheValue: CacheEntryReady = {
-    username: scraped.username,
-    followers: scraped.followers,
-    follows: scraped.follows,
-    posts: scraped.posts,
-    mediaCount: scraped.posts,         // alias for Meta-shape parity
-    biography: scraped.biography,
-    name: scraped.name,
-    profilePictureUrl: scraped.profilePictureUrl,
-    source: scraped.source,
-    fetchedAt: scraped.fetchedAt,
-  }
-  await cacheSet(cacheKey(handle), cacheValue, CACHE_TTL.creatorEnrichment)
-
-  return NextResponse.json({ status: 'ready', handle, metrics: cacheValue })
+  // 4. Truly unavailable — scrape failed AND no Meta to fall back on.
+  //    5-min tombstone so we retry quickly (login walls are usually
+  //    a few-minute throttle, not permanent).
+  await cacheSet(
+    cacheKey(handle),
+    {
+      unavailable: true,
+      reason: 'scrape_failed',
+      detail: 'IG returned login wall or 404',
+      fetchedAt: new Date().toISOString(),
+    },
+    5 * 60,
+  )
+  return NextResponse.json({
+    status: 'unavailable',
+    handle,
+    reason: 'not resolvable — scrape returned login wall or 404',
+  })
 }
