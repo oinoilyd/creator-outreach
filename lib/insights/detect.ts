@@ -1,447 +1,205 @@
 /**
- * Deterministic pattern detection for the top-bar dashboard insight.
+ * Simple metric insights for the top-bar dashboard pill.
  *
- * Why no LLM:
- *   We iterated five times on the LLM approach with Sonnet + voice
- *   rules + few-shot. Every version reverted to chatbot prose because
- *   that's the model's default failure mode for "summarize this JSON"
- *   tasks. Switching to rules eliminates the voice problem (one human
- *   wrote the templates) AND the accuracy problem (we never fabricate
- *   because we only render values pulled from real fields).
+ * Earlier iterations tried detector-style pattern matching ("you're
+ * stockpiling", "channel disparity") — useful in theory but the
+ * judgmental voice + "what does this mean" interpretation kept
+ * reading as nag-y AI prose. The user asked for plain metric
+ * insights, so this is now a flat list of stat-style sentences.
  *
- * How it works:
- *   detectFindings(metrics) walks the data and returns a Finding[]
- *   ranked by interestingness. Each detector is a tiny function that
- *   looks for ONE specific pattern (not a single fact) and emits a
- *   pre-written sentence with real values interpolated.
+ * Each generator is a tiny function: takes the metrics, returns a
+ * single stat sentence OR null if the data isn't meaningful (e.g.
+ * skip "0% response rate" when no one's been reached yet).
  *
- *   The patterns we look for are the kind a human would notice
- *   leaning over your shoulder — gaps, contrasts, stockpile signals,
- *   stale-while-busy, channel disparities, repeat candidates left
- *   cold. Not "you have N leads."
- *
- *   The API route picks the top N findings with surface diversity
- *   (no two from the same lane unless that's where all the signal is).
+ * Style:
+ *   • One fact per sentence, with light context (denominator or
+ *     time window) so the number is interpretable.
+ *   • No analysis, no inference, no "you should". Just stats.
+ *   • Plain sentences with end punctuation — feels like a stat
+ *     ticker, not a coach.
  */
 
 import type { DashboardMetrics } from './types'
 
-export type Severity = 'high' | 'medium' | 'low'
-
-export interface Finding {
-  /** Stable id — used for de-dup and analytics if we ever instrument. */
-  id: string
-  severity: Severity
-  /** Which surface the observation comes from. Drives diversity
-   *  ranking — we'd rather show three findings from three different
-   *  surfaces than three from the same one. */
-  surface: 'sourcing' | 'pipeline' | 'followups' | 'active' | 'workflow'
-  /** The actual rendered sentence shown to the user. */
-  sentence: string
-}
-
-/** Plural helper — keeps templates clean. */
 function plural(n: number, singular: string, plural?: string): string {
   return `${n} ${n === 1 ? singular : (plural ?? singular + 's')}`
 }
 
-/** Rate as percent (integer). */
 function rate(num: number, den: number): number {
   if (den <= 0) return 0
   return Math.round((num / den) * 100)
 }
 
-export function detectFindings(m: DashboardMetrics): Finding[] {
-  const findings: Finding[] = []
-
-  // ── SOURCING (Results + Dismissed) ──────────────────────────────
-
-  // Window-shopping: lots of results visible, few added.
-  if (m.resultsCount >= 15 && m.addedLast7 < 3 && m.total > 0) {
-    findings.push({
-      id: 'sourcing.window-shopping',
-      severity: 'medium',
-      surface: 'sourcing',
-      sentence: `${m.resultsCount} creators in Results, ${m.addedLast7 === 0 ? 'none' : `only ${m.addedLast7}`} added in the last 7 days. The rest are window-shopping.`,
-    })
-  }
-
-  // High dismissal — keyword too broad, or being too picky.
-  if (m.dismissalRatio >= 50 && m.dismissedCount >= 5) {
-    findings.push({
-      id: 'sourcing.high-dismissal',
-      severity: 'medium',
-      surface: 'sourcing',
-      sentence: `${m.dismissalRatio}% of recent results dismissed — the keyword's broader than what you'll actually pitch.`,
-    })
-  }
-
-  // Zero dismissals + lots added — possibly too generous.
-  if (m.dismissedCount === 0 && m.total >= 15) {
-    findings.push({
-      id: 'sourcing.no-filter',
-      severity: 'low',
-      surface: 'sourcing',
-      sentence: `${m.total} leads added with nothing dismissed. Either your keyword is razor-sharp or you're letting in noise.`,
-    })
-  }
-
-  // ── PIPELINE (Outreach > Pipeline) ──────────────────────────────
-
-  // Leads with email captured, never reached out — biggest "easy win".
-  if (m.leadsWithEmailNotReached >= 5) {
-    findings.push({
-      id: 'pipeline.email-not-reached',
-      severity: 'high',
-      surface: 'pipeline',
-      sentence: `${plural(m.leadsWithEmailNotReached, 'lead')} with emails captured, none reached out. Pick the easiest and send today.`,
-    })
-  } else if (m.leadsWithEmailNotReached >= 2) {
-    findings.push({
-      id: 'pipeline.email-not-reached-soft',
-      severity: 'medium',
-      surface: 'pipeline',
-      sentence: `${plural(m.leadsWithEmailNotReached, 'lead')} with emails ready to go. They're not getting warmer sitting there.`,
-    })
-  }
-
-  // Stockpiling: adding far faster than reaching out.
-  if (m.addedLast7 >= 5 && m.addedLast7 >= m.reachedLast7 * 2 && m.reachedLast7 < 5) {
-    findings.push({
-      id: 'pipeline.stockpiling',
-      severity: 'high',
-      surface: 'pipeline',
-      sentence: `${plural(m.addedLast7, 'lead')} added but only ${plural(m.reachedLast7, 'reach-out')} this week — you're collecting, not contacting.`,
-    })
-  }
-
-  // Channel disparity (Email vs LinkedIn) — only if both have
-  // non-trivial sample size. Skipped if Other dominates everything;
-  // that gets its own detector below.
-  const em = m.byMedium.Email
-  const li = m.byMedium.LinkedIn
-  const ot = m.byMedium.Other
-  if (em.reached >= 4 && li.reached >= 4) {
-    const emRate = rate(em.won, em.reached)
-    const liRate = rate(li.won, li.reached)
-    if (liRate >= emRate * 2 && liRate >= 20) {
-      findings.push({
-        id: 'pipeline.linkedin-better',
-        severity: 'high',
-        surface: 'pipeline',
-        sentence: `LinkedIn converts at ${liRate}%, Email at ${emRate}%. Stop A/B testing what you already know.`,
-      })
-    } else if (emRate >= liRate * 2 && emRate >= 20) {
-      findings.push({
-        id: 'pipeline.email-better',
-        severity: 'high',
-        surface: 'pipeline',
-        sentence: `Email converts at ${emRate}%, LinkedIn at ${liRate}%. Email is your real channel.`,
-      })
-    }
-  }
-
-  // "Other" dominates — most reach-outs (and most wins) are in
-  // channels other than Email/LinkedIn. Surface the SPECIFIC top
-  // Other channel by name from the topMediumOther breakdown, not
-  // the generic "Other" label. Without that breakdown we'd just
-  // be saying "you do most things in Other" which means nothing.
-  const totalReached = em.reached + li.reached + ot.reached
-  if (ot.reached >= 5 && totalReached > 0 && ot.reached / totalReached >= 0.6) {
-    const top = m.topMediumOther[0]
-    if (top && top.reached >= Math.ceil(ot.reached * 0.5)) {
-      // One specific channel accounts for most of the Other bucket —
-      // call it out by name with its real conversion rate.
-      const topRate = rate(top.won, top.reached)
-      if (top.won > 0) {
-        findings.push({
-          id: 'pipeline.other-channel-named-winning',
-          severity: 'high',
-          surface: 'pipeline',
-          sentence: `${top.name} is doing the heavy lifting — ${top.reached} reach-outs, ${top.won} won (${topRate}%). Email and LinkedIn are sitting out.`,
-        })
-      } else {
-        findings.push({
-          id: 'pipeline.other-channel-named-no-wins',
-          severity: 'medium',
-          surface: 'pipeline',
-          sentence: `${top.reached} reach-outs via ${top.name}, none won yet. Try Email or LinkedIn for the next batch and compare.`,
-        })
-      }
-    } else if (m.topMediumOther.length === 0) {
-      // Entries are marked Other but the user never typed what Other
-      // actually was — surface that gap so they can fill it in for
-      // future analytics.
-      findings.push({
-        id: 'pipeline.other-channel-unnamed',
-        severity: 'medium',
-        surface: 'pipeline',
-        sentence: `Most reach-outs (${ot.reached}) are logged as "Other" with no specific channel named. Fill in the Other field on those rows to see what's actually working.`,
-      })
-    } else {
-      // Multiple named Other channels, no single dominant one — list
-      // the top two by reach so the user sees what they're using.
-      const names = m.topMediumOther.slice(0, 2).map(t => t.name).join(' and ')
-      findings.push({
-        id: 'pipeline.other-channels-mixed',
-        severity: 'medium',
-        surface: 'pipeline',
-        sentence: `Most reach-outs are split between ${names} — neither Email nor LinkedIn is getting your attention. That's a choice worth examining.`,
-      })
-    }
-  }
-
-  // Quiet pipeline (lots in flight, no activity this week).
-  if (m.total >= 10 && m.addedLast7 === 0 && m.reachedLast7 === 0) {
-    findings.push({
-      id: 'pipeline.quiet',
-      severity: 'high',
-      surface: 'pipeline',
-      sentence: `${m.total} leads in pipeline, none touched in the last 7 days. You stalled.`,
-    })
-  }
-
-  // Response rate context — flag low or high with enough sample.
-  if (m.reachedOut >= 10 && m.responseRate < 15) {
-    findings.push({
-      id: 'pipeline.low-response',
-      severity: 'medium',
-      surface: 'pipeline',
-      sentence: `Response rate is ${m.responseRate}% across ${plural(m.reachedOut, 'reach-out')}. The message isn't landing.`,
-    })
-  } else if (m.reachedOut >= 10 && m.responseRate >= 40) {
-    findings.push({
-      id: 'pipeline.strong-response',
-      severity: 'medium',
-      surface: 'pipeline',
-      sentence: `Response rate is ${m.responseRate}% across ${plural(m.reachedOut, 'reach-out')}. Whatever you're sending is working — send more.`,
-    })
-  }
-
-  // Win-vs-reach context: win rate is fine, reach is the bottleneck.
-  if (m.winRate >= 30 && m.reachedOut >= 5 && m.reachedLast7 <= 2) {
-    findings.push({
-      id: 'pipeline.reach-bottleneck',
-      severity: 'medium',
-      surface: 'pipeline',
-      sentence: `Win rate is ${m.winRate}% — that's solid. The bottleneck isn't conversion, it's how few you've reached this week.`,
-    })
-  }
-
-  // ── FOLLOW-UPS (Outreach > Follow-ups) ──────────────────────────
-
-  if (m.followupOverdue > 0) {
-    // Stale + sourcing busy = priority signal.
-    if (m.followupOverdue >= 2 && m.addedLast7 >= 3) {
-      findings.push({
-        id: 'followups.overdue-while-sourcing',
-        severity: 'high',
-        surface: 'followups',
-        sentence: `${plural(m.followupOverdue, 'follow-up')} overdue while ${plural(m.addedLast7, 'new lead')} landed this week. You're sourcing faster than you're closing.`,
-      })
-    } else {
-      findings.push({
-        id: 'followups.overdue',
-        severity: 'high',
-        surface: 'followups',
-        sentence: `${plural(m.followupOverdue, 'follow-up')} overdue today. Clear those before anything else.`,
-      })
-    }
-  } else if (m.followupDueToday > 0) {
-    findings.push({
-      id: 'followups.due-today',
-      severity: 'medium',
-      surface: 'followups',
-      sentence: `${plural(m.followupDueToday, 'follow-up')} due today.`,
-    })
-  } else if (m.open >= 5 && m.followupDueThisWeek === 0) {
-    // Lots of Opens, none with follow-up dates set — invisible queue.
-    findings.push({
-      id: 'followups.no-dates-set',
-      severity: 'medium',
-      surface: 'followups',
-      sentence: `${plural(m.open, 'Open lead')} but no follow-up dates set — they'll fall off your radar without one.`,
-    })
-  }
-
-  // ── ACTIVE CLIENTS ──────────────────────────────────────────────
-
-  if (m.activeClientsTotal > 0) {
-    // Repeat candidates uncontacted — warmest possible leads.
-    const warm = m.repeatDefinitely + m.repeatLikely
-    if (warm > 0) {
-      findings.push({
-        id: 'active.repeat-warm',
-        severity: 'high',
-        surface: 'active',
-        sentence: `${plural(warm, 'completed client')} marked Definitely- or Likely-repeat. Those are warm leads — don't let them go cold.`,
-      })
-    }
-
-    // Paused engagements idle.
-    if (m.lifecyclePaused > 0) {
-      findings.push({
-        id: 'active.paused',
-        severity: 'medium',
-        surface: 'active',
-        sentence: `${plural(m.lifecyclePaused, 'engagement', 'engagements')} sitting Paused. Reactivate or mark Churned — limbo is the worst category.`,
-      })
-    }
-
-    // Team takes too much of booked.
-    if (m.totalBooked > 0) {
-      const personalPct = rate(m.personalRevenue, m.totalBooked)
-      if (personalPct < 60 && m.totalBooked >= 1000) {
-        const splitPct = 100 - personalPct
-        findings.push({
-          id: 'active.team-heavy',
-          severity: 'medium',
-          surface: 'active',
-          sentence: `Team takes ${splitPct}% of your booked revenue. Either raise prices or rework the share structure.`,
-        })
-      }
-    }
-
-    // Single high-rated client without follow-on context.
-    if (m.avgRating != null && m.avgRating >= 4.5 && m.lifecycleCompleted >= 2) {
-      findings.push({
-        id: 'active.high-rating',
-        severity: 'low',
-        surface: 'active',
-        sentence: `${plural(m.lifecycleCompleted, 'completed engagement')} averaging ${m.avgRating}/5. Ask for testimonials — that's the easiest social proof you'll ever collect.`,
-      })
-    }
-  }
-
-  // ── WORKFLOW SETUP ──────────────────────────────────────────────
-  // Note: these are signpost-style. They tell you what's missing AND
-  // where to fix it, because workflow gaps without a destination read
-  // as nagging. Severity is calibrated to actual user impact:
-  // pitch-line (changes every send) > address (legal compliance) >
-  // gmail (just a smoother send) > custom-template (polish).
-
-  // Pitch line empty + already sending.
-  if (!m.workflow.hasPitchLine && m.reachedOut > 0) {
-    findings.push({
-      id: 'workflow.no-pitch-line',
-      severity: 'medium',
-      surface: 'workflow',
-      sentence: `Pitch line is blank. Set it in Profile (hamburger menu) — the AI rewrite leans on it for every send.`,
-    })
-  } else if (!m.workflow.hasPitchLine && m.total > 0) {
-    findings.push({
-      id: 'workflow.no-pitch-line-soft',
-      severity: 'low',
-      surface: 'workflow',
-      sentence: `Pitch line is blank. Worth setting in Profile before the first reach-out so AI rewrites have something to work with.`,
-    })
-  }
-
-  // Gmail not connected. Note: sending still works (opens Gmail
-  // compose pre-filled) — this is "could be smoother," not broken.
-  // Low severity, only fires once the user has done enough sends
-  // that the extra click adds up.
-  if (!m.workflow.gmailConnected && m.reachedOut >= 10) {
-    findings.push({
-      id: 'workflow.gmail-disconnected',
-      severity: 'low',
-      surface: 'workflow',
-      sentence: `${plural(m.reachedOut, 'send')} have routed through Gmail compose. Connect Gmail in the hamburger menu if you want Send to dispatch directly instead.`,
-    })
-  }
-
-  // Wins on default email template — capture what's working.
-  if (m.successful >= 3 && !m.workflow.customEmailTemplate) {
-    findings.push({
-      id: 'workflow.no-custom-email',
-      severity: 'low',
-      surface: 'workflow',
-      sentence: `${plural(m.successful, 'win')} on the default email template. Edit it in Profile → Templates to lock in what already converts.`,
-    })
-  }
-
-  // Sender's physical address missing — CAN-SPAM legal requirement.
-  if (!m.workflow.hasPhysicalAddress && m.reachedOut >= 10) {
-    findings.push({
-      id: 'workflow.no-address',
-      severity: 'medium',
-      surface: 'workflow',
-      sentence: `Physical address missing from Profile. US CAN-SPAM rules require one in every commercial email — add it before scaling up.`,
-    })
-  }
-
-  return findings
+function money(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 10_000)    return `$${Math.round(n / 1_000)}k`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}k`
+  return `$${Math.round(n).toLocaleString('en-US')}`
 }
 
 /**
- * Rank findings and pick the top N with surface diversity. Severity
- * outweighs surface — three "high" findings from the same surface
- * still beat one "low" from another surface — but among same-severity
- * findings, we spread across surfaces so the user sees different
- * parts of the app.
- *
- * Returns the formatted sentences only (in display order).
+ * The full set of metric generators, in display order. Each returns
+ * a string when the underlying data is meaningful, otherwise null
+ * (so we skip stats that would render as "0% of 0" or similar).
  */
-export function pickTopFindings(findings: Finding[], limit = 5): string[] {
-  if (findings.length === 0) return []
+function generators(m: DashboardMetrics): Array<string | null> {
+  return [
+    // ── Pipeline overview ────────────────────────────────────────
+    m.total > 0
+      ? `${plural(m.total, 'lead')} in your pipeline.`
+      : null,
 
-  const severityWeight: Record<Severity, number> = { high: 3, medium: 2, low: 1 }
-  const sorted = [...findings].sort((a, b) => severityWeight[b.severity] - severityWeight[a.severity])
+    m.reachedOut > 0 && m.total > 0
+      ? `${m.reachedOut} of ${m.total} reached out (${rate(m.reachedOut, m.total)}%).`
+      : null,
 
-  const picked: Finding[] = []
-  const usedSurfaces = new Set<Finding['surface']>()
+    m.reachedOut >= 3
+      ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')}.`
+      : null,
 
-  // First pass: one per surface, severity-ordered.
-  for (const f of sorted) {
-    if (picked.length >= limit) break
-    if (usedSurfaces.has(f.surface)) continue
-    picked.push(f)
-    usedSurfaces.add(f.surface)
-  }
+    m.responseReceived >= 3
+      ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses).`
+      : null,
 
-  // Second pass: fill remaining slots with the next-highest-severity
-  // findings even if surface overlaps (only if there's truly more to say).
-  for (const f of sorted) {
-    if (picked.length >= limit) break
-    if (picked.includes(f)) continue
-    picked.push(f)
-  }
+    m.pipelineValue > 0
+      ? `${money(m.pipelineValue)} in pipeline value.`
+      : null,
 
-  return picked.map(f => f.sentence)
+    // ── Activity (recency) ──────────────────────────────────────
+    (m.addedLast7 > 0 || m.reachedLast7 > 0)
+      ? `${m.addedLast7} added, ${m.reachedLast7} reached out in the last 7 days.`
+      : null,
+
+    m.wonLast30 > 0
+      ? `${plural(m.wonLast30, 'win')} in the last 30 days.`
+      : null,
+
+    // ── Follow-up queue ─────────────────────────────────────────
+    m.followupOverdue > 0
+      ? `${plural(m.followupOverdue, 'follow-up')} overdue.`
+      : null,
+
+    m.followupDueToday > 0
+      ? `${plural(m.followupDueToday, 'follow-up')} due today.`
+      : null,
+
+    m.followupDueThisWeek > 0 && m.followupOverdue === 0
+      ? `${plural(m.followupDueThisWeek, 'follow-up')} due this week.`
+      : null,
+
+    // ── Active clients ──────────────────────────────────────────
+    m.activeClientsTotal > 0
+      ? `${plural(m.activeClientsTotal, 'active client')} (${m.activeNow} currently active).`
+      : null,
+
+    m.totalBooked > 0
+      ? `${money(m.totalBooked)} booked across ${plural(m.activeClientsTotal, 'engagement', 'engagements')}.`
+      : null,
+
+    // Only show personal revenue separately if there's a meaningful gap.
+    (m.totalBooked > 0 && m.personalRevenue > 0 && m.personalRevenue < m.totalBooked * 0.95)
+      ? `${money(m.personalRevenue)} personal revenue after team splits.`
+      : null,
+
+    m.lifecycleCompleted >= 1 && m.completedRealised > 0
+      ? `${money(m.completedRealised)} realised across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
+      : null,
+
+    m.avgRating != null && m.lifecycleCompleted >= 1
+      ? `${m.avgRating}/5 average rating across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
+      : null,
+
+    // ── Channels ────────────────────────────────────────────────
+    bestChannelStat(m),
+
+    // ── Sourcing ────────────────────────────────────────────────
+    m.resultsCount > 0
+      ? `${plural(m.resultsCount, 'creator')} in your current Results.`
+      : null,
+
+    m.dismissedCount >= 3
+      ? `${plural(m.dismissedCount, 'creator')} dismissed (${m.dismissalRatio}% of those you've considered).`
+      : null,
+  ]
 }
 
 /**
- * Honest absence fallback — used when zero detectors fire (typically
- * for users with very little data or perfectly clean state). One per
- * common "nothing here yet" scenario; the API picks 2-3.
+ * Pick the channel (Email / LinkedIn / top mediumOther sub-channel)
+ * with the most wins. Returns null if no channel has wins yet.
+ *
+ * Plain stat — no comparison ("X% better than..."), just naming the
+ * leader and its numbers. The user can draw their own conclusion.
+ */
+function bestChannelStat(m: DashboardMetrics): string | null {
+  const candidates: Array<{ name: string; reached: number; won: number }> = [
+    { name: 'Email',    reached: m.byMedium.Email.reached,    won: m.byMedium.Email.won    },
+    { name: 'LinkedIn', reached: m.byMedium.LinkedIn.reached, won: m.byMedium.LinkedIn.won },
+  ]
+  // Surface the top mediumOther sub-channel by name (rather than
+  // the generic "Other" lump) so the stat is meaningful.
+  if (m.topMediumOther.length > 0) {
+    const top = m.topMediumOther[0]
+    candidates.push({ name: top.name, reached: top.reached, won: top.won })
+  }
+  const ranked = candidates
+    .filter(c => c.won > 0)
+    .sort((a, b) => b.won - a.won)
+  if (ranked.length === 0) return null
+  const top = ranked[0]
+  return `${top.name}: ${plural(top.won, 'win')} from ${plural(top.reached, 'reach-out')}.`
+}
+
+/**
+ * Public entry point — produce the cycling list of metric insights.
+ * Skips generators that returned null. Caps at MAX_INSIGHTS so the
+ * cycle doesn't drag.
+ *
+ * If absolutely nothing has any signal (genuinely brand new account),
+ * falls back to the empty-state nudges so the pill is never blank.
+ */
+const MAX_INSIGHTS = 8
+
+export function generateMetricInsights(m: DashboardMetrics): string[] {
+  const all = generators(m).filter((s): s is string => typeof s === 'string' && s.length > 0)
+  if (all.length === 0) return absenceObservations(m)
+  return all.slice(0, MAX_INSIGHTS)
+}
+
+/**
+ * Empty-state — for users with no data at all. Three short prompts
+ * that point at where to start. No analysis (there's no data to
+ * analyze), just a clean "here's what to look at first."
  */
 export function absenceObservations(m: DashboardMetrics): string[] {
-  const out: string[] = []
-
   if (m.total === 0 && m.resultsCount === 0) {
-    out.push("Nothing searched yet — the Results tab is where the work starts.")
-    out.push("Pitch line is blank. Tell the AI what you actually do before asking it to write on your behalf.")
-    out.push("Pipeline is empty. The first lead is the only one that feels hard to add.")
-    return out
+    return [
+      'No leads or searches yet — start on the Results tab.',
+      'Pitch line is blank. Set it in Profile (hamburger menu) before reaching out.',
+      'Once you find creators in Results, click the + on any row to start your pipeline.',
+    ]
   }
-
   if (m.total === 0 && m.resultsCount > 0) {
-    out.push(`${m.resultsCount} creators showing in Results but none added to outreach yet — pick one and start the pipeline.`)
-    if (!m.workflow.hasPitchLine) out.push('Pitch line is blank. Set it in Profile before the first reach-out.')
-    return out
+    return [
+      `${plural(m.resultsCount, 'creator')} in Results, none added to outreach yet.`,
+      'Click the + on any creator card to add them to your pipeline.',
+      !m.workflow.hasPitchLine
+        ? 'Pitch line is blank. Set it in Profile before the first reach-out.'
+        : 'Pipeline is empty — the first lead is the only one that feels hard to add.',
+    ]
   }
-
   if (m.total > 0 && m.reachedOut === 0) {
-    out.push(`${m.total} leads added, none reached out. The hardest send is the first.`)
-    if (m.workflow.hasPitchLine) out.push('Profile is set up. The next move is sending — not adding more leads.')
-    if (!m.workflow.gmailConnected) out.push('Gmail isn\'t connected. Wire it up so the first send isn\'t a copy-paste.')
-    return out
+    return [
+      `${plural(m.total, 'lead')} added, ${m.reachedOut === 0 ? 'none reached out yet' : `${m.reachedOut} reached out`}.`,
+      !m.workflow.hasPitchLine
+        ? 'Pitch line is blank. Set it in Profile so AI rewrites have something to work with.'
+        : 'Click the email or LinkedIn link on any row to start outreach.',
+      'Set a follow-up date when you reach out — overdue ones surface in the Follow-ups sub-tab.',
+    ]
   }
-
-  // Generic — everything looks clean / no patterns triggered.
-  out.push(`${m.total} leads in pipeline, ${m.reachedOut} reached out. Nothing's flagged — the bottleneck right now is sourcing volume.`)
-  if (m.activeClientsTotal > 0) {
-    out.push(`${plural(m.activeClientsTotal, 'active client')}. Run their next milestone or close the loop with the ones marked Completed.`)
-  }
-  return out
+  // Genuinely nothing flagged (rare) — return a couple of honest
+  // observations so the pill isn't empty.
+  return [
+    `${plural(m.total, 'lead')} in pipeline, ${plural(m.reachedOut, 'reach-out')} sent.`,
+    'No specific signal flagged right now.',
+  ]
 }

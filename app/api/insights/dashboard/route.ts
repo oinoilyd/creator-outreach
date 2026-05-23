@@ -18,7 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, rateLimit } from '@/lib/api-auth'
-import { detectFindings, pickTopFindings, absenceObservations } from '@/lib/insights/detect'
+import { generateMetricInsights } from '@/lib/insights/detect'
 import type { DashboardMetrics } from '@/lib/insights/types'
 
 interface DashboardRequestBody {
@@ -57,10 +57,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing metrics.' }, { status: 400 })
   }
 
-  const findings = detectFindings(body.metrics)
-  const sentences = findings.length > 0
-    ? pickTopFindings(findings, 5)
-    : absenceObservations(body.metrics)
+  const sentences = generateMetricInsights(body.metrics)
 
   return NextResponse.json<DashboardResponse>({
     insights: sentences,
