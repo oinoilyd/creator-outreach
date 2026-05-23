@@ -35,14 +35,13 @@ type Dimension = {
 // Dimension accents are literal oklch strings so they can be
 // interpolated into inline SVG attrs and `style={{ background: ... }}`
 // gradients (CSS custom properties don't resolve inside template
-// literals). Most ride the brand violet/teal pair to tie the dial
-// to the in-app brand mark; the green stays semantic ("reachable"
-// reads as green); the purple is intentionally distinct so all six
-// dimensions still visually separate.
+// literals). 2026-05-23 — flipped to LIGHT-mode brand tokens so the
+// dial reads on the lavender-near-white background. The light-mode
+// brand colors are darker + more saturated (matching --brand and
+// --brand-2 in :root); the dark-mode variants are kept around for
+// when the user explicitly toggles dark and the band substrate flips.
 const ACCENT_BRAND = 'oklch(0.40 0.265 290)' // matches --brand (light)
 const ACCENT_BRAND_2 = 'oklch(0.50 0.150 215)' // matches --brand-2 (light)
-const ACCENT_BRAND_DARK = 'oklch(0.68 0.240 290)' // matches --brand (dark)
-const ACCENT_BRAND_2_DARK = 'oklch(0.80 0.135 215)' // matches --brand-2 (dark)
 
 const DIMENSIONS: Dimension[] = [
   {
@@ -51,7 +50,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'How recently they posted',
     detail:
       'Posts within the last 7 days earn full credit. The score steps down at 30, 60, and 90 days. Stale accounts (no post in 90+ days) drop to a floor. Re-tunable per platform — daily IG posters and weekly LinkedIn posters get scored against different cadences.',
-    accent: ACCENT_BRAND_2_DARK,
+    accent: ACCENT_BRAND_2,
   },
   {
     key: 'reach',
@@ -59,7 +58,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'Audience size that fits your goal',
     detail:
       'Based on subscriber count and average views per recent post. The default sweet spot is 10K–50K avg views (where most outreach actually converts), with partial credit for smaller and larger creators. Adjust the band per niche — micro-influencer campaigns weight differently than enterprise sponsorships.',
-    accent: ACCENT_BRAND_DARK,
+    accent: ACCENT_BRAND,
   },
   {
     key: 'reachability',
@@ -67,7 +66,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'Channels you can actually reach them on, per target platform',
     detail:
       'Depends on the platform you target. YouTube outreach scores email + LinkedIn presence. Instagram outreach scores Instagram handle + email. LinkedIn outreach is LinkedIn-first. Each platform has its own definition of "actually reachable" — a creator with no IG DM but a public email scores high for YouTube outreach and low for Instagram outreach. Configurable per platform, weighted to whatever channel you actually use.',
-    accent: '#16A34A',
+    accent: 'oklch(0.50 0.18 152)', // semantic green, dark enough for light bg
   },
   {
     key: 'relevance',
@@ -83,7 +82,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'Engagement signal — not just follower count',
     detail:
       'Views-to-subscriber ratio. 10%+ = full credit (these creators have real attention). 5%+ = 70%. 2%+ = 40%. Below that, low engagement drags the score even if reach looks good. Cuts through inflated follower numbers.',
-    accent: '#7B2DBE',
+    accent: 'oklch(0.45 0.22 305)', // a distinct violet-magenta from --brand
   },
   {
     key: 'custom',
@@ -91,7 +90,7 @@ const DIMENSIONS: Dimension[] = [
     short: 'Any criterion you can describe',
     detail:
       'Type something like "based in the US" or "talks about value investing" or "posts long-form weekly" and the AI scores every result against it as an additional weighted dimension. Re-rank live as you tweak.',
-    accent: ACCENT_BRAND_2_DARK,
+    accent: ACCENT_BRAND_2,
   },
 ]
 
@@ -120,22 +119,24 @@ export function StatBandSpotlight() {
 
   return (
     <section className="px-6 pt-20 md:pt-28 pb-20 md:pb-28">
-      {/* Always-dark spotlight band. Substrate uses the dark-mode
-          --background oklch value literally so the band reads the
-          same in light and dark themes — it's an intentional
-          contrast section that the brand violet/teal glows
-          breathe across. */}
+      {/* Spotlight band — light-mode native (2026-05-23 per Dylan:
+          "the page should be light mode, including this section").
+          Substrate is bg-card (pure white in light, dark violet-tinted
+          in dark) so the band feels like a soft elevated panel that
+          the brand violet/teal glows breathe across rather than a
+          forced-dark contrast slab. */}
       <div
-        className="max-w-[1280px] mx-auto rounded-3xl px-6 sm:px-8 py-14 md:py-20 text-white relative overflow-hidden"
-        style={{ background: 'oklch(0.08 0.005 280)' }}
+        className="max-w-[1280px] mx-auto rounded-3xl px-6 sm:px-8 py-14 md:py-20 text-foreground relative overflow-hidden bg-card border border-border shadow-xl shadow-foreground/[0.05]"
       >
         {/* Multi-layer ambient glows — brand violet + brand teal
-            breathing radials behind the band. */}
+            breathing radials behind the band. Opacity tuned for a
+            light substrate (dialed down from the dark-mode 0.35/0.25
+            so they read as "soft wash" not "neon glow"). */}
         <div
           aria-hidden
           className="absolute -top-1/3 -right-1/4 w-[680px] h-[680px] pointer-events-none motion-reduce:hidden"
           style={{
-            background: 'radial-gradient(closest-side, oklch(0.40 0.265 290 / 0.35), transparent 70%)',
+            background: 'radial-gradient(closest-side, oklch(0.40 0.265 290 / 0.14), transparent 70%)',
             animation: 'sb-breath 9s ease-in-out infinite',
           }}
         />
@@ -143,17 +144,18 @@ export function StatBandSpotlight() {
           aria-hidden
           className="absolute -bottom-1/3 -left-1/4 w-[600px] h-[600px] pointer-events-none motion-reduce:hidden"
           style={{
-            background: 'radial-gradient(closest-side, oklch(0.50 0.150 215 / 0.25), transparent 70%)',
+            background: 'radial-gradient(closest-side, oklch(0.50 0.150 215 / 0.12), transparent 70%)',
             animation: 'sb-breath 11s ease-in-out infinite reverse',
           }}
         />
-        {/* Faint grid overlay for "scoring engine" texture */}
+        {/* Faint grid overlay for "scoring engine" texture — flipped
+            to a dark foreground stroke since the substrate is light. */}
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none opacity-[0.07]"
+          className="absolute inset-0 pointer-events-none opacity-[0.05]"
           style={{
             backgroundImage:
-              'linear-gradient(to right, rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.5) 1px, transparent 1px)',
+              'linear-gradient(to right, oklch(0.18 0.045 275 / 0.6) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.18 0.045 275 / 0.6) 1px, transparent 1px)',
             backgroundSize: '40px 40px',
             maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 75%)',
             WebkitMaskImage: 'radial-gradient(ellipse at center, black 30%, transparent 75%)',
@@ -163,13 +165,12 @@ export function StatBandSpotlight() {
         <div className="relative">
           <div className="text-center max-w-[700px] mx-auto mb-12 md:mb-14">
             <div
-              className="text-[12px] uppercase tracking-[0.2em] mb-3 font-semibold"
-              style={{ color: ACCENT_BRAND_2_DARK }}
+              className="text-[12px] uppercase tracking-[0.2em] mb-3 font-semibold text-brand-2"
             >
               What&apos;s actually under the hood
             </div>
             <h2
-              className="font-semibold tracking-[-0.02em] leading-[1.1]"
+              className="font-semibold tracking-[-0.02em] leading-[1.1] text-foreground"
               style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)' }}
             >
               A search engine, a scoring engine, and a CRM — built into one.
@@ -184,13 +185,7 @@ export function StatBandSpotlight() {
 
             <div className="md:col-span-7">
               <div
-                className="inline-flex items-center gap-2 mb-4 px-2.5 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-bold"
-                style={{
-                  backgroundColor: 'oklch(0.80 0.135 215 / 0.10)',
-                  borderWidth: 1,
-                  borderColor: 'oklch(0.80 0.135 215 / 0.30)',
-                  color: ACCENT_BRAND_2_DARK,
-                }}
+                className="inline-flex items-center gap-2 mb-4 px-2.5 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-bold bg-brand-2/10 border border-brand-2/30 text-brand-2"
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" />
@@ -198,20 +193,20 @@ export function StatBandSpotlight() {
                 AI fit score
               </div>
               <h3
-                className="text-white font-semibold tracking-[-0.02em] leading-[1.15] mb-4"
+                className="text-foreground font-semibold tracking-[-0.02em] leading-[1.15] mb-4"
                 style={{ fontSize: 'clamp(1.5rem, 2.6vw, 2rem)' }}
               >
                 Fully customizable. Click a dimension to see what&apos;s in it.
               </h3>
-              <p className="text-[15px] md:text-[16px] text-white/75 leading-[1.65] mb-5">
+              <p className="text-[15px] md:text-[16px] text-muted-foreground leading-[1.65] mb-5">
                 Describe your ideal lead in plain English. The AI ranks every
                 result on weighted dimensions you control — re-tune per
                 platform, plug in any custom criterion you can name.
               </p>
 
-              {/* Clickable chip cloud — selected chip uses brand teal
-                  on dark; custom chip uses a teal-tinted background;
-                  rest are neutral white-alpha pills. */}
+              {/* Clickable chip cloud — selected chip rides the brand
+                  gradient on a light substrate; custom chip gets the
+                  brand-2 teal tint; the rest are neutral muted pills. */}
               <div className="flex flex-wrap gap-2 mb-5">
                 {DIMENSIONS.map(d => {
                   const isSelected = d.key === selected
@@ -221,20 +216,20 @@ export function StatBandSpotlight() {
                     'inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-medium transition-all duration-200 cursor-pointer border '
                   if (isSelected) {
                     chipStyle = {
-                      backgroundColor: ACCENT_BRAND_2_DARK,
-                      borderColor: ACCENT_BRAND_2_DARK,
-                      color: 'oklch(0.08 0.005 280)',
-                      boxShadow: '0 0 24px oklch(0.80 0.135 215 / 0.45)',
+                      backgroundColor: ACCENT_BRAND,
+                      borderColor: ACCENT_BRAND,
+                      color: 'oklch(0.99 0 0)', // primary-foreground equivalent
+                      boxShadow: '0 0 24px oklch(0.40 0.265 290 / 0.30)',
                     }
                   } else if (isCustom) {
                     chipStyle = {
-                      backgroundColor: 'oklch(0.80 0.135 215 / 0.15)',
-                      borderColor: 'oklch(0.80 0.135 215 / 0.40)',
-                      color: ACCENT_BRAND_2_DARK,
+                      backgroundColor: 'oklch(0.50 0.150 215 / 0.10)',
+                      borderColor: 'oklch(0.50 0.150 215 / 0.35)',
+                      color: ACCENT_BRAND_2,
                     }
                   } else {
                     chipClass +=
-                      'bg-white/[0.08] text-white/85 border-white/15 hover:bg-white/[0.12] hover:border-white/30'
+                      'bg-muted text-foreground/80 border-border hover:bg-accent hover:border-foreground/30'
                   }
                   return (
                     <button
@@ -251,11 +246,10 @@ export function StatBandSpotlight() {
                 })}
               </div>
 
-              {/* Explanation panel — shows criteria for the selected
-                  dimension. Animated via key change so it crossfades. */}
+              {/* Explanation panel — semantic muted surface on light. */}
               <div
                 key={active.key}
-                className="rounded-xl bg-white/[0.04] border border-white/10 p-4 md:p-5 backdrop-blur-sm"
+                className="rounded-xl bg-muted/50 border border-border p-4 md:p-5 backdrop-blur-sm"
                 style={{ animation: 'sb-fade-in 280ms ease-out' }}
               >
                 <div className="flex items-start gap-3">
@@ -265,13 +259,13 @@ export function StatBandSpotlight() {
                     style={{ backgroundColor: active.accent, boxShadow: `0 0 12px ${active.accent}` }}
                   />
                   <div>
-                    <div className="text-[13px] font-bold tracking-tight text-white">
+                    <div className="text-[13px] font-bold tracking-tight text-foreground">
                       {active.label}
-                      <span className="ml-2 text-[12px] font-normal text-white/55">
+                      <span className="ml-2 text-[12px] font-normal text-muted-foreground">
                         {active.short}
                       </span>
                     </div>
-                    <p className="mt-1.5 text-[13.5px] text-white/75 leading-[1.6]">
+                    <p className="mt-1.5 text-[13.5px] text-muted-foreground leading-[1.6]">
                       {active.detail}
                     </p>
                   </div>
@@ -382,6 +376,22 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
   // 12 tick marks around the inner ring at 30° intervals.
   const ticks = Array.from({ length: 12 }, (_, i) => i * 30 - 90)
 
+  // 2026-05-23 light-mode flip:
+  // - All bright cyan/violet ring + comet strokes (formerly oklch
+  //   0.80 / 0.68 — dark-mode brand colors) now use the DARK +
+  //   saturated light-mode brand tokens (0.50 0.150 / 0.40 0.265)
+  //   so they READ against a light substrate instead of blending in.
+  // - The score number, dimension labels, and dimension dot
+  //   centers all swapped from #FFFFFF / white-alpha (only readable
+  //   on dark) to foreground oklch (deep violet-charcoal) /
+  //   muted-foreground for soft inactive labels.
+  // - The core glow + pulse aura kept their breathing animations
+  //   with slightly higher base saturation so they still "glow"
+  //   against the white card substrate.
+  const RING_BRAND = 'oklch(0.40 0.265 290)' // matches --brand light
+  const RING_BRAND_2 = 'oklch(0.50 0.150 215)' // matches --brand-2 light
+  const TEXT_FOREGROUND = 'oklch(0.18 0.045 275)' // matches --foreground light
+  const TEXT_MUTED = 'oklch(0.35 0.050 280)' // matches --muted-foreground light
   return (
     <div className="relative w-full max-w-[380px] aspect-square">
       {/* RING 1 — outermost dashed, very slow */}
@@ -391,7 +401,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin 38s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="156" fill="none" stroke="oklch(0.80 0.135 215 / 0.25)" strokeWidth="1" strokeDasharray="2 8" />
+        <circle cx="160" cy="160" r="156" fill="none" stroke="oklch(0.50 0.150 215 / 0.45)" strokeWidth="1" strokeDasharray="2 8" />
       </svg>
       {/* RING 2 — finer dashes, counter-rotation */}
       <svg
@@ -400,7 +410,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin-rev 28s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="142" fill="none" stroke="oklch(0.68 0.240 290 / 0.40)" strokeWidth="1.2" strokeDasharray="1 4" />
+        <circle cx="160" cy="160" r="142" fill="none" stroke="oklch(0.40 0.265 290 / 0.55)" strokeWidth="1.2" strokeDasharray="1 4" />
       </svg>
       {/* RING 3 — medium rotation */}
       <svg
@@ -409,7 +419,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin 22s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="128" fill="none" stroke="oklch(0.80 0.135 215 / 0.50)" strokeWidth="1" strokeDasharray="3 9" />
+        <circle cx="160" cy="160" r="128" fill="none" stroke="oklch(0.50 0.150 215 / 0.70)" strokeWidth="1" strokeDasharray="3 9" />
       </svg>
       {/* RING 4 — middle thick-dash, counter-rotation */}
       <svg
@@ -418,7 +428,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{ animation: 'sb-orbit-spin-rev 36s linear infinite' }}
         aria-hidden
       >
-        <circle cx="160" cy="160" r="110" fill="none" stroke="oklch(0.68 0.240 290 / 0.55)" strokeWidth="1.5" strokeDasharray="6 14" />
+        <circle cx="160" cy="160" r="110" fill="none" stroke="oklch(0.40 0.265 290 / 0.65)" strokeWidth="1.5" strokeDasharray="6 14" />
       </svg>
 
       {/* COMET 1 — orbits ring 3 (r=128) */}
@@ -430,9 +440,9 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full">
           <defs>
             <linearGradient id="sb-comet-1" x1="0%" y1="50%" x2="100%" y2="50%">
-              <stop offset="0%" stopColor="oklch(0.80 0.135 215 / 0)" />
-              <stop offset="50%" stopColor="oklch(0.80 0.135 215 / 0.6)" />
-              <stop offset="100%" stopColor="oklch(0.80 0.135 215)" />
+              <stop offset="0%" stopColor="oklch(0.50 0.150 215 / 0)" />
+              <stop offset="50%" stopColor="oklch(0.50 0.150 215 / 0.7)" />
+              <stop offset="100%" stopColor="oklch(0.50 0.150 215)" />
             </linearGradient>
           </defs>
           <path
@@ -442,7 +452,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
             strokeWidth="2"
             strokeLinecap="round"
           />
-          <circle cx="220" cy="52" r="3" fill="oklch(0.80 0.135 215)" />
+          <circle cx="220" cy="52" r="3" fill="oklch(0.50 0.150 215)" />
         </svg>
       </div>
 
@@ -455,9 +465,9 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full">
           <defs>
             <linearGradient id="sb-comet-2" x1="0%" y1="50%" x2="100%" y2="50%">
-              <stop offset="0%" stopColor="oklch(0.68 0.240 290 / 0)" />
-              <stop offset="60%" stopColor="oklch(0.68 0.240 290 / 0.4)" />
-              <stop offset="100%" stopColor="oklch(0.68 0.240 290)" />
+              <stop offset="0%" stopColor="oklch(0.40 0.265 290 / 0)" />
+              <stop offset="60%" stopColor="oklch(0.40 0.265 290 / 0.5)" />
+              <stop offset="100%" stopColor="oklch(0.40 0.265 290)" />
             </linearGradient>
           </defs>
           <path
@@ -467,7 +477,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
             strokeWidth="1.5"
             strokeLinecap="round"
           />
-          <circle cx="232" cy="28" r="2.5" fill="oklch(0.68 0.240 290)" />
+          <circle cx="232" cy="28" r="2.5" fill="oklch(0.40 0.265 290)" />
         </svg>
       </div>
 
@@ -478,7 +488,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{
           animation: 'sb-radar-sweep 6s linear infinite',
           background:
-            'conic-gradient(from 0deg, transparent 0deg, transparent 318deg, oklch(0.80 0.135 215 / 0.18) 348deg, oklch(0.80 0.135 215 / 0.40) 358deg, transparent 360deg)',
+            'conic-gradient(from 0deg, transparent 0deg, transparent 318deg, oklch(0.50 0.150 215 / 0.30) 348deg, oklch(0.50 0.150 215 / 0.60) 358deg, transparent 360deg)',
           maskImage: 'radial-gradient(circle at center, transparent 26%, black 30%, black 58%, transparent 62%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 26%, black 30%, black 58%, transparent 62%)',
         }}
@@ -490,7 +500,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         style={{
           animation: 'sb-radar-sweep-rev 4s linear infinite',
           background:
-            'conic-gradient(from 0deg, transparent 0deg, transparent 340deg, oklch(0.68 0.240 290 / 0.20) 355deg, oklch(0.68 0.240 290 / 0.50) 359deg, transparent 360deg)',
+            'conic-gradient(from 0deg, transparent 0deg, transparent 340deg, oklch(0.40 0.265 290 / 0.30) 355deg, oklch(0.40 0.265 290 / 0.65) 359deg, transparent 360deg)',
           maskImage: 'radial-gradient(circle at center, transparent 12%, black 16%, black 28%, transparent 32%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 12%, black 16%, black 28%, transparent 32%)',
         }}
@@ -508,7 +518,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
               cx={cx}
               cy={cy}
               r={p.size}
-              fill="oklch(0.80 0.135 215)"
+              fill={RING_BRAND_2}
               style={{
                 animation: `sb-twinkle 2.6s ease-in-out infinite`,
                 animationDelay: `${p.delay}s`,
@@ -523,17 +533,17 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
       <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full" aria-hidden>
         <defs>
           <linearGradient id="sb-orbital-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="oklch(0.80 0.135 215)" />
-            <stop offset="100%" stopColor="oklch(0.68 0.240 290)" />
+            <stop offset="0%" stopColor={RING_BRAND_2} />
+            <stop offset="100%" stopColor={RING_BRAND} />
           </linearGradient>
           <radialGradient id="sb-orbital-core" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stopColor="oklch(0.80 0.135 215)" stopOpacity="0.95" />
-            <stop offset="50%" stopColor="oklch(0.68 0.240 290)" stopOpacity="0.65" />
-            <stop offset="100%" stopColor="oklch(0.68 0.240 290)" stopOpacity="0" />
+            <stop offset="0%" stopColor={RING_BRAND_2} stopOpacity="0.85" />
+            <stop offset="50%" stopColor={RING_BRAND} stopOpacity="0.55" />
+            <stop offset="100%" stopColor={RING_BRAND} stopOpacity="0" />
           </radialGradient>
           <radialGradient id="sb-pulse-aura" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stopColor={accent} stopOpacity="0.4" />
-            <stop offset="60%" stopColor={accent} stopOpacity="0.1" />
+            <stop offset="0%" stopColor={accent} stopOpacity="0.5" />
+            <stop offset="60%" stopColor={accent} stopOpacity="0.15" />
             <stop offset="100%" stopColor={accent} stopOpacity="0" />
           </radialGradient>
         </defs>
@@ -546,7 +556,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
           style={{ animation: 'sb-pulse-aura 2.8s ease-in-out infinite' }}
         />
         {/* Outer glow halo */}
-        <circle cx="160" cy="160" r="78" fill="url(#sb-orbital-core)" opacity="0.7" />
+        <circle cx="160" cy="160" r="78" fill="url(#sb-orbital-core)" opacity="0.75" />
         {/* Core glow with breath */}
         <circle
           cx="160"
@@ -572,7 +582,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
               y1={y1}
               x2={x2}
               y2={y2}
-              stroke="oklch(0.80 0.135 215 / 0.6)"
+              stroke="oklch(0.50 0.150 215 / 0.75)"
               strokeWidth="1"
               strokeLinecap="round"
             />
@@ -603,7 +613,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
               x2={x2}
               y2={y2}
               stroke={accent}
-              strokeOpacity="0.35"
+              strokeOpacity="0.45"
               strokeWidth="1"
               strokeLinecap="round"
               style={{
@@ -614,13 +624,14 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
           )
         })}
 
-        {/* SCORE NUMBER */}
+        {/* SCORE NUMBER — foreground oklch so it reads on the white
+            core glow (was #FFFFFF, invisible on light bg). */}
         <text
           x="160"
           y="156"
           textAnchor="middle"
           dominantBaseline="central"
-          fill="#FFFFFF"
+          fill={TEXT_FOREGROUND}
           fontFamily="ui-sans-serif, system-ui, sans-serif"
           fontWeight="700"
           fontSize="48"
@@ -641,8 +652,9 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
           STRONG FIT
         </text>
 
-        {/* DIMENSION DOTS — color-shift to active accent on the
-            currently-selected one. */}
+        {/* DIMENSION DOTS — non-custom dots get the brand violet so
+            they pop on white; the active dot rides its accent. Was
+            white fill (invisible on light bg). */}
         {[
           { angle: -90, label: 'Recency' },
           { angle: -30, label: 'Reach' },
@@ -667,7 +679,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
                 cy={cy}
                 r="9"
                 fill={accent}
-                opacity="0.18"
+                opacity="0.22"
                 style={{
                   animation: 'sb-dot-halo 2.2s ease-in-out infinite',
                   animationDelay: `${(angle + 90) / 60 * 0.15}s`,
@@ -677,8 +689,8 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
                 cx={cx}
                 cy={cy}
                 r={isCustom ? 5 : 4}
-                fill={isCustom ? accent : '#FFFFFF'}
-                stroke={isCustom ? accent : 'rgba(255,255,255,0.4)'}
+                fill={isCustom ? accent : RING_BRAND}
+                stroke={isCustom ? accent : 'oklch(0.40 0.265 290 / 0.45)'}
                 strokeWidth="1"
               />
               <text
@@ -686,7 +698,7 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
                 y={ly}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fill={isCustom ? accent : 'rgba(255,255,255,0.7)'}
+                fill={isCustom ? accent : TEXT_MUTED}
                 fontFamily="ui-sans-serif, system-ui, sans-serif"
                 fontSize="9"
                 fontWeight={isCustom ? 700 : 500}
