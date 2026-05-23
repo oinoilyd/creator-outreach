@@ -38,68 +38,72 @@ function money(n: number): string {
 }
 
 /**
+ * Translate a percentage into a "1 in N" frequency — more readable
+ * for human-scale numbers than a bare %. Used in response-rate and
+ * win-rate trailing clauses.
+ */
+function inverseRate(pct: number): string {
+  if (pct >= 50) return 'roughly half are replying'
+  if (pct >= 33) return 'about 1 in 3'
+  if (pct >= 25) return 'about 1 in 4'
+  if (pct >= 20) return 'about 1 in 5'
+  if (pct >= 14) return 'about 1 in 7'
+  if (pct >= 10) return 'about 1 in 10'
+  return 'fewer than 1 in 10'
+}
+
+function inverseClose(pct: number): string {
+  if (pct >= 50) return 'over half closing'
+  if (pct >= 33) return '1 in 3 closing'
+  if (pct >= 25) return '1 in 4 closing'
+  if (pct >= 15) return 'roughly 1 in 6'
+  return 'most replies aren\'t converting'
+}
+
+/**
  * Each generator returns a sentence when the data is meaningful,
  * otherwise null (so we skip stats that would render as "0% of 0").
  */
 function generators(m: DashboardMetrics): Array<string | null> {
   return [
     // ── Pipeline overview ────────────────────────────────────────
+    // Single richer insight that names the count AND the gap, rather
+    // than two thin observations side by side.
 
     m.total > 0
-      ? m.total >= 50
-        ? `You have ${plural(m.total, 'lead')} in your pipeline — deep bench.`
-        : m.total >= 20
-          ? `You have ${plural(m.total, 'lead')} in your pipeline — solid working set.`
-          : m.total >= 5
-            ? `You have ${plural(m.total, 'lead')} in your pipeline — bench is forming.`
-            : `You have ${plural(m.total, 'lead')} in your pipeline — early days.`
-      : null,
-
-    // Reached-out — show the gap explicitly so the user sees what
-    // they have left.
-    m.reachedOut > 0 && m.total > 0
       ? (() => {
-          const pct = rate(m.reachedOut, m.total)
+          // Lean shape: pipeline + how many not yet reached.
+          if (m.reachedOut === 0) {
+            return `You have ${plural(m.total, 'lead')} in pipeline, none reached out yet.`
+          }
+          if (m.reachedOut === m.total) {
+            return `You have ${plural(m.total, 'lead')} in pipeline, all reached out — fully in motion.`
+          }
           const left = m.total - m.reachedOut
-          if (left === 0) return `You've reached out to all ${m.total} — pipeline fully in motion.`
-          if (pct >= 75)  return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%), ${left} still need your attention.`
-          if (pct >= 40)  return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%) — ${left} still waiting.`
-          if (pct >= 20)  return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%) — most are still untouched.`
-          return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%) — the rest haven't been touched yet.`
+          const pct = rate(m.reachedOut, m.total)
+          return `You have ${plural(m.total, 'lead')} in pipeline, ${m.reachedOut} reached out (${pct}%) — ${left} still need your attention.`
         })()
       : null,
 
-    // Response rate — every range gets a frame.
+    // Response rate — concrete frequency translation, not vague "solid".
     m.reachedOut >= 5
-      ? (() => {
-          const tail = m.responseRate >= 35 ? 'strong return'
-                     : m.responseRate >= 20 ? 'solid baseline'
-                     : m.responseRate >= 10 ? 'middling for cold outreach'
-                     : "the message isn't catching"
-          return `${m.responseRate}% of your ${plural(m.reachedOut, 'reach-out')} got a response — ${tail}.`
-        })()
+      ? `${m.responseRate}% of your ${plural(m.reachedOut, 'reach-out')} got a response — ${inverseRate(m.responseRate)}.`
       : null,
 
-    // Win rate — every range gets a frame.
+    // Win rate — same treatment: translate to frequency.
     m.responseReceived >= 5
-      ? (() => {
-          const tail = m.winRate >= 50 ? 'over half closing'
-                     : m.winRate >= 30 ? 'respectable close rate'
-                     : m.winRate >= 15 ? 'under half of responses convert'
-                     : "most replies aren't converting"
-          return `Of ${m.responseReceived} responses you've gotten, ${m.successful} closed (${m.winRate}%) — ${tail}.`
-        })()
+      ? `${m.successful} of ${m.responseReceived} responses closed (${m.winRate}%) — ${inverseClose(m.winRate)}.`
       : null,
 
-    // Pipeline value — per-lead context when 3+ non-rejected leads.
+    // Pipeline value — per-lead avg gives the number a useful frame.
     m.pipelineValue > 0
       ? (() => {
           const nonRejected = m.total - m.rejected
           if (nonRejected >= 3) {
             const perLead = Math.round(m.pipelineValue / nonRejected)
-            return `You have ${money(m.pipelineValue)} in pipeline value, averaging ${money(perLead)} per non-rejected lead.`
+            return `${money(m.pipelineValue)} in pipeline value, averaging ${money(perLead)} per non-rejected lead.`
           }
-          return `You have ${money(m.pipelineValue)} in pipeline value across non-rejected leads.`
+          return `${money(m.pipelineValue)} in pipeline value across non-rejected leads.`
         })()
       : null,
 
@@ -107,12 +111,12 @@ function generators(m: DashboardMetrics): Array<string | null> {
 
     (m.addedLast7 > 0 || m.reachedLast7 > 0)
       ? (() => {
-          const base = `Last 7 days: you added ${m.addedLast7} and reached out to ${m.reachedLast7}`
+          const base = `Last 7 days: ${m.addedLast7} added, ${m.reachedLast7} reached out`
           if (m.addedLast7 >= 3 && m.addedLast7 >= m.reachedLast7 * 2) {
             return `${base} — sourcing is outpacing outreach.`
           }
           if (m.reachedLast7 >= 3 && m.reachedLast7 >= m.addedLast7 * 2) {
-            return `${base} — you're working the existing pipeline.`
+            return `${base} — working the existing pipeline.`
           }
           return `${base}.`
         })()
@@ -139,13 +143,30 @@ function generators(m: DashboardMetrics): Array<string | null> {
     // ── Active clients ──────────────────────────────────────────
 
     m.activeClientsTotal > 0
-      ? m.activeNow === m.activeClientsTotal
-        ? `You have ${plural(m.activeClientsTotal, 'active client')}, all currently engaged.`
-        : `You have ${plural(m.activeClientsTotal, 'active client')} — ${m.activeNow} currently active, the rest paused or completed.`
+      ? (() => {
+          if (m.activeNow === m.activeClientsTotal) {
+            return `You have ${plural(m.activeClientsTotal, 'active client')}, all currently engaged.`
+          }
+          // Surface the non-active breakdown so the count is meaningful.
+          const inactive = m.activeClientsTotal - m.activeNow
+          const parts: string[] = []
+          if (m.lifecyclePaused > 0)    parts.push(`${m.lifecyclePaused} paused`)
+          if (m.lifecycleCompleted > 0) parts.push(`${m.lifecycleCompleted} completed`)
+          if (m.lifecycleChurned > 0)   parts.push(`${m.lifecycleChurned} churned`)
+          const breakdown = parts.length > 0 ? parts.join(', ') : `${inactive} not active`
+          return `You have ${plural(m.activeClientsTotal, 'active client')} — ${m.activeNow} engaged, ${breakdown}.`
+        })()
       : null,
 
-    m.totalBooked > 0
-      ? `You've booked ${money(m.totalBooked)} across ${plural(m.activeClientsTotal, 'engagement', 'engagements')}.`
+    // Booked — add per-engagement avg for context.
+    m.totalBooked > 0 && m.activeClientsTotal > 0
+      ? (() => {
+          const perEngagement = Math.round(m.totalBooked / m.activeClientsTotal)
+          if (m.activeClientsTotal >= 2) {
+            return `You've booked ${money(m.totalBooked)} across ${plural(m.activeClientsTotal, 'engagement', 'engagements')}, averaging ${money(perEngagement)} each.`
+          }
+          return `You've booked ${money(m.totalBooked)} across ${plural(m.activeClientsTotal, 'engagement', 'engagements')}.`
+        })()
       : null,
 
     (m.totalBooked > 0 && m.personalRevenue > 0 && m.personalRevenue < m.totalBooked * 0.95)
@@ -158,8 +179,10 @@ function generators(m: DashboardMetrics): Array<string | null> {
 
     m.avgRating != null && m.lifecycleCompleted >= 1
       ? m.avgRating >= 4.5
-        ? `Your clients rate you ${m.avgRating}/5 across ${plural(m.lifecycleCompleted, 'completed engagement')} — testimonial territory.`
-        : `Your clients rate you ${m.avgRating}/5 on average across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
+        ? `Your clients rate you ${m.avgRating}/5 across ${plural(m.lifecycleCompleted, 'completed engagement')} — high enough to ask for a quote.`
+        : m.avgRating >= 4.0
+          ? `Your clients rate you ${m.avgRating}/5 across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
+          : `Your clients rate you ${m.avgRating}/5 across ${plural(m.lifecycleCompleted, 'completed engagement')} — worth checking what's pulling the average down.`
       : null,
 
     // ── Channels ────────────────────────────────────────────────
@@ -174,7 +197,7 @@ function generators(m: DashboardMetrics): Array<string | null> {
 
     m.dismissedCount >= 3
       ? m.dismissalRatio >= 50
-        ? `You've dismissed ${plural(m.dismissedCount, 'creator')} (${m.dismissalRatio}% of those considered) — more sifting than capturing.`
+        ? `You've dismissed ${plural(m.dismissedCount, 'creator')} (${m.dismissalRatio}% of those considered) — rejecting more than you keep.`
         : `You've dismissed ${plural(m.dismissedCount, 'creator')} (${m.dismissalRatio}% of those considered).`
       : null,
   ]
