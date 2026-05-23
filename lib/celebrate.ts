@@ -1,20 +1,54 @@
-// Celebration animation for "deal closed" moments.
+// celebrateSuccess — the "deal closed" moment.
 //
-// 2026-05-23 v3 per Dylan: confetti still wasn't firing reliably on
-// desktop after the canvas-confetti tweaks (v2 bumped zIndex + spread
-// + particle count). Suspected root cause: something in the desktop
-// render path (z-index conflict with the spotlight overlay, a parent
-// overflow:hidden clipping the canvas, or canvas-confetti's
-// auto-created canvas being stripped by a CSS rule). Mobile happened
-// to dodge whatever the issue was.
+// Design intent (2026-05-23 v4 per Dylan: "horrible, do a full
+// visual and design remodel — details man details"):
 //
-// Solution: fire BOTH a canvas-confetti burst AND a DOM-based
-// confetti burst at the same time. DOM-based is built from
-// absolutely-positioned divs appended to document.body with inline
-// styles — no library, no canvas, no z-index inheritance, immune to
-// whatever was tripping canvas-confetti up. Whichever one renders
-// (likely both) the user sees a celebration.
-import confetti from 'canvas-confetti'
+//   This is the single biggest dopamine moment in the whole app —
+//   the user just turned a creator from a lead into a paying client.
+//   Three earlier iterations all looked like a stock confetti dump.
+//   This rewrite layers FIVE distinct visual systems on top of each
+//   other to make the moment feel earned, not algorithmic:
+//
+//     1. Center flash      — radial gradient glow that punches in,
+//                            blooms, and fades. Brand violet→teal,
+//                            scales from 0 to 480px over 700ms. Sets
+//                            the "something just happened HERE" anchor.
+//     2. Main burst         — 90 particles erupting radially from
+//                            center. Mixed shapes (rectangles,
+//                            squares, circles), mixed sizes (6-14px),
+//                            mixed colors (6-tone brand palette),
+//                            each with unique velocity, gravity-
+//                            affected, drag-decayed, rotating
+//                            independently.
+//     3. Secondary burst    — 35 more pieces 100ms later, off-center,
+//                            for layered richness.
+//     4. Streamers          — 18 long thin ribbons (3×22px) shooting
+//                            at higher initial velocity. Read as
+//                            "party streamers" mixed in with the
+//                            confetti.
+//     5. Sparkles           — 22 bright white dots with box-shadow
+//                            glow that POP (scale 0→1.4→0) at random
+//                            positions across the screen, staggered
+//                            0-700ms, each lasting 400ms. Adds the
+//                            "fireflies in the air" feel that pure
+//                            confetti can't give you.
+//
+//   Everything runs on requestAnimationFrame physics — not Web
+//   Animations API keyframes — so each particle gets real gravity,
+//   real drag, real spin. No baked-in trajectory; the result feels
+//   organic instead of "all 80 pieces follow the same curve."
+//
+// Why no canvas-confetti library:
+//   v2/v3 used it; v3 added a DOM fallback alongside; v4 drops the
+//   library entirely. Owning the whole render gives us tighter
+//   control over layering, color, and physics, and eliminates the
+//   mystery "fires on mobile but not desktop" behavior that the
+//   library exhibited in our app's z-index/overflow context.
+//
+// Accessibility:
+//   prefers-reduced-motion users skip the particle storm and get a
+//   single subdued center flash + auto-clear. Still a visual signal,
+//   no movement.
 
 const CONFETTI_COLORS = [
   '#a855f7', // brand violet
@@ -25,142 +59,401 @@ const CONFETTI_COLORS = [
   '#06b6d4', // cyan
 ] as const
 
-export function celebrateSuccess(originX?: number, originY?: number) {
-  // Always fire the DOM-based burst — guaranteed to render regardless
-  // of canvas-confetti behavior.
-  fireDomBurst()
+const STREAMER_COLORS = [
+  '#a855f7',
+  '#3b82f6',
+  '#06b6d4',
+  '#ec4899',
+] as const
 
-  // Then attempt canvas-confetti as a bonus layer. Wrapped in
-  // try/catch so a library failure can't break the celebration —
-  // the DOM burst above has already kicked off.
-  try {
-    if (originX != null && originY != null) {
-      confetti({
-        particleCount: 80,
-        spread: 75,
-        startVelocity: 38,
-        origin: { x: originX / window.innerWidth, y: originY / window.innerHeight },
-        colors: [...CONFETTI_COLORS],
-        scalar: 0.9,
-        ticks: 150,
-        zIndex: 9999,
-      })
-      return
-    }
+// Tuned constants. Each one affects physics feel — tweak with care.
+const GRAVITY = 0.38              // pixels/frame² (60fps normalized)
+const DRAG = 0.985                // horizontal velocity decay per frame
+const SPIN_DRAG = 0.97            // rotation decay per frame
+const PARTICLE_LIFE_FRAMES = 140  // ~2.3s @ 60fps before forced removal
+const FADE_START_RATIO = 0.55     // start fading at 55% of life
+const Z_INDEX = 99999             // above everything in the app
 
-    const base = {
-      particleCount: 70,
-      spread: 70,
-      startVelocity: 38,
-      colors: [...CONFETTI_COLORS],
-      scalar: 0.95,
-      ticks: 150,
-      zIndex: 9999,
-    }
-    confetti({ ...base, origin: { x: 0.35, y: 0.65 }, angle: 75 })
-    setTimeout(() => {
-      confetti({ ...base, origin: { x: 0.65, y: 0.65 }, angle: 105 })
-    }, 60)
-  } catch (err) {
-    // Canvas-confetti choked. DOM burst already covers us; just
-    // log so we can debug if it becomes a pattern.
-    console.warn('[celebrate] canvas-confetti threw:', err)
-  }
+interface Particle {
+  el: HTMLDivElement
+  x: number          // px offset from spawn origin
+  y: number
+  vx: number         // px/frame
+  vy: number
+  rotation: number   // deg
+  spin: number       // deg/frame
+  life: number       // frames remaining
+  maxLife: number
 }
 
 /**
- * DOM-based confetti burst — guaranteed-to-render fallback.
- *
- * Creates ~80 absolutely-positioned divs with random colors / sizes /
- * horizontal positions, appends them to document.body, animates them
- * via the Web Animations API (no CSS keyframes needed — they get
- * inlined per-element), and auto-removes them when the animation
- * settles.
- *
- * Why this is reliable where canvas-confetti might fail:
- *   • No <canvas> element — bypasses any canvas-clipping CSS, GPU
- *     compositor issues, or library-side rendering bugs.
- *   • Each div is appended directly to <body> so no ancestor's
- *     overflow:hidden can clip them.
- *   • Inline z-index: 99999 beats any spotlight/backdrop overlay.
- *   • Pointer-events:none so they don't intercept clicks during the
- *     ~1.4s animation.
- *   • Auto-cleanup via animation finished promise — no DOM leaks even
- *     if the user fires it 50 times in a row.
+ * Public entrypoint. Fires the celebration. Optional `originX`/`originY`
+ * (viewport pixels) anchor the burst to a specific point — e.g. button
+ * coordinates from `event.clientX/Y`. Defaults to dead-center.
  */
-function fireDomBurst() {
+export function celebrateSuccess(originX?: number, originY?: number) {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
 
-  const count = 80
+  const ox = originX ?? window.innerWidth / 2
+  const oy = originY ?? window.innerHeight / 2
+
+  // Reduced-motion: just a flash. No movement, no flying particles.
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (prefersReducedMotion) {
+    spawnReducedMotionFlash(ox, oy)
+    return
+  }
+
+  // Container holds all spawned elements — single removal at the end.
+  const container = makeContainer()
+
+  // Layer 1 — center flash (always first, anchors the whole moment).
+  spawnCenterFlash(container, ox, oy)
+
+  // Layer 5 — sparkles (staggered start, run independently of the
+  // physics loop because their lifecycle is short + pop-based).
+  spawnSparkles(container)
+
+  // Layers 2-4 — physics-driven particles.
+  const particles: Particle[] = []
+  // Main burst (90 mixed-shape confetti).
+  for (let i = 0; i < 90; i++) {
+    particles.push(spawnConfetti(container, ox, oy, /* delayFrames */ 0))
+  }
+  // Streamer ribbons (18, higher velocity, longer life).
+  for (let i = 0; i < 18; i++) {
+    particles.push(spawnStreamer(container, ox, oy))
+  }
+  // Secondary burst at +100ms (35 more for layering).
+  window.setTimeout(() => {
+    if (!container.isConnected) return
+    for (let i = 0; i < 35; i++) {
+      particles.push(spawnConfetti(container, ox, oy, 0))
+    }
+  }, 100)
+
+  // Physics loop.
+  let lastTime = performance.now()
+  function tick(now: number) {
+    const dt = Math.min(3, (now - lastTime) / 16.67) // frames since last (cap to skip stutters)
+    lastTime = now
+
+    let alive = 0
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i]
+      p.life -= dt
+      if (p.life <= 0) {
+        p.el.remove()
+        particles.splice(i, 1)
+        continue
+      }
+      alive++
+
+      // Integrate physics.
+      p.vy += GRAVITY * dt
+      p.vx *= Math.pow(DRAG, dt)
+      p.spin *= Math.pow(SPIN_DRAG, dt)
+      p.x += p.vx * dt
+      p.y += p.vy * dt
+      p.rotation += p.spin * dt
+
+      // Fade out across last 45% of life.
+      const ageRatio = 1 - p.life / p.maxLife
+      const opacity = ageRatio < FADE_START_RATIO
+        ? 1
+        : Math.max(0, 1 - (ageRatio - FADE_START_RATIO) / (1 - FADE_START_RATIO))
+
+      p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.rotation}deg)`
+      p.el.style.opacity = String(opacity)
+    }
+
+    if (alive > 0 || performance.now() - startTime < 250 /* hold for late secondary burst */) {
+      requestAnimationFrame(tick)
+    } else {
+      container.remove()
+    }
+  }
+  const startTime = performance.now()
+  requestAnimationFrame(tick)
+}
+
+// ── Container + flash ──────────────────────────────────────────────
+
+function makeContainer(): HTMLDivElement {
   const container = document.createElement('div')
   container.setAttribute('aria-hidden', 'true')
-  // The container itself is fixed-positioned + non-clipping; it just
-  // provides a single DOM node we can clean up at the end if any
-  // individual animation listeners fail.
   Object.assign(container.style, {
     position: 'fixed',
     inset: '0',
     pointerEvents: 'none',
     overflow: 'visible',
-    zIndex: '99999',
+    zIndex: String(Z_INDEX),
   } satisfies Partial<CSSStyleDeclaration>)
   document.body.appendChild(container)
+  return container
+}
 
-  const finishPromises: Promise<unknown>[] = []
-  for (let i = 0; i < count; i++) {
-    const piece = document.createElement('div')
-    const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
-    // Mix circles + rectangles for variety, like real confetti.
-    const isCircle = Math.random() < 0.35
-    const size = 6 + Math.random() * 6 // 6-12px
-    const startLeft = 20 + Math.random() * 60 // 20-80% — middle band
-    // Diagonal explosion: half go left-up, half right-up. Then gravity
-    // takes them down. Spread accounts for left/right bias.
-    const angleSpread = (Math.random() - 0.5) * 1.2 // -0.6 to +0.6
-    const xDistance = angleSpread * (window.innerWidth * 0.5)
-    const yDistance = window.innerHeight * (0.5 + Math.random() * 0.4)
-    const rotateStart = Math.random() * 360
-    const rotateEnd = rotateStart + (Math.random() - 0.5) * 720 // up to ±360°
+/**
+ * Center flash — a radial gradient bloom that punches in, peaks, and
+ * fades. Anchors the celebration to a specific point on screen.
+ * Brand violet→teal so it ties to the in-app brand mark.
+ */
+function spawnCenterFlash(container: HTMLDivElement, ox: number, oy: number) {
+  const flash = document.createElement('div')
+  Object.assign(flash.style, {
+    position: 'fixed',
+    left: `${ox}px`,
+    top: `${oy}px`,
+    width: '20px',
+    height: '20px',
+    marginLeft: '-10px',
+    marginTop: '-10px',
+    borderRadius: '50%',
+    background:
+      'radial-gradient(circle, rgba(168,85,247,0.55) 0%, rgba(59,130,246,0.35) 35%, rgba(6,182,212,0.15) 65%, transparent 80%)',
+    pointerEvents: 'none',
+    willChange: 'transform, opacity',
+    filter: 'blur(2px)',
+    zIndex: String(Z_INDEX),
+  } satisfies Partial<CSSStyleDeclaration>)
+  container.appendChild(flash)
+  flash.animate(
+    [
+      { transform: 'scale(0)', opacity: 0 },
+      { transform: 'scale(8)', opacity: 1, offset: 0.18 },
+      { transform: 'scale(22)', opacity: 0.55, offset: 0.55 },
+      { transform: 'scale(28)', opacity: 0 },
+    ],
+    { duration: 700, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
+  )
+}
 
-    Object.assign(piece.style, {
-      position: 'fixed',
-      left: `${startLeft}%`,
-      top: '60%',
-      width: `${size}px`,
-      height: `${isCircle ? size : size * 1.4}px`,
-      backgroundColor: color,
-      borderRadius: isCircle ? '50%' : '1px',
-      pointerEvents: 'none',
-      willChange: 'transform, opacity',
-      // Sit ABOVE the container's z-index just in case the container
-      // itself gets stuck in a stacking context the body has.
-      zIndex: '99999',
-      opacity: '1',
-    } satisfies Partial<CSSStyleDeclaration>)
+// ── Confetti pieces ────────────────────────────────────────────────
 
-    container.appendChild(piece)
+/**
+ * Spawn one confetti particle. Mixed shape (rectangle / square /
+ * circle), mixed size, mixed color. Radial launch direction with
+ * randomized speed.
+ */
+function spawnConfetti(
+  container: HTMLDivElement,
+  ox: number,
+  oy: number,
+  delayFrames: number,
+): Particle {
+  const el = document.createElement('div')
+  const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
 
-    // Web Animations API — runs on the compositor, doesn't depend on
-    // any external CSS rules. Each piece gets a unique trajectory.
-    const animation = piece.animate(
-      [
-        { transform: `translate(0, 0) rotate(${rotateStart}deg)`, opacity: 1 },
-        { transform: `translate(${xDistance * 0.4}px, ${-yDistance * 0.3}px) rotate(${(rotateStart + rotateEnd) / 2}deg)`, opacity: 1, offset: 0.35 },
-        { transform: `translate(${xDistance}px, ${yDistance}px) rotate(${rotateEnd}deg)`, opacity: 0 },
-      ],
-      {
-        duration: 1100 + Math.random() * 500, // 1.1-1.6s
-        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-        delay: Math.random() * 80, // tiny stagger so they don't all sync
-        fill: 'forwards',
-      },
-    )
-
-    finishPromises.push(animation.finished.catch(() => undefined))
+  // Shape mix: 45% rectangle, 30% square, 20% circle, 5% rounded pill.
+  const shapeRoll = Math.random()
+  let width: number
+  let height: number
+  let borderRadius: string
+  if (shapeRoll < 0.45) {
+    // Rectangle — classic confetti slip
+    width = 6 + Math.random() * 4 // 6-10px
+    height = width * (1.6 + Math.random() * 0.6) // taller than wide
+    borderRadius = '1.5px'
+  } else if (shapeRoll < 0.75) {
+    // Square — chunkier piece
+    const s = 7 + Math.random() * 5 // 7-12px
+    width = s
+    height = s
+    borderRadius = '2px'
+  } else if (shapeRoll < 0.95) {
+    // Circle — round dot
+    const s = 6 + Math.random() * 4
+    width = s
+    height = s
+    borderRadius = '50%'
+  } else {
+    // Pill — flat oval
+    width = 10 + Math.random() * 4
+    height = 4
+    borderRadius = '999px'
   }
 
-  // Once every piece has settled (or errored), clean up the container.
-  Promise.allSettled(finishPromises).then(() => {
-    container.remove()
-  })
+  Object.assign(el.style, {
+    position: 'fixed',
+    left: `${ox}px`,
+    top: `${oy}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+    marginLeft: `${-width / 2}px`,
+    marginTop: `${-height / 2}px`,
+    backgroundColor: color,
+    borderRadius,
+    pointerEvents: 'none',
+    willChange: 'transform, opacity',
+    // Slight box-shadow gives the piece depth + edge — reads less
+    // flat than a pure-fill div.
+    boxShadow: `0 0 0 0.5px ${color}, 0 0 6px ${hexWithAlpha(color, 0.25)}`,
+    zIndex: String(Z_INDEX),
+  } satisfies Partial<CSSStyleDeclaration>)
+  container.appendChild(el)
+
+  // Radial launch. Angle anywhere 0-360°; speed varied so the cloud
+  // doesn't look uniform. Bias slightly upward (subtract a small
+  // amount from vy) so the burst feels like an upward explosion
+  // before gravity pulls it down.
+  const angle = Math.random() * Math.PI * 2
+  const speed = 6 + Math.random() * 10 // 6-16 px/frame
+  const vx = Math.cos(angle) * speed
+  // Bias initial vy upward — gravity will overcome it. Mix of upward
+  // and downward launches feels more organic than "all pieces shoot up."
+  const vy = Math.sin(angle) * speed - 2 - Math.random() * 4
+
+  const maxLife = PARTICLE_LIFE_FRAMES * (0.7 + Math.random() * 0.6)
+  return {
+    el,
+    x: 0,
+    y: 0,
+    vx,
+    vy,
+    rotation: Math.random() * 360,
+    spin: (Math.random() - 0.5) * 25, // -12 to +12 deg/frame
+    life: maxLife - delayFrames,
+    maxLife,
+  }
+}
+
+// ── Streamers (long thin ribbons) ──────────────────────────────────
+
+/**
+ * Long thin colored ribbon — reads as a party streamer mixed in with
+ * the confetti. Higher initial velocity than confetti pieces so they
+ * shoot further before gravity takes them.
+ */
+function spawnStreamer(container: HTMLDivElement, ox: number, oy: number): Particle {
+  const el = document.createElement('div')
+  const color = STREAMER_COLORS[Math.floor(Math.random() * STREAMER_COLORS.length)]
+
+  const length = 18 + Math.random() * 12 // 18-30px
+  Object.assign(el.style, {
+    position: 'fixed',
+    left: `${ox}px`,
+    top: `${oy}px`,
+    width: `${length}px`,
+    height: '3px',
+    marginLeft: `${-length / 2}px`,
+    marginTop: '-1.5px',
+    backgroundColor: color,
+    borderRadius: '999px',
+    pointerEvents: 'none',
+    willChange: 'transform, opacity',
+    boxShadow: `0 0 8px ${hexWithAlpha(color, 0.5)}`,
+    zIndex: String(Z_INDEX),
+  } satisfies Partial<CSSStyleDeclaration>)
+  container.appendChild(el)
+
+  const angle = Math.random() * Math.PI * 2
+  // Faster than confetti.
+  const speed = 11 + Math.random() * 9 // 11-20 px/frame
+  const vx = Math.cos(angle) * speed
+  const vy = Math.sin(angle) * speed - 3 - Math.random() * 4 // upward bias
+
+  const maxLife = PARTICLE_LIFE_FRAMES * (0.9 + Math.random() * 0.4)
+  return {
+    el,
+    x: 0,
+    y: 0,
+    vx,
+    vy,
+    rotation: (angle * 180) / Math.PI + 90, // align streamer to travel direction
+    spin: (Math.random() - 0.5) * 8,
+    life: maxLife,
+    maxLife,
+  }
+}
+
+// ── Sparkles ───────────────────────────────────────────────────────
+
+/**
+ * Bright white pops scattered across the screen — adds "fireflies"
+ * to the celebration. Each sparkle pops in, holds briefly, and pops
+ * out. Independent of the physics loop because they don't move.
+ */
+function spawnSparkles(container: HTMLDivElement) {
+  const count = 22
+  for (let i = 0; i < count; i++) {
+    const sparkle = document.createElement('div')
+    const size = 5 + Math.random() * 4 // 5-9px
+    // Spread across most of the viewport with mild center bias.
+    const x = window.innerWidth * (0.15 + Math.random() * 0.7)
+    const y = window.innerHeight * (0.2 + Math.random() * 0.55)
+    Object.assign(sparkle.style, {
+      position: 'fixed',
+      left: `${x}px`,
+      top: `${y}px`,
+      width: `${size}px`,
+      height: `${size}px`,
+      marginLeft: `${-size / 2}px`,
+      marginTop: `${-size / 2}px`,
+      borderRadius: '50%',
+      backgroundColor: '#ffffff',
+      boxShadow:
+        '0 0 6px rgba(255,255,255,0.95), 0 0 12px rgba(168,85,247,0.6), 0 0 22px rgba(59,130,246,0.4)',
+      pointerEvents: 'none',
+      willChange: 'transform, opacity',
+      zIndex: String(Z_INDEX),
+      opacity: '0',
+    } satisfies Partial<CSSStyleDeclaration>)
+    container.appendChild(sparkle)
+
+    const delay = Math.random() * 700 // stagger across 0-700ms
+    sparkle.animate(
+      [
+        { transform: 'scale(0)', opacity: 0 },
+        { transform: 'scale(1.4)', opacity: 1, offset: 0.3 },
+        { transform: 'scale(1.1)', opacity: 1, offset: 0.6 },
+        { transform: 'scale(0)', opacity: 0 },
+      ],
+      { duration: 480, delay, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
+    )
+  }
+}
+
+// ── Reduced-motion variant ─────────────────────────────────────────
+
+/**
+ * Reduced-motion fallback. No particles, no movement — just a single
+ * subdued radial flash so the user still sees that something
+ * succeeded. Cleans itself up after 700ms.
+ */
+function spawnReducedMotionFlash(ox: number, oy: number) {
+  const container = makeContainer()
+  const flash = document.createElement('div')
+  Object.assign(flash.style, {
+    position: 'fixed',
+    left: `${ox}px`,
+    top: `${oy}px`,
+    width: '420px',
+    height: '420px',
+    marginLeft: '-210px',
+    marginTop: '-210px',
+    borderRadius: '50%',
+    background:
+      'radial-gradient(circle, rgba(168,85,247,0.35) 0%, rgba(59,130,246,0.20) 50%, transparent 75%)',
+    pointerEvents: 'none',
+    zIndex: String(Z_INDEX),
+  } satisfies Partial<CSSStyleDeclaration>)
+  container.appendChild(flash)
+  flash.animate(
+    [
+      { opacity: 0 },
+      { opacity: 1, offset: 0.3 },
+      { opacity: 0 },
+    ],
+    { duration: 700, easing: 'ease-in-out', fill: 'forwards' },
+  ).finished.then(() => container.remove())
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+/** Convert #RRGGBB to rgba(R,G,B,A) for box-shadow alpha layering. */
+function hexWithAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
 }
