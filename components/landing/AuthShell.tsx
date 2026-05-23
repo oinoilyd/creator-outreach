@@ -6,9 +6,11 @@ import { Aurora } from './Aurora'
 import { PlatformRain } from './PlatformRain'
 
 // Shared shell for all auth pages (signin / signup / forgot / reset /
-// check-email). Light by default; the body radial gradients in
-// globals.css give the surface a soft violet/blue/pink wash so it
-// doesn't read as a stock white form.
+// check-email). Now unified on the app palette — uses bg-background +
+// text-foreground (lavender-tinted near-white / near-black with violet
+// hue), the same tokens the signed-in app uses. The Aurora gradient
+// and PlatformRain layers carry the visual mood that survives the
+// sign-in transition into the app.
 //
 // Layered backgrounds (bottom → top):
 //   1. Aurora gradient (z-0) — soft violet/blue/pink radial wash
@@ -32,7 +34,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-2 text-primary-foreground text-[14px] font-bold">
             C
           </span>
-          <span className="font-semibold tracking-[-0.01em] text-[16px] text-[#0F1733] dark:text-white">
+          <span className="font-semibold tracking-[-0.01em] text-[16px] text-foreground">
             Creator Outreach
           </span>
         </Link>

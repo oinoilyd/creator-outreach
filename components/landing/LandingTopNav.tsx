@@ -57,7 +57,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
   const isDark = mounted ? (resolvedTheme ?? theme) === 'dark' : false
 
   return (
-    <header className="sticky top-0 z-40 bg-white/85 dark:bg-[#0A0E15]/85 backdrop-blur-md border-b border-[#0F1733]/8 dark:border-white/10">
+    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-md border-b border-border">
       <div className="max-w-[1280px] mx-auto px-6 h-[64px] flex items-center justify-between">
         {/* Brand mark — purple-to-blue gradient (oklch hue 290 → 215)
             is Creator Outreach's brand. Must stay in lockstep with the
@@ -68,17 +68,17 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-2 text-primary-foreground text-[14px] font-bold">
             C
           </span>
-          <span className="font-semibold tracking-[-0.01em] text-[16px] text-[#0F1733] dark:text-white">
+          <span className="font-semibold tracking-[-0.01em] text-[16px] text-foreground">
             Creator Outreach
           </span>
         </Link>
 
         {/* Desktop section anchors */}
-        <nav className="hidden md:flex items-center gap-6 text-[14px] text-[#0F1733]/70 dark:text-white/65 font-medium">
-          <a href="#product" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Product</a>
-          <a href="#solutions" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Solutions</a>
-          <a href="#customers" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Customers</a>
-          <a href="#pricing" className="hover:text-[#0F1733] dark:hover:text-white transition-colors">Pricing</a>
+        <nav className="hidden md:flex items-center gap-6 text-[14px] text-muted-foreground font-medium">
+          <a href="#product" className="hover:text-foreground transition-colors">Product</a>
+          <a href="#solutions" className="hover:text-foreground transition-colors">Solutions</a>
+          <a href="#customers" className="hover:text-foreground transition-colors">Customers</a>
+          <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
           {/* Roadmap intentionally absent from the desktop bar — it
               lives in the hamburger menu only so the bar stays focused
               on the marketing-page anchors (Product / Solutions /
@@ -102,7 +102,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
             }}
             aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="relative z-10 w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors border-[#0F1733]/15 dark:border-white/15 text-[#0F1733]/70 dark:text-white/70 hover:border-[#0F1733]/40 dark:hover:border-white/40 hover:text-[#0F1733] dark:hover:text-white cursor-pointer"
+            className="relative z-10 w-9 h-9 inline-flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors cursor-pointer"
           >
             {/* Sun icon — shown when in dark mode (click to go light) */}
             {isDark ? (
@@ -141,8 +141,8 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
               aria-expanded={open}
               className={`w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
                 open
-                  ? 'bg-[#0F1733]/5 dark:bg-white/10 border-[#0F1733]/20 dark:border-white/30 text-[#0F1733] dark:text-white'
-                  : 'border-[#0F1733]/15 dark:border-white/15 text-[#0F1733]/70 dark:text-white/70 hover:border-[#0F1733]/40 dark:hover:border-white/40 hover:text-[#0F1733] dark:hover:text-white'
+                  ? 'bg-muted border-foreground/20 text-foreground'
+                  : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
               }`}
             >
               <span className="flex flex-col gap-[3px]">
@@ -155,7 +155,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
             {open && (
               <div
                 role="menu"
-                className="absolute right-0 top-[calc(100%+8px)] w-72 bg-white dark:bg-[#1A2034] border border-[#0F1733]/10 dark:border-white/10 rounded-xl shadow-2xl shadow-black/15 dark:shadow-black/40 z-50 overflow-hidden py-2 max-h-[calc(100vh-90px)] overflow-y-auto"
+                className="absolute right-0 top-[calc(100%+8px)] w-72 bg-card border border-border rounded-xl shadow-2xl shadow-black/15 dark:shadow-black/40 z-50 overflow-hidden py-2 max-h-[calc(100vh-90px)] overflow-y-auto"
               >
                 {/* Cleaner menu (2026-05-08, second pass): tighter
                     one-word labels, no descriptors, no obsolete
@@ -198,14 +198,14 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                       <Link
                         href="/auth/signup"
                         onClick={() => setOpen(false)}
-                        className="sm:hidden mb-2 inline-flex items-center justify-center gap-1.5 bg-[#0F1733] dark:bg-[#F2A261] text-white dark:text-[#0F1733] hover:bg-[#E85D2F] dark:hover:bg-white px-4 py-2.5 rounded-md text-[14px] font-semibold transition-colors w-full"
+                        className="sm:hidden mb-2 inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-brand to-brand-2 text-primary-foreground hover:opacity-90 px-4 py-2.5 rounded-md text-[14px] font-semibold transition-opacity w-full"
                       >
                         Start free
                       </Link>
                       <Link
                         href="/auth/signin"
                         onClick={() => setOpen(false)}
-                        className="block px-3 py-2 rounded-md text-[14px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+                        className="block px-3 py-2 rounded-md text-[14px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                       >
                         Sign in
                       </Link>
@@ -216,7 +216,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                       <Link
                         href="/"
                         onClick={() => setOpen(false)}
-                        className="block px-3 py-2 rounded-md text-[14px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+                        className="block px-3 py-2 rounded-md text-[14px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                       >
                         Open app
                       </Link>
@@ -226,7 +226,7 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                           await fetch('/auth/signout', { method: 'POST' })
                           window.location.href = '/'
                         }}
-                        className="w-full text-left block px-3 py-2 rounded-md text-[14px] text-red-500 hover:bg-red-500/10 transition-colors"
+                        className="w-full text-left block px-3 py-2 rounded-md text-[14px] text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         Sign out
                       </button>
@@ -242,10 +242,14 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
               widths (320–375) caused horizontal overflow → toggle and
               hamburger ended up partially off-screen, taps landed on
               dead space. CTA is surfaced inside the hamburger menu on
-              mobile so it's still reachable. */}
+              mobile so it's still reachable.
+
+              Brand gradient (violet → teal) ties the marketing CTA to
+              the in-app brand mark — same gradient as the "C" tile so
+              every CTA visually points back to the same brand. */}
           <Link
             href={isAuthed ? '/' : '/auth/signup'}
-            className="ml-1 hidden sm:inline-flex items-center gap-1.5 bg-[#0F1733] dark:bg-[#F2A261] text-white dark:text-[#0F1733] hover:bg-[#E85D2F] dark:hover:bg-white px-4 py-2 rounded-md text-[14px] font-semibold transition-colors"
+            className="ml-1 hidden sm:inline-flex items-center gap-1.5 bg-gradient-to-br from-brand to-brand-2 text-primary-foreground hover:opacity-90 px-4 py-2 rounded-md text-[14px] font-semibold transition-opacity shadow-sm shadow-brand/20"
           >
             {isAuthed ? 'Open app' : 'Start free'}
           </Link>
@@ -260,11 +264,11 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
 function MenuGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="px-2 pb-1">
-      <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-[#0F1733]/40 dark:text-white/40">
+      <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground/60">
         {label}
       </div>
       {children}
-      <div className="mx-2 my-2 border-t border-[#0F1733]/10 dark:border-white/10" />
+      <div className="mx-2 my-2 border-t border-border" />
     </div>
   )
 }
@@ -282,7 +286,7 @@ function MenuItem({
     <a
       href={href}
       onClick={onSelect}
-      className="block px-3 py-2 rounded-md text-[13.5px] text-[#0F1733]/80 dark:text-white/80 hover:bg-[#0F1733]/5 dark:hover:bg-white/5 hover:text-[#0F1733] dark:hover:text-white transition-colors"
+      className="block px-3 py-2 rounded-md text-[13.5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
     >
       {children}
     </a>
