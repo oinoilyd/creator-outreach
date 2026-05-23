@@ -247,7 +247,7 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
         current={m}
         previous={pm ?? undefined}
         rangeLabel={range.label}
-        cacheKey={`${layout}-${rangeId}`}
+        cacheKey={`v2-${layout}-${rangeId}`}
         layout={layout}
         layoutLabel={currentLayout.title}
       />

@@ -141,10 +141,38 @@ export async function POST(req: NextRequest) {
  *  model still has context; the focus line shapes what gets surfaced. */
 const LAYOUT_FOCUS: Record<InsightLayout, string> = {
   overview: 'FOCUS: broad pipeline view. Pick whichever metric moved most — outreach volume, conversion, revenue, or engagement. No single lens; surface what is most newsworthy across the whole funnel.',
-  sales: 'FOCUS: outreach → win conversion. Lean into response rate, win rate, by-medium performance (Email vs LinkedIn vs Other), velocity of reach-outs, stale follow-ups. Do NOT discuss engagement-side details (lifecycle, ratings, repeat likelihood) — those are a separate lens.',
+  sales: 'FOCUS: outreach → win conversion. Lean into response rate, win rate, by-medium performance (Email vs LinkedIn vs DMs/other channels), velocity of reach-outs, stale follow-ups. Do NOT discuss engagement-side details (lifecycle, ratings, repeat likelihood) — those are a separate lens.',
   active: 'FOCUS: active-client health. Lean into how many are active right now, lifecycle distribution (paused / completed / churned), completed engagements, and — if data exists — average satisfaction and repeat likelihood. Do NOT discuss outreach response rates or by-medium volume.',
   cash: 'FOCUS: money. Lean into total booked, personal revenue (net of team splits), avg deal value, completed-engagement realised value, and pipeline $. If a team split exists (totalCollaboratorShare > 0), mention what fraction of booked the user keeps. Do NOT discuss lifecycle quality or response rates.',
   activity: 'FOCUS: cadence and velocity. Lean into addedLast7, reachedLast7, wonLast30 — how active has the user been recently? Are they speeding up or slowing down? Do NOT discuss lifecycle quality, satisfaction ratings, or medium breakdowns unless directly tied to a velocity change.',
+}
+
+/**
+ * Rename `byMedium.Other` to `byMedium["DMs / other channels"]`
+ * before serializing for the LLM. The literal "Other" enum value was
+ * a holdover from the column UI — fine for an internal bucket key,
+ * but the LLM kept echoing it verbatim into user-facing output
+ * (e.g. "zero traction on Email and LinkedIn. Capitalize on what's
+ * working in Other...") which reads as a capitalized proper noun
+ * with no obvious meaning.
+ *
+ * "Other" in the app's medium enum covers Instagram DM, X DM,
+ * TikTok DM, in-person, and any outreach attempted via a channel
+ * besides Email or LinkedIn — surfacing that explicitly to the LLM
+ * lets it use natural-language phrasing in the insight output.
+ */
+function metricsForPrompt(m: InsightMetrics): Omit<InsightMetrics, 'byMedium'> & {
+  byMedium: Record<string, { reached: number; won: number }>
+} {
+  const { byMedium, ...rest } = m
+  return {
+    ...rest,
+    byMedium: {
+      Email: byMedium.Email,
+      LinkedIn: byMedium.LinkedIn,
+      'DMs / other channels': byMedium.Other,
+    },
+  }
 }
 
 function buildPrompt(
@@ -158,7 +186,7 @@ function buildPrompt(
   // with based on size of change AND the layout focus line below.
   const deltaBlock = previous
     ? `Previous period (same length, immediately before):
-${JSON.stringify(previous, null, 2)}`
+${JSON.stringify(metricsForPrompt(previous), null, 2)}`
     : '(No previous-period comparison available — narrate the current state in isolation.)'
 
   return `You are a sales analytics narrator for a creator-outreach SaaS. Given JSON metrics, write 2-3 sentences total (max 50 words) about what's going on for this user.
@@ -171,10 +199,14 @@ CRITICAL FORMATTING:
 - Do NOT hedge ("you might consider", "perhaps"). Direct, useful, opinionated.
 - Refer to the user in second person ("you", "your").
 
+VOCABULARY:
+- When discussing byMedium["DMs / other channels"], refer to it in natural language as "DMs", "direct messages", "Instagram/X messages", or "other channels" — never use the literal word "Other" as a category name, and never capitalize a generic noun like "Other" as if it were a channel.
+- "DMs / other channels" covers Instagram DM, X DM, TikTok DM, in-person, and any outreach via channels besides Email or LinkedIn.
+
 ${LAYOUT_FOCUS[layout]}
 
 Current period (${rangeLabel}):
-${JSON.stringify(current, null, 2)}
+${JSON.stringify(metricsForPrompt(current), null, 2)}
 
 ${deltaBlock}
 
