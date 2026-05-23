@@ -17,6 +17,7 @@ import { computeMetric, metricTypeLabel, SUGGESTED_METRICS } from '@/lib/metrics
 import type { BackdropTheme } from '@/lib/backdrop-themes'
 import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
+import { SuccessToast } from '@/components/SuccessToast'
 import { CreatorTable } from '@/components/creators/CreatorTable'
 import { GuidanceContext } from '@/components/creators/FitScoreCell'
 import { AnimatedTabs, tabId, tabPanelId } from '@/components/AnimatedTabs'
@@ -218,6 +219,16 @@ export default function Home() {
   // modal auto-opens. Reset to null after consumption so it doesn't
   // re-open on every render.
   const [activeClientPreselect, setActiveClientPreselect] = useState<string | null>(null)
+
+  // 2026-05-23 per Dylan: when an outreach row flips to Successful,
+  // a subtle bottom-right toast appears offering a one-click jump to
+  // the new Active Client engagement card. Pairs with the confetti
+  // celebration — the visual fanfare says "you won," the toast says
+  // "and here's where to manage them next." Set by
+  // updateOutreachEntry on Successful transition; cleared by the
+  // toast component once it auto-dismisses or the user clicks
+  // through.
+  const [successToast, setSuccessToast] = useState<{ entryId: string; channelName: string } | null>(null)
 
   // Listen for the "Add to Active Clients" CTA in LeadDetailModal —
   // routes the user to the Outreach → Active Clients sub-tab and
@@ -1338,6 +1349,13 @@ export default function Home() {
         // isn't lost.
         if (value === 'Successful' && e.status !== 'Successful') {
           celebrateSuccess()
+          // 2026-05-23: pair the confetti with a subtle CTA toast
+          // that lets the user jump straight to the new Active
+          // Client engagement card.
+          setSuccessToast({
+            entryId: e.id,
+            channelName: e.channelName || 'Engagement',
+          })
         }
 
         // Status drives reachedOut: anything past "Not Outreached" / "" counts.
@@ -4012,6 +4030,17 @@ export default function Home() {
       )}
     </main>
     <Tour />
+    {/* Subtle success toast — fires when an outreach row flips to
+        Successful. Lives outside <main> so its fixed position isn't
+        affected by any transform-induced stacking on ancestor
+        elements. */}
+    {successToast && (
+      <SuccessToast
+        entryId={successToast.entryId}
+        channelName={successToast.channelName}
+        onDismiss={() => setSuccessToast(null)}
+      />
+    )}
     </TourProvider>
     </GuidanceContext.Provider>
   )
