@@ -486,7 +486,7 @@ export function DashboardInsightPill({
               <Sparkles className="w-3.5 h-3.5" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[12.5px] font-semibold text-foreground">Heads-up</div>
+              <div className="text-[12.5px] font-semibold text-foreground">Insight</div>
               <div className="text-[10.5px] text-muted-foreground/75">
                 {generatedAt != null ? `${formattedAge}` : 'Loading…'}
               </div>
