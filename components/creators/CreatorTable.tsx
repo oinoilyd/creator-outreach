@@ -236,6 +236,7 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
               </td>
               <td className="px-2 py-3 text-center">
                 <button
+                  data-tour-id="add-to-outreach-button"
                   onClick={() => onAddToOutreach(c)}
                   title={outreachIds.has(c.channelId) ? 'Remove from Outreach' : 'Add to Outreach'}
                   aria-label={outreachIds.has(c.channelId) ? `Remove ${c.channelName} from outreach` : `Add ${c.channelName} to outreach`}

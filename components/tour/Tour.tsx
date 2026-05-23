@@ -31,9 +31,9 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { X as XIcon, ArrowLeft, ArrowRight, GraduationCap } from 'lucide-react'
+import { X as XIcon, ArrowLeft, ArrowRight, GraduationCap, Plus } from 'lucide-react'
 import { useTour } from './TourContext'
-import type { TourPlacement } from './tourSteps'
+import type { TourPlacement, TourPreviewSketch } from './tourSteps'
 
 const TOOLTIP_WIDTH = 360
 const TOOLTIP_GAP = 14   // gap between tooltip and target element
@@ -366,9 +366,20 @@ function TourLayer({
             <p className="text-[13.5px] leading-relaxed text-foreground/90">
               {step.body}
             </p>
-            {useCenteredFallback && (
+            {/* When the real target isn't on screen, render a static
+                CSS mockup so the reader still sees what we're talking
+                about. Pure presentational — no fake data in app state. */}
+            {useCenteredFallback && step.previewSketch && (
+              <div className="mt-3">
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 mb-1.5">
+                  Preview
+                </div>
+                <PreviewSketch kind={step.previewSketch} />
+              </div>
+            )}
+            {useCenteredFallback && !step.previewSketch && (
               <p className="mt-2.5 text-[11.5px] text-muted-foreground/75 italic">
-                (Open the relevant view to see this in action — it's not visible from where you are right now.)
+                (Open the relevant view to see this in action — it&apos;s not visible from where you are right now.)
               </p>
             )}
           </div>
@@ -433,5 +444,73 @@ function TourLayer({
         </motion.div>
       </motion.div>
     </AnimatePresence>
+  )
+}
+
+// ── Preview sketches ─────────────────────────────────────────────────
+// Pure CSS mockups rendered inline in the tooltip body when the real
+// DOM target is missing. Helps users who haven't populated the relevant
+// surface yet (no leads, no active clients) still visualize the step.
+//
+// CRITICAL: these are presentational only. Nothing here writes to app
+// state, no fake data is injected anywhere. Just static HTML/CSS.
+
+function PreviewSketch({ kind }: { kind: TourPreviewSketch }) {
+  if (kind === 'result-row') return <ResultRowSketch />
+  if (kind === 'outreach-row') return <OutreachRowSketch />
+  return null
+}
+
+function ResultRowSketch() {
+  // Mock single row from the Results table. The + button is the
+  // highlighted control we want the user to recognize when the real
+  // table populates.
+  return (
+    <div className="rounded-lg border border-border bg-card/60 overflow-hidden">
+      <div className="px-2.5 py-2 bg-muted/40 border-b border-border/60 flex items-center gap-2 text-[9.5px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+        <span className="w-4 text-center">·</span>
+        <span className="w-4 text-center">·</span>
+        <span className="flex-1">Channel</span>
+        <span className="w-12 text-right">Subs</span>
+        <span className="w-8 text-right">@</span>
+      </div>
+      <div className="px-2.5 py-2 flex items-center gap-2 text-[11.5px]">
+        <span className="w-4 text-center text-muted-foreground/40" aria-hidden>×</span>
+        {/* The + button — pulsing purple to draw the eye */}
+        <span className="relative w-4 flex items-center justify-center" aria-hidden>
+          <span className="absolute inset-0 rounded-full bg-purple-500/30 animate-ping" />
+          <Plus className="relative w-3 h-3 text-purple-500" strokeWidth={3} />
+        </span>
+        <span className="flex-1 truncate text-foreground/90">@fitness-creator</span>
+        <span className="w-12 text-right tabular-nums text-muted-foreground">12.5K</span>
+        <span className="w-8 text-right text-purple-500">✉</span>
+      </div>
+    </div>
+  )
+}
+
+function OutreachRowSketch() {
+  // Mock single row from the Outreach Pipeline table. Shows the
+  // status pill + follow-up date column — the two controls we're
+  // teaching the user about in step 6.
+  return (
+    <div className="rounded-lg border border-border bg-card/60 overflow-hidden">
+      <div className="px-2.5 py-2 bg-muted/40 border-b border-border/60 flex items-center gap-2 text-[9.5px] uppercase tracking-wider font-semibold text-muted-foreground/70">
+        <span className="w-3 text-center">★</span>
+        <span className="flex-1">Channel</span>
+        <span className="w-14 text-right">Status</span>
+        <span className="w-14 text-right">Follow-up</span>
+      </div>
+      <div className="px-2.5 py-2 flex items-center gap-2 text-[11.5px]">
+        <span className="w-3 text-center text-amber-500" aria-hidden>★</span>
+        <span className="flex-1 truncate text-foreground/90">@fitness-creator</span>
+        <span className="w-14 text-right">
+          <span className="inline-block text-[9.5px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-blue-500/40 bg-blue-500/15 text-blue-700 dark:text-blue-300 font-semibold">
+            Open
+          </span>
+        </span>
+        <span className="w-14 text-right tabular-nums text-muted-foreground">May 30</span>
+      </div>
+    </div>
   )
 }

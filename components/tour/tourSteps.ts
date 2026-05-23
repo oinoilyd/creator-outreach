@@ -18,6 +18,18 @@ export interface TourHelpers {
   navigate: (tab: 'results' | 'outreach' | 'dismissed', sub?: 'all' | 'analytics' | 'followups' | 'active') => void
 }
 
+/**
+ * In-tooltip CSS sketches — rendered inside the tooltip body as a
+ * "here's what it looks like" preview when the real DOM target is
+ * missing (e.g. user has zero leads, so the outreach row doesn't
+ * exist yet). Pure CSS mockup, no fake data is injected into the
+ * actual app state. Pick one of the keys below per step that
+ * benefits.
+ */
+export type TourPreviewSketch =
+  | 'result-row'      // a single Results row with the + button highlighted
+  | 'outreach-row'    // a single Outreach Pipeline row with status pill
+
 export interface TourStep {
   id: string
   /** CSS selector to look up the target element. null = centered modal. */
@@ -32,6 +44,10 @@ export interface TourStep {
   nextLabel?: string
   /** Custom CTA for the final step. Replaces 'Next' with 'Finish'. */
   isFinal?: boolean
+  /** When the real DOM target is missing, render this in-tooltip
+   *  sketch so the user still sees what the feature looks like.
+   *  Pure cosmetic — no app state touched. */
+  previewSketch?: TourPreviewSketch
 }
 
 export const TOUR_STEPS: TourStep[] = [
@@ -70,14 +86,18 @@ export const TOUR_STEPS: TourStep[] = [
   },
 
   // ─────────────────────────────────────────────────────────────
-  // 4. Add to outreach
+  // 4. Add to outreach — target the FIRST + button specifically
+  //    rather than the whole results table, so the spotlight lands
+  //    tight on the actual control. Falls back to result-row sketch
+  //    when no creators are loaded.
   // ─────────────────────────────────────────────────────────────
   {
     id: 'add-to-outreach',
-    target: '[data-tour-id="results-table"]',
+    target: '[data-tour-id="add-to-outreach-button"]',
     title: 'Add to your pipeline',
     body: 'Click the + on any creator row to drop them into outreach. The X next to it dismisses them so they never come back in future searches.',
-    placement: 'top',
+    placement: 'left',
+    previewSketch: 'result-row',
   },
 
   // ─────────────────────────────────────────────────────────────
@@ -93,7 +113,8 @@ export const TOUR_STEPS: TourStep[] = [
   },
 
   // ─────────────────────────────────────────────────────────────
-  // 6. Status + follow-up
+  // 6. Status + follow-up — outreach-row sketch fallback so empty-
+  //    pipeline users still see what the workflow looks like.
   // ─────────────────────────────────────────────────────────────
   {
     id: 'status',
@@ -102,6 +123,7 @@ export const TOUR_STEPS: TourStep[] = [
     body: 'Mark a lead Open after first reach-out. Set a follow-up date — overdue ones auto-surface in the Follow-ups sub-tab. When you mark a lead Successful, an Active Client engagement auto-creates.',
     placement: 'top',
     onEnter: ({ navigate }) => navigate('outreach', 'all'),
+    previewSketch: 'outreach-row',
   },
 
   // ─────────────────────────────────────────────────────────────
