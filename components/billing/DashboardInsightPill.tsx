@@ -28,6 +28,11 @@ const STALE_MS = 24 * 60 * 60 * 1000  // 24 hours
 interface CachedDashboardInsight {
   insight: string
   generatedAt: number
+  /** Monotonic refresh counter persisted so successive manual
+   *  refreshes rotate through different prompt facets server-side
+   *  rather than re-asking with the same context (which produces
+   *  paraphrased duplicates). */
+  refreshIndex?: number
 }
 
 /** Reduce an OutreachEntry[] to the smallest payload the dashboard
@@ -126,7 +131,11 @@ function readCache(uid: string): CachedDashboardInsight | null {
     if (!parsed || typeof parsed.insight !== 'string' || typeof parsed.generatedAt !== 'number') {
       return null
     }
-    return parsed as CachedDashboardInsight
+    return {
+      insight: parsed.insight,
+      generatedAt: parsed.generatedAt,
+      refreshIndex: typeof parsed.refreshIndex === 'number' ? parsed.refreshIndex : 0,
+    }
   } catch {
     return null
   }
@@ -156,6 +165,14 @@ export function DashboardInsightPill({
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
+  // Server-side facet rotation needs to know which refresh we're on.
+  // Ref instead of state because we don't need a re-render when it
+  // bumps — only the next API call cares.
+  const refreshIndexRef = useRef<number>(0)
+  // Holds the last-rendered insight so the refresh path can pass it
+  // back to the server as "don't repeat this." Mirrors what's in
+  // state/cache but synchronously accessible inside async fetches.
+  const lastInsightRef = useRef<string>('')
 
   // Click-outside / Escape close behavior for the popover.
   useEffect(() => {
@@ -210,6 +227,10 @@ export function DashboardInsightPill({
           metrics: projectMetrics(entries),
           recentSearches,
           daysSinceFirstEntry,
+          // Server uses these to (a) tell Claude what NOT to repeat
+          // and (b) rotate which facet to lean into across refreshes.
+          previousInsight: lastInsightRef.current || undefined,
+          refreshIndex: refreshIndexRef.current,
         }),
       })
       const json = await res.json() as { insight?: string; generatedAt?: number; error?: string }
@@ -219,9 +240,15 @@ export function DashboardInsightPill({
       }
       setInsight(json.insight)
       setGeneratedAt(json.generatedAt ?? Date.now())
+      lastInsightRef.current = json.insight
+      // Bump rotation for the NEXT refresh so we don't land on the
+      // same facet twice in a row.
+      const nextIndex = refreshIndexRef.current + 1
+      refreshIndexRef.current = nextIndex
       writeCache(userId, {
         insight: json.insight,
         generatedAt: json.generatedAt ?? Date.now(),
+        refreshIndex: nextIndex,
       })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Network error')
@@ -236,6 +263,8 @@ export function DashboardInsightPill({
       // No data → use a deterministic empty-state, no LLM call.
       setInsight('Start by running a search on the Results tab to find creators in your niche.')
       setGeneratedAt(Date.now())
+      lastInsightRef.current = ''
+      refreshIndexRef.current = 0
       return
     }
     const cached = readCache(userId)
@@ -243,6 +272,10 @@ export function DashboardInsightPill({
     if (cached && !stale) {
       setInsight(cached.insight)
       setGeneratedAt(cached.generatedAt)
+      // Persist rotation + last-insight across page reloads so the
+      // server keeps cycling facets even after a hard refresh.
+      lastInsightRef.current = cached.insight
+      refreshIndexRef.current = cached.refreshIndex ?? 0
       return
     }
     void generate()

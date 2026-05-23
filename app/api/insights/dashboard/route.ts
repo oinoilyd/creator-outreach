@@ -52,6 +52,14 @@ interface DashboardRequestBody {
   /** Days since the user's first outreach entry (proxies "how long
    *  have they been using the app"). null = no entries at all. */
   daysSinceFirstEntry?: number | null
+  /** Previously-rendered insight, if any. Sent on refresh so the
+   *  prompt can explicitly steer Claude away from repeating it. */
+  previousInsight?: string
+  /** Monotonic counter incremented per manual refresh. Used to
+   *  rotate which facet of the data we ask Claude to lean into,
+   *  so successive refreshes surface materially different angles
+   *  instead of paraphrasing the same priority bucket. */
+  refreshIndex?: number
 }
 
 interface DashboardResponse {
@@ -94,7 +102,16 @@ export async function POST(req: NextRequest) {
     body.metrics.successful === 0 ||
     (body.daysSinceFirstEntry != null && body.daysSinceFirstEntry < 7)
 
-  const prompt = buildPrompt(body.metrics, body.recentSearches ?? [], isNew)
+  const refreshIndex = typeof body.refreshIndex === 'number' && Number.isFinite(body.refreshIndex)
+    ? Math.max(0, Math.floor(body.refreshIndex))
+    : 0
+  const prompt = buildPrompt(
+    body.metrics,
+    body.recentSearches ?? [],
+    isNew,
+    refreshIndex,
+    typeof body.previousInsight === 'string' ? body.previousInsight.slice(0, 280) : '',
+  )
 
   try {
     const message = await client.messages.create({
@@ -127,24 +144,61 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function buildPrompt(metrics: DashboardMetrics, recentSearches: string[], isNew: boolean): string {
+/** Rotating focus facets for repeat refreshes. Each refresh advances
+ *  the index so the model is pushed at a different slice of the data.
+ *  Two lists — new vs experienced — because the relevant angles
+ *  differ at each stage.
+ *
+ *  Note: the model can still pick anything if the active facet has no
+ *  meaningful signal in the data (e.g. velocity facet but addedLast7=0).
+ *  The prompt tells it to fall back to a different angle in that case
+ *  rather than fabricate. */
+const NEW_FACETS = [
+  'WHAT THEY HAVE DONE: review concretely what the user has accomplished so far — leads added, channels explored, searches run. Honour their effort.',
+  'NEXT CONCRETE STEP: pick the next 1-action move that unblocks them (reach out to a specific lead, add the first one from a search, set a follow-up date).',
+  'SEARCH REFLECTION: comment on the recent searches they ran and what to do with them — narrower niche, broader, or add a creator from results.',
+  'STATUS GAP: name a specific gap in their pipeline (entries added but none reached out, leads with emails sitting idle) and how to close it.',
+  'MOMENTUM: comment on how recent their activity is — added in the last day/week, slowing down, or starting fresh — and what to do next.',
+] as const
+
+const EXPERIENCED_FACETS = [
+  'ACTION QUEUE: stale follow-ups overdue, today\'s follow-ups, opens sitting too long without a touch.',
+  'CONVERSION PERFORMANCE: response rate and win rate. Which medium (Email / LinkedIn / Other) is outperforming the rest? Lean in.',
+  'REVENUE STATE: total booked, personal revenue, recent wins worth doubling-down on. Mention dollars.',
+  'RECENT TRAJECTORY: addedLast7, reachedLast7, wonLast30 — are they speeding up or slowing down? Comment on the trend.',
+  'ENGAGEMENT HEALTH: active clients right now, anything sitting paused, completed wins worth turning into repeats or referrals.',
+  'UNTAPPED CAPACITY: leads with email but not reached, "Open" entries with no touchpoints recorded, segments with high reach but low win.',
+] as const
+
+function buildPrompt(
+  metrics: DashboardMetrics,
+  recentSearches: string[],
+  isNew: boolean,
+  refreshIndex: number,
+  previousInsight: string,
+): string {
+  const facets = isNew ? NEW_FACETS : EXPERIENCED_FACETS
+  const facet = facets[refreshIndex % facets.length]
+
   const newGuidance = `
 USER STATE: NEW. They're still ramping up. Frame as a gentle next-step nudge based on what they've actually done so far.
-- If they've added entries but reached out to nobody → tell them to reach out.
-- If they've reached out but had no responses yet → tell them how long it usually takes / suggest follow-ups.
-- If they've searched but added nothing → tell them to add a lead from results.
-- Mention specific numbers from the data when helpful (e.g. "you've added 3 leads, none reached out yet").
+- Mention specific numbers from the data ("you've added 3 leads", "all 4 sitting at Not Outreached").
 - Voice: friendly but direct, no greeting words.`
 
   const experiencedGuidance = `
-USER STATE: EXPERIENCED. Surface the single most actionable thing right now.
-- Prioritise: stale follow-ups overdue → today's follow-ups → response-rate-by-medium opportunity → recent wins worth doubling-down on.
-- Specific numbers required. Specific channel (Email / LinkedIn / Other) if relevant.
-- Voice: opinionated, no hedging.`
+USER STATE: EXPERIENCED. Be opinionated and specific.
+- Specific numbers required. Specific channel (Email / LinkedIn / Other) when relevant.
+- Voice: direct, no hedging.`
 
   const searchBlock = recentSearches.length > 0
     ? `Recent searches: ${recentSearches.slice(0, 5).map(s => `"${s.slice(0, 40)}"`).join(', ')}`
     : '(No recent search history available.)'
+
+  const previousBlock = previousInsight
+    ? `\nPREVIOUSLY YOU SAID (do NOT repeat or paraphrase this — surface a different angle):\n"${previousInsight}"\n`
+    : ''
+
+  const facetBlock = `\nTHIS TURN'S FOCUS:\n${facet}\nIf the data does not support this focus (e.g. zero stale follow-ups when the focus is action queue), pick a different facet from the data that DOES have signal. Never fabricate numbers.\n`
 
   return `You are a heads-up display for a creator-outreach SaaS. Output exactly ONE sentence (max 22 words) summarizing the most useful thing the user should know or do RIGHT NOW.
 
@@ -154,9 +208,10 @@ CRITICAL FORMATTING:
 - No greeting words ("Hey", "Hi", "Looking good"). Just the insight.
 - No hedging ("might want to", "perhaps"). Direct, opinionated.
 - Second person ("you", "your").
+- Every number you cite MUST appear in the data block below. No making numbers up.
 
 ${isNew ? newGuidance : experiencedGuidance}
-
+${facetBlock}${previousBlock}
 Current state:
 ${JSON.stringify(metrics, null, 2)}
 
