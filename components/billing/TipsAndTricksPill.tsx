@@ -21,37 +21,48 @@ import { useEffect, useRef, useState } from 'react'
 import { Lightbulb, RefreshCw, X as XIcon } from 'lucide-react'
 
 /**
- * Curated tips. Order doesn't matter — first-load position is random,
- * then linear cycling. Add new tips here; remove obsolete ones when
- * features change. Aim for sharp, specific, useful — not "did you
- * know" filler. Each one names a concrete feature or shortcut and
- * what it does.
+ * Curated tips. High-level features users might miss — no sub-feature
+ * minutiae (e.g. specific merge-variable syntax, default milestone
+ * names), no insight-flavored nags ("you should set X"), no redundant
+ * coverage of the same surface.
+ *
+ * First-load position is random; subsequent refreshes are linear and
+ * persist in localStorage.
  */
 const TIPS: string[] = [
+  // ── Core table features ─────────────────────────────────────
   "Click the ★ column header in Outreach to sort favorites to the top. Click again to send them to the bottom.",
-  "Set a follow-up date when you reach out — leads with overdue dates surface in the Follow-ups sub-tab automatically.",
-  "Right-click any column header to hide it. Drag column headers left or right to reorder.",
-  "Connect Gmail via the hamburger menu so the Send button delivers directly instead of opening a compose URL.",
-  "Set your pitch line in Profile — every AI outreach rewrite pulls it in to personalize the opener.",
-  "Templates support these variables: {name}, {channel}, {content}, {pitch}, {sender_first}, {sender_full}, {linkedin}.",
-  "On any Active Client, click + Add Team Member to track role, contact info, and revenue share (in $ or %).",
-  "Toggle the share type on a collaborator row between $ and %. Percent calculates against the engagement budget.",
-  "The Analytics tab has 5 layouts — Overview, Sales, Active Clients, Cash Flow, Activity. Hit Change Layout to switch.",
-  "The Activity layout has a year-at-a-glance calendar heatmap of every outreach event.",
-  "Every Active Client engagement has an Activity log accessible from the modal footer — audits every edit you've made.",
-  "Use the platform toggle (top-left) to switch lenses: YouTube, Instagram, TikTok, X, LinkedIn. Scoring adjusts per platform.",
+  "Drag column headers left or right to reorder them. Right-click any header to hide it.",
+
+  // ── Workflow magic ──────────────────────────────────────────
+  "Set a follow-up date when you reach out — overdue ones surface in the Follow-ups sub-tab automatically.",
+  "Mark a lead Successful and an Active Client engagement auto-creates with budget, milestones, and team-split tracking.",
+  "Wrap up a Completed engagement to capture rating, repeat likelihood, and final value — feeds the Analytics tab.",
+  "Add team members to any Active Client engagement to track role, contact info, and revenue share.",
+
+  // ── Sourcing + Results ──────────────────────────────────────
+  "The platform toggle (top-left) switches lenses: YouTube, Instagram, TikTok, X, LinkedIn — scoring re-tunes per platform.",
+  "Click a creator's name in Results to see their full info, recent video titles, and contact links before adding.",
   "Dismiss a creator from Results to permanently hide them from future searches in this niche.",
   "Import past outreach from Excel via the hamburger menu — column mapping handles different export shapes.",
-  "Click a creator's name in Results to see their full info, recent video titles, and contact links before adding to outreach.",
-  "Mark a lead Successful and an Active Client engagement is auto-created with budget, milestones, and team-split tracking.",
-  "Wrap up a Completed engagement to capture rating, repeat likelihood, and final value — feeds the Analytics tab.",
-  "Two clients marked Definitely- or Likely-repeat are warm leads for the next round. Reach out before the trail goes cold.",
-  "Export your full outreach to Excel or CSV via the Analytics tab Settings gear — quick way to back up data.",
+
+  // ── Profile / integration setup ─────────────────────────────
+  "Connect Gmail in the hamburger menu so Send delivers directly instead of opening a compose URL.",
+  "Set your pitch line in Profile — AI rewrites pull it in to personalize every send.",
+  "Outreach templates are customizable in Profile → Templates with merge variables for name, channel, and pitch.",
+
+  // ── Analytics ───────────────────────────────────────────────
+  "The Analytics tab has 5 layouts — Overview, Sales pipeline, Active Clients, Cash flow, Activity. Switch via the Layout button.",
+  "The Activity layout shows a year-long calendar heatmap of every outreach event.",
   "Custom metrics (Analytics → Customize) let you define any count, percentage, sum, or average over filtered subsets.",
-  "New Active Client engagements get 4 default milestones — kickoff, brief, deliverable, invoice. Edit or remove as needed.",
-  "Click the trial pill in the top bar to open the Stripe billing portal — manage your subscription, payment method, invoices.",
-  "The Outreach > Pipeline tab is where you live day-to-day. The ★ column header is sortable to surface favorites.",
-  "Set a physical address in Profile — required by US CAN-SPAM rules for commercial emails. The composer warns you if it's missing.",
+  "Export your full outreach to Excel or CSV via the Analytics tab settings gear.",
+
+  // ── Engagement depth ────────────────────────────────────────
+  "Every Active Client engagement has an Activity log accessible from the modal footer — audits every edit.",
+
+  // ── Navigation + billing ────────────────────────────────────
+  "Outreach sub-tabs: Pipeline (your leads), Follow-ups (action queue), Active Clients (wins), Analytics (stats).",
+  "Click the trial pill in the top header to open the Stripe billing portal — manage subscription, payment, and invoices.",
 ]
 
 const LS_KEY = 'creator-outreach.tips-pill.index'
