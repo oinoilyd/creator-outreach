@@ -239,28 +239,26 @@ export function HamburgerMenu({
           {/* Lead Criteria */}
           <button
             onClick={() => { onOpenScoreSettings(); setOpen(false) }}
-            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             </span>
             <div className="min-w-0">
-              <div className="text-sm text-foreground font-medium leading-tight">Lead Criteria</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Scoring weights & AI filters</div>
+              <div className="text-[12.5px] text-foreground font-medium leading-tight">Lead Criteria</div>
             </div>
           </button>
 
           {/* Profile */}
           <button
             onClick={() => { onOpenProfile(); setOpen(false) }}
-            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             </span>
             <div className="min-w-0">
-              <div className="text-sm text-foreground font-medium leading-tight">Profile</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Name, LinkedIn, pitch line</div>
+              <div className="text-[12.5px] text-foreground font-medium leading-tight">Profile</div>
             </div>
           </button>
 
@@ -272,16 +270,15 @@ export function HamburgerMenu({
           {onOpenTemplates && (
             <button
               onClick={() => { onOpenTemplates(); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
               </span>
               <div className="min-w-0">
-                <div className="text-sm text-foreground font-medium leading-tight">Templates</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Email + DM drafts per platform</div>
+                <div className="text-[12.5px] text-foreground font-medium leading-tight">Templates</div>
               </div>
             </button>
           )}
@@ -292,17 +289,16 @@ export function HamburgerMenu({
           {onStartTour && (
             <button
               onClick={() => { onStartTour(); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
                 </svg>
               </span>
               <div className="min-w-0">
-                <div className="text-sm text-foreground font-medium leading-tight">Take a tour</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">90-second walkthrough of the app</div>
+                <div className="text-[12.5px] text-foreground font-medium leading-tight">Take a tour</div>
               </div>
             </button>
           )}
@@ -313,14 +309,13 @@ export function HamburgerMenu({
               <div className="mx-4 my-1 border-t border-border" />
               <button
                 onClick={() => setImportExpanded(v => !v)}
-                className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+                className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
               >
-                <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm text-foreground font-medium leading-tight">Import</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Upload an Excel export</div>
+                  <div className="text-[12.5px] text-foreground font-medium leading-tight">Import</div>
                 </div>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -351,14 +346,13 @@ export function HamburgerMenu({
               <a
                 href="/admin"
                 onClick={() => setOpen(false)}
-                className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+                className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
               >
-                <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
                 </span>
                 <div className="min-w-0">
-                  <div className="text-sm text-foreground font-medium leading-tight">Admin</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Users + usage</div>
+                  <div className="text-[12.5px] text-foreground font-medium leading-tight">Admin</div>
                 </div>
               </a>
               {/* "Seed test data" was here until 2026-05-11 — moved to
@@ -378,16 +372,16 @@ export function HamburgerMenu({
             type="button"
             onClick={toggleAppearance}
             aria-expanded={appearanceExpanded}
-            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
+            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
               {/* Palette icon — represents all visual settings */}
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
               </svg>
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-sm text-foreground font-medium leading-tight">Appearance</div>
+              <div className="text-[12.5px] text-foreground font-medium leading-tight">Appearance</div>
               <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
                 {theme === 'dark' ? 'Dark mode' : 'Light mode'}
                 {backdropTheme && backdropTheme !== 'off' ? ` · ${backdropTheme}` : ''}
@@ -411,17 +405,17 @@ export function HamburgerMenu({
           {themeMounted && (
             <button
               onClick={() => { setTheme(theme === 'dark' ? 'light' : 'dark'); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
+              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
                 {theme === 'dark' ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="4" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="4" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" /></svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
                 )}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-sm text-foreground font-medium leading-tight">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</div>
+                <div className="text-[12.5px] text-foreground font-medium leading-tight">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Switch interface theme</div>
               </div>
             </button>
@@ -438,7 +432,7 @@ export function HamburgerMenu({
             <div className="px-4 py-3 border-t border-border/60">
               <div className="flex items-start gap-3">
                 <span className="text-muted-foreground mt-0.5 shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <circle cx="12" cy="12" r="9" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" />
                   </svg>
@@ -463,7 +457,7 @@ export function HamburgerMenu({
                       aria-expanded={themesExpanded}
                       className="flex-1 flex items-center justify-between gap-1.5 -mx-1 px-1 py-0.5 rounded text-left hover:bg-muted/30 transition-colors"
                     >
-                      <span className="text-sm text-foreground font-medium leading-tight">Themes</span>
+                      <span className="text-[12.5px] text-foreground font-medium leading-tight">Themes</span>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${themesExpanded ? 'rotate-180' : ''}`}
@@ -653,15 +647,15 @@ export function HamburgerMenu({
             <a
               href={subscriptionHref}
               onClick={() => setOpen(false)}
-              className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+              className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
             >
-              <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </span>
               <div className="min-w-0">
-                <div className="text-sm text-foreground font-medium leading-tight">
+                <div className="text-[12.5px] text-foreground font-medium leading-tight">
                   {subscriptionLabel?.cta ?? 'Pricing'}
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
@@ -681,16 +675,15 @@ export function HamburgerMenu({
           <a
             href="/roadmap"
             onClick={() => setOpen(false)}
-            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
             </span>
             <div className="min-w-0">
-              <div className="text-sm text-foreground font-medium leading-tight">Roadmap</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">What we&apos;re validating and shipping next</div>
+              <div className="text-[12.5px] text-foreground font-medium leading-tight">Roadmap</div>
             </div>
           </a>
 
@@ -699,14 +692,13 @@ export function HamburgerMenu({
           {/* Contact Us */}
           <button
             onClick={() => { window.open('mailto:dmeehanj@gmail.com', '_blank'); setOpen(false) }}
-            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
             </span>
             <div className="min-w-0">
-              <div className="text-sm text-foreground font-medium leading-tight">Contact Us</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Questions or feedback</div>
+              <div className="text-[12.5px] text-foreground font-medium leading-tight">Contact us</div>
             </div>
           </button>
 
@@ -717,11 +709,11 @@ export function HamburgerMenu({
           <div className="px-4 pt-3 pb-2 border-t border-border/60">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-muted-foreground">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </span>
-              <div className="text-sm text-foreground font-medium leading-tight">Legal</div>
+              <div className="text-[12.5px] text-foreground font-medium leading-tight">Legal</div>
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 pl-6 text-[11px]">
               <a href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms</a>
@@ -739,13 +731,13 @@ export function HamburgerMenu({
           {/* Sign out */}
           <button
             onClick={signOut}
-            className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            className="w-full flex items-center gap-2.5 px-4 py-1.5 text-left hover:bg-muted transition-colors group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            <span className="text-muted-foreground group-hover:text-foreground/80 shrink-0 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             </span>
             <div className="min-w-0">
-              <div className="text-sm text-foreground font-medium leading-tight">Sign out</div>
+              <div className="text-[12.5px] text-foreground font-medium leading-tight">Sign out</div>
             </div>
           </button>
         </motion.div>
