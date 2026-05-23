@@ -1,22 +1,22 @@
 /**
  * Simple metric insights for the top-bar dashboard pill.
  *
- * Earlier iterations tried detector-style pattern matching ("you're
- * stockpiling", "channel disparity") — useful in theory but the
- * judgmental voice + "what does this mean" interpretation kept
- * reading as nag-y AI prose. The user asked for plain metric
- * insights, so this is now a flat list of stat-style sentences.
+ * Voice: second-person, conversational. Each insight reads like
+ * someone briefing the user on their numbers — not a stat ticker
+ * with bare facts, not a chatbot with action verbs. Where it fits,
+ * we connect the number to its consequence (e.g. "10 of 14 reached
+ * out — 4 still need your attention").
  *
- * Each generator is a tiny function: takes the metrics, returns a
- * single stat sentence OR null if the data isn't meaningful (e.g.
- * skip "0% response rate" when no one's been reached yet).
- *
- * Style:
- *   • One fact per sentence, with light context (denominator or
- *     time window) so the number is interpretable.
- *   • No analysis, no inference, no "you should". Just stats.
- *   • Plain sentences with end punctuation — feels like a stat
- *     ticker, not a coach.
+ * Style rules:
+ *   • Vary openings: "You have...", "You've...", "Of X, ...",
+ *     "On LinkedIn...", "Last 7 days:" — avoid every insight
+ *     starting the same way.
+ *   • Add a trailing clause that names the gap or implication where
+ *     useful. Pure observation, never directive.
+ *   • Mid-range values still get a narrative beat — context tags
+ *     for every range, not just the extremes.
+ *   • No action verbs ("set this", "fix that"). No clichés
+ *     ("momentum", "next step"). No claims about industry stats.
  */
 
 import type { DashboardMetrics } from './types'
@@ -38,145 +38,128 @@ function money(n: number): string {
 }
 
 /**
- * The full set of metric generators, in display order. Each returns
- * a string when the underlying data is meaningful, otherwise null.
- *
- * Voice rules:
- *   • Some stats get a light interpretive trailing clause for
- *     context ("— sourcing outpacing outreach", "— testimonial
- *     territory", "(75% of booked)"). Pure observation, no judgment.
- *   • Simple stats (pipeline count, follow-ups due) stay pure.
- *   • No action verbs. No "you should". No clichés ("momentum").
- *   • Trailing clauses should add a frame to read the stat through,
- *     not tell the reader what to do.
+ * Each generator returns a sentence when the data is meaningful,
+ * otherwise null (so we skip stats that would render as "0% of 0").
  */
 function generators(m: DashboardMetrics): Array<string | null> {
   return [
     // ── Pipeline overview ────────────────────────────────────────
-    // Light narrative beats: pure stat for ordinary values, light
-    // framing at extremes so the reader has context for the number.
 
     m.total > 0
       ? m.total >= 50
-        ? `${plural(m.total, 'lead')} in your pipeline — deep bench.`
+        ? `You have ${plural(m.total, 'lead')} in your pipeline — deep bench.`
         : m.total >= 20
-          ? `${plural(m.total, 'lead')} in your pipeline — solid working set.`
+          ? `You have ${plural(m.total, 'lead')} in your pipeline — solid working set.`
           : m.total >= 5
-            ? `${plural(m.total, 'lead')} in your pipeline — bench is forming.`
-            : `${plural(m.total, 'lead')} in your pipeline — early days.`
+            ? `You have ${plural(m.total, 'lead')} in your pipeline — bench is forming.`
+            : `You have ${plural(m.total, 'lead')} in your pipeline — early days.`
       : null,
 
-    // Reached-out ratio gets a light narrative when the split is
-    // lopsided one way or the other.
+    // Reached-out — show the gap explicitly so the user sees what
+    // they have left.
     m.reachedOut > 0 && m.total > 0
       ? (() => {
           const pct = rate(m.reachedOut, m.total)
-          if (m.reachedOut === m.total) {
-            return `All ${m.total} leads reached out — pipeline fully in motion.`
-          }
-          if (pct >= 75) return `${m.reachedOut} of ${m.total} reached out (${pct}%) — most are in motion.`
-          if (pct <= 25) return `${m.reachedOut} of ${m.total} reached out (${pct}%) — most are still untouched.`
-          return `${m.reachedOut} of ${m.total} reached out (${pct}%).`
+          const left = m.total - m.reachedOut
+          if (left === 0) return `You've reached out to all ${m.total} — pipeline fully in motion.`
+          if (pct >= 75)  return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%), ${left} still need your attention.`
+          if (pct >= 40)  return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%) — ${left} still waiting.`
+          if (pct >= 20)  return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%) — most are still untouched.`
+          return `You've reached out to ${m.reachedOut} of ${m.total} (${pct}%) — the rest haven't been touched yet.`
         })()
       : null,
 
-    // Response rate — every range gets a frame so the number reads
-    // in context rather than as a bare percentage.
+    // Response rate — every range gets a frame.
     m.reachedOut >= 5
-      ? m.responseRate >= 35
-        ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — strong return.`
-        : m.responseRate >= 20
-          ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — solid baseline.`
-          : m.responseRate >= 10
-            ? `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — middling for cold outreach.`
-            : `${m.responseRate}% response rate across ${plural(m.reachedOut, 'reach-out')} — the message isn't catching.`
+      ? (() => {
+          const tail = m.responseRate >= 35 ? 'strong return'
+                     : m.responseRate >= 20 ? 'solid baseline'
+                     : m.responseRate >= 10 ? 'middling for cold outreach'
+                     : "the message isn't catching"
+          return `${m.responseRate}% of your ${plural(m.reachedOut, 'reach-out')} got a response — ${tail}.`
+        })()
       : null,
 
     // Win rate — every range gets a frame.
     m.responseReceived >= 5
-      ? m.winRate >= 50
-        ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — over half closing.`
-        : m.winRate >= 30
-          ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — respectable close rate.`
-          : m.winRate >= 15
-            ? `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — under half of responses convert.`
-            : `${m.winRate}% win rate (${m.successful} of ${m.responseReceived} responses) — most replies aren't converting.`
+      ? (() => {
+          const tail = m.winRate >= 50 ? 'over half closing'
+                     : m.winRate >= 30 ? 'respectable close rate'
+                     : m.winRate >= 15 ? 'under half of responses convert'
+                     : "most replies aren't converting"
+          return `Of ${m.responseReceived} responses you've gotten, ${m.successful} closed (${m.winRate}%) — ${tail}.`
+        })()
       : null,
 
-    // Pipeline value — per-lead average kicks in at lower sample so
-    // it fires for more users.
+    // Pipeline value — per-lead context when 3+ non-rejected leads.
     m.pipelineValue > 0
       ? (() => {
           const nonRejected = m.total - m.rejected
           if (nonRejected >= 3) {
             const perLead = Math.round(m.pipelineValue / nonRejected)
-            return `${money(m.pipelineValue)} in pipeline value — averaging ${money(perLead)} per non-rejected lead.`
+            return `You have ${money(m.pipelineValue)} in pipeline value, averaging ${money(perLead)} per non-rejected lead.`
           }
-          return `${money(m.pipelineValue)} in pipeline value across non-rejected leads.`
+          return `You have ${money(m.pipelineValue)} in pipeline value across non-rejected leads.`
         })()
       : null,
 
     // ── Activity (recency) ──────────────────────────────────────
 
-    // Connect added vs reached when one is meaningfully outpacing.
     (m.addedLast7 > 0 || m.reachedLast7 > 0)
       ? (() => {
+          const base = `Last 7 days: you added ${m.addedLast7} and reached out to ${m.reachedLast7}`
           if (m.addedLast7 >= 3 && m.addedLast7 >= m.reachedLast7 * 2) {
-            return `${m.addedLast7} added, ${m.reachedLast7} reached out in the last 7 days — sourcing outpacing outreach.`
+            return `${base} — sourcing is outpacing outreach.`
           }
           if (m.reachedLast7 >= 3 && m.reachedLast7 >= m.addedLast7 * 2) {
-            return `${m.addedLast7} added, ${m.reachedLast7} reached out in the last 7 days — working the existing pipeline.`
+            return `${base} — you're working the existing pipeline.`
           }
-          return `${m.addedLast7} added, ${m.reachedLast7} reached out in the last 7 days.`
+          return `${base}.`
         })()
       : null,
 
     m.wonLast30 > 0
-      ? `${plural(m.wonLast30, 'win')} in the last 30 days.`
+      ? `You've won ${plural(m.wonLast30, 'deal')} in the last 30 days.`
       : null,
 
     // ── Follow-up queue ─────────────────────────────────────────
 
-    // Pure stats — these speak for themselves; narrative would be nag-y.
     m.followupOverdue > 0
-      ? `${plural(m.followupOverdue, 'follow-up')} overdue.`
+      ? `You have ${plural(m.followupOverdue, 'follow-up')} overdue.`
       : null,
 
     m.followupDueToday > 0
-      ? `${plural(m.followupDueToday, 'follow-up')} due today.`
+      ? `You have ${plural(m.followupDueToday, 'follow-up')} due today.`
       : null,
 
     m.followupDueThisWeek > 0 && m.followupOverdue === 0
-      ? `${plural(m.followupDueThisWeek, 'follow-up')} due this week.`
+      ? `You have ${plural(m.followupDueThisWeek, 'follow-up')} due this week.`
       : null,
 
     // ── Active clients ──────────────────────────────────────────
 
     m.activeClientsTotal > 0
       ? m.activeNow === m.activeClientsTotal
-        ? `${plural(m.activeClientsTotal, 'active client')}, all currently engaged.`
-        : `${plural(m.activeClientsTotal, 'active client')} (${m.activeNow} currently active).`
+        ? `You have ${plural(m.activeClientsTotal, 'active client')}, all currently engaged.`
+        : `You have ${plural(m.activeClientsTotal, 'active client')} — ${m.activeNow} currently active, the rest paused or completed.`
       : null,
 
     m.totalBooked > 0
-      ? `${money(m.totalBooked)} booked across ${plural(m.activeClientsTotal, 'engagement', 'engagements')}.`
+      ? `You've booked ${money(m.totalBooked)} across ${plural(m.activeClientsTotal, 'engagement', 'engagements')}.`
       : null,
 
-    // Show personal-revenue split as a percentage so it reads as
-    // context, not a separate number to memorize.
     (m.totalBooked > 0 && m.personalRevenue > 0 && m.personalRevenue < m.totalBooked * 0.95)
-      ? `${money(m.personalRevenue)} personal revenue (${rate(m.personalRevenue, m.totalBooked)}% of booked, rest to team).`
+      ? `Of your ${money(m.totalBooked)} booked, you keep ${money(m.personalRevenue)} (${rate(m.personalRevenue, m.totalBooked)}%) — the rest goes to team splits.`
       : null,
 
     m.lifecycleCompleted >= 1 && m.completedRealised > 0
-      ? `${money(m.completedRealised)} realised across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
+      ? `You've realised ${money(m.completedRealised)} across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
       : null,
 
-    // Rating gets a soft frame at high values, pure stat otherwise.
     m.avgRating != null && m.lifecycleCompleted >= 1
       ? m.avgRating >= 4.5
-        ? `${m.avgRating}/5 across ${plural(m.lifecycleCompleted, 'completed engagement')} — testimonial territory.`
-        : `${m.avgRating}/5 average rating across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
+        ? `Your clients rate you ${m.avgRating}/5 across ${plural(m.lifecycleCompleted, 'completed engagement')} — testimonial territory.`
+        : `Your clients rate you ${m.avgRating}/5 on average across ${plural(m.lifecycleCompleted, 'completed engagement')}.`
       : null,
 
     // ── Channels ────────────────────────────────────────────────
@@ -186,34 +169,27 @@ function generators(m: DashboardMetrics): Array<string | null> {
     // ── Sourcing ────────────────────────────────────────────────
 
     m.resultsCount > 0
-      ? `${plural(m.resultsCount, 'creator')} in your current Results.`
+      ? `You have ${plural(m.resultsCount, 'creator')} showing in your current Results.`
       : null,
 
-    // Dismissal context when the ratio is notable (high or zero with
-    // enough sample); otherwise pure count.
     m.dismissedCount >= 3
       ? m.dismissalRatio >= 50
-        ? `${plural(m.dismissedCount, 'creator')} dismissed (${m.dismissalRatio}% of those considered — more sifting than capturing).`
-        : `${plural(m.dismissedCount, 'creator')} dismissed (${m.dismissalRatio}% of those considered).`
+        ? `You've dismissed ${plural(m.dismissedCount, 'creator')} (${m.dismissalRatio}% of those considered) — more sifting than capturing.`
+        : `You've dismissed ${plural(m.dismissedCount, 'creator')} (${m.dismissalRatio}% of those considered).`
       : null,
   ]
 }
 
 /**
- * Pick the channel (Email / LinkedIn / top mediumOther sub-channel)
- * with the most wins. Returns null if no channel has wins yet.
- *
- * Adds a soft narrative tag when one channel is the clear leader
- * (top channel has wins AND another channel has reach with no wins),
- * so the reader sees the contrast in one glance. Otherwise pure stat.
+ * Best channel (Email / LinkedIn / top mediumOther) by total wins.
+ * Conversational framing — names the channel as something the user
+ * is doing, not just a row in a stats block.
  */
 function bestChannelStat(m: DashboardMetrics): string | null {
   const candidates: Array<{ name: string; reached: number; won: number }> = [
     { name: 'Email',    reached: m.byMedium.Email.reached,    won: m.byMedium.Email.won    },
     { name: 'LinkedIn', reached: m.byMedium.LinkedIn.reached, won: m.byMedium.LinkedIn.won },
   ]
-  // Surface the top mediumOther sub-channel by name (rather than
-  // the generic "Other" lump) so the stat is meaningful.
   if (m.topMediumOther.length > 0) {
     const top = m.topMediumOther[0]
     candidates.push({ name: top.name, reached: top.reached, won: top.won })
@@ -224,24 +200,15 @@ function bestChannelStat(m: DashboardMetrics): string | null {
   if (ranked.length === 0) return null
   const top = ranked[0]
   const winRate = rate(top.won, top.reached)
-  // Narrative tag: only fire when there's a real contrast — another
-  // channel has 3+ reach-outs but zero wins, so calling the leader
-  // "the strongest" is honest comparison rather than overclaim.
+  // Tag the standout channel only when there's a real contrast — another
+  // channel has 3+ reach-outs but zero wins.
   const otherWithoutWins = candidates.find(c =>
     c.name !== top.name && c.reached >= 3 && c.won === 0,
   )
   const tag = otherWithoutWins ? ' — your strongest channel by a clear margin' : ''
-  return `${top.name}: ${plural(top.won, 'win')} from ${plural(top.reached, 'reach-out')} (${winRate}%)${tag}.`
+  return `On ${top.name}, you've closed ${top.won} of ${plural(top.reached, 'reach-out')} (${winRate}%)${tag}.`
 }
 
-/**
- * Public entry point — produce the cycling list of metric insights.
- * Skips generators that returned null. Caps at MAX_INSIGHTS so the
- * cycle doesn't drag.
- *
- * If absolutely nothing has any signal (genuinely brand new account),
- * falls back to the empty-state nudges so the pill is never blank.
- */
 const MAX_INSIGHTS = 8
 
 export function generateMetricInsights(m: DashboardMetrics): string[] {
@@ -251,40 +218,37 @@ export function generateMetricInsights(m: DashboardMetrics): string[] {
 }
 
 /**
- * Empty-state — for users with no data at all. Three short prompts
- * that point at where to start. No analysis (there's no data to
- * analyze), just a clean "here's what to look at first."
+ * Empty-state — for users with no data at all. Same conversational
+ * voice as the live insights.
  */
 export function absenceObservations(m: DashboardMetrics): string[] {
   if (m.total === 0 && m.resultsCount === 0) {
     return [
-      'No leads or searches yet — start on the Results tab.',
-      'Pitch line is blank. Set it in Profile (hamburger menu) before reaching out.',
-      'Once you find creators in Results, click the + on any row to start your pipeline.',
+      "You haven't searched yet — the Results tab is where the work starts.",
+      'Your pitch line is blank. Set it in Profile (hamburger menu) before reaching out.',
+      'Once creators show up in Results, click the + on any row to start your pipeline.',
     ]
   }
   if (m.total === 0 && m.resultsCount > 0) {
     return [
-      `${plural(m.resultsCount, 'creator')} in Results, none added to outreach yet.`,
+      `You have ${plural(m.resultsCount, 'creator')} showing in Results but none added to outreach yet.`,
       'Click the + on any creator card to add them to your pipeline.',
       !m.workflow.hasPitchLine
-        ? 'Pitch line is blank. Set it in Profile before the first reach-out.'
-        : 'Pipeline is empty — the first lead is the only one that feels hard to add.',
+        ? 'Your pitch line is blank. Set it in Profile before the first reach-out.'
+        : 'The first lead is the only one that feels hard to add.',
     ]
   }
   if (m.total > 0 && m.reachedOut === 0) {
     return [
-      `${plural(m.total, 'lead')} added, ${m.reachedOut === 0 ? 'none reached out yet' : `${m.reachedOut} reached out`}.`,
+      `You've added ${plural(m.total, 'lead')} but reached out to none yet.`,
       !m.workflow.hasPitchLine
-        ? 'Pitch line is blank. Set it in Profile so AI rewrites have something to work with.'
+        ? 'Your pitch line is blank. Set it in Profile so AI rewrites have something to work with.'
         : 'Click the email or LinkedIn link on any row to start outreach.',
-      'Set a follow-up date when you reach out — overdue ones surface in the Follow-ups sub-tab.',
+      'When you reach out, set a follow-up date so overdue ones surface in the Follow-ups sub-tab.',
     ]
   }
-  // Genuinely nothing flagged (rare) — return a couple of honest
-  // observations so the pill isn't empty.
   return [
-    `${plural(m.total, 'lead')} in pipeline, ${plural(m.reachedOut, 'reach-out')} sent.`,
-    'No specific signal flagged right now.',
+    `You have ${plural(m.total, 'lead')} in pipeline and ${plural(m.reachedOut, 'reach-out')} sent.`,
+    'Nothing specific flagged right now.',
   ]
 }
