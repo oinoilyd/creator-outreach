@@ -33,9 +33,20 @@
 
 import { PLATFORM_MARKS } from './PlatformBrandMarks'
 
-// Count balanced for visual density vs. perf cost. 24 drops × 5
-// platforms = each platform gets ~4-5 drops on screen at once.
-const DROP_COUNT = 24
+// Per-platform drop counts (Dylan 2026-05-23: YouTube is the lead
+// target audience — weight it heavier than the others so the rain
+// reads as "YouTube-led, also these" rather than "five platforms
+// equally"). YouTube gets ~50% of the drops; the other four split
+// the rest evenly. Total density bumped from 24 → 32 so the heavier
+// YouTube weighting reads as "lots of YouTube" not "less of the
+// others." Tweak DROPS_PER_PLATFORM if you want to rebalance.
+const DROPS_PER_PLATFORM: Record<(typeof PLATFORM_MARKS)[number]['name'], number> = {
+  YouTube: 16,
+  Instagram: 4,
+  TikTok: 4,
+  X: 4,
+  LinkedIn: 4,
+}
 
 // Deterministic pseudo-random helpers — same input always returns
 // the same output, so SSR and client agree. Avoids hydration mismatch
@@ -61,21 +72,32 @@ interface Drop {
 
 function buildDrops(): Drop[] {
   const drops: Drop[] = []
-  for (let i = 0; i < DROP_COUNT; i++) {
-    const platform = PLATFORM_MARKS[i % PLATFORM_MARKS.length]
-    drops.push({
-      id: i,
-      Glyph: platform.Glyph,
-      // Spread evenly across width with some jitter
-      leftPct: ((i * 17) % 100 + pseudoRandom(i, 8)) % 100,
-      // 0-12s delay window
-      delay: pseudoRandom(i + 100, 12),
-      // 7-13s fall — slower than UI-typical so the rain reads as
-      // ambient atmosphere, not aggressive activity.
-      duration: 7 + pseudoRandom(i + 200, 6),
-      // Three size buckets for depth: 22 / 30 / 38 px
-      size: 22 + Math.floor(pseudoRandom(i + 300, 3)) * 8,
-    })
+  // Iterate platforms in a fixed order (PLATFORM_MARKS) so each id
+  // is deterministic — SSR and client agree on positions/delays.
+  // Within each platform, generate `count` drops with a unique id
+  // seed so pseudoRandom produces varied positions even for the
+  // heavily-weighted YouTube drops.
+  let id = 0
+  for (const mark of PLATFORM_MARKS) {
+    const count = DROPS_PER_PLATFORM[mark.name]
+    for (let i = 0; i < count; i++) {
+      drops.push({
+        id,
+        Glyph: mark.Glyph,
+        // Spread across width with some jitter — multiplier on id
+        // keeps neighbouring drops from clustering visually.
+        leftPct: ((id * 17) % 100 + pseudoRandom(id, 8)) % 100,
+        // 0-12s delay window — staggers entry so drops don't all
+        // hit the top at once.
+        delay: pseudoRandom(id + 100, 12),
+        // 7-13s fall — slower than UI-typical so the rain reads as
+        // ambient atmosphere, not aggressive activity.
+        duration: 7 + pseudoRandom(id + 200, 6),
+        // Three size buckets for depth: 22 / 30 / 38 px
+        size: 22 + Math.floor(pseudoRandom(id + 300, 3)) * 8,
+      })
+      id++
+    }
   }
   return drops
 }
