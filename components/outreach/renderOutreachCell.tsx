@@ -211,32 +211,15 @@ export function renderOutreachCell(
     case 'headerUsed':
       return <AutoTextarea value={e.headerUsed} onChange={v => onUpdate(e.id, 'headerUsed', v)} placeholder="Subject line used..." className="text-foreground" />
     case 'status': {
-      // "Needs classification" hint: when the inbound webhook stamped
-      // responseDate but the user hasn't actively classified yet —
-      // they got a reply and should read + classify as Open /
-      // Successful / Rejected. Surfaces as a small mail badge above
-      // the dropdown.
-      //
-      // 2026-05-23 per Dylan: removed 'No Response' from the trigger
-      // list. That status IS a classification — the user has actively
-      // said "this lead never replied meaningfully." Re-surfacing the
-      // "you got a reply" nag at that point overrides the user's
-      // own choice. Pill now only shows for genuinely un-classified
-      // rows (Not Outreached / empty status), which is what an
-      // inbound-webhook-without-user-action looks like.
-      const needsClassification =
-        !!e.responseDate &&
-        (e.status === 'Not Outreached' || e.status === '')
+      // "📬 New reply" classification pill removed 2026-05-23 per
+      // Dylan: "we don't track emails so it is baseless." The pill
+      // was meant to surface when an inbound webhook stamped
+      // responseDate before the user classified, but without
+      // end-to-end email tracking the responseDate stamps aren't
+      // reliable enough to nudge on. If reply detection comes back
+      // later, re-add via git history.
       return (
         <div className="flex flex-col gap-0.5">
-          {needsClassification && (
-            <span
-              className="inline-flex items-center gap-1 self-start text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 rounded px-1.5 py-0.5"
-              title={`Reply received ${e.responseDate}. Pick Open / Successful / Rejected after reading.`}
-            >
-              📬 New reply
-            </span>
-          )}
           <select value={e.status || 'Not Outreached'} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
             className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300' : e.status === 'Open' ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300' : e.status === 'Rejected' ? 'bg-red-50 dark:bg-red-900/40 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300' : e.status === 'No Response' ? 'bg-muted border-border text-muted-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
             <option value="Not Outreached">Not Outreached</option>
