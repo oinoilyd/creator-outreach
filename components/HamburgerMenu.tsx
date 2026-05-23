@@ -27,6 +27,7 @@ export function HamburgerMenu({
   onSpotlightAlwaysOnChange,
   subscriptionHref,
   subscriptionLabel,
+  onStartTour,
 }: {
   userEmail: string | null
   userFullName: string | null
@@ -61,6 +62,9 @@ export function HamburgerMenu({
    *  the menu item is hidden — e.g. when Stripe isn't configured. */
   subscriptionHref?: string | null
   subscriptionLabel?: { cta: string; status: string } | null
+  /** Re-opens the product tour from step 1. The parent owns the
+   *  tour state (see TourProvider); this prop is just a trigger. */
+  onStartTour?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
@@ -214,6 +218,27 @@ export function HamburgerMenu({
               <div className="min-w-0">
                 <div className="text-sm text-foreground font-medium leading-tight">Templates</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5 truncate">Email + DM drafts per platform</div>
+              </div>
+            </button>
+          )}
+
+          {/* Take a tour — replays the first-run product walkthrough.
+              Always available so users can revisit the spine without
+              digging through docs. */}
+          {onStartTour && (
+            <button
+              onClick={() => { onStartTour(); setOpen(false) }}
+              className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted transition-colors group"
+            >
+              <span className="text-muted-foreground group-hover:text-foreground/80 mt-0.5 shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm text-foreground font-medium leading-tight">Take a tour</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">90-second walkthrough of the app</div>
               </div>
             </button>
           )}

@@ -55,6 +55,8 @@ import { HamburgerMenu } from '@/components/HamburgerMenu'
 import { UpgradeButton, computeUpgradeLabel } from '@/components/billing/UpgradeButton'
 import { DashboardInsightPill } from '@/components/billing/DashboardInsightPill'
 import { TipsAndTricksPill } from '@/components/billing/TipsAndTricksPill'
+import { TourProvider } from '@/components/tour/TourContext'
+import { Tour } from '@/components/tour/Tour'
 // Lazy-loaded modal mounts (2026-05-09). Each of these only renders
 // after a user click — there's no reason for them to ride along on
 // the initial JS bundle. Switching to next/dynamic with the named-
@@ -255,6 +257,19 @@ export default function Home() {
     }
     window.addEventListener('promote-outreach-to-active', handler as EventListener)
     return () => window.removeEventListener('promote-outreach-to-active', handler as EventListener)
+  }, [])
+
+  // Tour-driven navigation. The product tour fires this event to
+  // ferry the user between tabs/sub-tabs as it walks through the
+  // app. Same pattern as the other CustomEvent navigators above.
+  useEffect(() => {
+    function handler(ev: Event) {
+      const detail = (ev as CustomEvent<{ tab?: ActiveTab; sub?: 'all' | 'analytics' | 'followups' | 'active' }>).detail
+      if (detail?.tab) setActiveTab(detail.tab)
+      if (detail?.sub) setOutreachSubTab(detail.sub)
+    }
+    window.addEventListener('tour-navigate', handler as EventListener)
+    return () => window.removeEventListener('tour-navigate', handler as EventListener)
   }, [])
 
   // Sync state → URL on every change. replaceState (not pushState) so the
@@ -2435,6 +2450,7 @@ export default function Home() {
 
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
+    <TourProvider signedIn={!!userId}>
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Always-on platform shade — subtle radial tint in the active
           platform color, ONLY on the Results tab. Per Dylan 2026-05-10:
@@ -2481,7 +2497,7 @@ export default function Home() {
               {/* "Find [colored logo] creators" — brand-color icon is
                   the pop. Surrounding text gets font-medium contrast
                   so it doesn't disappear next to the chunkier pill. */}
-              <div className="hidden md:flex items-center gap-2 text-sm">
+              <div className="hidden md:flex items-center gap-2 text-sm" data-tour-id="platform-toggle">
                 <span className="text-muted-foreground/90 font-medium">Find</span>
                 <PlatformDropdown activePlatform={activePlatform} onChange={async (newPlatform) => {
                   // Save the CURRENT platform's state to Supabase
@@ -2511,7 +2527,7 @@ export default function Home() {
                 <span className="text-muted-foreground/90 font-medium">creators</span>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0" data-tour-id="header-pills">
               {/* Tips & tricks pill — curated power-user tips, cycles
                   through ~25 hand-written entries. Hidden below md.
                   Sibling of the dashboard insight pill but with
@@ -2569,6 +2585,14 @@ export default function Home() {
                   const l = computeUpgradeLabel(subscription)
                   return { cta: l.cta === 'Upgrade' ? 'Pricing' : l.cta, status: l.hint ?? 'Plans & checkout' }
                 })()}
+                onStartTour={() => {
+                  // CustomEvent bridges to TourContext (which lives
+                  // deeper in the tree, inside <TourProvider>). Same
+                  // pattern as 'tour-navigate' / 'goto-active-client'.
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('tour-start'))
+                  }
+                }}
               />
             </div>
           </div>
@@ -2660,7 +2684,7 @@ export default function Home() {
             giving the whole row a soft purple-blue halo without
             adding state or refs. The input itself is taller (py-3 vs
             py-2.5) with rounded-xl corners and a wider focus ring. */}
-        <div className="relative group/search mb-2">
+        <div className="relative group/search mb-2" data-tour-id="search-input">
           {/* Soft ambient glow visible only when something inside the
               search row has focus. Sits beneath everything, doesn't
               capture clicks. */}
@@ -3083,7 +3107,7 @@ export default function Home() {
         </div>
 
         {/* Tabs + Customize */}
-        <div className="flex items-center mb-4 border-b border-border">
+        <div className="flex items-center mb-4 border-b border-border" data-tour-id="main-tabs">
           <AnimatedTabs<ActiveTab>
             layoutGroup="main-tabs"
             ariaLabel="Main view"
@@ -3548,7 +3572,7 @@ export default function Home() {
                 return d.getTime() <= todayMs
               }).length
               const activeClientsCount = outreach.filter(e => e.status === 'Successful').length
-              return <OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} dueCount={dueCount} activeClientsCount={activeClientsCount} />
+              return <div data-tour-id="outreach-subtabs"><OutreachSubTabs active={outreachSubTab} onChange={setOutreachSubTab} dueCount={dueCount} activeClientsCount={activeClientsCount} /></div>
             })()}
             {/* Sub-tab panel — same id/labelledby pattern as the
                 main tabs above. Single wrapping div whose ARIA
@@ -3608,6 +3632,7 @@ export default function Home() {
                 profile={profile}
               />
             ) : (
+              <div data-tour-id="outreach-table">
               <OutreachTab
                 entries={filterOutreachByKeyword(outreach, keyword)}
                 colConfig={outreachColConfig}
@@ -3634,6 +3659,7 @@ export default function Home() {
                 interactedNewIds={interactedNewIds}
                 onMarkNewInteracted={markNewInteracted}
               />
+              </div>
             )}
             </div>
           </>
@@ -3656,6 +3682,7 @@ export default function Home() {
                 column sort, that takes precedence. State + setter
                 kept so the behavior is still wired up — the prior
                 toggle UX may come back later as a hidden setting. */}
+            <div data-tour-id="results-table">
             <CreatorTable
               creators={currentList} outreachIds={outreachIds}
               dismissedIds={dismissedIds}
@@ -3695,6 +3722,7 @@ export default function Home() {
               bulkRunning={resultsBulkRunning}
               onUpdateInstagram={updateInstagramHandle}
             />
+            </div>
             {/* Per Dylan 2026-05-10: 'Load More Creators' should not
                 appear at all before any search has happened. Previously
                 the button was disabled but visible, which created a
@@ -3951,6 +3979,8 @@ export default function Home() {
         />
       )}
     </main>
+    <Tour />
+    </TourProvider>
     </GuidanceContext.Provider>
   )
 }
