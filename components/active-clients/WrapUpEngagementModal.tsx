@@ -222,9 +222,17 @@ export function WrapUpEngagementModal({ entry, onSubmit, onClose }: WrapUpEngage
                     className="w-full bg-background border border-border rounded-md pl-12 pr-2.5 py-1.5 text-[13px] tabular-nums focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/50 disabled:opacity-60"
                   />
                 </div>
-                <FieldHint>
-                  Pre-filled from your budget. Update if you ended up at a different number.
-                </FieldHint>
+                {/* Budget delta — live comparison vs the original
+                    contract/budget. Replaces the static hint when
+                    the user has a budget set + entered a value.
+                    Flags under-budget closes (Dylan 2026-05-23) so
+                    pricing slippage is visible at the point of
+                    decision, not weeks later in analytics. */}
+                <BudgetDeltaHint
+                  budget={entry.clientBudgetAmount}
+                  finalValueRaw={finalValue}
+                  currency={entry.clientBudgetCurrency || 'USD'}
+                />
               </div>
 
               <div>
@@ -457,6 +465,116 @@ function FieldHint({ children }: { children: React.ReactNode }) {
     <p className="mt-1 text-[11px] text-muted-foreground/70 leading-snug">
       {children}
     </p>
+  )
+}
+
+/**
+ * BudgetDeltaHint — live comparison readout below the Final value
+ * input. Replaces the static "Pre-filled from your budget" hint when
+ * the user has a contract budget set AND has entered a final value.
+ *
+ * Cases:
+ *   • No budget set → static "no budget to compare against" hint
+ *   • Empty input   → static "pre-filled" hint
+ *   • Equal         → muted "On budget — matches contract"
+ *   • Under         → amber warning with $ delta + %
+ *   • Over          → green positive with $ delta + %
+ *
+ * Why this matters (per Dylan 2026-05-23): closing under contract is
+ * pricing slippage worth catching at the point of close, not weeks
+ * later in analytics. Surfacing it inline forces the user to
+ * acknowledge or correct the variance before the engagement closes.
+ */
+function BudgetDeltaHint({
+  budget,
+  finalValueRaw,
+  currency,
+}: {
+  budget: number | null | undefined
+  finalValueRaw: string
+  currency: string
+}) {
+  // No budget on the engagement — nothing to compare against. Show
+  // the static informational hint instead.
+  if (typeof budget !== 'number' || budget <= 0) {
+    return (
+      <FieldHint>
+        No contract budget set on this engagement — final value is captured for record only.
+      </FieldHint>
+    )
+  }
+
+  const finalValue = finalValueRaw.trim() === '' ? null : Number(finalValueRaw)
+  // Empty / invalid input — show the original hint nudging the user
+  // to update if the close was different from the contract.
+  if (finalValue == null || !Number.isFinite(finalValue)) {
+    return (
+      <FieldHint>
+        Pre-filled from your budget. Update if you ended up at a different number.
+      </FieldHint>
+    )
+  }
+
+  const delta = finalValue - budget
+  const pct = budget > 0 ? (delta / budget) * 100 : 0
+  const absDelta = Math.abs(delta)
+  const absPct = Math.abs(pct)
+
+  // Money formatter — keeps consistency with the rest of the app.
+  const fmt = (n: number) => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: (currency || 'USD').toUpperCase(),
+        maximumFractionDigits: 0,
+      }).format(n)
+    } catch {
+      return `${(currency || 'USD').toUpperCase()} ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    }
+  }
+
+  // Treat anything within 0.5% of the budget as "on budget" — saves
+  // the user from a warning if they round trivially (e.g. $4995 vs
+  // $5000 contract). Threshold is small enough that meaningful
+  // shortfalls still surface.
+  if (absPct < 0.5) {
+    return (
+      <p className="mt-1 inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground leading-snug">
+        <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/60 shrink-0" />
+        <span>On budget — matches the contract value.</span>
+      </p>
+    )
+  }
+
+  if (delta < 0) {
+    // Under budget — amber warning. Strong enough to catch the eye
+    // but not blocking; the user can still proceed with the lower
+    // close value (real life happens), they just need to see it.
+    return (
+      <div className="mt-1.5 inline-flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11.5px] text-amber-800 dark:text-amber-200 leading-snug">
+        <span aria-hidden className="text-amber-600 dark:text-amber-400 shrink-0 mt-px">⚠</span>
+        <span>
+          <span className="font-semibold">Under contract by {fmt(absDelta)}</span>{' '}
+          <span className="text-amber-700/80 dark:text-amber-300/80 tabular-nums">
+            ({absPct.toFixed(absPct < 10 ? 1 : 0)}% short of {fmt(budget)} budget)
+          </span>
+        </span>
+      </div>
+    )
+  }
+
+  // Over budget — green positive. Good news, but worth noting too
+  // (could indicate scope creep that translated to higher revenue).
+  return (
+    <div className="mt-1.5 inline-flex items-start gap-2 rounded-md border border-green-500/40 bg-green-500/10 px-2.5 py-1.5 text-[11.5px] text-green-800 dark:text-green-200 leading-snug">
+      <span aria-hidden className="text-green-600 dark:text-green-400 shrink-0 mt-px">✓</span>
+      <span>
+        <span className="font-semibold">Above contract by {fmt(absDelta)}</span>{' '}
+        <span className="text-green-700/80 dark:text-green-300/80 tabular-nums">
+          ({absPct.toFixed(absPct < 10 ? 1 : 0)}% over {fmt(budget)} budget)
+        </span>
+      </span>
+    </div>
   )
 }
 

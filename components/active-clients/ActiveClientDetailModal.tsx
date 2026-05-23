@@ -445,14 +445,23 @@ export function ActiveClientDetailModal({
             >
               <span className={`absolute inset-0 rounded-full ${lifecycleDotBg(lifecycle)} animate-ping opacity-70`} />
             </span>
-            {/* State name + description. */}
-            <div className="flex items-baseline gap-2.5 min-w-0 flex-1">
+            {/* State name + description + budget-variance flag.
+
+                The flag appears only when an engagement is Completed
+                AND the captured final value undershot the contract
+                budget by more than 0.5% (same threshold the wrap-up
+                modal uses for its inline warning). Persisting the
+                flag here means the variance stays visible whenever
+                someone reopens the engagement, not just at the close
+                moment. */}
+            <div className="flex items-baseline gap-2.5 min-w-0 flex-1 flex-wrap">
               <span className={`text-[14px] font-bold tracking-[0.04em] uppercase whitespace-nowrap ${lifecycleTextColor(lifecycle)}`}>
                 {labelForLifecycle(lifecycle)}
               </span>
               <span className="text-[12px] text-muted-foreground truncate">
                 {lifecycleDescription(lifecycle)}
               </span>
+              <BudgetVarianceFlag entry={entry} lifecycle={lifecycle} />
             </div>
             {/* Activity log — right-aligned, subtle but discoverable. */}
             <button
@@ -614,6 +623,74 @@ function LifecycleAction({
 
 function labelForLifecycle(l: ClientLifecycle): string {
   return l.charAt(0).toUpperCase() + l.slice(1)
+}
+
+/**
+ * BudgetVarianceFlag — small pill next to the lifecycle hero
+ * description that surfaces a "closed under contract" warning on
+ * completed engagements where final value < budget.
+ *
+ * Why: per Dylan 2026-05-23, pricing slippage on closed engagements
+ * is a signal worth flagging persistently. The wrap-up modal shows
+ * the variance at close time; this flag keeps it visible whenever
+ * the user revisits the engagement later (so they can spot patterns,
+ * e.g. "I keep closing 15% under on Instagram deals").
+ *
+ * Threshold matches WrapUpEngagementModal's BudgetDeltaHint — only
+ * flag if >0.5% off so rounding doesn't trigger the warning.
+ *
+ * Renders nothing when:
+ *   • Lifecycle isn't 'completed' (variance only matters for closed deals)
+ *   • No contract budget set
+ *   • No final value captured
+ *   • Final value is on/above the contract (no shortfall to flag)
+ */
+function BudgetVarianceFlag({
+  entry,
+  lifecycle,
+}: {
+  entry: { clientBudgetAmount?: number | null; clientFinalValue?: number | null; clientBudgetCurrency?: string | null }
+  lifecycle: ClientLifecycle
+}) {
+  if (lifecycle !== 'completed') return null
+  const budget = entry.clientBudgetAmount
+  const finalValue = entry.clientFinalValue
+  if (typeof budget !== 'number' || budget <= 0) return null
+  if (typeof finalValue !== 'number') return null
+
+  const delta = finalValue - budget
+  const pct = (delta / budget) * 100
+
+  // Only flag meaningful shortfalls — sub-0.5% diffs are usually
+  // rounding (e.g. $4995 vs $5000 contract).
+  if (pct >= -0.5) return null
+
+  const absDelta = Math.abs(delta)
+  const absPct = Math.abs(pct)
+  const currency = entry.clientBudgetCurrency || 'USD'
+  let amountText: string
+  try {
+    amountText = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+      maximumFractionDigits: 0,
+    }).format(absDelta)
+  } catch {
+    amountText = `${currency.toUpperCase()} ${absDelta.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  }
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/45 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-[11px] font-semibold leading-tight"
+      title={`Closed at less than the contract budget. Final ${amountText} short (${absPct.toFixed(absPct < 10 ? 1 : 0)}%).`}
+    >
+      <span aria-hidden className="text-amber-600 dark:text-amber-400">⚠</span>
+      <span>Under contract</span>
+      <span className="text-amber-700/85 dark:text-amber-300/85 font-normal tabular-nums">
+        −{amountText} ({absPct.toFixed(absPct < 10 ? 1 : 0)}%)
+      </span>
+    </span>
+  )
 }
 
 /**
