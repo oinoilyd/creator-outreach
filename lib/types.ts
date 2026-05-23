@@ -131,6 +131,17 @@ export interface OutreachEntry {
   dealValue: string
   contractSent: boolean
   meetingScheduled: string
+  /** X (Twitter) follower count. Populated by the X enrichment
+   *  pipeline (Phase 2 — not yet wired). NULL = data not collected;
+   *  the X-platform Outreach view renders an em-dash for NULL. */
+  xFollowers?: number | null
+  /** X (Twitter) recent post count. */
+  xPosts?: number | null
+  /** TikTok follower count. */
+  tiktokFollowers?: number | null
+  /** TikTok cumulative likes — usually a better signal than raw
+   *  post count for TikTok-centric pitches. */
+  tiktokLikes?: number | null
   /** Short opaque ID embedded in outbound email subjects as [CO-#{id}].
    *  Used by the inbound webhook (/api/inbound-email) to match a
    *  forwarded reply back to the originating outreach entry. NULL for

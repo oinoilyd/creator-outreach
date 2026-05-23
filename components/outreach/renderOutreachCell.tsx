@@ -369,7 +369,43 @@ export function renderOutreachCell(
       return <AutoTextarea value={e.dealValue || ''} onChange={v => onUpdate(e.id, 'dealValue', v)} placeholder="$..." className="text-foreground" />
     case 'contractSent':
       return <input type="checkbox" checked={!!e.contractSent} onChange={ev => onUpdate(e.id, 'contractSent', ev.target.checked)} className="w-4 h-4 rounded accent-blue-500 cursor-pointer mt-0.5" />
+    // Platform-specific metric columns (2026-05-23). Numeric +
+    // right-aligned + em-dash for NULL. Display NULL/missing as '—'
+    // (em-dash) — the scraping pipelines that populate these land
+    // in a follow-up commit; until then YouTube-imported rows
+    // legitimately have no X/TikTok data.
+    case 'xFollowers':
+      return <NumericMetricCell value={e.xFollowers} />
+    case 'xPosts':
+      return <NumericMetricCell value={e.xPosts} />
+    case 'tiktokFollowers':
+      return <NumericMetricCell value={e.tiktokFollowers} />
+    case 'tiktokLikes':
+      return <NumericMetricCell value={e.tiktokLikes} />
     default:
       return null
   }
+}
+
+/**
+ * Compact numeric cell for metric columns (X followers, TikTok
+ * followers, etc.). Right-aligned tabular-nums for easy column
+ * scanning. NULL → em-dash so empty cells don't look like a
+ * data bug.
+ */
+function NumericMetricCell({ value }: { value: number | null | undefined }) {
+  if (value == null || !Number.isFinite(value)) {
+    return <span className="text-muted-foreground/50 tabular-nums">—</span>
+  }
+  // Compact human-readable formatting: 1.2K / 4.5M instead of
+  // 1234 / 4500000. Keeps the column narrow + scannable.
+  let display: string
+  if (value >= 1_000_000) {
+    display = `${(value / 1_000_000).toFixed(value < 10_000_000 ? 1 : 0)}M`
+  } else if (value >= 1_000) {
+    display = `${(value / 1_000).toFixed(value < 10_000 ? 1 : 0)}K`
+  } else {
+    display = String(value)
+  }
+  return <span className="text-foreground tabular-nums">{display}</span>
 }

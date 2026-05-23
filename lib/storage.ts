@@ -68,6 +68,13 @@ function rowToOutreach(r: any): OutreachEntry {
     dealValue: r.deal_value ?? '',
     contractSent: !!r.contract_sent,
     meetingScheduled: r.meeting_scheduled ?? '',
+    // Platform-specific metric columns (migration 0033). NULL when
+    // not yet collected — UI renders em-dash. Scraping pipelines
+    // for X / TikTok land in a follow-up commit.
+    xFollowers: r.x_followers != null ? Number(r.x_followers) : null,
+    xPosts: r.x_posts != null ? Number(r.x_posts) : null,
+    tiktokFollowers: r.tiktok_followers != null ? Number(r.tiktok_followers) : null,
+    tiktokLikes: r.tiktok_likes != null ? Number(r.tiktok_likes) : null,
     trackingId: r.tracking_id ?? undefined,
     unipileMessageId: r.unipile_message_id ?? null,
     unipileProviderId: r.unipile_provider_id ?? null,
@@ -144,6 +151,12 @@ function outreachToRow(e: OutreachEntry, uid: string) {
     deal_value: e.dealValue,
     contract_sent: e.contractSent,
     meeting_scheduled: e.meetingScheduled,
+    // Platform-specific metrics (migration 0033). Pass null when
+    // not collected so Postgres doesn't reject the row.
+    x_followers: e.xFollowers ?? null,
+    x_posts: e.xPosts ?? null,
+    tiktok_followers: e.tiktokFollowers ?? null,
+    tiktok_likes: e.tiktokLikes ?? null,
     added_at: e.addedAt,
     tracking_id: e.trackingId ?? null,
     unipile_message_id: e.unipileMessageId ?? null,
@@ -1008,7 +1021,26 @@ export async function saveColConfig(config: ColConfig[]): Promise<void> {
   await supabase.from('user_preferences').update({ col_config: config }).eq('user_id', uid)
 }
 
-export async function getOutreachColConfig(): Promise<OutreachColConfig[] | null> {
+/**
+ * Per-platform Outreach column configs (Dylan 2026-05-23). The
+ * stored shape is `Record<PlatformId, OutreachColConfig[]>` — each
+ * platform owns its own column layout so switching the top-banner
+ * platform toggle loads the user's chosen view for that channel.
+ *
+ * Backward-compat migration: prior to this change the same
+ * outreach_col_config column held a single OutreachColConfig[]
+ * (effectively the YouTube layout). On first read we detect the
+ * old shape and lift it onto the 'youtube' key, leaving the other
+ * four platforms to fall back to their PLATFORM_OUTREACH_DEFAULTS
+ * on first switch. NO existing user customization is lost.
+ *
+ * Save always writes the full map back, so once a user touches
+ * Customize Columns on any platform, the persisted shape is fully
+ * migrated.
+ */
+export async function getOutreachColConfig(): Promise<
+  Partial<Record<import('./types').PlatformId, OutreachColConfig[]>> | null
+> {
   const uid = await userId()
   if (!uid) return null
   const supabase = createClient()
@@ -1017,14 +1049,33 @@ export async function getOutreachColConfig(): Promise<OutreachColConfig[] | null
     .select('outreach_col_config')
     .eq('user_id', uid)
     .single()
-  return (data?.outreach_col_config as OutreachColConfig[] | null) ?? null
+  const stored = data?.outreach_col_config
+  if (!stored) return null
+
+  // Old shape: a single array. Lift to the 'youtube' key — that was
+  // the de facto platform the array was tuned for.
+  if (Array.isArray(stored)) {
+    return { youtube: stored as OutreachColConfig[] }
+  }
+
+  // New shape: per-platform map. Trust the stored keys, but type-cast
+  // through `unknown` so TypeScript stops worrying about its JSON
+  // origins.
+  return stored as unknown as Partial<
+    Record<import('./types').PlatformId, OutreachColConfig[]>
+  >
 }
 
-export async function saveOutreachColConfig(config: OutreachColConfig[]): Promise<void> {
+export async function saveOutreachColConfig(
+  configByPlatform: Partial<Record<import('./types').PlatformId, OutreachColConfig[]>>,
+): Promise<void> {
   const uid = await userId()
   if (!uid) return
   const supabase = createClient()
-  await supabase.from('user_preferences').update({ outreach_col_config: config }).eq('user_id', uid)
+  await supabase
+    .from('user_preferences')
+    .update({ outreach_col_config: configByPlatform })
+    .eq('user_id', uid)
 }
 
 // ── Custom analytics metrics ───────────────────────────────────────────────
@@ -1303,7 +1354,13 @@ export async function runManualMigration(): Promise<{ ok: boolean; message: stri
     const raw = lsGet('outreach-col-config')
     if (raw) {
       const arr = JSON.parse(raw)
-      if (Array.isArray(arr)) await saveOutreachColConfig(arr as OutreachColConfig[])
+      // Legacy localStorage format was a single array (no per-
+      // platform support). Lift to the 'youtube' slot — that was
+      // the effective platform the array was tuned for. Other
+      // platforms inherit PLATFORM_OUTREACH_DEFAULTS at runtime.
+      if (Array.isArray(arr)) {
+        await saveOutreachColConfig({ youtube: arr as OutreachColConfig[] })
+      }
     }
   } catch { /* ignore */ }
 
@@ -1429,7 +1486,11 @@ export async function migrateLocalStorageToSupabase(): Promise<void> {
   try {
     const raw = lsGet('outreach-col-config')
     const parsed = raw ? JSON.parse(raw) : null
-    if (Array.isArray(parsed)) await saveOutreachColConfig(parsed as OutreachColConfig[])
+    // Legacy single-array format → lift to 'youtube' slot in the
+    // new per-platform map shape (2026-05-23 per-platform configs).
+    if (Array.isArray(parsed)) {
+      await saveOutreachColConfig({ youtube: parsed as OutreachColConfig[] })
+    }
   } catch (e) { console.warn('[migration] outreach col config failed:', e) }
 
   // Per-platform state — handle both legacy un-suffixed keys (assume youtube)
@@ -1534,7 +1595,11 @@ export async function retryMigrationFromBackup(): Promise<{ ok: boolean; message
     }
     if (backup['outreach-col-config']) {
       const arr = JSON.parse(backup['outreach-col-config'])
-      if (Array.isArray(arr)) await saveOutreachColConfig(arr as OutreachColConfig[])
+      // Legacy backup format was a single array (pre per-platform).
+      // Lift to 'youtube' slot — same migration shape as above.
+      if (Array.isArray(arr)) {
+        await saveOutreachColConfig({ youtube: arr as OutreachColConfig[] })
+      }
     }
 
     // Per-platform state from backup

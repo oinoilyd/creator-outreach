@@ -43,6 +43,7 @@ import {
 import {
   ALL_OUTREACH_COLS, DEFAULT_OUTREACH_COLS, DEFAULT_COLS,
   YOUTUBE_ONLY_COL_IDS, COL_SORT, PLATFORM_AUTOSHOW_COLS,
+  PLATFORM_OUTREACH_DEFAULTS, OUTREACH_PLATFORM_AUTOSHOW,
 } from '@/lib/columns'
 import { PLATFORM_CONFIGS, PLATFORM_LOCK_ID } from '@/lib/platform'
 import { REGIONS } from '@/lib/regions'
@@ -679,7 +680,20 @@ export default function Home() {
   const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
   const [showCustomize, setShowCustomize] = useState(false)
   const [draftCols, setDraftCols] = useState<ColConfig[]>(DEFAULT_COLS)
-  const [outreachColConfig, setOutreachColConfig] = useState<OutreachColConfig[]>(DEFAULT_OUTREACH_COLS)
+  // Per-platform Outreach column configs (Dylan 2026-05-23). Each
+  // platform owns its own visibility/order/width layout. Active
+  // config is derived from outreachColConfigByPlatform[activePlatform]
+  // below, with PLATFORM_OUTREACH_DEFAULTS as the fallback when the
+  // user hasn't customized that platform yet.
+  const [outreachColConfigByPlatform, setOutreachColConfigByPlatform] = useState<
+    Record<PlatformId, OutreachColConfig[]>
+  >({
+    youtube: PLATFORM_OUTREACH_DEFAULTS.youtube,
+    instagram: PLATFORM_OUTREACH_DEFAULTS.instagram,
+    tiktok: PLATFORM_OUTREACH_DEFAULTS.tiktok,
+    twitter: PLATFORM_OUTREACH_DEFAULTS.twitter,
+    linkedin: PLATFORM_OUTREACH_DEFAULTS.linkedin,
+  })
   const [showOutreachCustomize, setShowOutreachCustomize] = useState(false)
   const [draftOutreachCols, setDraftOutreachCols] = useState<OutreachColConfig[]>(DEFAULT_OUTREACH_COLS)
   const [dismissed, setDismissed] = useState<Creator[]>([])
@@ -840,6 +854,66 @@ export default function Home() {
 
   // Derive the active platform config
   const platformConfig = PLATFORM_CONFIGS.find(p => p.id === activePlatform)!
+
+  // Active platform's Outreach column config — derived from the
+  // per-platform map. Falls back to the platform's PLATFORM_OUTREACH_DEFAULTS
+  // when the user hasn't customized that platform yet.
+  const outreachColConfig: OutreachColConfig[] =
+    outreachColConfigByPlatform[activePlatform] ?? PLATFORM_OUTREACH_DEFAULTS[activePlatform]
+
+  // Auto-show OUTREACH_PLATFORM_AUTOSHOW columns when the active
+  // platform changes. Same pattern Results uses: switching to
+  // Instagram auto-shows IG Followers/Posts, switching to X
+  // auto-shows xFollowers/xPosts, etc. Only force-shows columns
+  // that are currently hidden — doesn't override user reordering
+  // or anything else.
+  //
+  // Skips on initial mount (autoShowFiredOnceRef) so we don't
+  // override the user's saved config the moment the app loads.
+  const autoShowFiredOnceRef = useRef(false)
+  useEffect(() => {
+    if (!autoShowFiredOnceRef.current) {
+      autoShowFiredOnceRef.current = true
+      return
+    }
+    const idsToShow = OUTREACH_PLATFORM_AUTOSHOW[activePlatform] ?? []
+    if (idsToShow.length === 0) return
+    const current = outreachColConfigByPlatform[activePlatform]
+    if (!current) return
+    let changed = false
+    const next = current.map(col => {
+      if (col.visible) return col
+      if (!idsToShow.includes(col.id as string)) return col
+      changed = true
+      return { ...col, visible: true }
+    })
+    if (changed) {
+      const updated: Record<PlatformId, OutreachColConfig[]> = {
+        ...outreachColConfigByPlatform,
+        [activePlatform]: next,
+      }
+      setOutreachColConfigByPlatform(updated)
+      void saveOutreachColConfig(updated)
+    }
+    // outreachColConfigByPlatform intentionally not in deps — we
+    // only want this firing on platform change, not on every config
+    // tweak (which would create an infinite loop with the setter
+    // above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlatform])
+
+  // Setter that writes only to the active platform's slot AND
+  // persists the whole map. Used by reorderOutreachCols + Customize
+  // modal Save so user reorders/visibility changes stick to the
+  // current platform without disturbing the other four.
+  function setActivePlatformOutreachCols(next: OutreachColConfig[]) {
+    const updated: Record<PlatformId, OutreachColConfig[]> = {
+      ...outreachColConfigByPlatform,
+      [activePlatform]: next,
+    }
+    setOutreachColConfigByPlatform(updated)
+    void saveOutreachColConfig(updated)
+  }
 
   // Auto-inject a locked guidance entry for the active platform (not stored in state)
   const platformEntry: GuidanceEntry | null = useMemo(() => {
@@ -1195,20 +1269,49 @@ export default function Home() {
       setOutreach(storedOutreach)
       setOutreachIds(new Set(storedOutreach.map(e => e.channelId)))
 
-      const storedOutreachCols = await getOutreachColConfig()
-      if (storedOutreachCols) {
-        // Merge stored config with any new columns added since last
-        // save. If a stored width is BELOW the current default, raise
-        // it — we widen defaults occasionally for legibility (e.g. YT
-        // 42 → 56) and existing users would otherwise stay clipped.
-        const merged = ALL_OUTREACH_COLS.map(def => {
-          const stored = storedOutreachCols.find(s => s.id === def.id)
-          if (!stored) return { ...def, visible: def.defaultVisible, width: def.defaultWidth }
-          const width = Math.max(stored.width, def.defaultWidth)
-          return { ...def, visible: stored.visible, width }
+      // Per-platform Outreach column configs. The shape is
+      // `Partial<Record<PlatformId, OutreachColConfig[]>>` — any
+      // platform the user hasn't customized yet is missing and
+      // falls back to PLATFORM_OUTREACH_DEFAULTS. The merge function
+      // below preserves user reordering AND surfaces any new columns
+      // added since their last save.
+      const storedByPlatform = await getOutreachColConfig()
+      if (storedByPlatform) {
+        const mergeForPlatform = (
+          stored: OutreachColConfig[] | undefined,
+          platform: PlatformId,
+        ): OutreachColConfig[] => {
+          if (!stored || stored.length === 0) return PLATFORM_OUTREACH_DEFAULTS[platform]
+          // Iterate stored in stored order — preserves user reordering.
+          const result: OutreachColConfig[] = []
+          const seen = new Set<string>()
+          for (const s of stored) {
+            const def = ALL_OUTREACH_COLS.find(d => d.id === s.id)
+            if (!def) continue // column removed since save — drop
+            const width = Math.max(s.width, def.defaultWidth)
+            result.push({ ...def, visible: s.visible, width })
+            seen.add(s.id as string)
+          }
+          // Append any new columns (added since last save) at the end,
+          // using the platform's default visibility so X-metric cols
+          // don't show up on the YouTube view by accident.
+          for (const def of ALL_OUTREACH_COLS) {
+            if (seen.has(def.id as string)) continue
+            const platformDef = PLATFORM_OUTREACH_DEFAULTS[platform].find(p => p.id === def.id)
+            result.push(
+              platformDef ?? { ...def, visible: def.defaultVisible, width: def.defaultWidth },
+            )
+          }
+          return result
+        }
+
+        setOutreachColConfigByPlatform({
+          youtube:   mergeForPlatform(storedByPlatform.youtube,   'youtube'),
+          instagram: mergeForPlatform(storedByPlatform.instagram, 'instagram'),
+          tiktok:    mergeForPlatform(storedByPlatform.tiktok,    'tiktok'),
+          twitter:   mergeForPlatform(storedByPlatform.twitter,   'twitter'),
+          linkedin:  mergeForPlatform(storedByPlatform.linkedin,  'linkedin'),
         })
-        setOutreachColConfig(merged)
-        setDraftOutreachCols(merged)
       }
 
       const storedMetrics = await getCustomMetrics()
@@ -1403,9 +1506,11 @@ export default function Home() {
   }, [])
 
   const reorderOutreachCols = useCallback((newConfig: OutreachColConfig[]) => {
-    setOutreachColConfig(newConfig)
+    // Drag-reorder + show/hide on the live table writes to the active
+    // platform's slot only. setActivePlatformOutreachCols handles the
+    // map update + persistence in one call.
+    setActivePlatformOutreachCols(newConfig)
     setDraftOutreachCols(newConfig)
-    void saveOutreachColConfig(newConfig)
   }, [])
 
   // ---------------------------------------------------------------------
@@ -3647,10 +3752,16 @@ export default function Home() {
                 ))}
               </div>
               <div className="px-5 py-4 border-t border-border flex gap-3">
-                <button onClick={() => setDraftOutreachCols(DEFAULT_OUTREACH_COLS)} className="flex-1 px-4 py-2 text-sm text-muted-foreground border border-border rounded hover:border-border hover:text-foreground transition-colors">Reset</button>
+                {/* Reset goes back to THIS platform's default layout
+                    (not the universal DEFAULT_OUTREACH_COLS), so the
+                    user gets sensible per-platform defaults
+                    (e.g. IG view resets back to IG-leading columns
+                    not the YouTube-leading shape). */}
+                <button onClick={() => setDraftOutreachCols(PLATFORM_OUTREACH_DEFAULTS[activePlatform])} className="flex-1 px-4 py-2 text-sm text-muted-foreground border border-border rounded hover:border-border hover:text-foreground transition-colors">Reset</button>
                 <button onClick={() => {
-                  setOutreachColConfig(draftOutreachCols)
-                  void saveOutreachColConfig(draftOutreachCols)
+                  // Save scopes to the active platform's slot — other
+                  // platforms' configs untouched.
+                  setActivePlatformOutreachCols(draftOutreachCols)
                   setShowOutreachCustomize(false)
                 }} className="flex-1 px-4 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-700 rounded transition-colors">Save</button>
               </div>
