@@ -539,6 +539,19 @@ export default function Home() {
   // so it doesn't auto-fire on hard refresh).
   const [spotlightAlwaysOn, setSpotlightAlwaysOn] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true
+    // 2026-05-24 per Dylan: "spotlight on themes should be on by default."
+    // The state default is true, but users who toggled it off in a prior
+    // session keep their false saved value indefinitely. One-time migration
+    // (keyed by 'spotlight-always-on-default-v2') forces everyone back to
+    // true on first read post-deploy. After that, an explicit toggle off
+    // sticks normally.
+    const migrationKey = 'spotlight-always-on-default-v2'
+    const migrated = window.localStorage.getItem(migrationKey) === 'true'
+    if (!migrated) {
+      window.localStorage.setItem(migrationKey, 'true')
+      window.localStorage.setItem('spotlight-always-on', 'true')
+      return true
+    }
     const saved = window.localStorage.getItem('spotlight-always-on')
     return saved === 'false' ? false : true // default true
   })

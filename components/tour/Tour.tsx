@@ -384,14 +384,24 @@ function TourLayer({
             )}
           </div>
 
-          {/* Footer: Back / progress dots / Next */}
+          {/* Footer: Back / progress / Next.
+              Progress indicator shape depends on totalSteps:
+                ≤ 12 steps → dot row (one dot per step, active is wider)
+                > 12 steps → slim bar + "X / Y" text (Dylan 2026-05-24:
+                             the granular tour has 24 steps and a
+                             24-dot row was overflowing the 360px
+                             modal width, wrapping the Next button
+                             onto two lines)
+              The Next button is given a flex-shrink-0 + whitespace-
+              nowrap pair so it can never wrap regardless of how the
+              middle column resizes. */}
           <div className="px-5 py-3 bg-muted/30 border-t border-border/60 flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={onPrev}
               disabled={isFirstStep}
               className={[
-                'inline-flex items-center gap-1 text-[12px] font-medium px-2.5 py-1.5 rounded-md transition-colors',
+                'shrink-0 inline-flex items-center gap-1 text-[12px] font-medium px-2.5 py-1.5 rounded-md transition-colors',
                 isFirstStep
                   ? 'text-muted-foreground/40 cursor-not-allowed'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
@@ -401,27 +411,50 @@ function TourLayer({
               Back
             </button>
 
-            <div className="flex items-center gap-1" aria-hidden>
-              {Array.from({ length: totalSteps }).map((_, i) => (
-                <span
-                  key={i}
-                  className={[
-                    'rounded-full transition-all',
-                    i === stepIndex
-                      ? 'w-4 h-1.5 bg-purple-500'
-                      : i < stepIndex
-                        ? 'w-1.5 h-1.5 bg-purple-500/40'
-                        : 'w-1.5 h-1.5 bg-muted-foreground/25',
-                  ].join(' ')}
-                />
-              ))}
-            </div>
+            {totalSteps <= 12 ? (
+              <div className="flex items-center gap-1 min-w-0" aria-hidden>
+                {Array.from({ length: totalSteps }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={[
+                      'rounded-full transition-all shrink-0',
+                      i === stepIndex
+                        ? 'w-4 h-1.5 bg-purple-500'
+                        : i < stepIndex
+                          ? 'w-1.5 h-1.5 bg-purple-500/40'
+                          : 'w-1.5 h-1.5 bg-muted-foreground/25',
+                    ].join(' ')}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 min-w-0 flex-1 mx-1">
+                {/* Slim progress bar — fills proportionally with the
+                    user's progress. Anchors to flex-1 so it grows to
+                    fill available room but shrinks if the modal narrows. */}
+                <div
+                  className="flex-1 h-1 rounded-full bg-muted-foreground/20 overflow-hidden min-w-[40px]"
+                  aria-hidden
+                >
+                  <div
+                    className="h-full bg-purple-500 transition-all duration-300"
+                    style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
+                  />
+                </div>
+                <div
+                  className="text-[11px] text-muted-foreground tabular-nums shrink-0"
+                  aria-label={`Step ${stepIndex + 1} of ${totalSteps}`}
+                >
+                  {stepIndex + 1} <span className="text-muted-foreground/50">/</span> {totalSteps}
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
               onClick={onNext}
               autoFocus
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-purple-500 hover:bg-purple-600 text-white text-[12.5px] font-semibold shadow-sm shadow-purple-500/30 transition-colors"
+              className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-purple-500 hover:bg-purple-600 text-white text-[12.5px] font-semibold shadow-sm shadow-purple-500/30 transition-colors"
             >
               {step.nextLabel ?? (isLastStep ? 'Finish' : 'Next')}
               {!isLastStep && <ArrowRight className="w-3.5 h-3.5" />}
