@@ -9,9 +9,11 @@
  *      stripe_customer_id on user_profile so subsequent checkouts /
  *      portal sessions reuse the same Customer — saved cards, promo
  *      history, invoice history all stick around.
- *   3. Create a Checkout session in subscription mode with a 14-day
- *      trial. Stripe Checkout (hosted) keeps PCI scope at SAQ A —
- *      cards never touch our backend.
+ *   3. Create a Checkout session in subscription mode with a 7-day
+ *      trial (was 14, shortened by Dylan 2026-05-24 — urgency dies
+ *      past day 7, and existing 14-day trials get force-migrated by
+ *      the admin endpoint at deploy time). Stripe Checkout (hosted)
+ *      keeps PCI scope at SAQ A — cards never touch our backend.
  *   4. Return { url } so the client can redirect.
  *
  * Errors are returned as JSON so the client can show a clear message;
@@ -162,7 +164,12 @@ export async function POST(req: NextRequest) {
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
-      trial_period_days: 14,
+      // 7-day trial (Dylan 2026-05-24, was 14). Rationale: urgency
+      // dies past day 7 and conversion data consistently shows users
+      // who don't engage by day 7 rarely convert. Shorter trial =
+      // faster conversion signal without sacrificing the chance for
+      // a real evaluation.
+      trial_period_days: 7,
       metadata: { supabase_user_id: user.id },
     },
     // Pre-applied promo wins; otherwise let user enter one at Stripe UI.

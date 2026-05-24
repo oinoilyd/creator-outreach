@@ -175,8 +175,19 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
-        // Subscription mode sessions populate session.subscription.
-        // It can arrive as either an ID string or an expanded object.
+
+        // Two flavors of Checkout sessions land here:
+        //   • mode='subscription' — first-time subscription creation
+        //   • mode='payment' + metadata.kind='export' — $25 one-off
+        //     export charge (Dylan 2026-05-24)
+        // Branch on session.mode + metadata.kind to keep the two flows
+        // cleanly separated.
+        if (session.mode === 'payment' && session.metadata?.kind === 'export') {
+          await grantExportCredit(sb, session)
+          break
+        }
+
+        // Default: subscription-mode handling.
         const subId =
           typeof session.subscription === 'string'
             ? session.subscription
@@ -420,4 +431,69 @@ function subscriptionMetadataUserId(sub: Stripe.Subscription): string | undefine
 function sessionMetadataUserId(session: Stripe.Checkout.Session): string | undefined {
   const raw = session.metadata?.supabase_user_id
   return typeof raw === 'string' && raw.length > 0 ? raw : undefined
+}
+
+/**
+ * Grant the user one paid_export_credit for a $25 export Checkout
+ * session.
+ *
+ * Idempotent with /api/exports/fulfill — both paths INSERT into
+ * paid_exports keyed on stripe_session_id, so duplicate delivery from
+ * either side hits the PK conflict and no-ops without re-granting the
+ * credit.
+ */
+async function grantExportCredit(
+  sb: ReturnType<typeof getServiceClient> extends infer T ? Exclude<T, null> : never,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const supabaseUserId = sessionMetadataUserId(session)
+  if (!supabaseUserId) {
+    console.warn('[stripe/webhook] export session missing supabase_user_id', session.id)
+    return
+  }
+  if (session.payment_status !== 'paid') {
+    console.warn('[stripe/webhook] export session not paid', session.id, session.payment_status)
+    return
+  }
+  const amountCents = session.amount_total ?? 0
+
+  // PK-conflict-based idempotency: try insert, swallow 23505.
+  const { error: insertErr } = await sb
+    .from('paid_exports')
+    .insert({
+      stripe_session_id: session.id,
+      user_id: supabaseUserId,
+      amount_cents: amountCents,
+      fulfilled_via: 'webhook',
+    })
+
+  if (insertErr) {
+    if ((insertErr as { code?: string }).code === '23505') {
+      // Already fulfilled (likely by the redirect path). Credit was
+      // granted there — no-op here.
+      return
+    }
+    console.error('[stripe/webhook] paid_exports insert failed', session.id, insertErr.message)
+    throw insertErr
+  }
+
+  // First fulfillment — increment paid_export_credits by 1.
+  const { data: profileRow, error: readErr } = await sb
+    .from('user_profile')
+    .select('paid_export_credits')
+    .eq('user_id', supabaseUserId)
+    .maybeSingle()
+  if (readErr) {
+    console.error('[stripe/webhook] export credit read failed', supabaseUserId, readErr.message)
+    throw readErr
+  }
+  const current = (profileRow as { paid_export_credits: number | null } | null)?.paid_export_credits ?? 0
+  const { error: writeErr } = await sb
+    .from('user_profile')
+    .update({ paid_export_credits: current + 1 })
+    .eq('user_id', supabaseUserId)
+  if (writeErr) {
+    console.error('[stripe/webhook] export credit write failed', supabaseUserId, writeErr.message)
+    throw writeErr
+  }
 }
