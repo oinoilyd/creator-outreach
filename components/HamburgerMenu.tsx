@@ -56,6 +56,7 @@ export function HamburgerMenu({
   subscriptionHref,
   subscriptionLabel,
   onStartTour,
+  teamContext,
 }: {
   userEmail: string | null
   userFullName: string | null
@@ -93,6 +94,17 @@ export function HamburgerMenu({
   /** Re-opens the product tour from step 1. The parent owns the
    *  tour state (see TourProvider); this prop is just a trigger. */
   onStartTour?: () => void
+  /** Team membership context (Dylan 2026-05-24).
+   *  Determines what team-related entry to show:
+   *    • mode='individual' → "Add team members" CTA → /team/onboard
+   *    • mode='team' Owner/Admin → "Team members" → /team/members (manage)
+   *    • mode='team' Member → "Team members" → /team/members (read-only)
+   *  Omitting this prop hides the entry entirely (e.g. during loading). */
+  teamContext?: {
+    mode: 'individual' | 'team'
+    organization?: { name: string } | null
+    role?: 'owner' | 'admin' | 'member' | null
+  } | null
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
@@ -849,6 +861,41 @@ export function HamburgerMenu({
           )}
 
           {subscriptionHref && <div className="mx-4 my-1 border-t border-border" />}
+
+          {/* Team — Dylan 2026-05-24. Branches by team context:
+              • Individual users see a CTA to create a team ($150/mo Team
+                plan via Stripe).
+              • Team users (any role) get a link to the team management
+                page (Owner/Admin see invite UI there; Members read-only).
+              Hidden entirely if teamContext is null (still loading).
+              Only shown for signed-in users since teamContext is only
+              fetched post-auth. */}
+          {teamContext && userEmail && (
+            <a
+              href={teamContext.mode === 'team' ? '/team/members' : '/team/onboard'}
+              onClick={() => setOpen(false)}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            >
+              <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-7a4 4 0 11-8 0 4 4 0 018 0zm6 3a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12.5px] text-foreground font-medium leading-tight">
+                  {teamContext.mode === 'team' ? 'Team members' : 'Add team members'}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                  {teamContext.mode === 'team'
+                    ? `${teamContext.organization?.name ?? 'Your team'} · ${teamContext.role}`
+                    : 'Upgrade to Team plan ($150/mo, 5 seats incl.)'}
+                </div>
+              </div>
+              <ChevronRight />
+            </a>
+          )}
+
+          {teamContext && userEmail && <div className="mx-4 my-1 border-t border-border" />}
 
           {/* Roadmap — same surface that's reachable from the public
               landing page nav (post-signin). Surfaces what's shipped /

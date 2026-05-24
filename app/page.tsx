@@ -233,6 +233,17 @@ export default function Home() {
   // through.
   const [successToast, setSuccessToast] = useState<{ entryId: string; channelName: string } | null>(null)
 
+  // Team context (Dylan 2026-05-24). Fetched once after auth so the
+  // hamburger can show the right CTA (Upgrade vs Manage Team) and
+  // future org-aware code paths can branch off this. Null while
+  // loading; the hamburger hides its team entry until populated to
+  // avoid flicker.
+  const [teamContext, setTeamContext] = useState<{
+    mode: 'individual' | 'team'
+    organization: { id: string; name: string } | null
+    role: 'owner' | 'admin' | 'member' | null
+  } | null>(null)
+
   // Listen for the "Add to Active Clients" CTA in LeadDetailModal —
   // routes the user to the Outreach → Active Clients sub-tab and
   // pre-opens the engagement detail modal for the dispatched entry id.
@@ -1149,6 +1160,19 @@ export default function Home() {
       if (user) {
         setUserId(user.id)
         setUserEmail(user.email ?? null)
+
+        // Team context — fire-and-forget. Failure is non-fatal; the
+        // hamburger just won't show the team entry until next page load.
+        fetch('/api/team/context')
+          .then(r => r.json())
+          .then(data => setTeamContext({
+            mode: data.mode === 'team' ? 'team' : 'individual',
+            organization: data.organization
+              ? { id: data.organization.id, name: data.organization.name }
+              : null,
+            role: data.role ?? null,
+          }))
+          .catch(() => setTeamContext({ mode: 'individual', organization: null, role: null }))
 
         // Migration-tolerant profile load. The template columns
         // (email_template, ig_dm_template, etc.) and footer columns
@@ -2952,6 +2976,7 @@ export default function Home() {
                     window.dispatchEvent(new CustomEvent('tour-start'))
                   }
                 }}
+                teamContext={teamContext}
               />
             </div>
           </div>

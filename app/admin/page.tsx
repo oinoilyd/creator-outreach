@@ -5,6 +5,7 @@ import { AuditMenu } from '@/components/admin/AuditMenu'
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
 import { MigrateTrialsButton } from '@/components/admin/MigrateTrialsButton'
+import { SeedTestOrgButton } from '@/components/admin/SeedTestOrgButton'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -245,17 +246,24 @@ export default async function AdminPage() {
             </div>
 
             {/* One-off admin tools row.
-                Trial-length migration: run once after the 14→7 day
-                trial change ships. Idempotent — re-running just caps
-                any remaining 14-day trials at 7 days. Dylan 2026-05-24. */}
-            <div className="bg-card/40 border border-border rounded-xl p-4 mb-8 flex items-center justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold text-foreground">Admin tools</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  One-off migrations. Safe to re-run.
+                - Trial-length migration: run once after the 14→7 day
+                  trial change ships. Idempotent — re-running just caps
+                  any remaining 14-day trials at 7 days. Dylan 2026-05-24.
+                - Seed test team: creates 3 fixture users (Owner/Admin/
+                  Member) for manual E2E testing of the team flow. */}
+            <div className="bg-card/40 border border-border rounded-xl p-4 mb-8 space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Admin tools</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    One-off migrations + test-data scaffolding. Safe to re-run.
+                  </div>
                 </div>
+                <MigrateTrialsButton />
               </div>
-              <MigrateTrialsButton />
+              <div className="pt-3 border-t border-border/60">
+                <SeedTestOrgButton />
+              </div>
             </div>
           </>
         )}
