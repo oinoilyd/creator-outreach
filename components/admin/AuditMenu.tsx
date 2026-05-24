@@ -52,6 +52,53 @@ type ActionItem = {
 
 type AuditItem = LinkItem | ActionItem
 
+// Seed-test-team action — creates 3 fixture users (Owner/Admin/Member)
+// + a "Test Team (seed)" Organization for E2E testing the enterprise
+// flow. Dylan 2026-05-24. Idempotent — re-running tears down the
+// prior fixture org first.
+async function runSeedTestTeam() {
+  if (
+    !confirm(
+      'Rebuild Test Team fixtures?\n\nThis deletes the prior test org (if any) + recreates 3 fixture users (Owner/Admin/Member) with new passwords.',
+    )
+  ) {
+    return
+  }
+  try {
+    const res = await fetch('/api/admin/seed-test-org', {
+      method: 'POST',
+      headers: { 'x-confirm-seed': 'yes-rebuild-test-team' },
+    })
+    const text = await res.text()
+    let data: {
+      ok?: boolean
+      organization_name?: string
+      fixtures?: Array<{ email: string; role: string; password: string }>
+      error?: string
+    } = {}
+    try { data = JSON.parse(text) } catch { /* ignore */ }
+    if (!res.ok || !data.ok) {
+      alert(`Seed test team failed: ${data.error || `HTTP ${res.status}`}`)
+      return
+    }
+    const credsBlock = (data.fixtures ?? [])
+      .map(f => `${f.role.toUpperCase().padEnd(6)} ${f.email}\n       ${f.password}`)
+      .join('\n\n')
+    // alert() preserves newlines + lets user select/copy. Plain text
+    // is the simplest copy-paste UX without spawning a modal.
+    alert(
+      `Test team created: ${data.organization_name}\n\n` +
+      `Save these passwords — shown ONCE:\n\n` +
+      `${credsBlock}\n\n` +
+      `Sign in as any of them at /auth/signin to test role-based UI.\n` +
+      `The org bypasses Stripe billing (comp'd) for testing.`,
+    )
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    alert(`Seed test team errored: ${msg}`)
+  }
+}
+
 // Seed-test-data action — adds ~100 real creators to the caller's
 // outreach with random statuses + dates. Used to be a separate
 // SeedTestDataButton component on /admin; folded in here on
@@ -89,6 +136,16 @@ async function runSeedTestData() {
 }
 
 const AUDIT_ITEMS: AuditItem[] = [
+  {
+    kind: 'action',
+    id: 'seed-test-team',
+    icon: '👥',
+    label: 'Seed test team',
+    busyLabel: 'Building team…',
+    description:
+      'Creates a fixture Organization with Owner / Admin / Member users for end-to-end team testing. Shows credentials in an alert (copy them — shown once). Idempotent: re-running rebuilds the team fresh.',
+    run: runSeedTestTeam,
+  },
   {
     kind: 'link',
     href: '/admin/inbound-debug',
