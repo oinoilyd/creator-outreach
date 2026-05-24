@@ -274,6 +274,7 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
       aria-labelledby="templates-modal-title"
     >
       <div
+        data-tour-id="templates-modal"
         className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >

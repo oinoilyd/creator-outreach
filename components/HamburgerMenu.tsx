@@ -160,6 +160,29 @@ export function HamburgerMenu({
   const [themeMounted, setThemeMounted] = useState(false)
   useEffect(() => setThemeMounted(true), [])
 
+  // Tour-driven interactions (Dylan 2026-05-24 granular tour). The
+  // granular tour fires 'tour-interact' events with kind: open-hamburger
+  // / close-hamburger so steps can show the menu without the user
+  // having to find the hamburger button mid-tour. Options can also
+  // pre-expand the Appearance or Tutorials sub-sections so anchors
+  // inside them are immediately visible.
+  useEffect(() => {
+    function onTourInteract(ev: Event) {
+      const detail = (ev as CustomEvent<{ kind?: string; options?: { expandAppearance?: boolean; expandTutorials?: boolean } }>).detail
+      if (detail?.kind === 'open-hamburger') {
+        setOpen(true)
+        if (detail.options?.expandAppearance) setAppearanceExpanded(true)
+        if (detail.options?.expandTutorials) setTutorialsExpanded(true)
+      } else if (detail?.kind === 'close-hamburger') {
+        setOpen(false)
+        setImportExpanded(false)
+        setTutorialsExpanded(false)
+      }
+    }
+    window.addEventListener('tour-interact', onTourInteract as EventListener)
+    return () => window.removeEventListener('tour-interact', onTourInteract as EventListener)
+  }, [])
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -225,6 +248,7 @@ export function HamburgerMenu({
       <AnimatePresence>
       {open && (
         <motion.div
+          data-tour-id="hamburger-menu-open"
           initial={{ opacity: 0, y: -8, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8, scale: 0.96 }}
@@ -537,7 +561,7 @@ export function HamburgerMenu({
               opens a settings panel (duration etc.) so the menu stays
               compact. */}
           {onBackdropThemeChange && (
-            <div className="pl-10 pr-4 py-3 border-t border-border/60">
+            <div data-tour-id="themes-picker" className="pl-10 pr-4 py-3 border-t border-border/60">
               <div className="flex items-start gap-3">
                 <span className="text-muted-foreground mt-0.5 shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -745,7 +769,7 @@ export function HamburgerMenu({
               the Themes section inside Appearance. Lets the user pick
               what fires on the Successful status flip. Pure
               localStorage; no backend. Defaults to 'confetti'. */}
-          <div className="pl-10 pr-4 py-3 border-t border-border/60">
+          <div data-tour-id="win-celebration-picker" className="pl-10 pr-4 py-3 border-t border-border/60">
             <div className="flex items-start gap-3">
               <span className="text-muted-foreground mt-0.5 shrink-0">
                 {/* Sparkles icon */}

@@ -55,6 +55,7 @@ export function ScoreSettingsModal({ weights, narrative, guidanceEntries, active
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        data-tour-id="lead-criteria-modal"
         className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] focus:outline-none"
         onClick={e => e.stopPropagation()}
       >

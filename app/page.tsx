@@ -389,6 +389,32 @@ export default function Home() {
     return () => window.removeEventListener('tour-navigate', handler as EventListener)
   }, [])
 
+  // Tour-driven interactions (Dylan 2026-05-24 granular tour). The
+  // granular tour fires these events to actually OPEN modals/panels
+  // so the spotlight has real UI to anchor on. Each kind maps to a
+  // state setter — modals open immediately, no side effects beyond
+  // visibility. Hamburger events are forwarded; HamburgerMenu has
+  // its own listener for those.
+  useEffect(() => {
+    function handler(ev: Event) {
+      const detail = (ev as CustomEvent<{ kind?: string }>).detail
+      switch (detail?.kind) {
+        case 'open-filter-panel':       setShowFilter(true); break
+        case 'close-filter-panel':      setShowFilter(false); break
+        case 'open-lead-criteria':      setShowScoreSettings(true); break
+        case 'close-lead-criteria':     setShowScoreSettings(false); break
+        case 'open-templates':          setShowTemplates(true); break
+        case 'close-templates':         setShowTemplates(false); break
+        case 'open-customize-columns':  setShowCustomize(true); break
+        case 'close-customize-columns': setShowCustomize(false); break
+        // Hamburger events bubble through unhandled here — HamburgerMenu
+        // owns its own state and listens directly.
+      }
+    }
+    window.addEventListener('tour-interact', handler as EventListener)
+    return () => window.removeEventListener('tour-interact', handler as EventListener)
+  }, [])
+
   // Sync state → URL on every change. replaceState (not pushState) so the
   // user's back button still goes back to where they came from on this site
   // rather than walking through every tab click.
@@ -3126,7 +3152,10 @@ export default function Home() {
 
         {/* Filter panel — hidden by default */}
         {showFilter && (
-          <div className="flex flex-col gap-3 mb-3 p-4 bg-card border border-border rounded-xl shadow-sm shadow-black/5">
+          <div
+            data-tour-id="filter-panel"
+            className="flex flex-col gap-3 mb-3 p-4 bg-card border border-border rounded-xl shadow-sm shadow-black/5"
+          >
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs text-muted-foreground w-20 shrink-0">Avg views:</span>
               <input type="number" min={0} value={minViews}

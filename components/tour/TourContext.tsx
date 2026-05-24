@@ -31,7 +31,7 @@
  * picker once. After that, their tier choice sticks.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { TourStep } from './tourSteps'
 import { stepsForTier } from './tourSteps'
 import type { TutorialTier } from '@/lib/tutorial-catalog'
@@ -86,6 +86,36 @@ function dispatchNavigate(
 ): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('tour-navigate', { detail: { tab, sub } }))
+}
+
+/**
+ * Build the TourHelpers object for the active tour step. Each helper
+ * dispatches a CustomEvent the relevant state-owner listens for:
+ *   - tour-navigate           — app/page.tsx (tab switching)
+ *   - tour-interact           — app/page.tsx + HamburgerMenu
+ *                               (modal/panel opens, hamburger expand)
+ * Granular tour steps use these to actually OPEN modals/panels so
+ * the spotlight has real UI to anchor on, not just a tooltip
+ * describing where to click.
+ */
+function buildTourHelpers(): import('@/lib/tutorial-catalog').TourHelpers {
+  function emit(kind: string, payload?: Record<string, unknown>) {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent('tour-interact', { detail: { kind, ...payload } }))
+  }
+  return {
+    navigate: dispatchNavigate,
+    openFilterPanel:      () => emit('open-filter-panel'),
+    closeFilterPanel:     () => emit('close-filter-panel'),
+    openLeadCriteria:     () => emit('open-lead-criteria'),
+    closeLeadCriteria:    () => emit('close-lead-criteria'),
+    openTemplates:        () => emit('open-templates'),
+    closeTemplates:       () => emit('close-templates'),
+    openHamburger:        (options) => emit('open-hamburger', { options: options ?? {} }),
+    closeHamburger:       () => emit('close-hamburger'),
+    openCustomizeColumns: () => emit('open-customize-columns'),
+    closeCustomizeColumns:() => emit('close-customize-columns'),
+  }
 }
 
 function readStatus(): TourStatus {
@@ -178,13 +208,42 @@ export function TourProvider({ signedIn, isAdmin = false, children }: TourProvid
     return () => window.removeEventListener('tour-start', onStart as EventListener)
   }, [lastCompletedTier])
 
-  // Run the current step's onEnter side-effect (e.g. switch tabs).
+  // Track the previous step so we can fire onExit when stepping
+  // forward/backward. The PREVIOUS step's onExit fires BEFORE the
+  // current step's onEnter, so any modals/panels the prior step
+  // opened get a chance to close before the new spotlight tries to
+  // anchor on something else.
+  const prevStepRef = useRef<{ stepIndex: number; tier: TutorialTier } | null>(null)
+
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      // Tour just closed — fire onExit for the last step so we
+      // don't leave a modal open behind us.
+      if (prevStepRef.current) {
+        const lastSteps = stepsForTier(prevStepRef.current.tier, { isAdmin })
+        const last = lastSteps[prevStepRef.current.stepIndex]
+        last?.onExit?.(buildTourHelpers())
+        prevStepRef.current = null
+      }
+      return
+    }
+    const helpers = buildTourHelpers()
+    // Fire the previous step's onExit before the new step's onEnter.
+    // Skips on initial open (prevStepRef.current === null) since
+    // there's nothing to exit from.
+    if (prevStepRef.current && (
+      prevStepRef.current.stepIndex !== stepIndex ||
+      prevStepRef.current.tier !== tier
+    )) {
+      const prevTierSteps = stepsForTier(prevStepRef.current.tier, { isAdmin })
+      const prev = prevTierSteps[prevStepRef.current.stepIndex]
+      prev?.onExit?.(helpers)
+    }
     const step = steps[stepIndex]
     if (!step) return
-    step.onEnter?.({ navigate: dispatchNavigate })
-  }, [isOpen, stepIndex, steps])
+    step.onEnter?.(helpers)
+    prevStepRef.current = { stepIndex, tier }
+  }, [isOpen, stepIndex, steps, tier, isAdmin])
 
   // Lock body scroll while tour or picker is open — the spotlight
   // overlay assumes the page doesn't move underneath it.
