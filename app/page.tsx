@@ -18,6 +18,7 @@ import type { BackdropTheme } from '@/lib/backdrop-themes'
 import { toast } from 'sonner'
 import { celebrateSuccess } from '@/lib/celebrate'
 import { SuccessToast } from '@/components/SuccessToast'
+import { ExportGateModal, PENDING_EXPORT_LS_KEY, type ExportRequest } from '@/components/ExportGateModal'
 import { CreatorTable } from '@/components/creators/CreatorTable'
 import { GuidanceContext } from '@/components/creators/FitScoreCell'
 import { AnimatedTabs, tabId, tabPanelId } from '@/components/AnimatedTabs'
@@ -33,7 +34,7 @@ import { consumeSse } from '@/lib/sse-client'
 import { motion } from 'motion/react'
 import {
   ALL_OCCUPATIONS, VIEW_PRESETS, NICHE_BUCKETS,
-  pickRandom, formatSubscribers, parseRelativeDays, parseSubscriberCount,
+  pickRandom, parseRelativeDays, parseSubscriberCount,
 } from '@/lib/format'
 import {
   DEFAULT_WEIGHTS,
@@ -245,6 +246,75 @@ export default function Home() {
     }
     window.addEventListener('goto-active-client', handler as EventListener)
     return () => window.removeEventListener('goto-active-client', handler as EventListener)
+  }, [])
+
+  // Stripe Checkout return — resume export after a $25 payment.
+  // Dylan 2026-05-24. URL shape on success:
+  //   /?export_fulfilled=1&session_id=cs_…
+  // Flow:
+  //   1. Fulfill the credit on the server (POST /api/exports/fulfill).
+  //   2. Read the saved request from localStorage (entries + format).
+  //   3. Re-open the gate modal with that request — it'll show the
+  //      "Paid credit available" tier and complete the export.
+  //   4. Clean up URL params + localStorage so refresh doesn't re-fire.
+  // If anything fails the user keeps their credit; they can re-trigger
+  // export from the Outreach tab and it'll consume the credit on next
+  // attempt.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const fulfilled = params.get('export_fulfilled') === '1'
+    const sessionId = params.get('session_id')
+    if (!fulfilled || !sessionId) return
+
+    // Strip the query params immediately so refresh / share-link
+    // doesn't replay the flow.
+    const cleanUrl = window.location.pathname + window.location.hash
+    window.history.replaceState({}, '', cleanUrl)
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/exports/fulfill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        if (cancelled) return
+        if (!res.ok) {
+          toast.error('Could not finalize your export payment. Try exporting again — your credit may already be available.')
+          return
+        }
+        // Read the saved request. localStorage survives the redirect;
+        // we clear it after reading.
+        let pending: ExportRequest | null = null
+        try {
+          const raw = localStorage.getItem(PENDING_EXPORT_LS_KEY)
+          if (raw) pending = JSON.parse(raw) as ExportRequest
+        } catch {
+          // ignore malformed payload — user can re-trigger export
+        }
+        try { localStorage.removeItem(PENDING_EXPORT_LS_KEY) } catch {}
+
+        toast.success('Payment confirmed — your export is ready.')
+
+        if (pending && Array.isArray(pending.entries)) {
+          // Re-open the gate modal with the saved request. It'll see
+          // the new paid_export_credit and complete the export on the
+          // user's confirm.
+          setExportGateRequest(pending)
+          setExportGateOpen(true)
+        }
+      } catch (err) {
+        if (cancelled) return
+        console.error('[exports/fulfill] redirect handler failed', err)
+        toast.error('Export payment was processed but completion failed. Try exporting again.')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // "From outreach log" picker in Active Clients dispatches this
@@ -650,6 +720,16 @@ export default function Home() {
   // currentKeyword watcher).
   const [backdropVisible, setBackdropVisible] = useState<boolean>(false)
   const [showExport, setShowExport] = useState(false)
+  // Export paywall (Dylan 2026-05-24). All exports now go through the
+  // ExportGateModal which checks entitlement (free monthly quota / paid
+  // credit / $25 charge) before generating the file.
+  const [exportGateOpen, setExportGateOpen] = useState(false)
+  const [exportGateRequest, setExportGateRequest] = useState<ExportRequest | null>(null)
+  const openExportGate = useCallback((req: ExportRequest) => {
+    setShowExport(false)
+    setExportGateRequest(req)
+    setExportGateOpen(true)
+  }, [])
   // Ref + click-outside detection for the tab-nav Settings gear popover.
   // Auto-update search mode pill based on what the classifier sees
   // as the user types. Manual override (clicking a pill) sticks until
@@ -2659,69 +2739,21 @@ export default function Home() {
     finally { setLoadingMore(false) }
   }, [currentKeyword, currentKeywordsList, loadingMore, loading, minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
 
-  async function handleExportExcel(list: Creator[]) {
-    setShowExport(false)
-    const res = await fetch('/api/export', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channels: list }),
-    })
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'creators.xlsx'
-    a.click()
-  }
-
-  function handleExportCSV(list: Creator[]) {
-    setShowExport(false)
-    const headers = ['Channel Name', 'YouTube URL', 'Avg Views', 'Subscribers', 'Last Posted', 'Email', 'LinkedIn', 'Website', 'Instagram', 'X', 'TikTok']
-    const rows = list.map(c => [
-      c.channelName, c.channelUrl, c.avgViews, formatSubscribers(c.subscribers),
-      c.videoDates?.[0] || '', c.email, c.linkedin, c.website, c.instagram, c.twitter, c.tiktok,
-    ])
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'creators.csv'
-    a.click()
-  }
-
-  async function handleExportOutreachExcel() {
-    setShowExport(false)
-    const res = await fetch('/api/export-outreach', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entries: outreach }),
-    })
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'outreach.xlsx'
-    a.click()
+  // 2026-05-24 — Results-tab exports (handleExportExcel / handleExportCSV)
+  // removed per Dylan: "Only allow export on the outreach tab." The
+  // settings gear on Results now shows only Customize columns + a
+  // redirect link to the Outreach tab for export.
+  //
+  // Outreach exports go through ExportGateModal, which checks entitlement
+  // (unlimited / 1 free monthly when <10 rows / pre-paid credit / $25
+  // Stripe charge) before generating the file. CSV is now routed through
+  // /api/export-outreach so the paywall can't be bypassed client-side.
+  function handleExportOutreachExcel() {
+    openExportGate({ format: 'xlsx', entries: outreach })
   }
 
   function handleExportOutreachCSV() {
-    setShowExport(false)
-    const headers = ['Channel Name', 'YT', 'Email', 'Description', 'Product', 'Reached Out', 'Medium', 'Subject Line', 'Status']
-    const rows = outreach.map(e => [
-      e.channelName, e.channelUrl, e.email, e.description, e.product,
-      e.reachedOut ? 'Yes' : 'No',
-      e.medium === 'Other' ? e.mediumOther : e.medium,
-      e.headerUsed,
-      e.status || '',
-    ])
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'outreach.csv'
-    a.click()
+    openExportGate({ format: 'csv', entries: outreach })
   }
 
   const baseList = creators
@@ -3495,29 +3527,29 @@ export default function Home() {
               setActiveTab(next)
             }}
           />
-          {/* Settings gear in the main tab nav — combines Customize
-              columns + Export options. Hidden on:
-                - Dismissed (no customize, no export wired)
-                - Outreach > Analytics (has its OWN dedicated gear
-                  with Customize metrics + Export, see OutreachAnalytics)
-                - Outreach > Follow-ups (no column-customize concept,
-                  no export needed there per Dylan)
-              The remaining surfaces (Results, Outreach > All / Favorites)
-              still get the gear with Export options. */}
+          {/* Tab-nav gear popover (Dylan 2026-05-24 paywall remodel):
+              - On Outreach > All / Favorites: shows Excel + CSV export
+                buttons. Both go through ExportGateModal which checks
+                entitlement before generating the file.
+              - On Results: shows Customize columns + a "Export available
+                on Outreach tab →" redirect link. Per Dylan, exports are
+                now Outreach-only — the redirect link helps users find
+                the new location without dead-ending the click.
+              - Hidden entirely on: Dismissed, Outreach > Analytics
+                (Analytics also gets the redirect inline below),
+                Outreach > Follow-ups, Outreach > Active Clients. */}
           {activeTab !== 'dismissed' &&
             !(activeTab === 'outreach' && (outreachSubTab === 'analytics' || outreachSubTab === 'followups' || outreachSubTab === 'active')) && (
             <div ref={exportMenuRef} className="ml-auto relative">
               <button
                 onClick={() => setShowExport(v => !v)}
-                title="Export this list (or customize columns)"
+                title={activeTab === 'outreach' ? 'Export this list' : 'Customize columns (export is on the Outreach tab)'}
                 aria-label="Export options"
                 className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border hover:border-border/80 transition-colors mb-1"
               >
-                {/* Download tray icon — Dylan 2026-05-24: this menu is
-                    primarily about exporting (Excel / CSV); the gear
-                    signalled "settings" which doesn't match the
-                    primary intent. A down-arrow-into-tray is the
-                    universal "save / export to file" visual. */}
+                {/* Outreach tab: download-tray icon (export-forward).
+                    Results tab: same icon for visual consistency, but
+                    the dropdown content shifts to Customize + redirect. */}
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
@@ -3545,7 +3577,9 @@ export default function Home() {
                       Customize columns
                     </button>
                   )}
-                  {/* Export — disabled when the active list is empty. */}
+                  {/* Export — disabled when the active list is empty.
+                      Outreach tab gets full Excel/CSV. Everywhere else
+                      gets a redirect link to Outreach. */}
                   {activeTab === 'outreach' ? (
                     <>
                       <button
@@ -3566,24 +3600,21 @@ export default function Home() {
                       </button>
                     </>
                   ) : (
-                    <>
-                      <button
-                        onClick={() => handleExportExcel(currentList)}
-                        disabled={currentList.length === 0}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <span className="text-base leading-none">📊</span>
-                        Export Excel
-                      </button>
-                      <button
-                        onClick={() => handleExportCSV(currentList)}
-                        disabled={currentList.length === 0}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors border-t border-border/60 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <span className="text-base leading-none">📄</span>
-                        Export CSV
-                      </button>
-                    </>
+                    <button
+                      onClick={() => {
+                        setActiveTab('outreach')
+                        setShowExport(false)
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      <span className="flex-1">
+                        <div>Export on Outreach tab</div>
+                        <div className="text-[10px] text-muted-foreground/70 font-normal">Click to switch tabs →</div>
+                      </span>
+                    </button>
                   )}
                 </div>
               )}
@@ -4336,6 +4367,15 @@ export default function Home() {
         onDismiss={() => setSuccessToast(null)}
       />
     )}
+    {/* Export paywall gate — opens when the user clicks Excel/CSV on
+        the Outreach tab. Decides which message (free / $25) to show
+        and routes to Stripe Checkout when payment is needed. Dylan
+        2026-05-24 monetization push. */}
+    <ExportGateModal
+      open={exportGateOpen}
+      request={exportGateRequest}
+      onClose={() => setExportGateOpen(false)}
+    />
     </TourProvider>
     </GuidanceContext.Provider>
   )

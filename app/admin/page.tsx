@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
+import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
+import { MigrateTrialsButton } from '@/components/admin/MigrateTrialsButton'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -54,11 +56,13 @@ export default async function AdminPage() {
   // terms_privacy_*: GDPR Art. 7 consent audit trail (0027). NULL = user
   // signed up before the consent checkbox was wired; treated as implicit
   // accept (they used the Service, which is the contractual lawful basis).
+  // unlimited_exports: 0034. Per-user export paywall bypass.
   type ProfileExtras = {
     timezone: string | null
     last_seen_at: string | null
     terms_privacy_agreed_at: string | null
     terms_privacy_version: string | null
+    unlimited_exports: boolean
   }
   // Migration-tolerant SELECT — full first, fall back to base cols if
   // 0027 hasn't been applied. Same pattern as the home-page profile load.
@@ -68,16 +72,27 @@ export default async function AdminPage() {
     last_seen_at: string | null
     terms_privacy_agreed_at?: string | null
     terms_privacy_version?: string | null
+    unlimited_exports?: boolean | null
   }
   let profileExtraRows: ExtraRow[] | null = null
   const fullExtras = await supabase
     .from('user_profile')
-    .select('user_id, timezone, last_seen_at, terms_privacy_agreed_at, terms_privacy_version')
+    .select('user_id, timezone, last_seen_at, terms_privacy_agreed_at, terms_privacy_version, unlimited_exports')
   if (fullExtras.error) {
-    const fallback = await supabase
+    // Cascade through fallback queries — drop the newest column first,
+    // then the next, until we land on a query that works against
+    // whatever migration the DB is on.
+    const midExtras = await supabase
       .from('user_profile')
-      .select('user_id, timezone, last_seen_at')
-    profileExtraRows = (fallback.data as unknown as ExtraRow[] | null) ?? null
+      .select('user_id, timezone, last_seen_at, terms_privacy_agreed_at, terms_privacy_version')
+    if (midExtras.error) {
+      const fallback = await supabase
+        .from('user_profile')
+        .select('user_id, timezone, last_seen_at')
+      profileExtraRows = (fallback.data as unknown as ExtraRow[] | null) ?? null
+    } else {
+      profileExtraRows = (midExtras.data as unknown as ExtraRow[] | null) ?? null
+    }
   } else {
     profileExtraRows = (fullExtras.data as unknown as ExtraRow[] | null) ?? null
   }
@@ -89,6 +104,7 @@ export default async function AdminPage() {
         last_seen_at: r.last_seen_at ?? null,
         terms_privacy_agreed_at: r.terms_privacy_agreed_at ?? null,
         terms_privacy_version: r.terms_privacy_version ?? null,
+        unlimited_exports: r.unlimited_exports === true,
       },
     ]),
   )
@@ -227,6 +243,20 @@ export default async function AdminPage() {
                 <FunnelStep label="Added first outreach" value={firstOutreachCount} ofTotal={total} />
               </div>
             </div>
+
+            {/* One-off admin tools row.
+                Trial-length migration: run once after the 14→7 day
+                trial change ships. Idempotent — re-running just caps
+                any remaining 14-day trials at 7 days. Dylan 2026-05-24. */}
+            <div className="bg-card/40 border border-border rounded-xl p-4 mb-8 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-foreground">Admin tools</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  One-off migrations. Safe to re-run.
+                </div>
+              </div>
+              <MigrateTrialsButton />
+            </div>
           </>
         )}
 
@@ -247,6 +277,12 @@ export default async function AdminPage() {
                   <th className="px-4 py-3 text-center font-medium" title="Terms of Service + Privacy Policy consent timestamp (GDPR Article 7 audit trail). Recorded when the user checked the consent box at signup. NULL = pre-checkbox user — implicit accept via account creation.">ToS</th>
                   <th className="px-4 py-3 text-right font-medium">Outreach</th>
                   <th className="px-4 py-3 text-right font-medium">Dismissed</th>
+                  <th
+                    className="px-4 py-3 text-center font-medium"
+                    title="Unlimited exports flag — when 'comp', this user bypasses the $25 export paywall and monthly free-tier limit entirely. Toggle on/off per-user; used for VIPs / partners / our own internal accounts."
+                  >
+                    Exports
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -332,6 +368,12 @@ export default async function AdminPage() {
                       </td>
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.outreach_count}</td>
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.dismissed_count}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <UnlimitedExportsToggle
+                          userId={r.user_id}
+                          initial={profileExtras.get(r.user_id)?.unlimited_exports ?? false}
+                        />
+                      </td>
                     </tr>
                   )
                 })}
