@@ -176,18 +176,26 @@ export async function POST(req: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
 
-        // Two flavors of Checkout sessions land here:
-        //   • mode='subscription' — first-time subscription creation
-        //   • mode='payment' + metadata.kind='export' — $25 one-off
+        // Three flavors of Checkout sessions land here:
+        //   • mode='payment' + metadata.kind='export'  — $25 one-off
         //     export charge (Dylan 2026-05-24)
-        // Branch on session.mode + metadata.kind to keep the two flows
+        //   • mode='subscription' + metadata.kind='team' — Team plan
+        //     creation; we provision the Organization + Owner row
+        //     here on payment success (Dylan 2026-05-24)
+        //   • mode='subscription' (default) — individual subscription
+        // Branch on session.mode + metadata.kind to keep the flows
         // cleanly separated.
         if (session.mode === 'payment' && session.metadata?.kind === 'export') {
           await grantExportCredit(sb, session)
           break
         }
 
-        // Default: subscription-mode handling.
+        if (session.mode === 'subscription' && session.metadata?.kind === 'team') {
+          await provisionTeamFromCheckout(sb, session, stripe)
+          break
+        }
+
+        // Default: individual subscription-mode handling.
         const subId =
           typeof session.subscription === 'string'
             ? session.subscription
@@ -218,42 +226,61 @@ export async function POST(req: NextRequest) {
         // twice — harmless (idempotent UPDATE) but worth noting in
         // logs so we can confirm the dual delivery is expected.
         const sub = event.data.object as Stripe.Subscription
-        const customerId =
-          typeof sub.customer === 'string' ? sub.customer : sub.customer.id
-        await applySubUpdate(sb, customerId, {
-          stripe_subscription_id: sub.id,
-          subscription_status: sub.status,
-          subscription_current_period_end: periodEndIso(sub),
-          subscription_price_id: priceIdFromSub(sub),
-          subscription_cancel_at_period_end: isCanceling(sub),
-        }, subscriptionMetadataUserId(sub))
+        if (sub.metadata?.kind === 'team') {
+          await syncTeamSubscription(sb, sub)
+        } else {
+          const customerId =
+            typeof sub.customer === 'string' ? sub.customer : sub.customer.id
+          await applySubUpdate(sb, customerId, {
+            stripe_subscription_id: sub.id,
+            subscription_status: sub.status,
+            subscription_current_period_end: periodEndIso(sub),
+            subscription_price_id: priceIdFromSub(sub),
+            subscription_cancel_at_period_end: isCanceling(sub),
+          }, subscriptionMetadataUserId(sub))
+        }
         break
       }
 
       case 'customer.subscription.updated': {
         const sub = event.data.object as Stripe.Subscription
-        const customerId =
-          typeof sub.customer === 'string' ? sub.customer : sub.customer.id
-        await applySubUpdate(sb, customerId, {
-          stripe_subscription_id: sub.id,
-          subscription_status: sub.status,
-          subscription_current_period_end: periodEndIso(sub),
-          subscription_price_id: priceIdFromSub(sub),
-          subscription_cancel_at_period_end: isCanceling(sub),
-        }, subscriptionMetadataUserId(sub))
+        if (sub.metadata?.kind === 'team') {
+          await syncTeamSubscription(sb, sub)
+        } else {
+          const customerId =
+            typeof sub.customer === 'string' ? sub.customer : sub.customer.id
+          await applySubUpdate(sb, customerId, {
+            stripe_subscription_id: sub.id,
+            subscription_status: sub.status,
+            subscription_current_period_end: periodEndIso(sub),
+            subscription_price_id: priceIdFromSub(sub),
+            subscription_cancel_at_period_end: isCanceling(sub),
+          }, subscriptionMetadataUserId(sub))
+        }
         break
       }
 
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription
-        const customerId =
-          typeof sub.customer === 'string' ? sub.customer : sub.customer.id
-        // Don't NULL stripe_subscription_id — we still want a paper
-        // trail. Just flip status to 'canceled'.
-        await applySubUpdate(sb, customerId, {
-          subscription_status: 'canceled',
-          subscription_cancel_at_period_end: false,
-        }, subscriptionMetadataUserId(sub))
+        if (sub.metadata?.kind === 'team') {
+          // Team subscription canceled — mark org's status canceled.
+          // We DON'T auto-delete the org; the Owner may resubscribe.
+          // Data stays in place; access is gated by subscription
+          // status in middleware.
+          await sb
+            .from('organizations')
+            .update({ subscription_status: 'canceled' })
+            .eq('stripe_subscription_id', sub.id)
+        } else {
+          const customerId =
+            typeof sub.customer === 'string' ? sub.customer : sub.customer.id
+          // Don't NULL stripe_subscription_id — we still want a paper
+          // trail. Just flip status to 'canceled'.
+          await applySubUpdate(sb, customerId, {
+            subscription_status: 'canceled',
+            subscription_cancel_at_period_end: false,
+          }, subscriptionMetadataUserId(sub))
+        }
         break
       }
 
@@ -431,6 +458,146 @@ function subscriptionMetadataUserId(sub: Stripe.Subscription): string | undefine
 function sessionMetadataUserId(session: Stripe.Checkout.Session): string | undefined {
   const raw = session.metadata?.supabase_user_id
   return typeof raw === 'string' && raw.length > 0 ? raw : undefined
+}
+
+/**
+ * Provision a new Organization + Owner membership when a Team-plan
+ * Checkout session completes (Dylan 2026-05-24).
+ *
+ * Idempotent — re-running for the same subscription_id (e.g. webhook
+ * retry) is a no-op: we check for an existing org with the same
+ * stripe_subscription_id and skip if found.
+ *
+ * Migration step: copies the Owner's existing outreach_entries into
+ * the new organization, setting organization_id + created_by_user_id
+ * + assigned_to_user_id. This preserves all their pre-team data so
+ * "Upgrade to Team" feels like a smooth transition, not a fresh start.
+ */
+async function provisionTeamFromCheckout(
+  sb: ReturnType<typeof getServiceClient> extends infer T ? Exclude<T, null> : never,
+  session: Stripe.Checkout.Session,
+  stripe: Stripe,
+): Promise<void> {
+  const userId = sessionMetadataUserId(session)
+  const teamName = (session.metadata?.team_name || '').trim() || 'My Team'
+  const subId =
+    typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription?.id
+  const customerId =
+    typeof session.customer === 'string' ? session.customer : session.customer?.id
+
+  if (!userId || !subId || !customerId) {
+    console.warn('[stripe/webhook] team checkout missing required fields', {
+      userId, subId, customerId,
+    })
+    return
+  }
+
+  // Idempotency: if an org already exists for this subscription, skip.
+  // Webhook retries will land here and no-op.
+  const { data: existing } = await sb
+    .from('organizations')
+    .select('id')
+    .eq('stripe_subscription_id', subId)
+    .maybeSingle()
+  if (existing) {
+    console.info('[stripe/webhook] team already provisioned', subId)
+    return
+  }
+
+  // Refresh sub from Stripe to get current status + period_end.
+  const sub = await stripe.subscriptions.retrieve(subId)
+
+  // Generate a URL-safe slug from the team name. Append a short random
+  // suffix to dodge collisions without a slow uniqueness check loop.
+  const baseSlug = teamName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'team'
+  const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
+
+  // Insert the organization row.
+  const { data: orgRow, error: orgErr } = await sb
+    .from('organizations')
+    .insert({
+      name: teamName,
+      slug,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: sub.id,
+      subscription_status: sub.status,
+      subscription_current_period_end: periodEndIso(sub),
+      seats_provisioned: 5, // base plan starts at 5 included seats
+    })
+    .select('id')
+    .single()
+
+  if (orgErr || !orgRow) {
+    console.error('[stripe/webhook] org insert failed', { teamName, error: orgErr?.message })
+    throw orgErr ?? new Error('org insert returned no row')
+  }
+  const orgId = orgRow.id
+
+  // Add the buyer as Owner.
+  const { error: memberErr } = await sb
+    .from('organization_members')
+    .insert({
+      organization_id: orgId,
+      user_id: userId,
+      role: 'owner',
+    })
+  if (memberErr) {
+    console.error('[stripe/webhook] owner member insert failed', { orgId, userId, error: memberErr.message })
+    throw memberErr
+  }
+
+  // Migrate the owner's existing individual outreach into the org —
+  // smooth transition rather than a fresh-start. Set:
+  //   organization_id     = new org
+  //   created_by_user_id  = owner (already backfilled to user_id but
+  //                         re-set explicitly to be safe)
+  //   assigned_to_user_id = owner (they're the only member)
+  // Anything they had on the individual plan stays in their pipeline.
+  const { error: migrateErr } = await sb
+    .from('outreach_entries')
+    .update({
+      organization_id: orgId,
+      created_by_user_id: userId,
+      assigned_to_user_id: userId,
+    })
+    .eq('user_id', userId)
+    .is('organization_id', null)
+  if (migrateErr) {
+    // Non-fatal — org is created, but their data didn't migrate.
+    // They'll see an empty pipeline. Log loudly so we can backfill.
+    console.error('[stripe/webhook] outreach migration failed', {
+      orgId, userId, error: migrateErr.message,
+    })
+  }
+
+  console.info('[stripe/webhook] team provisioned', { orgId, userId, teamName })
+}
+
+/**
+ * Sync a Stripe Team subscription's status/period back to the
+ * `organizations` row. Called from subscription.created and
+ * subscription.updated when metadata.kind='team'.
+ */
+async function syncTeamSubscription(
+  sb: ReturnType<typeof getServiceClient> extends infer T ? Exclude<T, null> : never,
+  sub: Stripe.Subscription,
+): Promise<void> {
+  const { error } = await sb
+    .from('organizations')
+    .update({
+      subscription_status: sub.status,
+      subscription_current_period_end: periodEndIso(sub),
+    })
+    .eq('stripe_subscription_id', sub.id)
+  if (error) {
+    console.error('[stripe/webhook] team sub sync failed', { subId: sub.id, error: error.message })
+  }
 }
 
 /**

@@ -117,7 +117,20 @@ function rowToOutreach(r: any): OutreachEntry {
   }
 }
 
-function outreachToRow(e: OutreachEntry, uid: string) {
+/**
+ * Convert an OutreachEntry into a DB row.
+ *
+ * @param newRowOrgContext  When the row is NEW (not yet in the DB), pass
+ *   the user's org membership so we stamp organization_id + audit fields
+ *   on insert. For EXISTING rows (upsert paths), pass null so we DON'T
+ *   overwrite audit fields that may have been changed by an admin
+ *   (e.g., assigned_to_user_id reassignment). Migration 0035 fields.
+ */
+function outreachToRow(
+  e: OutreachEntry,
+  uid: string,
+  newRowOrgContext: { organizationId: string | null } | null = null,
+) {
   return {
     id: e.id,
     user_id: uid,
@@ -176,12 +189,60 @@ function outreachToRow(e: OutreachEntry, uid: string) {
     // upsert payload — Supabase will error if the COLUMN is missing
     // but that's the case migration 0030 explicitly fixes).
     engagement_status: e.engagementStatus ?? null,
+    // Team membership fields (migration 0035) — only stamped for NEW
+    // rows so we don't clobber admin reassignments on subsequent
+    // upserts. organization_id is always set when context is provided
+    // so an admin saving in the same org keeps the boundary intact.
+    // For non-team users (org context null), all three stay null and
+    // RLS falls back to the user_id check.
+    ...(newRowOrgContext
+      ? {
+          organization_id: newRowOrgContext.organizationId,
+          created_by_user_id: uid,
+          assigned_to_user_id: uid,
+        }
+      : {}),
     // NB: client_* fields are NOT written here on purpose. The general
     // outreach save path should stay migration-tolerant for those
     // (0028/0029 may not be applied on every env). Active-client edits
     // use a dedicated updateActiveClientFields() function below that
     // writes only the client_* columns + handles missing-column
     // errors gracefully.
+  }
+}
+
+/**
+ * Fetch the current user's organization membership (if any), for
+ * stamping organization_id on new rows. Returns null for individual
+ * users or when migration 0035 hasn't been applied.
+ *
+ * Single client call, cached at module level so repeated saves within
+ * the same session don't re-query.
+ */
+let cachedOrgMembership: { uid: string; organizationId: string | null } | null = null
+async function getOwnOrgMembership(uid: string): Promise<{ organizationId: string | null }> {
+  if (cachedOrgMembership && cachedOrgMembership.uid === uid) {
+    return { organizationId: cachedOrgMembership.organizationId }
+  }
+  const supabase = createClient()
+  try {
+    const { data, error } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', uid)
+      .maybeSingle()
+    if (error) {
+      // Likely "relation does not exist" before 0035 is applied.
+      // Treat as individual user.
+      cachedOrgMembership = { uid, organizationId: null }
+      return { organizationId: null }
+    }
+    const orgId = (data as { organization_id: string } | null)?.organization_id ?? null
+    cachedOrgMembership = { uid, organizationId: orgId }
+    return { organizationId: orgId }
+  } catch {
+    cachedOrgMembership = { uid, organizationId: null }
+    return { organizationId: null }
   }
 }
 
@@ -550,9 +611,21 @@ async function createFollowOnEngagement(
     engagement_status: payload.repeatLikelihood === 'likely' ? 'pending_confirmation' : null,
   }
 
+  // Stamp team fields (migration 0035) for NEW rows so the repeat
+  // engagement inherits the org boundary + audit fields.
+  const orgCtx = await getOwnOrgMembership(uid)
+  const rowWithOrg = orgCtx.organizationId
+    ? {
+        ...row,
+        organization_id: orgCtx.organizationId,
+        created_by_user_id: uid,
+        assigned_to_user_id: uid,
+      }
+    : row
+
   const { error } = await supabase
     .from('outreach_entries')
-    .insert(row)
+    .insert(rowWithOrg)
   if (error) {
     console.error('[wrapUpEngagement] follow-on insert failed:', error.message)
     return undefined
@@ -664,9 +737,21 @@ export async function createManualActiveClient(
     ],
   }
 
+  // Stamp team fields (migration 0035) for NEW rows so the manually-
+  // added active client respects the org boundary.
+  const orgCtx = await getOwnOrgMembership(uid)
+  const rowWithOrg = orgCtx.organizationId
+    ? {
+        ...row,
+        organization_id: orgCtx.organizationId,
+        created_by_user_id: uid,
+        assigned_to_user_id: uid,
+      }
+    : row
+
   const { error } = await supabase
     .from('outreach_entries')
-    .insert(row)
+    .insert(rowWithOrg)
   if (error) {
     // Schema-missing detection — both 0028/0029/0030 columns could
     // trigger this if any migration hasn't been applied. Return the
@@ -912,9 +997,23 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
 
   // Upsert the rest — always safe (it only writes, never deletes).
   if (entries.length > 0) {
+    // Resolve org membership once so we stamp organization_id +
+    // created_by + assigned_to on NEW rows (entries with IDs not in
+    // `existing`). Existing rows keep their audit fields untouched,
+    // preserving any admin re-assignment.
+    const orgCtx = await getOwnOrgMembership(uid)
+    const existingIds = new Set((existing ?? []).map(r => r.id))
+    const rows = entries.map(e => {
+      const isNew = !existingIds.has(e.id)
+      return outreachToRow(
+        e,
+        uid,
+        isNew ? { organizationId: orgCtx.organizationId } : null,
+      )
+    })
     const { error: upErr } = await supabase
       .from('outreach_entries')
-      .upsert(entries.map(e => outreachToRow(e, uid)), { onConflict: 'id' })
+      .upsert(rows, { onConflict: 'id' })
     if (upErr) console.error('[saveOutreach] upsert failed:', upErr.message, upErr)
   }
 }
