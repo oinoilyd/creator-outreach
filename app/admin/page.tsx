@@ -5,7 +5,6 @@ import { AuditMenu } from '@/components/admin/AuditMenu'
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
 import { MigrateTrialsButton } from '@/components/admin/MigrateTrialsButton'
-import { SeedTestOrgButton } from '@/components/admin/SeedTestOrgButton'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -177,6 +176,13 @@ export default async function AdminPage() {
               <span aria-hidden>📚</span>Tutorials
             </Link>
             <Link
+              href="/admin/sandbox"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
+              title="5-user Test Team with magic-link sign-in per role"
+            >
+              <span aria-hidden>👥</span>Sandbox
+            </Link>
+            <Link
               href="/admin/contact"
               className={`text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border ${
                 (unresolvedContact ?? 0) > 0
@@ -246,24 +252,19 @@ export default async function AdminPage() {
             </div>
 
             {/* One-off admin tools row.
-                - Trial-length migration: run once after the 14→7 day
-                  trial change ships. Idempotent — re-running just caps
-                  any remaining 14-day trials at 7 days. Dylan 2026-05-24.
-                - Seed test team: creates 3 fixture users (Owner/Admin/
-                  Member) for manual E2E testing of the team flow. */}
-            <div className="bg-card/40 border border-border rounded-xl p-4 mb-8 space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-foreground">Admin tools</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    One-off migrations + test-data scaffolding. Safe to re-run.
-                  </div>
+                Trial-length migration: run once after the 14→7 day
+                trial change ships. Idempotent — re-running just caps
+                any remaining 14-day trials at 7 days. Dylan 2026-05-24.
+                (Enterprise sandbox lives at /admin/sandbox, linked
+                in the top nav above.) */}
+            <div className="bg-card/40 border border-border rounded-xl p-4 mb-8 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-foreground">Admin tools</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  One-off migrations. Safe to re-run.
                 </div>
-                <MigrateTrialsButton />
               </div>
-              <div className="pt-3 border-t border-border/60">
-                <SeedTestOrgButton />
-              </div>
+              <MigrateTrialsButton />
             </div>
           </>
         )}
