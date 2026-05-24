@@ -188,27 +188,18 @@ export const CATALOG_STEPS: CatalogStep[] = [
   },
 
   // ────────────────────────────────────────────────────────────────
-  //  ACT 1.5 — SEARCH POWER-USER (Pro + Granular only)
+  //  ACT 1.5 — SEARCH POWER-USER (Pro + Granular)
   //
-  //  Pro: just describe the surfaces.
-  //  Granular: OPEN each surface so the user sees the real UI.
+  //  Both tiers actually OPEN the surface (Dylan 2026-05-24: "the
+  //  user gets to pick" their tier, so if they pick Pro or Granular
+  //  they want to see the real UI, not just be told about it).
+  //  Difference between tiers: Granular adds a few extra sub-steps
+  //  the Pro tour doesn't bother with.
   // ────────────────────────────────────────────────────────────────
 
-  // Pro version — describe Lead Criteria without opening it.
   {
-    id: 'lead-criteria-pro',
-    tiers: ['pro'],
-    target: '[data-tour-id="search-input"]',
-    title: 'Tune the fit score',
-    body: 'Click the lightning icon next to the search bar to open Lead Criteria. Drag the 5 dimension weights — Recency, Reach, Reachability, Relevance, Quality — and even add custom criteria in plain English ("based in the US", "talks about value investing"). The score re-ranks live.',
-    placement: 'bottom',
-  },
-
-  // Granular version — actually open Lead Criteria so the user can
-  // see the weights + custom criteria. Anchored inside the modal.
-  {
-    id: 'lead-criteria-granular',
-    tiers: ['granular'],
+    id: 'lead-criteria',
+    tiers: ['pro', 'granular'],
     target: '[data-tour-id="lead-criteria-modal"]',
     title: 'Tune the fit score',
     body: 'This is the Lead Criteria panel. Drag the 5 dimension weights to re-emphasize what matters. Add custom criteria in plain English ("based in the US", "talks about value investing") — Claude scores every result against your text. The Fit Score updates live as you tune.',
@@ -217,38 +208,35 @@ export const CATALOG_STEPS: CatalogStep[] = [
     onExit: ({ closeLeadCriteria }) => closeLeadCriteria(),
   },
 
-  // Pro version — describe filters without opening them.
   {
-    id: 'search-filters-pro',
-    tiers: ['pro'],
-    target: '[data-tour-id="search-input"]',
-    title: 'Region filters + AI expansion',
-    body: 'The filter icon scopes search by region. For single-keyword searches, AI keyword expansion fans your query into 3 sibling queries and merges the hits — ~3× the reach without typing more.',
-    placement: 'bottom',
-  },
-
-  // Granular version — actually open the filter panel so the user
-  // sees the region chips and any other filters live.
-  {
-    id: 'search-filters-granular',
-    tiers: ['granular'],
+    id: 'search-filters',
+    tiers: ['pro', 'granular'],
     target: '[data-tour-id="filter-panel"]',
     title: 'Region filters',
     body: 'Click any region chip to scope your search. Pick multiple — the chips combine OR-wise (US + Canada finds creators in either). Leave them all unselected for an English-language global search.',
     placement: 'bottom',
     onEnter: ({ openFilterPanel }) => openFilterPanel(),
-    // Leave the filter panel open for the next step (AI expansion)
-    // — the next step also lives on the filter panel area, so we
-    // don't close it here. Closing happens on the NEXT step's exit.
+    // Filter panel stays open for the AI-expansion granular sub-step.
+    // If we're on Pro (no ai-expansion step follows), the panel is
+    // closed by the NEXT step's onEnter clearing it — see "add-to-
+    // outreach" which doesn't need the filter panel.
+    // For safety we also close it explicitly on exit for the Pro
+    // path. The granular AI expansion step re-opens it via its own
+    // onEnter (no-op if already open) and closes via its onExit.
+    onExit: ({ closeFilterPanel }) => closeFilterPanel(),
   },
 
   {
-    id: 'ai-expansion-granular',
+    id: 'ai-expansion',
     tiers: ['granular'],
     target: '[data-tour-id="filter-panel"]',
     title: 'AI keyword expansion',
     body: 'For single-keyword occupation searches, AI expansion is on by default — Claude Haiku generates 3 sibling queries (e.g. "patent attorney" → "intellectual property lawyer", "trademark counsel") and merges the hits. You get ~3× the reach without typing more. Multi-keyword searches stay literal.',
     placement: 'bottom',
+    // Granular ONLY — re-opens the filter panel (no-op if still open
+    // from search-filters), then closes on exit before the burst
+    // step ("add to outreach") fires.
+    onEnter: ({ openFilterPanel }) => openFilterPanel(),
     onExit: ({ closeFilterPanel }) => closeFilterPanel(),
   },
 
@@ -301,22 +289,10 @@ export const CATALOG_STEPS: CatalogStep[] = [
     onEnter: ({ navigate }) => navigate('outreach', 'all'),
   },
 
-  // Pro version — describe Templates without opening it.
+  // Both tiers open the Templates modal so users see the real UI.
   {
-    id: 'templates-pro',
-    tiers: ['pro'],
-    target: '[data-tour-id="outreach-table"]',
-    title: 'Per-platform message templates',
-    body: 'In the hamburger menu, Templates lets you write outreach templates per platform — Email, LinkedIn DM, IG DM. Variables like {name}, {channel}, {product} fill in automatically when you compose. CAN-SPAM footer toggle for email.',
-    placement: 'top',
-    onEnter: ({ navigate }) => navigate('outreach', 'all'),
-  },
-
-  // Granular version — actually open the Templates modal so the user
-  // sees the per-platform tabs + variable picker live.
-  {
-    id: 'templates-granular',
-    tiers: ['granular'],
+    id: 'templates',
+    tiers: ['pro', 'granular'],
     target: '[data-tour-id="templates-modal"]',
     title: 'Per-platform message templates',
     body: 'Switch between Email / LinkedIn DM / Instagram DM tabs to write a template per channel. Variables like {name}, {channel}, {product} auto-fill when you compose. Toggle the CAN-SPAM footer on/off — required for unsolicited email outreach in the US.',
@@ -428,58 +404,44 @@ export const CATALOG_STEPS: CatalogStep[] = [
     placement: 'bottom',
   },
 
-  // Pro version — describe the hamburger from the closed state.
+  // Both tiers — open the hamburger so the user sees the menu live.
   {
-    id: 'hamburger-menu-pro',
-    tiers: ['pro'],
-    target: null,
-    title: 'The hamburger menu',
-    body: 'Top-right of the header. Holds Profile, Templates, Lead Criteria, Subscription, Tutorials, Roadmap, and Appearance — where you pick your visual theme and Win celebration style.',
-    placement: 'left',
-  },
-
-  // Granular version — OPEN the hamburger so the user sees the menu items live.
-  {
-    id: 'hamburger-menu-granular',
-    tiers: ['granular'],
+    id: 'hamburger-menu',
+    tiers: ['pro', 'granular'],
     target: '[data-tour-id="hamburger-menu-open"]',
     title: 'The hamburger menu',
     body: 'Every settings + workspace surface lives here. Profile, Lead Criteria, Templates, Tutorials, Roadmap, Subscription, and Appearance (themes + win celebration). Many of these you reached for in the steps above — this is where you find them later.',
     placement: 'left',
     onEnter: ({ openHamburger }) => openHamburger(),
-    // Keep the hamburger open for the next two steps (Themes + Win
-    // celebration). Closing happens after Win celebration.
+    // Keep the hamburger open for the next step (Themes). Closing
+    // happens after the last hamburger-anchored step.
   },
 
-  // Pro version — describe themes without expanding Appearance.
+  // Both tiers — open hamburger + expand Appearance, anchor on Themes.
   {
-    id: 'themes-pro',
-    tiers: ['pro'],
-    target: null,
-    title: 'Backdrop themes',
-    body: 'Under Appearance → Themes, pick Rain, Drift, Fireworks, or Tornado (the default). Each plays in a thin banner strip at the top, color-matched to your active platform. Themes fire on platform switch, on sign-in, and on the Spotlight button.',
-    placement: 'left',
-  },
-
-  // Granular version — open hamburger + expand Appearance, anchor on Themes.
-  {
-    id: 'themes-granular',
-    tiers: ['granular'],
+    id: 'themes',
+    tiers: ['pro', 'granular'],
     target: '[data-tour-id="themes-picker"]',
     title: 'Backdrop themes',
     body: 'Inside Appearance → Themes: Rain (logos falling), Drift (logos floating up), Fireworks (one-shot burst), and Tornado (default — swirling column sweeps the page twice). Each plays in a thin banner strip color-matched to your active platform. The gear icon next to Themes opens duration + always-on intensity settings.',
     placement: 'left',
     onEnter: ({ openHamburger }) => openHamburger({ expandAppearance: true }),
+    // For Pro tier, this is the last hamburger-anchored step, so
+    // close on exit. For Granular tier, the win-celebration step
+    // re-opens (no-op since still open) and closes after itself.
+    onExit: ({ closeHamburger }) => closeHamburger(),
   },
 
   // Granular only — Win celebration is a granular-tier feature.
   {
-    id: 'win-celebration-granular',
+    id: 'win-celebration',
     tiers: ['granular'],
     target: '[data-tour-id="win-celebration-picker"]',
     title: 'Win celebration style',
     body: 'Right below Themes: pick what fires when you mark an outreach Successful. Full confetti (default — paper-flutter physics + streamers + sparkles), Fireworks burst, Subtle pulse, or Off. The success toast (bottom-right CTA to the new Active Client) appears regardless.',
     placement: 'left',
+    // Re-opens hamburger (no-op if still open from themes step) +
+    // expands Appearance. Closes on exit so the tour can move on.
     onEnter: ({ openHamburger }) => openHamburger({ expandAppearance: true }),
     onExit: ({ closeHamburger }) => closeHamburger(),
   },
