@@ -4,6 +4,12 @@ import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTheme } from 'next-themes'
 import { BACKDROP_THEMES, type BackdropTheme } from '@/lib/backdrop-themes'
+import {
+  SUCCESS_EFFECT_STYLES,
+  getSuccessEffectStyle,
+  setSuccessEffectStyle,
+  type SuccessEffectStyle,
+} from '@/lib/celebrate'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -135,6 +141,17 @@ export function HamburgerMenu({
   // 'Themes' header is clickable to expand/collapse so the menu
   // doesn't bloat for users not actively switching themes.
   const [themesExpanded, setThemesExpanded] = useState(false)
+  // Win celebration style picker (Dylan 2026-05-24). Live-readable
+  // from localStorage so SSR/first-paint is consistent. The picker
+  // calls setSuccessEffectStyle which writes localStorage; we mirror
+  // into state so the active-pill updates immediately without a
+  // round-trip.
+  const [successEffect, setSuccessEffectState] = useState<SuccessEffectStyle>('confetti')
+  useEffect(() => { setSuccessEffectState(getSuccessEffectStyle()) }, [])
+  function pickSuccessEffect(style: SuccessEffectStyle) {
+    setSuccessEffectStyle(style)
+    setSuccessEffectState(style)
+  }
   const ref = useRef<HTMLDivElement>(null)
   const { theme, setTheme } = useTheme()
   const [themeMounted, setThemeMounted] = useState(false)
@@ -673,6 +690,56 @@ export function HamburgerMenu({
               </div>
             </div>
           )}
+
+          {/* Win celebration picker (Dylan 2026-05-24) — sits below
+              the Themes section inside Appearance. Lets the user pick
+              what fires on the Successful status flip. Pure
+              localStorage; no backend. Defaults to 'confetti'. */}
+          <div className="pl-10 pr-4 py-3 border-t border-border/60">
+            <div className="flex items-start gap-3">
+              <span className="text-muted-foreground mt-0.5 shrink-0">
+                {/* Sparkles icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12.5px] text-foreground font-medium leading-tight mb-1">
+                  Win celebration
+                </div>
+                <div className="text-[10.5px] text-muted-foreground/85 mb-2 leading-snug">
+                  What fires when you mark an outreach Successful.
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {SUCCESS_EFFECT_STYLES.map(s => {
+                    const isActive = successEffect === s.id
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); pickSuccessEffect(s.id) }}
+                        title={s.description}
+                        className={`text-[11px] px-2 py-1 rounded border transition-colors ${
+                          isActive
+                            ? 'bg-purple-500/15 border-purple-500/40 text-foreground font-medium'
+                            : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Current selection's description as a one-liner
+                    below the chip row — gives context for the pick
+                    without needing to hover. */}
+                <div className="text-[10.5px] text-muted-foreground/70 mt-2 leading-snug">
+                  {SUCCESS_EFFECT_STYLES.find(s => s.id === successEffect)?.description}
+                </div>
+              </div>
+            </div>
+          </div>
+
             </div>
           )}
           {/* end Appearance super-item */}

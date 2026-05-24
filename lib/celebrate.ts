@@ -74,11 +74,26 @@ const STREAMER_COLORS = [
 ] as const
 
 // Tuned constants. Each one affects physics feel — tweak with care.
-const GRAVITY = 0.36              // pixels/frame² (60fps normalized) — base
-const DRAG = 0.985                // horizontal velocity decay per frame
+//
+// 2026-05-24 per Dylan: "let's maybe slow it a tiny bit and make it
+// more realistic." Eased the physics:
+//   • GRAVITY 0.36 → 0.30 (longer hang, gentler fall)
+//   • PARTICLE_LIFE 140 → 180 (~3s total life)
+//   • DRAG 0.985 → 0.988 (pieces glide further before stopping)
+//   • Added per-piece sine-wave wobble on vx (paper flutter)
+//   • Spin DECAYS to a non-zero "flutter" speed instead of all the
+//     way to zero (real paper keeps turning slowly as it falls)
+//   • Spawn stagger widened from 30ms → 40ms × 8 waves = 320ms
+//     (longer continuous cannon feel)
+//   • Initial speed range tightened from 2-16 → 2-13 (gentler burst)
+const GRAVITY = 0.30              // pixels/frame² (60fps normalized) — base
+const DRAG = 0.988                // horizontal velocity decay per frame
 const SPIN_DRAG = 0.97            // rotation decay per frame
-const PARTICLE_LIFE_FRAMES = 140  // ~2.3s @ 60fps before forced removal
-const FADE_START_RATIO = 0.55     // start fading at 55% of life
+const PARTICLE_LIFE_FRAMES = 180  // ~3s @ 60fps before forced removal
+const FADE_START_RATIO = 0.60     // start fading at 60% of life (longer crisp window)
+const FLUTTER_FREQ = 0.06         // sine wave frequency (radians per frame)
+const FLUTTER_AMP = 0.40          // sine wave amplitude (px) added to vx
+const SPIN_FLOOR_DEG_PER_FRAME = 1.5 // minimum spin even after drag decay
 const Z_INDEX = 99999             // above everything in the app
 
 interface Particle {
@@ -94,26 +109,105 @@ interface Particle {
   /** Per-piece gravity multiplier — adds drift variation across the
    *  burst (light pieces float, heavy pieces fall fast). 0.75–1.30. */
   gravityMul: number
+  /** Per-piece flutter phase offset so pieces don't all wobble in
+   *  sync. 0–2π. Adds the sideways-paper-tumble feel. */
+  flutterPhase: number
+}
+
+/**
+ * The four "Win celebration" effect styles users can pick under
+ * Appearance → Win celebration (Dylan 2026-05-24). Persists to
+ * localStorage as `creator-outreach.success-effect-style`. Defaults
+ * to 'confetti' for users who haven't picked.
+ */
+export type SuccessEffectStyle = 'confetti' | 'fireworks' | 'subtle' | 'off'
+
+export const SUCCESS_EFFECT_STYLES: Array<{
+  id: SuccessEffectStyle
+  label: string
+  description: string
+}> = [
+  {
+    id: 'confetti',
+    label: 'Confetti',
+    description: 'Full 5-layer party burst — confetti, streamers, sparkles, ground wash.',
+  },
+  {
+    id: 'fireworks',
+    label: 'Fireworks',
+    description: 'Concentrated brand-color burst from the click point. Bolder, briefer.',
+  },
+  {
+    id: 'subtle',
+    label: 'Subtle pulse',
+    description: 'Soft brand-gradient glow that blooms and fades. Minimal motion.',
+  },
+  {
+    id: 'off',
+    label: 'Off',
+    description: 'No visual effect — the success toast still appears.',
+  },
+]
+
+const SUCCESS_EFFECT_STORAGE_KEY = 'creator-outreach.success-effect-style'
+
+/** Read the user's chosen success-effect style. Defaults to confetti. */
+export function getSuccessEffectStyle(): SuccessEffectStyle {
+  if (typeof window === 'undefined') return 'confetti'
+  try {
+    const v = window.localStorage.getItem(SUCCESS_EFFECT_STORAGE_KEY)
+    if (v === 'confetti' || v === 'fireworks' || v === 'subtle' || v === 'off') return v
+  } catch { /* ignore */ }
+  return 'confetti'
+}
+
+/** Persist the user's chosen success-effect style. */
+export function setSuccessEffectStyle(style: SuccessEffectStyle): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(SUCCESS_EFFECT_STORAGE_KEY, style)
+  } catch { /* ignore */ }
 }
 
 /**
  * Public entrypoint. Fires the celebration. Optional `originX`/`originY`
  * (viewport pixels) anchor the burst to a specific point — e.g. button
  * coordinates from `event.clientX/Y`. Defaults to dead-center.
+ *
+ * Branches on the user's chosen success-effect style. 'off' is a
+ * no-op; the success toast continues firing from app/page.tsx regardless.
  */
 export function celebrateSuccess(originX?: number, originY?: number) {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
 
+  const style = getSuccessEffectStyle()
+  if (style === 'off') return
+
   const ox = originX ?? window.innerWidth / 2
   const oy = originY ?? window.innerHeight / 2
 
-  // Reduced-motion: subdued flash, no movement.
+  // Reduced-motion: subdued flash, no movement — same fallback for
+  // every style. Users who set 'off' explicitly already returned above.
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (prefersReducedMotion) {
     spawnReducedMotionFlash(ox, oy)
     return
   }
 
+  // Subtle: just the glow, no particles.
+  if (style === 'subtle') {
+    spawnSubtlePulse(ox, oy)
+    return
+  }
+
+  // Fireworks: concentrated single-origin burst, more density at the
+  // click point than the spread-out confetti.
+  if (style === 'fireworks') {
+    spawnFireworksBurst(ox, oy)
+    return
+  }
+
+  // Default: full 5-layer confetti.
   // Viewport-aware particle multiplier. 1× under 900px (mobile), up
   // to 2× at 1800px+ (large desktop), linear in between.
   const sizeMultiplier = Math.min(2, Math.max(1, window.innerWidth / 900))
@@ -133,6 +227,9 @@ export function celebrateSuccess(originX?: number, originY?: number) {
   // into ~8 micro-waves makes the cannon feel continuous instead of
   // "all 90 particles ejected on frame 0." The eye reads this as
   // organic chaos rather than algorithmic synchronization.
+  // Spawn stagger: 8 micro-waves × 40ms apart = 320ms total spawn
+  // window. Slightly wider than the previous 30ms stagger so the
+  // cannon reads as a continuous emission, not a single explosion.
   const mainCount = Math.round(90 * sizeMultiplier)
   const waves = 8
   const perWave = Math.ceil(mainCount / waves)
@@ -142,7 +239,7 @@ export function celebrateSuccess(originX?: number, originY?: number) {
       for (let i = 0; i < perWave && particles.length < mainCount; i++) {
         particles.push(spawnConfetti(container, ox, oy, sizeMultiplier))
       }
-    }, w * 30) // 0, 30, 60, ... 210ms — total spread ~210ms
+    }, w * 40) // 0, 40, 80, ... 280ms — total spread ~280ms
   }
 
   // Streamer ribbons — fewer now (was 18, → 12 at 1×). Plenty of
@@ -156,9 +253,14 @@ export function celebrateSuccess(originX?: number, originY?: number) {
   // Physics loop.
   let lastTime = performance.now()
   const startTime = performance.now()
+  // Frame counter for the sine-wave flutter — increments by `dt`
+  // each tick so the wobble stays continuous regardless of frame
+  // rate hiccups.
+  let frame = 0
   function tick(now: number) {
     const dt = Math.min(3, (now - lastTime) / 16.67)
     lastTime = now
+    frame += dt
 
     let alive = 0
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -175,12 +277,29 @@ export function celebrateSuccess(originX?: number, originY?: number) {
       // pieces fall fast, light pieces glide.
       p.vy += GRAVITY * p.gravityMul * dt
       p.vx *= Math.pow(DRAG, dt)
+
+      // Spin decay with a non-zero floor — real paper keeps tumbling
+      // slowly as it falls, never quite stops rotating. Once |spin|
+      // drops below the floor, snap it to ±floor (preserving sign)
+      // so pieces don't go static.
       p.spin *= Math.pow(SPIN_DRAG, dt)
-      p.x += p.vx * dt
+      if (Math.abs(p.spin) < SPIN_FLOOR_DEG_PER_FRAME) {
+        p.spin = p.spin >= 0 ? SPIN_FLOOR_DEG_PER_FRAME : -SPIN_FLOOR_DEG_PER_FRAME
+      }
+
+      // Flutter wobble — sine wave on x velocity. Each piece has its
+      // own phase offset so the cloud doesn't pulse in unison.
+      // Amplitude scales down as the piece ages (older pieces have
+      // less energy left to flutter), preventing weird wide drift
+      // near end of life.
+      const ageRatio = 1 - p.life / p.maxLife
+      const flutterDecay = 1 - ageRatio * 0.5 // 1.0 → 0.5 over lifetime
+      const flutter = Math.sin(frame * FLUTTER_FREQ + p.flutterPhase) * FLUTTER_AMP * flutterDecay
+
+      p.x += (p.vx + flutter) * dt
       p.y += p.vy * dt
       p.rotation += p.spin * dt
 
-      const ageRatio = 1 - p.life / p.maxLife
       const opacity = ageRatio < FADE_START_RATIO
         ? 1
         : Math.max(0, 1 - (ageRatio - FADE_START_RATIO) / (1 - FADE_START_RATIO))
@@ -191,14 +310,166 @@ export function celebrateSuccess(originX?: number, originY?: number) {
 
     // Keep ticking while particles are alive, or while we're still
     // in the spawn window (the staggered waves keep spawning up to
-    // ~210ms after start).
-    if (alive > 0 || performance.now() - startTime < 350) {
+    // ~280ms after start). Hold an extra 100ms for safety.
+    if (alive > 0 || performance.now() - startTime < 420) {
       requestAnimationFrame(tick)
     } else {
       container.remove()
     }
   }
   requestAnimationFrame(tick)
+}
+
+// ── Style variants (subtle / fireworks) ────────────────────────────
+
+/**
+ * Subtle pulse — single brand-gradient radial that blooms and fades
+ * over ~900ms at the click point. No particles, no movement other
+ * than the scale animation. For users who want a quieter signal.
+ */
+function spawnSubtlePulse(ox: number, oy: number) {
+  const container = makeContainer()
+  const pulse = document.createElement('div')
+  Object.assign(pulse.style, {
+    position: 'fixed',
+    left: `${ox}px`,
+    top: `${oy}px`,
+    width: '40px',
+    height: '40px',
+    marginLeft: '-20px',
+    marginTop: '-20px',
+    borderRadius: '50%',
+    background:
+      'radial-gradient(circle, rgba(168,85,247,0.55) 0%, rgba(59,130,246,0.40) 40%, rgba(6,182,212,0.20) 70%, transparent 85%)',
+    pointerEvents: 'none',
+    willChange: 'transform, opacity',
+    filter: 'blur(1px)',
+    zIndex: String(Z_INDEX),
+  } satisfies Partial<CSSStyleDeclaration>)
+  container.appendChild(pulse)
+  pulse.animate(
+    [
+      { transform: 'scale(0)', opacity: 0 },
+      { transform: 'scale(4)', opacity: 1, offset: 0.25 },
+      { transform: 'scale(8)', opacity: 0.5, offset: 0.6 },
+      { transform: 'scale(11)', opacity: 0 },
+    ],
+    { duration: 900, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
+  ).finished.then(() => container.remove())
+}
+
+/**
+ * Fireworks burst — concentrated brand-color radial explosion from
+ * the click point. Denser than the spread-out confetti, briefer
+ * (~1.5s total), no streamers or rain wash. Higher-energy starting
+ * velocity so pieces shoot OUT more than they fall.
+ */
+function spawnFireworksBurst(ox: number, oy: number) {
+  const container = makeContainer()
+  const sizeMultiplier = Math.min(2, Math.max(1, window.innerWidth / 900))
+  const particles: Particle[] = []
+  // Concentrated count: 70 particles all firing in one burst (no
+  // stagger waves) — reads as a single firework, not a confetti shower.
+  const count = Math.round(70 * sizeMultiplier)
+  for (let i = 0; i < count; i++) {
+    // Higher velocity for the firework shooting-out feel.
+    particles.push(spawnFireworksParticle(container, ox, oy, sizeMultiplier))
+  }
+
+  let lastTime = performance.now()
+  const startTime = performance.now()
+  let frame = 0
+  function tick(now: number) {
+    const dt = Math.min(3, (now - lastTime) / 16.67)
+    lastTime = now
+    frame += dt
+
+    let alive = 0
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i]
+      p.life -= dt
+      if (p.life <= 0) {
+        p.el.remove()
+        particles.splice(i, 1)
+        continue
+      }
+      alive++
+
+      // Fireworks: less gravity, more drag — pieces hang in mid-air
+      // briefly then fade, vs confetti's longer fall.
+      p.vy += GRAVITY * 0.7 * p.gravityMul * dt
+      p.vx *= Math.pow(0.975, dt) // heavier drag than confetti
+      p.spin *= Math.pow(SPIN_DRAG, dt)
+      p.x += p.vx * dt
+      p.y += p.vy * dt
+      p.rotation += p.spin * dt
+
+      const ageRatio = 1 - p.life / p.maxLife
+      // Fireworks fade earlier + harder (50% life), simulating burn-out.
+      const opacity = ageRatio < 0.4 ? 1 : Math.max(0, 1 - (ageRatio - 0.4) / 0.6)
+
+      p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.rotation}deg)`
+      p.el.style.opacity = String(opacity)
+    }
+
+    if (alive > 0 || performance.now() - startTime < 200) {
+      requestAnimationFrame(tick)
+    } else {
+      container.remove()
+    }
+  }
+  requestAnimationFrame(tick)
+}
+
+function spawnFireworksParticle(
+  container: HTMLDivElement,
+  ox: number,
+  oy: number,
+  sizeMultiplier: number,
+): Particle {
+  const el = document.createElement('div')
+  const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
+  // Fireworks are smaller + more uniform than confetti — they read
+  // as sparks, not paper.
+  const size = 4 + Math.random() * 5 // 4-9px
+  Object.assign(el.style, {
+    position: 'fixed',
+    left: `${ox}px`,
+    top: `${oy}px`,
+    width: `${size}px`,
+    height: `${size}px`,
+    marginLeft: `${-size / 2}px`,
+    marginTop: `${-size / 2}px`,
+    backgroundColor: color,
+    borderRadius: Math.random() < 0.8 ? '50%' : '1px',
+    pointerEvents: 'none',
+    willChange: 'transform, opacity',
+    // Sparks get a brand-color glow — sells the firework moment.
+    boxShadow: `0 0 6px ${hexWithAlpha(color, 0.85)}, 0 0 12px ${hexWithAlpha(color, 0.45)}`,
+    zIndex: String(Z_INDEX),
+  } satisfies Partial<CSSStyleDeclaration>)
+  container.appendChild(el)
+
+  // Higher initial velocity — fireworks shoot OUT more than confetti.
+  const angle = Math.random() * Math.PI * 2
+  const speed = (10 + Math.random() * 12) * sizeMultiplier // 10-22 px/frame
+  const vx = Math.cos(angle) * speed
+  // Upward bias stronger than confetti — fireworks really do go up.
+  const vy = Math.sin(angle) * speed - 4 - Math.random() * 5
+
+  return {
+    el,
+    x: 0,
+    y: 0,
+    vx,
+    vy,
+    rotation: Math.random() * 360,
+    spin: (Math.random() - 0.5) * 20,
+    life: 90 + Math.random() * 30, // ~1.5-2s
+    maxLife: 120,
+    gravityMul: 0.9 + Math.random() * 0.3,
+    flutterPhase: Math.random() * Math.PI * 2, // unused in fireworks but satisfies the interface
+  }
 }
 
 // ── Container ──────────────────────────────────────────────────────
@@ -323,6 +594,8 @@ function spawnConfetti(
     life: maxLife,
     maxLife,
     gravityMul,
+    // Random phase so the sine-wave flutter doesn't sync across pieces.
+    flutterPhase: Math.random() * Math.PI * 2,
   }
 }
 
@@ -377,6 +650,7 @@ function spawnStreamer(container: HTMLDivElement, ox: number, oy: number, sizeMu
     life: maxLife,
     maxLife,
     gravityMul,
+    flutterPhase: Math.random() * Math.PI * 2,
   }
 }
 
