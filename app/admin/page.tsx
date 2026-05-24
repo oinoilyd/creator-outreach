@@ -154,6 +154,12 @@ export default async function AdminPage() {
               <span aria-hidden>🗺️</span>Roadmap
             </Link>
             <Link
+              href="/admin/tutorial-preview"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <span aria-hidden>📚</span>Tutorials
+            </Link>
+            <Link
               href="/admin/contact"
               className={`text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border ${
                 (unresolvedContact ?? 0) > 0

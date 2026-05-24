@@ -59,6 +59,7 @@ import { DashboardInsightPill } from '@/components/billing/DashboardInsightPill'
 import { TipsAndTricksPill } from '@/components/billing/TipsAndTricksPill'
 import { TourProvider } from '@/components/tour/TourContext'
 import { Tour } from '@/components/tour/Tour'
+import { FirstRunPickerHost } from '@/components/tour/TutorialPicker'
 // Lazy-loaded modal mounts (2026-05-09). Each of these only renders
 // after a user click — there's no reason for them to ride along on
 // the initial JS bundle. Switching to next/dynamic with the named-
@@ -2737,7 +2738,7 @@ export default function Home() {
 
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
-    <TourProvider signedIn={!!userId}>
+    <TourProvider signedIn={!!userId} isAdmin={userEmail === 'dmeehanj@gmail.com'}>
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Always-on platform shade — subtle radial tint in the active
           platform color, ONLY on the Results tab. Per Dylan 2026-05-10:
@@ -4273,6 +4274,11 @@ export default function Home() {
       )}
     </main>
     <Tour />
+    {/* First-run tutorial picker — visible only for users who haven't
+        completed or skipped a tour yet. Reads `showFirstRunPicker`
+        from TourContext, which auto-fires for signed-in users after
+        the app shell has had a moment to mount. */}
+    <FirstRunPickerHost isAdmin={userEmail === 'dmeehanj@gmail.com'} />
     {/* Subtle success toast — fires when an outreach row flips to
         Successful. Lives outside <main> so its fixed position isn't
         affected by any transform-induced stacking on ancestor

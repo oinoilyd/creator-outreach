@@ -96,6 +96,9 @@ export function HamburgerMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [importExpanded, setImportExpanded] = useState(false)
+  // Tutorials sub-expander state (Dylan 2026-05-24 three-tier system).
+  // Sub-items dispatch 'tour-start' CustomEvent with the chosen tier.
+  const [tutorialsExpanded, setTutorialsExpanded] = useState(false)
   // Admin preview mode — only meaningful when the signed-in user is
   // the admin. Toggling it on hides admin-only menu items so the
   // admin can see exactly what a normal user sees in the menu.
@@ -162,6 +165,7 @@ export function HamburgerMenu({
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false)
         setImportExpanded(false)
+        setTutorialsExpanded(false)
       }
     }
     if (open) document.addEventListener('mousedown', handleClick)
@@ -325,25 +329,71 @@ export function HamburgerMenu({
             </button>
           )}
 
-          {/* Take a tour — replays the first-run product walkthrough.
-              Always available so users can revisit the spine without
-              digging through docs. */}
+          {/* Tutorials — three tiers (Dylan 2026-05-24). Replaces the
+              former single "Take a tour" entry. Expander row with the
+              graduation-cap icon; sub-items dispatch 'tour-start' with
+              the tier as detail. The TourContext picks up the event and
+              loads the matching step list. */}
           {onStartTour && (
-            <button
-              onClick={() => { onStartTour(); setOpen(false) }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
-            >
-              <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <div className="text-[12.5px] text-foreground font-medium leading-tight">Take a tour</div>
-              </div>
-              <ChevronRight />
-            </button>
+            <>
+              <button
+                onClick={() => setTutorialsExpanded(v => !v)}
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
+              >
+                <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                  </svg>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12.5px] text-foreground font-medium leading-tight">Tutorials</div>
+                </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-muted-foreground shrink-0 transition-all ${tutorialsExpanded ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                ><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {tutorialsExpanded && (
+                <div className="bg-muted/30 border-y border-border/40 relative">
+                  <div className="absolute left-6 top-0 bottom-0 w-px bg-border/60" aria-hidden="true" />
+                  {(['short', 'pro', 'granular'] as const).map(t => {
+                    const meta = {
+                      short:    { label: 'Quick tour',  duration: '~90s' },
+                      pro:      { label: 'Pro tour',    duration: '~4 min' },
+                      granular: { label: 'Deep dive',   duration: '~8 min' },
+                    }[t]
+                    const dotColor = {
+                      short:    'bg-emerald-500',
+                      pro:      'bg-purple-500',
+                      granular: 'bg-amber-500',
+                    }[t]
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('tour-start', { detail: { tier: t } }))
+                          setOpen(false)
+                          setTutorialsExpanded(false)
+                        }}
+                        className="w-full pl-10 pr-4 py-2.5 text-left hover:bg-muted transition-colors block group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span aria-hidden className={`inline-block w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] text-foreground leading-tight">{meta.label}</div>
+                            <div className="text-[10.5px] text-muted-foreground mt-0.5">{meta.duration}</div>
+                          </div>
+                          <ChevronRight />
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
 
           {/* Import (expandable) */}

@@ -2,44 +2,71 @@
 
 /**
  * TourContext — global tour state. Owns the open/closed flag, the
- * current step index, persistence, and the navigation bridge to
- * the app shell.
+ * current step index, the active tier, persistence, and the
+ * navigation bridge to the app shell.
+ *
+ * Three-tier system (Dylan 2026-05-24):
+ *   - First-run flow: app/page.tsx surfaces the TutorialPicker before
+ *     auto-starting the tour. The picker calls start(tier).
+ *   - Hamburger sub-menu: emits 'tour-start' CustomEvent with detail
+ *     `{ tier }`. We honor whichever tier the user picked, default
+ *     to 'short' if missing.
  *
  * Navigation bridge:
  *   Tour steps can fire onEnter({ navigate }) which needs to change
  *   the app's active tab/sub-tab. Rather than threading state setters
  *   through the tree, we dispatch a CustomEvent ('tour-navigate')
- *   that app/page.tsx already listens for. Same pattern as the
- *   existing 'goto-active-client' / 'promote-outreach-to-active'
- *   events.
+ *   that app/page.tsx already listens for.
  *
  * Persistence:
- *   localStorage 'creator-outreach.tour.v1.status':
- *     null/missing  → never seen, auto-open on first load
- *     'skipped'     → user dismissed; don't auto-open again
- *     'completed'   → user finished; don't auto-open again
- *   Either way, the hamburger menu item re-opens manually.
+ *   localStorage 'creator-outreach.tour.v2.status':
+ *     null/missing     → never seen, show first-run picker
+ *     'skipped'        → user dismissed; don't auto-show picker
+ *     'completed:tier' → user finished a specific tier; remember it
+ *                        so the hamburger replay default is sensible
+ *   Hamburger menu always lets the user replay any tier.
+ *
+ * The v1 → v2 storage key bump is intentional: users who already
+ * completed the old single-tier tour get re-prompted with the new
+ * picker once. After that, their tier choice sticks.
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { TOUR_STEPS, type TourStep } from './tourSteps'
+import type { TourStep } from './tourSteps'
+import { stepsForTier } from './tourSteps'
+import type { TutorialTier } from '@/lib/tutorial-catalog'
 
-const LS_KEY = 'creator-outreach.tour.v1.status'
+const LS_KEY = 'creator-outreach.tour.v2.status'
 
-type TourStatus = 'never' | 'skipped' | 'completed'
+type TourStatus =
+  | 'never'
+  | 'skipped'
+  | { kind: 'completed'; tier: TutorialTier }
 
 interface TourContextValue {
   isOpen: boolean
+  /** Whether the first-run picker should be visible. False once the
+   *  user has picked a tier OR explicitly skipped. */
+  showFirstRunPicker: boolean
   stepIndex: number
   step: TourStep | null
   isFirstStep: boolean
   isLastStep: boolean
   steps: TourStep[]
-  start: () => void
+  /** Currently-active tier — drives which step array is in use. */
+  tier: TutorialTier
+  /** Start a tour for a specific tier. Pass from the picker or
+   *  hamburger sub-menu. */
+  start: (tier?: TutorialTier) => void
   next: () => void
   prev: () => void
   skip: () => void
   close: () => void
+  /** Dismiss the first-run picker without starting a tour. */
+  dismissFirstRunPicker: () => void
+  /** The tier the user most recently completed, if any. Used by the
+   *  hamburger sub-menu to highlight "your last pick" visually. */
+  lastCompletedTier: TutorialTier | null
 }
 
 const TourContext = createContext<TourContextValue | null>(null)
@@ -53,7 +80,10 @@ export function useTour(): TourContextValue {
 }
 
 /** Dispatch a tour navigation request — app/page.tsx picks this up. */
-function dispatchNavigate(tab: 'results' | 'outreach' | 'dismissed', sub?: 'all' | 'analytics' | 'followups' | 'active'): void {
+function dispatchNavigate(
+  tab: 'results' | 'outreach' | 'dismissed',
+  sub?: 'all' | 'analytics' | 'followups' | 'active',
+): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('tour-navigate', { detail: { tab, sub } }))
 }
@@ -62,88 +92,129 @@ function readStatus(): TourStatus {
   if (typeof window === 'undefined') return 'never'
   try {
     const raw = window.localStorage.getItem(LS_KEY)
-    if (raw === 'skipped' || raw === 'completed') return raw
+    if (!raw) return 'never'
+    if (raw === 'skipped') return 'skipped'
+    // 'completed:short' / 'completed:pro' / 'completed:granular'
+    if (raw.startsWith('completed:')) {
+      const tier = raw.slice('completed:'.length) as TutorialTier
+      if (tier === 'short' || tier === 'pro' || tier === 'granular') {
+        return { kind: 'completed', tier }
+      }
+    }
+    // Legacy 'completed' from the v1 single-tier tour. Treat as
+    // never-seen so the user gets the new picker.
   } catch { /* ignore */ }
   return 'never'
 }
 
 function writeStatus(status: TourStatus): void {
   if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(LS_KEY, status) } catch { /* ignore */ }
+  try {
+    if (status === 'never') {
+      window.localStorage.removeItem(LS_KEY)
+    } else if (status === 'skipped') {
+      window.localStorage.setItem(LS_KEY, 'skipped')
+    } else {
+      window.localStorage.setItem(LS_KEY, `completed:${status.tier}`)
+    }
+  } catch { /* ignore */ }
 }
 
 interface TourProviderProps {
-  /** Whether the user is signed in. We only auto-open the tour for
+  /** Whether the user is signed in. We only auto-open the picker for
    *  signed-in users (no point showing it on auth pages). */
   signedIn: boolean
+  /** Whether the user is an admin. Filters admin-only steps. */
+  isAdmin?: boolean
   children: React.ReactNode
 }
 
-export function TourProvider({ signedIn, children }: TourProviderProps) {
+export function TourProvider({ signedIn, isAdmin = false, children }: TourProviderProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)
+  const [tier, setTier] = useState<TutorialTier>('short')
+  const [showFirstRunPicker, setShowFirstRunPicker] = useState(false)
+  const [lastCompletedTier, setLastCompletedTier] = useState<TutorialTier | null>(null)
 
-  // Auto-open on first visit for signed-in users. Slight delay so the
-  // app shell renders first and the platform/search/etc anchors are
-  // mounted before the tooltip tries to find them.
+  // Compute the active step list each render based on the active
+  // tier + admin status. Memoized so identity is stable when neither
+  // input changed.
+  const steps = useMemo(() => stepsForTier(tier, { isAdmin }), [tier, isAdmin])
+
+  // Auto-show the first-run picker on first visit for signed-in users.
+  // Slight delay so the app shell renders first (the picker is
+  // centered modal — doesn't need anchors — but a smoother first-paint
+  // experience).
   useEffect(() => {
     if (!signedIn) return
-    if (readStatus() !== 'never') return
-    const t = window.setTimeout(() => {
-      setStepIndex(0)
-      setIsOpen(true)
-    }, 800)
+    const status = readStatus()
+    if (status !== 'never') {
+      // Remember the user's last tier choice so hamburger highlights it.
+      if (typeof status === 'object' && status.kind === 'completed') {
+        setLastCompletedTier(status.tier)
+      }
+      return
+    }
+    const t = window.setTimeout(() => setShowFirstRunPicker(true), 800)
     return () => window.clearTimeout(t)
   }, [signedIn])
 
   // Manual trigger via CustomEvent — same pattern as the navigation
-  // bridge. Lets the hamburger menu re-open the tour without prop-
-  // drilling the start function through the component tree.
+  // bridge. Hamburger sub-menu emits this with the user's chosen tier.
   useEffect(() => {
-    function onStart() {
+    function onStart(ev: Event) {
+      const detail = (ev as CustomEvent<{ tier?: TutorialTier }>).detail
+      const requested = detail?.tier
+      const next: TutorialTier =
+        requested === 'short' || requested === 'pro' || requested === 'granular'
+          ? requested
+          : (lastCompletedTier ?? 'short')
+      setTier(next)
       setStepIndex(0)
+      setShowFirstRunPicker(false)
       setIsOpen(true)
     }
-    window.addEventListener('tour-start', onStart)
-    return () => window.removeEventListener('tour-start', onStart)
-  }, [])
+    window.addEventListener('tour-start', onStart as EventListener)
+    return () => window.removeEventListener('tour-start', onStart as EventListener)
+  }, [lastCompletedTier])
 
   // Run the current step's onEnter side-effect (e.g. switch tabs).
-  // Wrapped in a separate effect so going back/forward both fire it.
   useEffect(() => {
     if (!isOpen) return
-    const step = TOUR_STEPS[stepIndex]
+    const step = steps[stepIndex]
     if (!step) return
     step.onEnter?.({ navigate: dispatchNavigate })
-  }, [isOpen, stepIndex])
+  }, [isOpen, stepIndex, steps])
 
-  // Lock body scroll while tour is open — the spotlight overlay
-  // assumes the page doesn't move underneath it. Without this, a
-  // mid-scroll click during animation could land on a different
-  // element than the spotlight is highlighting.
+  // Lock body scroll while tour or picker is open — the spotlight
+  // overlay assumes the page doesn't move underneath it.
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen && !showFirstRunPicker) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
-  }, [isOpen])
+  }, [isOpen, showFirstRunPicker])
 
-  const start = useCallback(() => {
+  const start = useCallback((startTier?: TutorialTier) => {
+    setTier(startTier ?? 'short')
     setStepIndex(0)
+    setShowFirstRunPicker(false)
     setIsOpen(true)
   }, [])
 
   const next = useCallback(() => {
     setStepIndex(i => {
-      const ni = Math.min(i + 1, TOUR_STEPS.length - 1)
-      // If we're past the last step, treat next as Finish.
-      if (i >= TOUR_STEPS.length - 1) {
+      const lastIdx = steps.length - 1
+      if (i >= lastIdx) {
+        // Past the last step — finish.
         setIsOpen(false)
-        writeStatus('completed')
+        writeStatus({ kind: 'completed', tier })
+        setLastCompletedTier(tier)
+        return i
       }
-      return ni
+      return Math.min(i + 1, lastIdx)
     })
-  }, [])
+  }, [steps, tier])
 
   const prev = useCallback(() => {
     setStepIndex(i => Math.max(0, i - 1))
@@ -157,23 +228,40 @@ export function TourProvider({ signedIn, children }: TourProviderProps) {
   const close = useCallback(() => {
     setIsOpen(false)
     // Closing isn't the same as skipping — if they got to the final
-    // step, we count it as completed; otherwise it's a skip.
-    writeStatus(stepIndex >= TOUR_STEPS.length - 1 ? 'completed' : 'skipped')
-  }, [stepIndex])
+    // step, count it as completed; otherwise as a skip.
+    if (stepIndex >= steps.length - 1) {
+      writeStatus({ kind: 'completed', tier })
+      setLastCompletedTier(tier)
+    } else {
+      writeStatus('skipped')
+    }
+  }, [stepIndex, steps, tier])
+
+  const dismissFirstRunPicker = useCallback(() => {
+    setShowFirstRunPicker(false)
+    writeStatus('skipped')
+  }, [])
 
   const value = useMemo<TourContextValue>(() => ({
     isOpen,
+    showFirstRunPicker,
     stepIndex,
-    step: TOUR_STEPS[stepIndex] ?? null,
+    step: steps[stepIndex] ?? null,
     isFirstStep: stepIndex === 0,
-    isLastStep: stepIndex >= TOUR_STEPS.length - 1,
-    steps: TOUR_STEPS,
+    isLastStep: stepIndex >= steps.length - 1,
+    steps,
+    tier,
     start,
     next,
     prev,
     skip,
     close,
-  }), [isOpen, stepIndex, start, next, prev, skip, close])
+    dismissFirstRunPicker,
+    lastCompletedTier,
+  }), [
+    isOpen, showFirstRunPicker, stepIndex, steps, tier, start, next, prev,
+    skip, close, dismissFirstRunPicker, lastCompletedTier,
+  ])
 
   return (
     <TourContext.Provider value={value}>
