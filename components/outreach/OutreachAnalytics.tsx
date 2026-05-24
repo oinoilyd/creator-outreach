@@ -197,8 +197,8 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
             <button
               type="button"
               onClick={() => setShowSettings(v => !v)}
-              title="Analytics settings"
-              aria-label="Analytics settings"
+              title="Export analytics (or customize metrics)"
+              aria-label="Export options"
               aria-expanded={showSettings}
               className={`flex items-center justify-center w-9 h-9 rounded-lg border transition-colors ${
                 showSettings
@@ -206,9 +206,12 @@ export function OutreachAnalytics({ entries, customMetrics, onOpenCustomize, onE
                   : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 hover:border-border/80'
               }`}
             >
+              {/* Download tray icon — Dylan 2026-05-24: matches the
+                  same change in the Results / Outreach export menu.
+                  Gear icon was misleading (this menu is 2/3 export
+                  actions). */}
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
             </button>
             {showSettings && (
