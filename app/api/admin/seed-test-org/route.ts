@@ -161,8 +161,19 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (orgErr || !orgRow) {
-    console.error('[seed-test-org] org insert failed', orgErr)
-    return NextResponse.json({ error: 'org insert failed', detail: orgErr?.message }, { status: 500 })
+    // Include code + hint when Postgres gives them — speeds up
+    // diagnosis vs the generic "org insert failed."
+    const code = (orgErr as { code?: string } | null)?.code
+    const hint = (orgErr as { hint?: string } | null)?.hint
+    const fullDetail = orgErr
+      ? `${orgErr.message}${code ? ` (code: ${code})` : ''}`
+      : 'insert returned no row'
+    console.error('[seed-test-org] org insert failed', { code, message: orgErr?.message, hint, details: (orgErr as { details?: string } | null)?.details })
+    return NextResponse.json({
+      error: 'org insert failed',
+      detail: fullDetail,
+      hint: hint ?? undefined,
+    }, { status: 500 })
   }
   const orgId = (orgRow as { id: string }).id
 

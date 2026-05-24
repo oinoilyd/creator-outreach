@@ -75,10 +75,20 @@ async function runSeedTestTeam() {
       organization_name?: string
       fixtures?: Array<{ email: string; role: string; password: string }>
       error?: string
+      detail?: string
+      hint?: string
     } = {}
     try { data = JSON.parse(text) } catch { /* ignore */ }
     if (!res.ok || !data.ok) {
-      alert(`Seed test team failed: ${data.error || `HTTP ${res.status}`}`)
+      // Surface the FULL error so Dylan can copy/paste it back to me.
+      // Includes detail (the SQL error message) + hint when present.
+      const lines = [`Seed test team failed.`]
+      lines.push(`Error: ${data.error || `HTTP ${res.status}`}`)
+      if (data.detail) lines.push(`Detail: ${data.detail}`)
+      if (data.hint) lines.push(`Hint: ${data.hint}`)
+      lines.push('')
+      lines.push('Copy this whole message + send to Claude for diagnosis.')
+      alert(lines.join('\n'))
       return
     }
     const credsBlock = (data.fixtures ?? [])
