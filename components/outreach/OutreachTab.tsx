@@ -1,13 +1,17 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { OutreachEntry, OutreachColConfig, UserProfile } from '@/lib/types'
 import { TrashIcon } from '@/components/ui'
 import { AnimatedRow } from '@/components/AnimatedRow'
 import { ColumnContextMenu } from '@/components/creators/ColumnContextMenu'
 import { renderOutreachCell } from '@/components/outreach/renderOutreachCell'
+import { TeamFilterBar, ASSIGNEE_FILTER_ALL, ASSIGNEE_FILTER_MINE, type AssigneeFilter } from '@/components/team/TeamFilterBar'
+import { AssigneeBadge } from '@/components/team/AssigneeBadge'
+import { reassignOutreach, type TeamMember } from '@/lib/team-client'
+import { canAssignToOthers, type OrganizationRole } from '@/lib/team'
 
-export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant, onOpenEntry, recentlyAddedIds, onClearRecentlyAdded, interactedNewIds, onMarkNewInteracted }: {
+export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCustomize, onReorderCols, onOpenManualAdd, onSearchContacts, searchingIds, onSearchAll, bulkRunning, profile, emptyVariant, onOpenEntry, recentlyAddedIds, onClearRecentlyAdded, interactedNewIds, onMarkNewInteracted, teamMembers, teamRole, currentUserId, onReassigned }: {
   entries: OutreachEntry[]
   colConfig: OutreachColConfig[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
@@ -40,6 +44,16 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
    *  pinned-new row. Parent records the id so the highlight stops
    *  rendering on subsequent re-renders. */
   onMarkNewInteracted: (id: string) => void
+  /** Team-aware UI (Dylan 2026-05-26).
+   *  When user is in an org, parent passes the member list + the
+   *  viewer's role so we can render the filter bar + assignment
+   *  badges + reassign popovers. Empty array / null when individual. */
+  teamMembers?: TeamMember[]
+  teamRole?: OrganizationRole | null
+  currentUserId?: string | null
+  /** Called after a successful reassignment so the parent can refetch
+   *  outreach + show the row in its new bucket. */
+  onReassigned?: () => void
 }) {
   // Favorites sorting: the ★ column header is clickable like any
   // other sortable header. First click puts favorites at the top
@@ -117,6 +131,42 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
 
   const totalWidth = visibleCols.reduce((sum, c) => sum + (widths[c.id as string] ?? c.defaultWidth), 0) + 36
 
+  // ── Team filter (Dylan 2026-05-26) ────────────────────────────────────
+  // When the user is in an org we surface a pill bar above the table:
+  // "All team / Mine / [each member]". Filter is applied BEFORE sort
+  // so the assignee filter doesn't fight with custom sorts.
+  const isTeam = (teamMembers?.length ?? 0) > 0
+  const canAssign = canAssignToOthers(teamRole ?? null)
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>(ASSIGNEE_FILTER_ALL)
+
+  const filteredEntries = useMemo(() => {
+    if (!isTeam || assigneeFilter === ASSIGNEE_FILTER_ALL) return entries
+    if (assigneeFilter === ASSIGNEE_FILTER_MINE) {
+      return entries.filter(e => e.assignedToUserId === currentUserId)
+    }
+    return entries.filter(e => e.assignedToUserId === assigneeFilter)
+  }, [entries, isTeam, assigneeFilter, currentUserId])
+
+  // Counts per bucket for the filter pills.
+  const filterCounts = useMemo(() => {
+    const byUser: Record<string, number> = {}
+    let mine = 0
+    for (const e of entries) {
+      if (e.assignedToUserId) {
+        byUser[e.assignedToUserId] = (byUser[e.assignedToUserId] ?? 0) + 1
+        if (e.assignedToUserId === currentUserId) mine++
+      }
+    }
+    return { all: entries.length, mine, byUser }
+  }, [entries, currentUserId])
+
+  async function handleReassign(entryId: string, newAssigneeUserId: string) {
+    const ok = await reassignOutreach(entryId, newAssigneeUserId)
+    if (ok) {
+      onReassigned?.()
+    }
+  }
+
   // Sort entries by the active column. Empty values always go to the bottom.
   // After sorting, recently-added rows are hoisted to the top in the order
   // they were added (regardless of the active sort) — see prevEntryIdsRef
@@ -125,12 +175,12 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
   const sortedEntries = (() => {
     let result: OutreachEntry[]
     if (!sort.col) {
-      result = entries
+      result = filteredEntries
     } else {
       const col = sort.col
       const dir = sort.dir === 'asc' ? 1 : -1
       const numericCols: (keyof OutreachEntry)[] = ['avgViews', 'fitScore', 'addedAt', 'touchpoints']
-      result = [...entries].sort((a, b) => {
+      result = [...filteredEntries].sort((a, b) => {
         const va = a[col]
         const vb = b[col]
         const aEmpty = va == null || va === '' || va === false
@@ -223,6 +273,20 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
 
   return (
     <div>
+      {/* Team filter pill row — only renders when user is in an org.
+          Owner/Admin filter the table by assignee; Members never see
+          the bar since RLS already filters them down to their rows. */}
+      {isTeam && canAssign && (
+        <div className="mb-3">
+          <TeamFilterBar
+            members={teamMembers ?? []}
+            selected={assigneeFilter}
+            onChange={setAssigneeFilter}
+            currentUserId={currentUserId ?? null}
+            counts={filterCounts}
+          />
+        </div>
+      )}
       <div className="flex justify-end gap-2 mb-3">
         <button onClick={onOpenManualAdd} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded px-3 py-1.5 transition-colors">
           <span className="text-base leading-none">+</span> Add manually
@@ -451,8 +515,20 @@ export function OutreachTab({ entries, colConfig, onUpdate, onRemove, onOpenCust
                     {renderOutreachCell(col, e, onUpdate, profile, searchingIds.has(e.id), onSearchContacts)}
                   </td>
                 ))}
-                <td className="px-3 py-2 align-top whitespace-nowrap" style={{ width: 60 }}>
-                  <div className="flex items-center gap-2">
+                <td className="px-3 py-2 align-top whitespace-nowrap" style={{ width: isTeam ? 220 : 60 }}>
+                  <div className="flex items-center gap-2 justify-end">
+                    {/* Assignee badge (team mode only). Clickable for
+                        Owner/Admin → reassign popover. Static badge
+                        for Members. */}
+                    {isTeam && (teamMembers?.length ?? 0) > 0 && (
+                      <AssigneeBadge
+                        assignedToUserId={e.assignedToUserId ?? null}
+                        members={teamMembers ?? []}
+                        canAssign={canAssign}
+                        currentUserId={currentUserId ?? null}
+                        onReassign={(newAssigneeUserId) => handleReassign(e.id, newAssigneeUserId)}
+                      />
+                    )}
                     {onOpenEntry && (
                       <button
                         onClick={() => onOpenEntry(e.id)}

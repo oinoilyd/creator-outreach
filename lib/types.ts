@@ -212,6 +212,16 @@ export interface OutreachEntry {
    *  "Personal Revenue" metric (Total Booked − sum of collaborator
    *  shares). Migration 0032. */
   clientCollaborators?: ClientCollaborator[]
+  /** Team / organization fields (migration 0035).
+   *  organizationId: NULL for individual users; set when row belongs
+   *  to a team org. createdByUserId: who originally added the row.
+   *  assignedToUserId: who's currently responsible (Owner/Admin can
+   *  reassign; Members only see rows where this matches them OR where
+   *  they're the creator). All optional so individual users with the
+   *  old schema continue to load cleanly. */
+  organizationId?: string | null
+  createdByUserId?: string | null
+  assignedToUserId?: string | null
 }
 
 /** Single collaborator on an active-client engagement.

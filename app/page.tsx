@@ -244,6 +244,19 @@ export default function Home() {
     role: 'owner' | 'admin' | 'member' | null
   } | null>(null)
 
+  // Team members (populated when teamContext.mode === 'team'). Used
+  // by OutreachTab + active clients for the filter pills + reassign
+  // popovers. Empty array for individual users (no team UI rendered).
+  const [teamMembers, setTeamMembers] = useState<import('@/lib/team-client').TeamMember[]>([])
+
+  // Ref to a function that refetches outreach. Set inside the main
+  // load effect so it closes over the live setOutreach. Called by
+  // reloadOutreach() below + the team reassign callback.
+  const reloadOutreachRef = useRef<(() => Promise<void>) | null>(null)
+  const reloadOutreach = useCallback(async () => {
+    if (reloadOutreachRef.current) await reloadOutreachRef.current()
+  }, [])
+
   // Listen for the "Add to Active Clients" CTA in LeadDetailModal —
   // routes the user to the Outreach → Active Clients sub-tab and
   // pre-opens the engagement detail modal for the dispatched entry id.
@@ -1163,15 +1176,27 @@ export default function Home() {
 
         // Team context — fire-and-forget. Failure is non-fatal; the
         // hamburger just won't show the team entry until next page load.
+        // Also fetch team members so OutreachTab can render the
+        // assignee filter + reassign popovers without a roundtrip on
+        // first interaction.
         fetch('/api/team/context')
           .then(r => r.json())
-          .then(data => setTeamContext({
-            mode: data.mode === 'team' ? 'team' : 'individual',
-            organization: data.organization
-              ? { id: data.organization.id, name: data.organization.name }
-              : null,
-            role: data.role ?? null,
-          }))
+          .then(async data => {
+            setTeamContext({
+              mode: data.mode === 'team' ? 'team' : 'individual',
+              organization: data.organization
+                ? { id: data.organization.id, name: data.organization.name }
+                : null,
+              role: data.role ?? null,
+            })
+            if (data.mode === 'team') {
+              // Hydrate the member list. Soft-fails to empty array so
+              // the team UI just doesn't render until next try.
+              const { fetchTeamMembers } = await import('@/lib/team-client')
+              const mRes = await fetchTeamMembers()
+              if (mRes?.members) setTeamMembers(mRes.members)
+            }
+          })
           .catch(() => setTeamContext({ mode: 'individual', organization: null, role: null }))
 
         // Migration-tolerant profile load. The template columns
@@ -1412,6 +1437,14 @@ export default function Home() {
       const storedOutreach = await getOutreach()
       setOutreach(storedOutreach)
       setOutreachIds(new Set(storedOutreach.map(e => e.channelId)))
+
+      // Bind a reloader the team-aware UI can call after a reassign
+      // so the row appears in its new bucket without a full page
+      // refresh. Defined here so it closes over the same setters.
+      reloadOutreachRef.current = async () => {
+        const fresh = await getOutreach()
+        setOutreach(fresh)
+      }
 
       // Per-platform Outreach column configs. The shape is
       // `Partial<Record<PlatformId, OutreachColConfig[]>>` — any
@@ -4054,6 +4087,10 @@ export default function Home() {
                 onClearRecentlyAdded={clearRecentlyAdded}
                 interactedNewIds={interactedNewIds}
                 onMarkNewInteracted={markNewInteracted}
+                teamMembers={teamMembers}
+                teamRole={teamContext?.role ?? null}
+                currentUserId={userId}
+                onReassigned={() => { void reloadOutreach() }}
               />
               </div>
             )}

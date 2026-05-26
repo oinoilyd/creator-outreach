@@ -114,6 +114,11 @@ function rowToOutreach(r: any): OutreachEntry {
     clientCollaborators: Array.isArray(r.client_collaborators)
       ? (r.client_collaborators as ClientCollaborator[])
       : [],
+    // Team fields (migration 0035). Read-tolerant: undefined for
+    // legacy rows or individual users whose DB hasn't been migrated.
+    organizationId: r.organization_id ?? null,
+    createdByUserId: r.created_by_user_id ?? null,
+    assignedToUserId: r.assigned_to_user_id ?? null,
   }
 }
 
