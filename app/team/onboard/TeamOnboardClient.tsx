@@ -62,6 +62,25 @@ export function TeamOnboardClient() {
         Start the Team plan: <strong>{formatPriceCents(TEAM_BASE_PRICE_CENTS)}/mo</strong> for {TEAM_BASE_SEATS} seats, then{' '}
         <strong>{formatPriceCents(TEAM_SEAT_PRICE_CENTS)}/mo</strong> per extra seat. 7-day free trial.
       </p>
+
+      {/* Reassurance banner — Dylan flagged 2026-05-26 that the
+          original copy ("existing outreach will be migrated") was
+          ambiguous. Explicit list of what carries over + confirmation
+          that canceling the individual sub first is safe. */}
+      <div className="mb-6 p-3 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40">
+        <div className="text-xs font-semibold text-emerald-900 dark:text-emerald-100 mb-1">
+          Your pipeline carries over — fully
+        </div>
+        <ul className="text-xs text-emerald-800 dark:text-emerald-200 space-y-0.5 ml-3 list-disc">
+          <li>All <strong>outreach entries</strong> (every status, every stage)</li>
+          <li>All <strong>active client engagements</strong> (budgets, contracts, notes, milestones)</li>
+          <li>Favorites, dismissed creators, templates, and your scoring config</li>
+        </ul>
+        <div className="text-[11px] text-emerald-700 dark:text-emerald-300/90 mt-2">
+          Canceling your individual subscription first <strong>does not delete any data</strong> — it just stops the individual billing. When you create the team, everything moves into the new org with you as Owner.
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit}>
         <label className="block">
           <span className="text-xs font-medium text-foreground/80 uppercase tracking-wider">Team name</span>
@@ -85,12 +104,17 @@ export function TeamOnboardClient() {
           <div className="mt-4 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40">
             <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
             {requiresCancel && (
-              <a
-                href="/billing/sync"
-                className="inline-block mt-2 text-xs font-medium text-red-900 dark:text-red-100 underline"
-              >
-                Manage individual subscription →
-              </a>
+              <>
+                <p className="text-xs text-red-700 dark:text-red-300 mt-2">
+                  Your outreach + active clients are safe — they&apos;ll migrate when you create the team.
+                </p>
+                <a
+                  href="/pricing"
+                  className="inline-block mt-2 text-xs font-medium text-red-900 dark:text-red-100 underline"
+                >
+                  Manage individual subscription →
+                </a>
+              </>
             )}
           </div>
         )}
@@ -105,7 +129,6 @@ export function TeamOnboardClient() {
       </form>
 
       <p className="text-xs text-muted-foreground/70 mt-6">
-        Your existing outreach data will be migrated into the new team.
         You&apos;ll be set as Owner. Cancel anytime from billing.
       </p>
     </div>
