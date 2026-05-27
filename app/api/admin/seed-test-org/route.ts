@@ -26,6 +26,11 @@ import type { OrganizationRole } from '@/lib/team'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// /api/search call inside the rebuild can take 20-40s. Without this
+// Vercel kills the function at 10s (hobby) or 60s (default), and we
+// land in the synthetic fallback path even when search would have
+// worked.
+export const maxDuration = 60
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -327,45 +332,184 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ----- STEP 6: Seed outreach rows for each member. -----
-  // Owner gets 3, Admin gets 2, each Member gets 2.
-  // Plus one cross-role row: Owner-created, Member-assigned.
-  const seedRows: Array<Record<string, unknown>> = []
-  let i = 0
-  for (const fixture of created) {
-    const count = fixture.role === 'owner' ? 3 : 2
-    for (let r = 0; r < count; r++) {
-      i++
-      seedRows.push({
-        user_id: fixture.userId,
-        organization_id: orgId,
-        created_by_user_id: fixture.userId,
-        assigned_to_user_id: fixture.userId,
-        channel_id: `seed-${orgId.slice(0, 8)}-${i}`,
-        channel_name: `Seed Creator ${i} (${fixture.fullName})`,
-        channel_url: `https://youtube.com/@seed-creator-${i}`,
-        id: `seed-${orgId.slice(0, 8)}-${i}`,
-        status: r === 0 ? 'Open' : '',
-        medium: 'Email',
-        notes: `Seeded for ${fixture.role} role testing.`,
+  // ----- STEP 6: Seed REAL outreach rows for each fixture user. -----
+  // Dylan 2026-05-26 — synthetic "Seed Creator N" rows were useless
+  // for actually testing the team UX. We now call /api/search for a
+  // single niche (finance content creators) and distribute the
+  // results across the 5 fixtures with realistic statuses, dates,
+  // and a few active-client engagements.
+  //
+  // Auth posture: Dylan (the admin caller) made the request, so we
+  // forward his cookie to /api/search — it runs as him, hitting the
+  // normal scoring + cache + circuit-breaker path. The returned
+  // channels are inserted under fixture user_ids though, so the
+  // sandbox team owns the rows.
+  //
+  // If /api/search fails (rate-limited, no quota, etc.) we fall back
+  // to a small synthetic seed so the sandbox still has SOMETHING.
+  const SEED_KEYWORD = 'finance content creator'
+  const TOTAL_REAL = 50
+  const baseUrl = (() => {
+    const host = req.headers.get('host')
+    const raw = process.env.NEXT_PUBLIC_SITE_URL || (host ? `https://${host}` : '')
+    return raw.replace(/\/+$/, '')
+  })()
+
+  type SeedCreator = {
+    channelId: string
+    channelName: string
+    channelUrl: string
+    description?: string
+    email?: string
+    subscribers?: string
+    avgViews?: number
+    linkedin?: string
+    instagram?: string
+    twitter?: string
+    tiktok?: string
+    website?: string
+  }
+
+  let realChannels: SeedCreator[] = []
+  if (baseUrl) {
+    try {
+      const url = new URL(`${baseUrl}/api/search`)
+      url.searchParams.set('keyword', SEED_KEYWORD)
+      url.searchParams.set('maxResults', String(TOTAL_REAL))
+      url.searchParams.set('minViews', '0')
+      url.searchParams.set('maxViews', '999999999')
+      const searchRes = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { cookie: req.headers.get('cookie') || '' },
+        cache: 'no-store',
       })
+      if (searchRes.ok) {
+        const data = await searchRes.json().catch(() => null)
+        if (data && Array.isArray(data.channels)) {
+          realChannels = data.channels.slice(0, TOTAL_REAL) as SeedCreator[]
+        }
+      }
+    } catch (err) {
+      console.warn('[seed-test-org] real search failed, falling back to synthetic', err)
     }
   }
+
+  // Distribute creators across fixtures. Owner created all of them
+  // (most realistic — Owner sources leads then delegates) and we
+  // round-robin the assigned_to across all 5 users so each has a
+  // real workload. ~6 of the 50 also become Successful active
+  // clients with budget data.
   const owner = created.find(c => c.role === 'owner')!
   const firstMember = created.find(c => c.role === 'member')!
-  seedRows.push({
-    user_id: owner.userId,
-    organization_id: orgId,
-    created_by_user_id: owner.userId,
-    assigned_to_user_id: firstMember.userId,
-    channel_id: `seed-${orgId.slice(0, 8)}-assigned`,
-    channel_name: 'Cross-assigned: Owner→Member',
-    channel_url: 'https://youtube.com/@seed-cross-assigned',
-    id: `seed-${orgId.slice(0, 8)}-assigned`,
-    status: 'Open',
-    medium: 'Email',
-    notes: `Owner created, assigned to ${firstMember.fullName}. Tests cross-user assignment visibility.`,
-  })
+  const now = Date.now()
+
+  function pickStatus(idx: number): { status: string; reachedOut: boolean; isActiveClient: boolean } {
+    // First 6 become Successful → some will be Active Clients.
+    if (idx < 6) return { status: 'Successful', reachedOut: true, isActiveClient: true }
+    // Next chunk: Open / Reached Out / No Response / Rejected mix.
+    const cycle = idx % 5
+    if (cycle === 0) return { status: 'Open', reachedOut: true, isActiveClient: false }
+    if (cycle === 1) return { status: 'No Response', reachedOut: true, isActiveClient: false }
+    if (cycle === 2) return { status: 'Rejected', reachedOut: true, isActiveClient: false }
+    if (cycle === 3) return { status: 'Not Outreached', reachedOut: false, isActiveClient: false }
+    return { status: 'Open', reachedOut: true, isActiveClient: false }
+  }
+
+  const seedRows: Array<Record<string, unknown>> = []
+
+  if (realChannels.length > 0) {
+    // REAL DATA PATH — distribute real finance creators across fixtures.
+    realChannels.forEach((c, idx) => {
+      // Round-robin assignment across all 5 fixture users.
+      const assignee = created[idx % created.length]
+      const { status, reachedOut, isActiveClient } = pickStatus(idx)
+      const reachedDaysAgo = Math.floor(Math.random() * 60)
+      const dateReachedOut = reachedOut ? new Date(now - reachedDaysAgo * 86400000).toISOString().slice(0, 10) : ''
+      const dealValueDollars = isActiveClient ? 500 + Math.floor(Math.random() * 4500) : 0
+
+      const row: Record<string, unknown> = {
+        // user_id = the owning fixture's id so legacy queries that
+        // filter by user_id still work. organization_id is the org.
+        user_id: assignee.userId,
+        organization_id: orgId,
+        created_by_user_id: owner.userId, // Owner sourced everyone
+        assigned_to_user_id: assignee.userId,
+        channel_id: c.channelId,
+        // Suffix the row id with org + idx so re-running the seed
+        // against a new org doesn't collide.
+        id: `seed-${orgId.slice(0, 8)}-${c.channelId}-${idx}`,
+        channel_name: c.channelName,
+        channel_url: c.channelUrl,
+        description: c.description ?? '',
+        email: c.email ?? '',
+        subscribers: c.subscribers ?? '',
+        avg_views: c.avgViews ?? 0,
+        fit_score: 50 + Math.floor(Math.random() * 50),
+        linkedin: c.linkedin ?? '',
+        instagram: c.instagram ?? '',
+        twitter: c.twitter ?? '',
+        tiktok: c.tiktok ?? '',
+        website: c.website ?? '',
+        content_niche: SEED_KEYWORD,
+        favorite: Math.random() < 0.2,
+        reached_out: reachedOut,
+        medium: reachedOut ? (Math.random() < 0.5 ? 'Email' : 'LinkedIn') : '',
+        status,
+        notes: `[seed] Assigned to ${assignee.fullName}.`,
+        date_reached_out: dateReachedOut,
+        touchpoints: reachedOut ? String(1 + Math.floor(Math.random() * 4)) : '',
+        deal_value: dealValueDollars > 0 ? `$${dealValueDollars}` : '',
+        contract_sent: isActiveClient,
+        added_at: now - Math.floor(Math.random() * 60 * 86400000),
+        // Active client fields (only set for Successful + budget'd rows)
+        ...(isActiveClient ? {
+          client_budget_amount: dealValueDollars,
+          client_budget_currency: 'USD',
+          client_lifecycle: 'active',
+          client_scope: 'Sponsored 60-second integration in primary video.',
+          client_notes: `Engagement live. Seeded for ${assignee.fullName} to test the Active Clients workflow.`,
+        } : {}),
+      }
+      seedRows.push(row)
+    })
+  } else {
+    // FALLBACK — minimal synthetic rows so the sandbox still works
+    // if /api/search rate-limited or quota'd out. Better than nothing.
+    let i = 0
+    for (const fixture of created) {
+      const count = fixture.role === 'owner' ? 3 : 2
+      for (let r = 0; r < count; r++) {
+        i++
+        seedRows.push({
+          user_id: fixture.userId,
+          organization_id: orgId,
+          created_by_user_id: fixture.userId,
+          assigned_to_user_id: fixture.userId,
+          channel_id: `seed-${orgId.slice(0, 8)}-${i}`,
+          channel_name: `Seed Creator ${i} (${fixture.fullName})`,
+          channel_url: `https://youtube.com/@seed-creator-${i}`,
+          id: `seed-${orgId.slice(0, 8)}-${i}`,
+          status: r === 0 ? 'Open' : '',
+          medium: 'Email',
+          notes: `[seed-fallback] /api/search returned no data.`,
+        })
+      }
+    }
+    // Add one cross-assignment so the team UI has something to test.
+    seedRows.push({
+      user_id: owner.userId,
+      organization_id: orgId,
+      created_by_user_id: owner.userId,
+      assigned_to_user_id: firstMember.userId,
+      channel_id: `seed-${orgId.slice(0, 8)}-assigned`,
+      channel_name: 'Cross-assigned: Owner→Member',
+      channel_url: 'https://youtube.com/@seed-cross-assigned',
+      id: `seed-${orgId.slice(0, 8)}-assigned`,
+      status: 'Open',
+      medium: 'Email',
+      notes: `[seed-fallback] Owner created, assigned to ${firstMember.fullName}.`,
+    })
+  }
 
   const { error: seedErr } = await sb.from('outreach_entries').insert(seedRows)
   if (seedErr) {
