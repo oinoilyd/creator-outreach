@@ -170,6 +170,13 @@ export default function Home() {
   // query (pages=2, then 3, …) so it pulls GENUINELY NEW results
   // instead of re-rolling page 1. Reset to 1 on every fresh search.
   const loadMorePagesRef = useRef(1)
+  // "Filtered ⇄ All" toggle (Dylan 2026-05-26). When true, the Results
+  // list bypasses the SOFT filters (avg views / subs / freshness /
+  // has-email) and shows everything — a one-click escape hatch from
+  // the counter, no need to dig into the filter panel to reset. The
+  // structural exclusions (dismissed / already-in-Outreach / active
+  // platform) always stay applied. Default off (filters active).
+  const [bypassFilters, setBypassFilters] = useState(false)
   const [minViews, setMinViews] = useState(0)
   const [maxViews, setMaxViews] = useState(200000)
   const [minSubs, setMinSubs] = useState(0)
@@ -2835,18 +2842,33 @@ export default function Home() {
   }
 
   const baseList = creators
-  const currentList = baseList
+  // STRUCTURAL exclusions — always applied. These aren't user-toggled
+  // "filters"; they're "already handled" (dismissed / added to Outreach)
+  // or the active platform choice. The "Filtered ⇄ All" toggle never
+  // bypasses these.
+  const structuralList = baseList
     // Hide dismissed creators immediately even if they linger in
     // `creators` state momentarily — same logic the icon uses, so the
     // row + icon are always in sync.
     .filter(c => !dismissedIds.has(c.channelId))
     // Hide creators that have already been added to Outreach. Results
     // is meant to be "creators I haven't acted on yet" — once you add
-    // someone, they belong in Outreach, not here. saveOutreach()
-    // updates outreachIds synchronously, so the row disappears on the
-    // very next render after the Add button is clicked (2026-05-19,
-    // per Dylan).
+    // someone, they belong in Outreach, not here.
     .filter(c => !outreachIds.has(c.channelId))
+    .filter(c => {
+      if (activePlatform === 'youtube') return true
+      // Strict filter — only show rows that ALREADY have the active
+      // platform's handle. Rows appear progressively in IG/X mode as
+      // Phase A enrichment resolves their handles.
+      if (activePlatform === 'instagram') return !!c.instagram
+      if (activePlatform === 'tiktok')    return !!c.tiktok
+      if (activePlatform === 'twitter')   return !!c.twitter
+      if (activePlatform === 'linkedin')  return !!c.linkedin
+      return true
+    })
+  // SOFT filters — avg views / subs / freshness / has-email. These are
+  // what the "Filtered ⇄ All" toggle bypasses.
+  const applySoftFilters = (list: Creator[]) => list
     .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
     .filter(c => {
       if (minSubs === 0 && maxSubs === 0) return true
@@ -2857,32 +2879,23 @@ export default function Home() {
       return true
     })
     // Per Dylan 2026-05-11: be lenient with creators whose video date
-    // didn't scrape (more common after the May-10 politeness rate-
-    // limiting). parseRelativeDays('') returns Infinity which would
-    // fail the filter — so explicitly pass-through when we have no
-    // date to evaluate. Only filter out creators with a KNOWN-stale date.
+    // didn't scrape. parseRelativeDays('') returns Infinity which would
+    // fail the filter — so pass-through when we have no date. Only
+    // filter out creators with a KNOWN-stale date.
     .filter(c => {
       if (maxAgeDays === Infinity) return true
       const dateStr = c.videoDates?.[0]
-      if (!dateStr) return true // no data → innocent until proven stale
+      if (!dateStr) return true
       return parseRelativeDays(dateStr) <= maxAgeDays
     })
     .filter(c => !emailOnly || !!c.email)
-    .filter(c => {
-      if (activePlatform === 'youtube') return true
-      // Strict filter — only show rows that ALREADY have the active
-      // platform's handle. Rows appear progressively in IG/X mode as
-      // Phase A enrichment resolves their handles (Phase A runs in
-      // parallel with search streaming, so handles populate within
-      // seconds of each row appearing). The previous "pass through
-      // while enriching" let in rows that turned out NOT to have the
-      // handle, polluting the view; reverted per Dylan 2026-05-21.
-      if (activePlatform === 'instagram') return !!c.instagram
-      if (activePlatform === 'tiktok')    return !!c.tiktok
-      if (activePlatform === 'twitter')   return !!c.twitter
-      if (activePlatform === 'linkedin')  return !!c.linkedin
-      return true
-    })
+  const softFilteredList = applySoftFilters(structuralList)
+  // The "Filtered ⇄ All" toggle: when bypassFilters is on, skip the
+  // soft filters entirely and show every structurally-valid creator.
+  const currentList = bypassFilters ? structuralList : softFilteredList
+  // How many the soft filters are currently hiding — drives whether the
+  // toggle chip even appears (no point showing it when nothing's hidden).
+  const softHiddenCount = structuralList.length - softFilteredList.length
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
   return (
@@ -3565,19 +3578,37 @@ export default function Home() {
                 // with a tooltip pointing to where to loosen them.
                 label: (() => {
                   const visible = currentList.length
-                  const total = creators.length
-                  if (total === 0) return <>Results</>
-                  const isNarrowed = visible !== total
+                  if (creators.length === 0) return <>Results</>
+                  // The "filtered ⇄ all" chip is a toggle (Dylan
+                  // 2026-05-26): it only appears when the soft filters are
+                  // actually hiding creators. Click it to flip between the
+                  // filtered view and showing everything — no need to open
+                  // the filter panel. role="button" span (not <button>) so
+                  // we don't nest an interactive button inside the tab's
+                  // own button (invalid HTML); stopPropagation keeps the
+                  // click from also firing the tab switch.
+                  const showToggle = softHiddenCount > 0 || bypassFilters
                   return (
                     <>Results{' '}
-                      <span
-                        className="ml-1 text-xs text-muted-foreground"
-                        title={isNarrowed
-                          ? `${visible} shown. ${total - visible} more were found but are hidden by your active filters (avg views, last-posted, platform, or has-email). Open Filters to loosen them.`
-                          : undefined}
-                      >
-                        ({visible}{isNarrowed && <span className="text-amber-700 dark:text-amber-400"> · filtered</span>})
-                      </span>
+                      <span className="ml-1 text-xs text-muted-foreground">({visible})</span>
+                      {showToggle && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setBypassFilters(v => !v) }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setBypassFilters(v => !v) } }}
+                          title={bypassFilters
+                            ? `Showing all ${structuralList.length}. Click to re-apply your filters (would hide ${softHiddenCount}).`
+                            : `${softHiddenCount} hidden by your filters (avg views / freshness / subs / has-email). Click to show all ${structuralList.length}.`}
+                          className={`ml-1 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full border cursor-pointer transition-colors ${
+                            bypassFilters
+                              ? 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20'
+                              : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20'
+                          }`}
+                        >
+                          {bypassFilters ? 'showing all' : 'filtered'}
+                        </span>
+                      )}
                     </>
                   )
                 })(),
@@ -4152,11 +4183,15 @@ export default function Home() {
                 // showing stale rows for creators already in the user's
                 // outreach pipeline.
                 !outreachIds.has(c.channelId) &&
-                c.avgViews >= minViews && c.avgViews <= maxViews &&
-                // Same pass-through-on-missing-date logic as the main list filter above.
-                (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
-                (!emailOnly || !!c.email) &&
-                // Strict platform filter — match the main-list behavior
+                // Soft filters skipped when the "showing all" toggle is on,
+                // so the Load More batch matches the main list's bypass state.
+                (bypassFilters || (
+                  c.avgViews >= minViews && c.avgViews <= maxViews &&
+                  // Same pass-through-on-missing-date logic as the main list filter above.
+                  (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
+                  (!emailOnly || !!c.email)
+                )) &&
+                // Strict platform filter — structural, always applied
                 // (reverted from the "pass through while enriching"
                 // version on 2026-05-21).
                 (activePlatform === 'youtube' || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
