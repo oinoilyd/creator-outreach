@@ -161,7 +161,15 @@ export default function Home() {
   // raw channel pool per region grows roughly 1.5–2× before dedupe, so
   // we let the server keep more of them per region. Final shown count
   // after merging regions + dedupe stays user-readable.
-  const maxResults = 175
+  // Raised 175 → 300 (Dylan 2026-05-26 "wayyy more"). Broad searches
+  // now fan out across ~55 sub-niche queries server-side + the relevance
+  // floor keeps the bigger pull on-topic. Search runs on youtubei.js
+  // (free), so no Google quota ceiling on the larger set.
+  const maxResults = 300
+  // Load More page cursor — each click fetches one page deeper per
+  // query (pages=2, then 3, …) so it pulls GENUINELY NEW results
+  // instead of re-rolling page 1. Reset to 1 on every fresh search.
+  const loadMorePagesRef = useRef(1)
   const [minViews, setMinViews] = useState(0)
   const [maxViews, setMaxViews] = useState(200000)
   const [minSubs, setMinSubs] = useState(0)
@@ -2091,6 +2099,9 @@ export default function Home() {
     setCurrentKeyword(kw)
     setCurrentKeywordsList(keywordsList ?? [])
     seenChannelIds.current = new Set()
+    // Reset the Load More page cursor — the next Load More starts at
+    // page depth 2 again for this fresh search.
+    loadMorePagesRef.current = 1
     setEnrichProgress({ current: 0, total: 0 })
     setActiveTab('results')
     setShowSearchSimilar(false) // reset every fresh search
@@ -2726,10 +2737,15 @@ export default function Home() {
       // as the initial search, so every channel is already in
       // seenChannelIds and `fresh` ends up empty (button does nothing
       // visible). Initial search keeps the cache for navigation speed.
+      // Advance the page cursor so this Load More pulls the NEXT page
+      // depth per query (2, 3, 4…) — genuinely new channels, not a
+      // re-roll of page 1. Clamped server-side to 5.
+      loadMorePagesRef.current += 1
+      const pagesParam = loadMorePagesRef.current
       const allResponses = await Promise.all(
         regionCodes.map(code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}&fresh=true`).then(r => r.json())
+          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}&pages=${pagesParam}&fresh=true`).then(r => r.json())
         })
       )
       if (allResponses.some(d => d.error)) return

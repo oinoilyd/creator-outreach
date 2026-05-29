@@ -710,17 +710,24 @@ function expandTopic(keyword: string): string[] {
       : [keyword, ...GENERIC_ROLES.map(r => `${keyword} ${r}`)]
   }
 
-  // Pad with sister/related occupation queries until we have ≥30 unique
-  // queries. Every keyword search always casts a wide net regardless of
-  // how niche-specific the input is.
+  // Pad with sister/related occupation queries until we have ≥55 unique
+  // queries (Dylan 2026-05-26 "wayyy more"; was 30). Broad terms like
+  // "finance" now fan out across far more role/intent angles, surfacing
+  // a much bigger candidate pool to fill the 300 cap. The relevance
+  // floor keeps the extra angles on-topic, so wider ≠ noisier. Search
+  // is youtubei.js (free), so more queries cost latency, not quota.
   const padded = new Set(primary)
   const padders = [
     ...GENERIC_ROLES.map(r => `${keyword} ${r}`),
     ...INTENT_SUFFIXES.map(s => `${keyword} ${s}`),
     ...GENERIC_ROLES.map(r => `${r} ${keyword}`),
+    ...INTENT_SUFFIXES.map(s => `${s} ${keyword}`),
+    `best ${keyword}`, `top ${keyword}`, `${keyword} for beginners`,
+    `${keyword} explained`, `${keyword} 2025`, `${keyword} review`,
+    `how to ${keyword}`, `${keyword} podcast`, `${keyword} interview`,
   ]
   let i = 0
-  while (padded.size < 30 && i < padders.length) {
+  while (padded.size < 55 && i < padders.length) {
     padded.add(padders[i])
     i++
   }
@@ -845,38 +852,62 @@ interface VideoHit {
 }
 
 // Single search call — pulls data directly from search results, NO per-channel API calls
-async function searchQuery(yt: any, query: string, retry = true): Promise<VideoHit[]> {
+// `pages` (Dylan 2026-05-26): how many result pages to pull per query
+// via youtubei.js continuations. 1 = first page only (legacy). Higher
+// = deeper, surfacing MORE channels for broad searches + powering a
+// "Load More" that genuinely fetches new results instead of re-rolling
+// the same page. Continuation is wrapped in try/catch so a youtubei.js
+// API-shape change can never break the base (page-1) search — worst
+// case we just return page 1.
+async function searchQuery(yt: any, query: string, retry = true, pages = 1): Promise<VideoHit[]> {
   const hits: VideoHit[] = []
   const seenInQuery = new Set<string>()
+  const pageCount = Math.max(1, pages)
 
+  // ── Channel-type search + continuations ──
   try {
-    const chRes = await yt.search(query, { type: 'channel' })
-    for (const item of (chRes as any).channels || []) {
-      const id = item?.id || item?.author?.id
-      if (!id || seenInQuery.has(id)) continue
-      seenInQuery.add(id)
-      hits.push({ channelId: id, channelName: item?.author?.name || item?.name || '', viewCount: NaN, title: '', date: '', subscribers: '' })
+    let chRes: any = await yt.search(query, { type: 'channel' })
+    let page = 0
+    while (chRes && page < pageCount) {
+      for (const item of chRes.channels || chRes.results || []) {
+        const id = item?.id || item?.author?.id
+        if (!id || seenInQuery.has(id)) continue
+        seenInQuery.add(id)
+        hits.push({ channelId: id, channelName: item?.author?.name || item?.name || '', viewCount: NaN, title: '', date: '', subscribers: '' })
+      }
+      page++
+      if (page >= pageCount) break
+      if (typeof chRes.getContinuation !== 'function') break
+      try { chRes = await chRes.getContinuation() } catch { break }
     }
   } catch { /* continue */ }
 
+  // ── Video-type search + continuations ──
   try {
-    const vRes = await yt.search(query, { type: 'video' })
-    const vids = (vRes as any).videos || (vRes as any).results || []
-    for (const v of vids) {
-      const id = v?.author?.id || v?.channel?.id
-      if (!id || !id.startsWith('UC')) continue
-      const viewText = v?.view_count?.text || v?.short_view_count?.text || ''
-      const viewCount = parseViewCount(viewText)
-      const title = v?.title?.text || v?.title?.runs?.[0]?.text || ''
-      const date = v?.published?.text || v?.published_time_text?.text || ''
-      const channelName = v?.author?.name || v?.channel?.name || ''
-      hits.push({ channelId: id, channelName, viewCount, title, date, subscribers: '' })
+    let vRes: any = await yt.search(query, { type: 'video' })
+    let page = 0
+    while (vRes && page < pageCount) {
+      const vids = vRes.videos || vRes.results || []
+      for (const v of vids) {
+        const id = v?.author?.id || v?.channel?.id
+        if (!id || !id.startsWith('UC')) continue
+        const viewText = v?.view_count?.text || v?.short_view_count?.text || ''
+        const viewCount = parseViewCount(viewText)
+        const title = v?.title?.text || v?.title?.runs?.[0]?.text || ''
+        const date = v?.published?.text || v?.published_time_text?.text || ''
+        const channelName = v?.author?.name || v?.channel?.name || ''
+        hits.push({ channelId: id, channelName, viewCount, title, date, subscribers: '' })
+      }
+      page++
+      if (page >= pageCount) break
+      if (typeof vRes.getContinuation !== 'function') break
+      try { vRes = await vRes.getContinuation() } catch { break }
     }
   } catch { /* continue */ }
 
   if (hits.length === 0 && retry) {
     await delay(700)
-    return searchQuery(yt, query, false)
+    return searchQuery(yt, query, false, pageCount)
   }
 
   return hits
@@ -892,12 +923,12 @@ async function searchQuery(yt: any, query: string, retry = true): Promise<VideoH
 // threshold lives well above 5 parallel queries to youtubei.js,
 // and the searchQuery retry already adds 700 ms back-off on empty
 // results so transient throttles still get absorbed.
-async function runBatched(yt: any, queries: string[]): Promise<VideoHit[]> {
+async function runBatched(yt: any, queries: string[], pages = 1): Promise<VideoHit[]> {
   const all: VideoHit[] = []
   const BATCH = 5
   for (let i = 0; i < queries.length; i += BATCH) {
     const batch = queries.slice(i, i + BATCH)
-    const results = await Promise.allSettled(batch.map(q => searchQuery(yt, q)))
+    const results = await Promise.allSettled(batch.map(q => searchQuery(yt, q, true, pages)))
     for (const r of results) {
       if (r.status === 'fulfilled') all.push(...r.value)
     }
@@ -916,13 +947,14 @@ async function runBatchedStreaming(
   yt: any,
   queries: string[],
   onBatch: (newHits: VideoHit[], batchIdx: number) => Promise<void> | void,
+  pages = 1,
 ): Promise<VideoHit[]> {
   const all: VideoHit[] = []
   const BATCH = 5
   const totalBatches = Math.ceil(queries.length / BATCH)
   for (let i = 0; i < queries.length; i += BATCH) {
     const batch = queries.slice(i, i + BATCH)
-    const results = await Promise.allSettled(batch.map(q => searchQuery(yt, q)))
+    const results = await Promise.allSettled(batch.map(q => searchQuery(yt, q, true, pages)))
     const batchHits: VideoHit[] = []
     for (const r of results) {
       if (r.status === 'fulfilled') batchHits.push(...r.value)
@@ -981,7 +1013,19 @@ export async function GET(req: NextRequest) {
   // expansion below, which generates 3 sibling queries whose raw hits
   // need headroom past the original keyword's 100. Cap upper-bound
   // also moved 150 → 175 so the client can request the new ceiling.
-  const maxResults = clampInt(searchParams.get('maxResults'), 1, 175, 175)
+  // Cap raised 175 → 300 (Dylan 2026-05-26 "wayyy more"). Broad searches
+  // fan out across many sub-niches now (see expandTopic) + the relevance
+  // floor keeps the extra slots on-topic, so 300 fills with real
+  // creators, not noise. Search runs on youtubei.js (free internal API),
+  // NOT the metered Data API — so there's no Google quota ceiling on
+  // the bigger pull; the only cost is latency + enrichment load.
+  const maxResults = clampInt(searchParams.get('maxResults'), 1, 300, 300)
+  // pages: how deep to paginate youtubei.js per query. 1 = first page
+  // (initial search — already wide via expandTopic's ~55 queries).
+  // Load More passes 2, 3, 4… to fetch genuinely-new deeper results
+  // instead of re-rolling page 1. Clamped to 5 so a runaway client
+  // can't hammer youtubei.js into a rate-limit.
+  const pages = clampInt(searchParams.get('pages'), 1, 5, 1)
   const minViews   = clampInt(searchParams.get('minViews'), 0, 1_000_000_000, 0)
   const maxViews   = clampInt(searchParams.get('maxViews'), 0, 1_000_000_000, 200_000)
   // gl must be a 2-letter country code or empty
@@ -1136,13 +1180,14 @@ export async function GET(req: NextRequest) {
       keyword,
       keywordsList,
       cacheKey,
+      pages,
     })
   }
 
   try {
     const yt = await getInnertubeInstance(gl)
 
-    let hits = await runBatched(yt, queries)
+    let hits = await runBatched(yt, queries, pages)
 
     // count unique channel IDs with actual view data
     const withViews = new Set(hits.filter(h => !isNaN(h.viewCount)).map(h => h.channelId))
@@ -1527,6 +1572,7 @@ interface StreamingOpts {
   keyword: string | null
   keywordsList: string[]
   cacheKey: string
+  pages: number
 }
 
 function sseHeaders(): HeadersInit {
@@ -1567,7 +1613,7 @@ function streamingCachedResponse(channels: StreamChannel[], expandedQueries: str
  * batch's newly-discovered channels with snapshot scoring.
  */
 function streamingSearchResponse(opts: StreamingOpts): Response {
-  const { queries, terms, gl, maxResults, minViews, maxViews, keyword, keywordsList, cacheKey } = opts
+  const { queries, terms, gl, maxResults, minViews, maxViews, keyword, keywordsList, cacheKey, pages } = opts
   void gl  // reserved — region filter applied at end-of-stream pass
 
   // parseSubs is duplicated here so the streaming branch is self-
@@ -1741,7 +1787,7 @@ function streamingSearchResponse(opts: StreamingOpts): Response {
           if (allEmittedChannels.length >= maxResults) {
             capReached = true
           }
-        })
+        }, pages)
 
         // Slice + cache the canonical (cap-respecting) set, then notify
         // the client. Same cache + dual-write side effects as the JSON
