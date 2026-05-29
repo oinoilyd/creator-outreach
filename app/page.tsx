@@ -685,7 +685,11 @@ export default function Home() {
     // (keyed by 'spotlight-always-on-default-v2') forces everyone back to
     // true on first read post-deploy. After that, an explicit toggle off
     // sticks normally.
-    const migrationKey = 'spotlight-always-on-default-v2'
+    // v3 (2026-05-26): re-bumped — Dylan reported spotlight wasn't on by
+    // default again. Whether the v2 migration mis-fired or a stray toggle
+    // stuck it off, v3 force-resets everyone back to ON one more time.
+    // After this fires, an explicit toggle-off still sticks.
+    const migrationKey = 'spotlight-always-on-default-v3'
     const migrated = window.localStorage.getItem(migrationKey) === 'true'
     if (!migrated) {
       window.localStorage.setItem(migrationKey, 'true')
