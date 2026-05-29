@@ -3534,32 +3534,28 @@ export default function Home() {
             tabs={[
               {
                 id: 'results',
-                // Tab counter — show filtered count when a platform filter
-                // is on so the visible row count and the displayed number
-                // match. Earlier behavior showed e.g. "(100)" when only
-                // 5 rows were visible because IG-filtered. Now: amber
-                // pill highlights the filter-narrowed count.
+                // Tab counter (Dylan 2026-05-26): just the visible count,
+                // no second number. The old "80 of 175" read like a cap
+                // — it wasn't (175 = raw search return, 80 = what's left
+                // after the active filters). Showing only the actionable
+                // count removes the "why am I missing 95?" confusion. A
+                // small "· filtered" hint flags that filters are trimming,
+                // with a tooltip pointing to where to loosen them.
                 label: (() => {
-                  const filtered = currentList.length
+                  const visible = currentList.length
                   const total = creators.length
                   if (total === 0) return <>Results</>
-                  const isNarrowed = filtered !== total
-                  const platformLabel = activePlatform !== 'youtube'
-                    ? PLATFORM_CONFIGS.find(p => p.id === activePlatform)?.label
-                    : null
+                  const isNarrowed = visible !== total
                   return (
                     <>Results{' '}
-                      {isNarrowed ? (
-                        <span className="ml-1 text-xs inline-flex items-center gap-1">
-                          <span className="text-amber-700 dark:text-amber-400 font-medium">{filtered}</span>
-                          <span className="text-muted-foreground">of {total}</span>
-                          {platformLabel && (
-                            <span className="text-muted-foreground/70 hidden sm:inline">· {platformLabel}</span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="ml-1 text-xs text-muted-foreground">({total})</span>
-                      )}
+                      <span
+                        className="ml-1 text-xs text-muted-foreground"
+                        title={isNarrowed
+                          ? `${visible} shown. ${total - visible} more were found but are hidden by your active filters (avg views, last-posted, platform, or has-email). Open Filters to loosen them.`
+                          : undefined}
+                      >
+                        ({visible}{isNarrowed && <span className="text-amber-700 dark:text-amber-400"> · filtered</span>})
+                      </span>
                     </>
                   )
                 })(),
