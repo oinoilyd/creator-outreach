@@ -168,7 +168,12 @@ export default function Home() {
   const [maxSubs, setMaxSubs] = useState(0) // 0 = no upper limit
   // Default to 6 months — most current/active creators only. User
   // can widen via the Last Posted preset row in the filter panel.
-  const [maxAgeDays, setMaxAgeDays] = useState<number>(180)
+  // Default "Last posted" window. 360 days (Dylan 2026-05-26) — the old
+  // 180-day default was silently hiding ~half of each search's results
+  // (channels that hadn't posted in 6 months). 360 keeps genuinely
+  // dormant channels out while surfacing the quarterly/seasonal posters
+  // that 180 was cutting. Still adjustable via the "Last posted" presets.
+  const [maxAgeDays, setMaxAgeDays] = useState<number>(360)
   // Niche filter for suggestions: null = all niches mixed.
   const [selectedNiche, setSelectedNiche] = useState<string | null>(null)
   const [showNiches, setShowNiches] = useState(false)
@@ -3301,6 +3306,7 @@ export default function Home() {
                 { label: 'Last 30 days', days: 30 },
                 { label: 'Last 90 days', days: 90 },
                 { label: 'Last 6 months', days: 180 },
+                { label: 'Last 12 months', days: 360 },
                 { label: 'Any time', days: Infinity },
               ].map(p => (
                 <button key={p.label} onClick={() => setMaxAgeDays(p.days)}
