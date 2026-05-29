@@ -120,6 +120,7 @@ export type TourPreviewSketch =
   | 'outreach-row'      // single Outreach Pipeline row with status pill
   | 'active-client-card'// single Active Client engagement card
   | 'analytics-kpi'     // KPI tile row
+  | 'filter-toggle'     // the "Results (N) · filtered ⇄ showing all" chip
 
 export interface CatalogStep {
   id: string
@@ -185,6 +186,23 @@ export const CATALOG_STEPS: CatalogStep[] = [
     title: 'Search for creators',
     body: 'Type a niche, keyword, or @handle. Results stream in scored by fit — channel name match, recent activity, and reachability all factor in.',
     placement: 'bottom',
+  },
+
+  {
+    // Featured early in every tier (Dylan 2026-05-26): the filtered ⇄
+    // showing-all toggle is a headline interaction — most users miss
+    // that the count chip is clickable.
+    id: 'filter-toggle',
+    tiers: ['short', 'pro', 'granular'],
+    target: '[data-tour-id="results-filter-toggle"]',
+    title: 'Filtered ⇄ Showing all — it’s a toggle',
+    body: 'The chip next to “Results” isn’t just a label — it’s a one-click switch. When your filters (avg views, freshness, subscribers, has-email) are hiding creators, you’ll see “· filtered.” Click it to instantly show ALL results; click again to re-apply your filters. No need to open the filter panel to peek at everything.',
+    placement: 'bottom',
+    // The chip only renders once a search has results AND filters are
+    // trimming — so during a fresh tour it usually isn't in the DOM.
+    // The sketch shows what it looks like so the lesson still lands.
+    previewSketch: 'filter-toggle',
+    onEnter: ({ navigate }) => navigate('results'),
   },
 
   // ────────────────────────────────────────────────────────────────

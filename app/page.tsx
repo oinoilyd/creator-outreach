@@ -3595,6 +3595,7 @@ export default function Home() {
                         <span
                           role="button"
                           tabIndex={0}
+                          data-tour-id="results-filter-toggle"
                           onClick={(e) => { e.stopPropagation(); setBypassFilters(v => !v) }}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setBypassFilters(v => !v) } }}
                           title={bypassFilters

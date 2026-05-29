@@ -491,7 +491,37 @@ function TourLayer({
 function PreviewSketch({ kind }: { kind: TourPreviewSketch }) {
   if (kind === 'result-row') return <ResultRowSketch />
   if (kind === 'outreach-row') return <OutreachRowSketch />
+  if (kind === 'filter-toggle') return <FilterToggleSketch />
   return null
+}
+
+function FilterToggleSketch() {
+  // Mock of the "Results (N) · filtered ⇄ showing all" tab counter.
+  // Shows both states side by side so the user grasps it's a switch:
+  // amber "filtered" (some hidden) → click → blue "showing all".
+  return (
+    <div className="rounded-lg border border-border bg-card/60 overflow-hidden p-2.5 space-y-2">
+      <div className="flex items-center gap-1.5 text-[11.5px]">
+        <span className="font-medium text-foreground/90">Results</span>
+        <span className="text-muted-foreground">(80)</span>
+        {/* filtered state — pulsing to draw the eye to the clickable chip */}
+        <span className="relative inline-flex items-center text-[9.5px] px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-400">
+          <span className="absolute inset-0 rounded-full bg-amber-500/20 animate-ping" aria-hidden />
+          <span className="relative">filtered</span>
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/70">
+        <span aria-hidden>↓ click</span>
+      </div>
+      <div className="flex items-center gap-1.5 text-[11.5px]">
+        <span className="font-medium text-foreground/90">Results</span>
+        <span className="text-muted-foreground">(300)</span>
+        <span className="inline-flex items-center text-[9.5px] px-1.5 py-0.5 rounded-full border border-blue-500/40 bg-blue-500/15 text-blue-700 dark:text-blue-300">
+          showing all
+        </span>
+      </div>
+    </div>
+  )
 }
 
 function ResultRowSketch() {
