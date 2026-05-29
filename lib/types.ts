@@ -316,6 +316,10 @@ export interface ColConfig {
   id: ColId
   label: string
   visible: boolean
+  /** Optional hover tooltip for the column header (rendered as the
+   *  th `title`). Used to explain data-source caveats — e.g. the IG
+   *  metric columns note they pull Business/Creator accounts only. */
+  tooltip?: string
 }
 
 export type PlatformId = 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'linkedin'

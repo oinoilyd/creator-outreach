@@ -211,8 +211,8 @@ export const DEFAULT_COLS: ColConfig[] = [
   // already gives you the DM link). They auto-show when the user
   // flips the platform filter to Instagram (per platform config in
   // app/page.tsx) and are always available via Customize Columns.
-  { id: 'igFollowers', label: 'IG Followers',visible: false },
-  { id: 'igPosts',     label: 'IG Posts',    visible: false },
+  { id: 'igFollowers', label: 'IG Followers',visible: false, tooltip: 'Pulls Business/Creator account metrics only. Personal IG accounts won’t resolve.' },
+  { id: 'igPosts',     label: 'IG Posts',    visible: false, tooltip: 'Pulls Business/Creator account metrics only. Personal IG accounts won’t resolve.' },
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 

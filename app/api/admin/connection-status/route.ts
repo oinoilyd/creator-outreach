@@ -59,10 +59,17 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
 }
 
 /** Run a single check, measure latency, normalise errors into a
- *  CheckResult shape. Never throws — failures become status: down. */
+ *  CheckResult shape. Never throws — failures become status: down.
+ *
+ *  A probe can return `notConfigured: true` to signal "this key/service
+ *  isn't set up in THIS environment" — which is neutral (gray), not a
+ *  real outage (amber/red). Critical for localhost, where most prod
+ *  keys legitimately aren't in .env.local; without this, the panel
+ *  screams "6 degraded" when nothing is actually broken (Dylan
+ *  2026-05-26). */
 async function runCheck(
   spec: Omit<CheckResult, 'status' | 'latencyMs' | 'detail' | 'checkedAt'> & {
-    probe: () => Promise<{ ok: boolean; detail: string }>
+    probe: () => Promise<{ ok: boolean; detail: string; notConfigured?: boolean }>
   },
 ): Promise<CheckResult> {
   const start = Date.now()
@@ -70,14 +77,15 @@ async function runCheck(
   try {
     const res = await withTimeout(spec.probe(), PER_CHECK_TIMEOUT_MS, spec.name)
     const latencyMs = Date.now() - start
+    const status: Status = res.notConfigured ? 'not_configured' : res.ok ? 'ok' : 'degraded'
     return {
       name: spec.name,
       id: spec.id,
       category: spec.category,
       fragility: spec.fragility,
       fragilityReason: spec.fragilityReason,
-      status: res.ok ? 'ok' : 'degraded',
-      latencyMs,
+      status,
+      latencyMs: res.notConfigured ? null : latencyMs,
       detail: res.detail,
       checkedAt,
     }
@@ -130,11 +138,19 @@ export async function GET(_req: NextRequest) {
       fragility: 'low',
       fragilityReason: 'Managed KV store; rare outages, recovers on its own.',
       probe: async () => {
+        // Sentinel must be NON-numeric. Upstash's REST client
+        // auto-JSON-parses on read, so a bare numeric string like
+        // Date.now().toString() ("1780015224922") comes back as the
+        // NUMBER 1780015224922 — and the strict !== fails on type
+        // (string vs number), reporting a phantom "roundtrip mismatch"
+        // even though Redis is perfectly healthy. Prefixing with a
+        // non-numeric token keeps JSON-parse from coercing it.
+        // (Dylan 2026-05-26 — this was firing degraded on prod too.)
         const key = 'health:ping'
-        const value = Date.now().toString()
+        const value = `ok-${Date.now()}`
         await cacheSet(key, value, 60)
         const got = await cacheGet<string>(key)
-        if (got !== value) return { ok: false, detail: `roundtrip mismatch (got=${got})` }
+        if (String(got) !== value) return { ok: false, detail: `roundtrip mismatch (got=${got})` }
         return { ok: true, detail: 'SET+GET roundtrip OK' }
       },
     }),
@@ -150,7 +166,7 @@ export async function GET(_req: NextRequest) {
         const token = process.env.QSTASH_TOKEN
         const signing = process.env.QSTASH_CURRENT_SIGNING_KEY
         if (!token || !signing) {
-          return { ok: false, detail: 'QSTASH_TOKEN or QSTASH_CURRENT_SIGNING_KEY missing' }
+          return { ok: false, notConfigured: true, detail: 'QSTASH_TOKEN or QSTASH_CURRENT_SIGNING_KEY not set in this environment' }
         }
         // We don't enqueue a real job — that would publish nothing
         // useful. We just verify the env-key pair is present.
@@ -171,7 +187,7 @@ export async function GET(_req: NextRequest) {
         const igBusinessId = process.env.META_IG_BUSINESS_ID
         const token = process.env.META_LONG_LIVED_TOKEN
         if (!igBusinessId || !token) {
-          return { ok: false, detail: 'META_IG_BUSINESS_ID or META_LONG_LIVED_TOKEN missing' }
+          return { ok: false, notConfigured: true, detail: 'META_IG_BUSINESS_ID or META_LONG_LIVED_TOKEN not set — IG metrics fall back to public scrape until configured' }
         }
         // Ping the IG Business account node — cheap, no Business Discovery
         // call. Returns id+username if token is valid; error otherwise.
@@ -218,7 +234,7 @@ export async function GET(_req: NextRequest) {
       fragilityReason: 'Stable Google API; quota is the main concern, not breakage.',
       probe: async () => {
         const key = process.env.YOUTUBE_API_KEY
-        if (!key) return { ok: false, detail: 'YOUTUBE_API_KEY missing' }
+        if (!key) return { ok: false, notConfigured: true, detail: 'YOUTUBE_API_KEY not set in this environment' }
         // Smallest possible search: ?part=id&q=test&maxResults=1
         // Costs 100 quota units (search.list always does); we have
         // plenty of headroom and this is admin-only.
@@ -242,7 +258,7 @@ export async function GET(_req: NextRequest) {
       fragilityReason: 'API stable; key rotations are the most common issue.',
       probe: async () => {
         const key = process.env.ANTHROPIC_API_KEY
-        if (!key) return { ok: false, detail: 'ANTHROPIC_API_KEY missing' }
+        if (!key) return { ok: false, notConfigured: true, detail: 'ANTHROPIC_API_KEY not set in this environment' }
         // Tiny token-count check — much cheaper than actually generating.
         const res = await fetch('https://api.anthropic.com/v1/messages/count_tokens', {
           method: 'POST',
@@ -274,7 +290,7 @@ export async function GET(_req: NextRequest) {
       fragilityReason: 'Highly reliable; webhook secret rotation is the main concern.',
       probe: async () => {
         const key = process.env.STRIPE_SECRET_KEY
-        if (!key) return { ok: false, detail: 'STRIPE_SECRET_KEY missing' }
+        if (!key) return { ok: false, notConfigured: true, detail: 'STRIPE_SECRET_KEY not set in this environment' }
         // accounts/balance — cheapest authenticated call.
         const res = await fetch('https://api.stripe.com/v1/balance', {
           headers: { Authorization: `Bearer ${key}` },
@@ -298,7 +314,7 @@ export async function GET(_req: NextRequest) {
       probe: async () => {
         const apiKey = process.env.UNIPILE_API_KEY
         const dsn = process.env.UNIPILE_DSN
-        if (!apiKey || !dsn) return { ok: false, detail: 'UNIPILE_API_KEY or UNIPILE_DSN missing' }
+        if (!apiKey || !dsn) return { ok: false, notConfigured: true, detail: 'UNIPILE_API_KEY or UNIPILE_DSN not set in this environment' }
         const res = await fetch(`${dsn}/api/v1/accounts`, {
           headers: { 'X-API-KEY': apiKey, Accept: 'application/json' },
         })
@@ -320,7 +336,7 @@ export async function GET(_req: NextRequest) {
       fragilityReason: 'API stable; key/domain verification is the main concern.',
       probe: async () => {
         const key = process.env.RESEND_API_KEY
-        if (!key) return { ok: false, detail: 'RESEND_API_KEY missing' }
+        if (!key) return { ok: false, notConfigured: true, detail: 'RESEND_API_KEY not set in this environment' }
         // /domains is the cheapest authenticated read.
         const res = await fetch('https://api.resend.com/domains', {
           headers: { Authorization: `Bearer ${key}` },

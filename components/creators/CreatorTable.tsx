@@ -123,6 +123,10 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                 <th
                   key={col.id}
                   scope="col"
+                  // Header tooltip — currently used by the IG metric
+                  // columns to flag "Business/Creator accounts only"
+                  // (Dylan 2026-05-26). Falls back to the sort hint.
+                  title={col.tooltip ?? (sc ? 'Click to sort' : undefined)}
                   aria-sort={sc ? ariaSort : undefined}
                   // Keyboard-reachable. Tab moves focus through column
                   // headers; Enter/Space sorts (when sortable);
