@@ -159,11 +159,17 @@ export async function cacheReadCounterRange(metric: string, days: number): Promi
  * affect which channels return.
  *   v1 → v2 (2026-05-09): added per-region post-filter so v1
  *         results contained region-leaked channels for IN/JP/KR/etc.
+ *   v2 → v3 (2026-05-26): "much more locked in" — generic-token
+ *         stopword strip on the scoring vocabulary + media blocklist
+ *         enforced at every relevance tier (no more news/mega-network
+ *         re-admittance for volume). v2 entries held the old, noisier
+ *         result sets, so the bump forces a clean re-search rather than
+ *         waiting up to 24h for them to age out.
  */
 export function searchCacheKey(query: string, filters: Record<string, unknown> = {}): string {
   const normalized = query.trim().toLowerCase()
   const filterString = JSON.stringify(filters, Object.keys(filters).sort())
-  return `search:v2:${normalized}|${filterString}`
+  return `search:v3:${normalized}|${filterString}`
 }
 
 /** Per-creator cache key — channelId is the natural unique identifier. */

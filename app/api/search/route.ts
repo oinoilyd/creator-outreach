@@ -1092,7 +1092,30 @@ export async function GET(req: NextRequest) {
   // precision while still benefiting from variant-driven query
   // diversity.
   const scoringPhrase = keyword || keywordsList.join(' ')
-  const terms = scoringPhrase.toLowerCase().split(/\s+/).filter(Boolean)
+  // 2026-05-26 per Dylan ("much more locked in"): strip ultra-generic
+  // tokens from the SCORING vocabulary so relevance keys on the
+  // distinctive word(s) you actually searched, not filler. Before this,
+  // a multi-word keyword like "finance content creator" scored on
+  // "content" + "creator" — words that match nearly every YouTube
+  // channel — letting cousin-niche + generalist channels pass the
+  // topical-focus gate. Now it scores on "finance" only.
+  //
+  // These tokens stay in `queries` for discovery (YouTube still uses the
+  // full phrase to surface candidates) — we only remove them from the
+  // RELEVANCE scoring vocabulary.
+  //
+  // Safety: if the entire phrase is generic (e.g. the user literally
+  // searched "content creator"), we keep the raw terms rather than strip
+  // to nothing — otherwise every candidate would score 0 and the
+  // topical-focus gate would empty the page.
+  const GENERIC_SCORING_STOPWORDS = new Set([
+    'official', 'channel', 'channels', 'tv', 'show', 'shows', 'video', 'videos',
+    'content', 'creator', 'creators', 'media', 'online', 'vlog', 'vlogs',
+    'the', 'and', 'of', 'for', 'with', 'a', 'an', 'to', 'my', 'your', 'on', 'in',
+  ])
+  const rawTerms = scoringPhrase.toLowerCase().split(/\s+/).filter(Boolean)
+  const distinctiveTerms = rawTerms.filter(t => !GENERIC_SCORING_STOPWORDS.has(t))
+  const terms = distinctiveTerms.length > 0 ? distinctiveTerms : rawTerms
 
   // ── SSE streaming path ─────────────────────────────────────────
   // When the client sends ?stream=1, return a text/event-stream
@@ -1376,36 +1399,39 @@ export async function GET(req: NextRequest) {
       || MEDIA_GENERIC.test(name)
 
     const SOFT_TARGET = 30
+    // 2026-05-26 per Dylan ("much more locked in"): the relevance FLOOR
+    // is now "not media + has a real keyword signal," enforced at every
+    // tier. We only relax HOW STRICT the topical match must be — never
+    // down to relevance=0, and never re-admitting news/media.
+    //
+    // The OLD tier ladder relaxed past the media blocklist + admitted
+    // relevance=0 channels (capped only by subscriber count) to hit the
+    // volume target. That's exactly how ABC/CBS News + unrelated
+    // channels leaked back in on broad searches. Removed those tiers.
     const tiers: Array<{ label: string; predicate: (c: Candidate) => boolean }> = [
       {
-        // Topical focus: channel is dedicated to the niche, not just
-        // mentioning it once. Pass requires name keyword match OR 2+
-        // matching titles. Surname filter REVERTED 2026-05-21 — was
-        // too aggressive on single-keyword occupation searches
-        // (e.g. "baker" went from 200 → 5 results because real
-        // bakery channels post about Sourdough/Croissants which
-        // don't match the literal "baker" term). The media blocklist
-        // stays — that's the load-bearing piece for filtering noise.
+        // Tightest: channel is dedicated to the niche, not just
+        // mentioning it once. Name keyword match OR 2+ matching titles.
         label: 'topical-focus',
         predicate: c =>
           !isMedia(c.channelName)
           && (c._nameScore > 0 || c._matchingTitleCount >= 2),
       },
       {
-        // Loosen the topical-focus rule but keep the media blocklist.
-        // Occupation mode still wants SOME title content though, so
-        // we accept relevance > 0 either way at this tier.
-        label: 'strictest-relevant-only',
+        // Relax the topical-strictness but KEEP the relevance>0 floor +
+        // media blocklist. Accepts any channel with a real keyword hit.
+        label: 'relevant-only',
         predicate: c => !isMedia(c.channelName) && c.relevanceScore > 0,
       },
       {
-        // Original strict tier — relevance OR small subs.
-        label: 'strict',
-        predicate: c => !(c.relevanceScore === 0 && c._subsCount > 1_000_000),
+        // LAST RESORT — only reached when the relevant pool is genuinely
+        // thinner than SOFT_TARGET (ultra-narrow niche). Allows
+        // relevance=0 so the page isn't a dead end, but STILL excludes
+        // media. Sorted-by-relevance + sliced afterward, so any
+        // relevance=0 stragglers sink to the bottom.
+        label: 'last-resort-nonmedia',
+        predicate: c => !isMedia(c.channelName),
       },
-      { label: 'relaxed-5M',  predicate: c => !(c.relevanceScore === 0 && c._subsCount > 5_000_000)  },
-      { label: 'relaxed-20M', predicate: c => !(c.relevanceScore === 0 && c._subsCount > 20_000_000) },
-      { label: 'unfiltered',  predicate: () => true },
     ]
     let filtered: Candidate[] = []
     let chosenTier = tiers[0].label
@@ -1413,7 +1439,13 @@ export async function GET(req: NextRequest) {
       filtered = regionFiltered.filter(tier.predicate)
       chosenTier = tier.label
       if (filtered.length >= SOFT_TARGET) break
-      // If even unfiltered is thin, that's fine — return what we have.
+    }
+    // Absolute safety: if excluding media emptied the pool entirely
+    // (e.g. the search itself is about news/broadcasters), fall back to
+    // the full region-filtered set so we never return an empty page.
+    if (filtered.length === 0) {
+      filtered = regionFiltered
+      chosenTier = 'media-fallback'
     }
     console.log(`[search] candidates=${candidates.length} filtered=${filtered.length} tier=${chosenTier} target=${SOFT_TARGET}`)
 
