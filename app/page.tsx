@@ -2912,12 +2912,10 @@ export default function Home() {
           Results, tied to the social media color.' Static, no
           animation, just presence. */}
       <PlatformShade platform={activePlatform} visible={activeTab === 'results'} />
-      {/* Animated backdrop — Rain / Drift / Fireworks layered on top
-          of the shade. User opt-in via the hamburger menu. Fades
-          after 30s or on first work-action; the shade underneath
-          stays. Spotlight=true pushes this layer ABOVE content at
-          full saturation for 15 seconds (Dylan 2026-05-10). */}
-      <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} spotlight={spotlight} intense={spotlightAlwaysOn} />
+      {/* Animated backdrop (Rain / Drift / Fireworks / Tornado) now
+          lives INSIDE the sticky banner below (Dylan 2026-05-26 — it
+          was scrolling off with the page when rendered as a separate
+          fixed/portal layer). See the banner block for its mount. */}
       {/* Sticky glass top bar — same width-feel as the page below */}
       {/* Sticky glass nav — Dylan 2026-05-10 v2: dark mode's
           bg-background/40 was still too opaque against the near-black
@@ -2930,11 +2928,25 @@ export default function Home() {
           the floating-bubble icons were getting too soft to read
           through the blur. Other themes (Rain, Fireworks, Tornado)
           all look fine with the blur, so keep it for them. */}
-      <div className={`sticky top-0 z-30 border-b border-border/60 bg-background/40 dark:bg-background/10 ${backdropTheme === 'drift' ? '' : 'backdrop-blur-sm'}`}>
+      <div className={`sticky top-0 z-30 border-b border-border/60 bg-background/40 dark:bg-background/10 relative ${backdropTheme === 'drift' ? '' : 'backdrop-blur-sm'}`}>
+        {/* Theme layer — lives INSIDE the sticky banner so it stays
+            pinned to the top WITH the banner on scroll (no more
+            fixed/portal that scrolled away). overflow-hidden clips the
+            animation to the banner strip; this wrapper ONLY wraps the
+            theme so it doesn't clip the nav's dropdowns. z-index flips
+            above the content during a spotlight burst, otherwise sits
+            behind it so icons read through the translucent glass. */}
+        <div
+          className="absolute inset-0 overflow-hidden pointer-events-none"
+          style={{ zIndex: spotlight ? 40 : 0 }}
+          aria-hidden
+        >
+          <PlatformBackdrop theme={backdropTheme} platform={activePlatform} visible={backdropVisible} spotlight={spotlight} intense={spotlightAlwaysOn} />
+        </div>
         {/* Padding: tighter on phones (3) to give the wordmark + trial
             pill + hamburger enough room to coexist without overlap;
             generous on desktop (px-6 / px-8 + py-5) as before. */}
-        <div className={`${activeTab === 'outreach' || activeTab === 'results' ? 'w-full max-sm:px-3 sm:px-6' : 'max-w-7xl mx-auto max-sm:px-3 sm:px-8'} max-sm:py-3 sm:py-5`}>
+        <div className={`relative z-[1] ${activeTab === 'outreach' || activeTab === 'results' ? 'w-full max-sm:px-3 sm:px-6' : 'max-w-7xl mx-auto max-sm:px-3 sm:px-8'} max-sm:py-3 sm:py-5`}>
           <div className="flex items-center justify-between gap-4 max-sm:gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <Link href="/landing" title="Visit the public site" className="hover:opacity-80 transition-opacity shrink-0">

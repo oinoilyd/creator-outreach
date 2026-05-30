@@ -26,8 +26,7 @@
  *     events stay none so the spotlight doesn't block clicks.
  */
 
-import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useMemo } from 'react'
 import { motion } from 'motion/react'
 import type { PlatformId } from '@/lib/types'
 import {
@@ -58,52 +57,34 @@ const SPOTLIGHT_OPACITY_MULT = 6
 const SPOTLIGHT_SCALE = 1.15
 
 export function PlatformBackdrop({ theme, platform, visible = true, spotlight = false, intense = false }: Props) {
-  // Per Dylan 2026-05-11: rendered via Portal into document.body so
-  // it's never affected by an ancestor's `transform`, `filter`, or
-  // `will-change` (which would create a containing block and break
-  // `position: fixed`). Guarantees themes stay locked at the top of
-  // the viewport regardless of where the component sits in the JSX
-  // tree.
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-
+  // 2026-05-26 per Dylan ("theme scrolls up and away with the page"):
+  // the previous portal-to-body + `position: fixed` approach kept
+  // getting defeated — fixed was breaking despite the portal, so the
+  // theme scrolled off with the page. New approach: this component is
+  // rendered INSIDE the sticky top banner (see app/page.tsx) and fills
+  // its parent via `position: absolute; inset: 0`. Because the banner
+  // is `position: sticky; top: 0`, it stays pinned on scroll — and the
+  // theme, being its child, is pinned WITH it. No dependence on `fixed`
+  // working, no containing-block fragility. The parent wrapper handles
+  // overflow-clipping to the banner strip + z-index layering.
   if (theme === 'off') return null
   // Fireworks + Tornado are one-shot spotlight-only shows. Gate ONLY
   // on `spotlight` (momentary burst), not `intense` — so the always-on
   // visual boost doesn't auto-mount the show on every render.
   if ((theme === 'fireworks' || theme === 'tornado') && !spotlight) return null
-  if (!mounted) return null // SSR-safe: portal needs document
   const hue = PLATFORM_HUES[platform]
   const iconPath = PLATFORM_ICON_PATH[platform]
   // Effective visual intensity — burst OR persistent always-on.
   const boosted = spotlight || intense
 
-  const node = (
+  return (
     <div
       key={theme}
       aria-hidden
-      // Themes play ONLY in the top banner strip (~88px tall), not
-      // full-page. overflow-hidden clips animations to that band.
-      //
-      // 2026-05-23 per Dylan ("if someone scrolls while it is still
-      // going the themes scroll with"): the Tailwind `fixed` class
-      // alone was being defeated somewhere in the cascade (likely a
-      // ancestor with `transform` / `will-change` creating an
-      // unintended containing block — even with the portal). The
-      // inline position/top/left/right styles below FORCE fixed
-      // viewport positioning regardless of cascade order, with
-      // !important-tier precedence over any Tailwind class.
-      className="pointer-events-none overflow-hidden transition-opacity ease-out"
+      className="pointer-events-none transition-opacity ease-out"
       style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 88,
-        // Spotlight pushes the layer above content (z-50). Otherwise
-        // stays at z-0 — sits behind the banner's translucent bg so
-        // icons show through.
-        zIndex: spotlight ? 50 : 0,
+        position: 'absolute',
+        inset: 0,
         opacity: visible ? 1 : 0,
         transitionDuration: visible ? '300ms' : '1500ms',
       }}
@@ -121,8 +102,6 @@ export function PlatformBackdrop({ theme, platform, visible = true, spotlight = 
       </div>
     </div>
   )
-
-  return createPortal(node, document.body)
 }
 
 // ── Rain ─────────────────────────────────────────────────────────────
