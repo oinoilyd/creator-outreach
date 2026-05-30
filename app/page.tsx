@@ -2602,7 +2602,14 @@ export default function Home() {
         await Promise.all(
           regionCodes.map(async code => {
             const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-            const url = `/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}${expandParam}&stream=1`
+            // bypassFilters ("showing all" toggle): drop the view-range
+            // ceiling at the SERVER too, not just the client. Without
+            // this, big-view creators were filtered out before they
+            // ever reached the client and the toggle couldn't show
+            // them. 1e9 is the route.ts upper bound (clampInt cap).
+            const effectiveMinViews = bypassFilters ? 0 : minViews
+            const effectiveMaxViews = bypassFilters ? 1_000_000_000 : maxViews
+            const url = `/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${effectiveMinViews}&maxViews=${effectiveMaxViews}${glParam}${expandParam}&stream=1`
             try {
               const resp = await fetch(url)
               await consumeSse(resp, ev => {
@@ -2731,9 +2738,28 @@ export default function Home() {
         setLoading(false)
       }
     }
-  }, [minViews, maxViews, maxResults, regions, dismissedIds, outreachIds, searchMode, activePlatform])
+  }, [minViews, maxViews, maxResults, regions, dismissedIds, outreachIds, searchMode, activePlatform, bypassFilters])
 
   async function handleSearch() { await runSearch(keyword) }
+
+  // When the "filtered ⇄ showing all" toggle flips, refetch the
+  // search so the server-side view cap is dropped/re-applied. Without
+  // this the toggle could only hide/unhide what was already fetched —
+  // creators above maxViews never reached the client in the first
+  // place. firstBypassMount guard avoids running on initial render.
+  const firstBypassMount = useRef(true)
+  useEffect(() => {
+    if (firstBypassMount.current) {
+      firstBypassMount.current = false
+      return
+    }
+    if (currentKeyword && !loading) {
+      void runSearch(currentKeyword)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only
+    // want to react to bypassFilters; currentKeyword/loading checked
+    // at call time inside.
+  }, [bypassFilters])
 
   const handleLoadMore = useCallback(async () => {
     if (!currentKeyword || loadingMore || loading) return
@@ -2756,7 +2782,11 @@ export default function Home() {
       const allResponses = await Promise.all(
         regionCodes.map(code => {
           const glParam = code ? `&gl=${encodeURIComponent(code)}` : ''
-          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${minViews}&maxViews=${maxViews}${glParam}&pages=${pagesParam}&fresh=true`).then(r => r.json())
+          // Same bypass logic as initial search — keep Load More
+          // consistent with whatever the toggle is currently set to.
+          const effectiveMinViews = bypassFilters ? 0 : minViews
+          const effectiveMaxViews = bypassFilters ? 1_000_000_000 : maxViews
+          return fetch(`/api/search?${queryFragment}&maxResults=${maxResults}&minViews=${effectiveMinViews}&maxViews=${effectiveMaxViews}${glParam}&pages=${pagesParam}&fresh=true`).then(r => r.json())
         })
       )
       if (allResponses.some(d => d.error)) return
@@ -2826,7 +2856,7 @@ export default function Home() {
       }
     } catch { /* ignore */ }
     finally { setLoadingMore(false) }
-  }, [currentKeyword, currentKeywordsList, loadingMore, loading, minViews, maxViews, maxResults, regions, dismissedIds, outreachIds])
+  }, [currentKeyword, currentKeywordsList, loadingMore, loading, minViews, maxViews, maxResults, regions, dismissedIds, outreachIds, bypassFilters])
 
   // 2026-05-24 — Results-tab exports (handleExportExcel / handleExportCSV)
   // removed per Dylan: "Only allow export on the outreach tab." The
@@ -3595,15 +3625,18 @@ export default function Home() {
                 label: (() => {
                   const visible = currentList.length
                   if (creators.length === 0) return <>Results</>
-                  // The "filtered ⇄ all" chip is a toggle (Dylan
-                  // 2026-05-26): it only appears when the soft filters are
-                  // actually hiding creators. Click it to flip between the
-                  // filtered view and showing everything — no need to open
-                  // the filter panel. role="button" span (not <button>) so
-                  // we don't nest an interactive button inside the tab's
-                  // own button (invalid HTML); stopPropagation keeps the
-                  // click from also firing the tab switch.
-                  const showToggle = softHiddenCount > 0 || bypassFilters
+                  // The "filtered ⇄ all" chip is a toggle. Originally only
+                  // appeared when soft filters were hiding creators, but
+                  // the toggle now also refetches the server without the
+                  // 200K avg-view cap (Dylan 2026-05-30) — meaning even
+                  // when softHiddenCount is 0, clicking it can surface
+                  // bigger creators that the server filtered out. So
+                  // we keep it visible whenever results exist. role="button"
+                  // span (not <button>) so we don't nest an interactive
+                  // button inside the tab's own button (invalid HTML);
+                  // stopPropagation keeps the click from also firing the
+                  // tab switch.
+                  const showToggle = creators.length > 0
                   return (
                     <>Results{' '}
                       <span className="ml-1 text-xs text-muted-foreground">({visible})</span>
@@ -3615,8 +3648,8 @@ export default function Home() {
                           onClick={(e) => { e.stopPropagation(); setBypassFilters(v => !v) }}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setBypassFilters(v => !v) } }}
                           title={bypassFilters
-                            ? `Showing all ${structuralList.length}. Click to re-apply your filters (would hide ${softHiddenCount}).`
-                            : `${softHiddenCount} hidden by your filters (avg views / freshness / subs / has-email). Click to show all ${structuralList.length}.`}
+                            ? `Showing everything — server-side view cap dropped + client filters off. Click to refetch with your filters back on.`
+                            : `Filtered: client filters applied + server capping avg views ≤ ${maxViews.toLocaleString()}. Click to refetch without the cap and include bigger creators.`}
                           className={`ml-1 inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full border cursor-pointer transition-colors ${
                             bypassFilters
                               ? 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20'
