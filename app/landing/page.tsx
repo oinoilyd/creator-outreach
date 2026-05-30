@@ -42,7 +42,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
   title: 'Creator Outreach — Search, score, and reach out in one queue',
-  description: 'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. 14-day free trial — $50/mo or $500/yr.',
+  description: 'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. 7-day free trial — $50/mo or $500/yr.',
   // The middleware rewrites "/" → "/landing" server-side, but the
   // URL stays "/". Pin the canonical to "/" so Google never settles
   // on "/landing" if anything links there directly.
@@ -52,7 +52,7 @@ export const metadata = {
   openGraph: {
     title: 'Creator Outreach — Search, score, and reach out in one queue',
     description:
-      'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. 14-day free trial — $50/mo or $500/yr.',
+      'Click a niche bucket, search YouTube/IG/TikTok/X/LinkedIn in parallel, score every result against criteria you wrote in plain English, and reach out from one board. 7-day free trial — $50/mo or $500/yr.',
     url: 'https://creatoroutreach.net/',
   },
 }
@@ -79,7 +79,7 @@ export default async function LandingPage() {
       price: '50',
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
-      // SaaS subscription pricing — $50/mo recurring with a 14-day
+      // SaaS subscription pricing — $50/mo recurring with a 7-day
       // free trial. Schema.org doesn't have a clean way to express
       // "subscription with trial" so we surface the headline price
       // and signal trial availability via the description.
@@ -126,14 +126,14 @@ export default async function LandingPage() {
               ranks every result against your criteria. Email + social
               handles inline. Templated outreach for the platform you
               actually target. Follow-up reminders so nothing slips.
-              14-day free trial — no charges until your trial ends.
+              7-day free trial — no charges until your trial ends.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href={isAuthed ? '/' : '/auth/signup'}
                 className="inline-flex items-center gap-2 bg-gradient-to-br from-brand to-brand-2 text-primary-foreground hover:opacity-90 transition-opacity shadow-sm shadow-brand/20 px-7 py-3.5 rounded-md font-semibold text-[15px]"
               >
-                {isAuthed ? 'Open the app' : 'Start 14-day free trial'}
+                {isAuthed ? 'Open the app' : 'Start 7-day free trial'}
                 <span aria-hidden>→</span>
               </Link>
               <a
@@ -467,7 +467,7 @@ export default async function LandingPage() {
           platforms are already named in the Hero subhead and the
           Sourcing narrative.) */}
 
-      {/* PRICING — Monthly + Annual paid plans, both with a 14-day
+      {/* PRICING — Monthly + Annual paid plans, both with a 7-day
           free trial. Annual is the featured/highlighted card since
           it's the recommended plan (2 months free vs monthly).
           CTAs route through /pricing so the actual subscribe action
@@ -476,7 +476,7 @@ export default async function LandingPage() {
         <div className="max-w-[1100px] mx-auto pt-20 md:pt-28">
           <div className="text-center mb-12">
             <h2 className="font-semibold tracking-[-0.025em] mb-5 text-foreground" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}>
-              Start with a 14-day free trial.
+              Start with a 7-day free trial.
             </h2>
             <p className="max-w-[58ch] mx-auto text-[17px] text-muted-foreground leading-[1.55]">
               No charges until your trial ends. Cancel anytime from the customer portal.
@@ -486,7 +486,7 @@ export default async function LandingPage() {
             <PricingCard
               tier="Monthly"
               price="$50"
-              priceSub="per month · 14-day free trial · cancel anytime"
+              priceSub="per month · 7-day free trial · cancel anytime"
               features={[
                 'Unlimited creator search across YouTube, Instagram, TikTok, X, LinkedIn',
                 'Customizable AI fit score — any criteria you can name and measure',
@@ -495,13 +495,13 @@ export default async function LandingPage() {
                 'Customizable analytics — 7 default KPIs, 30+ custom metrics',
                 'CSV / Excel export — your data, anytime',
               ]}
-              cta={isAuthed ? 'Open the app' : 'Start 14-day free trial'}
+              cta={isAuthed ? 'Open the app' : 'Start 7-day free trial'}
               ctaHref={isAuthed ? '/' : '/pricing'}
             />
             <PricingCard
               tier="Annual · Save 17%"
               price="$500"
-              priceSub="per year · 14-day free trial · 2 months free"
+              priceSub="per year · 7-day free trial · 2 months free"
               features={[
                 'Everything in Monthly',
                 'Two months free (paid annually)',
@@ -510,7 +510,7 @@ export default async function LandingPage() {
                 'Custom scoring presets',
                 'CSV / Excel export — your data, anytime',
               ]}
-              cta={isAuthed ? 'Open the app' : 'Start 14-day free trial'}
+              cta={isAuthed ? 'Open the app' : 'Start 7-day free trial'}
               ctaHref={isAuthed ? '/' : '/pricing'}
               featured
             />

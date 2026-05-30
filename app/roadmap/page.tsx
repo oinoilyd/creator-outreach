@@ -73,7 +73,7 @@ const UP_NEXT_ITEMS = [
   },
   {
     title: 'Trial-end reminders',
-    body: 'Get notified by email three days before your 14-day trial converts to a paid subscription, so the auto-charge is never a surprise.',
+    body: 'Get notified by email two days before your 7-day trial converts to a paid subscription, so the auto-charge is never a surprise.',
   },
   {
     title: 'X + TikTok message templates',

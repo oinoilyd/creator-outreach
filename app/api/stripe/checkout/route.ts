@@ -11,9 +11,8 @@
  *      history, invoice history all stick around.
  *   3. Create a Checkout session in subscription mode with a 7-day
  *      trial (was 14, shortened by Dylan 2026-05-24 — urgency dies
- *      past day 7, and existing 14-day trials get force-migrated by
- *      the admin endpoint at deploy time). Stripe Checkout (hosted)
- *      keeps PCI scope at SAQ A — cards never touch our backend.
+ *      past day 7). Stripe Checkout (hosted) keeps PCI scope at SAQ A
+ *      — cards never touch our backend.
  *   4. Return { url } so the client can redirect.
  *
  * Errors are returned as JSON so the client can show a clear message;

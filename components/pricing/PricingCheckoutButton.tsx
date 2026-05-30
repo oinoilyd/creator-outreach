@@ -6,11 +6,11 @@
  * Three states, derived at render time from the props passed by the
  * server component:
  *
- *   1. signed out → "Start 14-day free trial" routes to /auth/signup
+ *   1. signed out → "Start 7-day free trial" routes to /auth/signup
  *      with next=/pricing so they land back here post-signup.
  *   2. signed in + has active subscription → "Manage subscription"
  *      POSTs /api/stripe/portal and redirects to the Portal URL.
- *   3. signed in + no active subscription → "Start 14-day free trial"
+ *   3. signed in + no active subscription → "Start 7-day free trial"
  *      POSTs /api/stripe/checkout with this card's priceId, redirects
  *      to the hosted Checkout.
  *
@@ -62,7 +62,7 @@ export function PricingCheckoutButton({
         href={`/auth/signup?next=${encodeURIComponent(signupNext)}`}
         className={classes}
       >
-        Start 14-day free trial <span aria-hidden>→</span>
+        Start 7-day free trial <span aria-hidden>→</span>
       </Link>
     )
   }
@@ -106,7 +106,7 @@ export function PricingCheckoutButton({
             : 'Redirecting…'
           : mode === 'manage'
             ? 'Manage subscription'
-            : 'Start 14-day free trial'}
+            : 'Start 7-day free trial'}
         {!loading && <span aria-hidden>→</span>}
       </button>
       {err && (

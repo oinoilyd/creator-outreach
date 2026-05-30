@@ -9,9 +9,9 @@
  *   NEXT_PUBLIC_STRIPE_PRICE_ANNUAL_DISPLAY    — e.g. "$490/yr"
  *
  * Auth state determines the CTA:
- *   • signed out → "Start 14-day free trial" → /auth/signup?next=/pricing
+ *   • signed out → "Start 7-day free trial" → /auth/signup?next=/pricing
  *   • signed in + active sub → "Manage subscription" → Stripe Portal
- *   • signed in + no sub → "Start 14-day free trial" → Stripe Checkout
+ *   • signed in + no sub → "Start 7-day free trial" → Stripe Checkout
  *
  * When env vars aren't set we degrade gracefully — the page still
  * renders with a "Pricing not configured yet" badge so dev/preview
@@ -31,11 +31,11 @@ import {
 export const metadata: Metadata = {
   title: 'Pricing — Creator Outreach',
   description:
-    'Start with a 14-day free trial. Unlimited creator search across YouTube, Instagram, TikTok, X, and LinkedIn. AI fit scoring, follow-up automation, full CRM.',
+    'Start with a 7-day free trial. Unlimited creator search across YouTube, Instagram, TikTok, X, and LinkedIn. AI fit scoring, follow-up automation, full CRM.',
   alternates: { canonical: 'https://creatoroutreach.net/pricing' },
   openGraph: {
     title: 'Creator Outreach — Pricing',
-    description: 'Start with a 14-day free trial. Full feature set on every plan.',
+    description: 'Start with a 7-day free trial. Full feature set on every plan.',
     url: 'https://creatoroutreach.net/pricing',
   },
 }
@@ -74,7 +74,7 @@ function buildPlans(): Plan[] {
       tier: 'Pro · Monthly',
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY ?? null,
       display: process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY_DISPLAY ?? null,
-      priceSub: 'per month · 14-day free trial · cancel anytime',
+      priceSub: 'per month · 7-day free trial · cancel anytime',
       features: [
         'Unlimited creator search across YouTube, Instagram, TikTok, X, LinkedIn',
         'AI fit scoring against your own ICP criteria',
@@ -90,7 +90,7 @@ function buildPlans(): Plan[] {
       tier: 'Pro · Annual',
       priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_ANNUAL ?? null,
       display: process.env.NEXT_PUBLIC_STRIPE_PRICE_ANNUAL_DISPLAY ?? null,
-      priceSub: 'per year · 14-day free trial · two months free',
+      priceSub: 'per year · 7-day free trial · two months free',
       priceMeta: 'works out to ~$42/mo — billed once a year',
       badge: 'Most popular',
       features: [
@@ -215,7 +215,7 @@ export default async function PricingPage({
               <div className="text-[14px] text-[#9C3D1F] dark:text-[#F2A261] leading-[1.5]">
                 <strong className="font-semibold">Start your free trial to continue.</strong>{' '}
                 Creator Outreach requires an active subscription. Pick a plan
-                below — the 14-day trial means you won&apos;t be charged today,
+                below — the 7-day trial means you won&apos;t be charged today,
                 and you can cancel anytime.
               </div>
             </div>
@@ -229,7 +229,7 @@ export default async function PricingPage({
               className="font-semibold tracking-[-0.025em] mb-5"
               style={{ fontSize: 'clamp(2rem, 4.5vw, 3.5rem)' }}
             >
-              Start with a 14-day free trial.
+              Start with a 7-day free trial.
             </h1>
             <p className="max-w-[58ch] mx-auto text-[17px] text-[#0F1733]/65 dark:text-white/65 leading-[1.55]">
               No charges until your trial ends. Cancel anytime from the customer portal.
@@ -295,10 +295,10 @@ export default async function PricingPage({
             <dl className="divide-y divide-[#0F1733]/10 dark:divide-white/10">
               <FaqItem
                 q="Will my card be charged today?"
-                a="No. Stripe captures your card during checkout but won't charge it until your 14-day trial ends. If you cancel during the trial, you're never billed — not a dollar."
+                a="No. Stripe captures your card during checkout but won't charge it until your 7-day trial ends. If you cancel during the trial, you're never billed — not a dollar."
               />
               <FaqItem
-                q="What happens at the end of the 14-day trial?"
+                q="What happens at the end of the 7-day trial?"
                 a="Your card on file is charged automatically for the plan you picked, and Stripe emails you three days before that happens so it's never a surprise. You can switch plans or cancel any time from the customer portal — including during the trial."
               />
               <FaqItem
@@ -325,7 +325,7 @@ export default async function PricingPage({
                 q="What if I'm not sure this is right for me?"
                 a={
                   <>
-                    Start the trial anyway — you have 14 days to test it on a real campaign and decide. If it&apos;s not a fit, cancel in two clicks and nothing is charged. Or email <a href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20question" className="underline underline-offset-2 hover:text-[#E85D2F]">dmeehanj@gmail.com</a> with your use case and we&apos;ll tell you honestly whether it&apos;ll work.
+                    Start the trial anyway — you have 7 days to test it on a real campaign and decide. If it&apos;s not a fit, cancel in two clicks and nothing is charged. Or email <a href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20question" className="underline underline-offset-2 hover:text-[#E85D2F]">dmeehanj@gmail.com</a> with your use case and we&apos;ll tell you honestly whether it&apos;ll work.
                   </>
                 }
               />

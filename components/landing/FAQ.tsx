@@ -14,7 +14,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "What's the pricing?",
-    a: '$50/mo or $500/yr (save 17%). Every plan includes a 14-day free trial — no charges until your trial ends, and you can cancel anytime from the customer portal.',
+    a: '$50/mo or $500/yr (save 17%). Every plan includes a 7-day free trial — no charges until your trial ends, and you can cancel anytime from the customer portal.',
   },
   {
     q: 'Do I need an API key for any of the platforms?',

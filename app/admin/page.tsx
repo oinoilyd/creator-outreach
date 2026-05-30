@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
-import { MigrateTrialsButton } from '@/components/admin/MigrateTrialsButton'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -251,21 +250,9 @@ export default async function AdminPage() {
               </div>
             </div>
 
-            {/* One-off admin tools row.
-                Trial-length migration: run once after the 14→7 day
-                trial change ships. Idempotent — re-running just caps
-                any remaining 14-day trials at 7 days. Dylan 2026-05-24.
-                (Enterprise sandbox lives at /admin/sandbox, linked
-                in the top nav above.) */}
-            <div className="bg-card/40 border border-border rounded-xl p-4 mb-8 flex items-center justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold text-foreground">Admin tools</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  One-off migrations. Safe to re-run.
-                </div>
-              </div>
-              <MigrateTrialsButton />
-            </div>
+            {/* Enterprise sandbox lives at /admin/sandbox, linked in the
+                top nav above. One-off migration tools are removed once
+                their use case is gone. */}
           </>
         )}
 
