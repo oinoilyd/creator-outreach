@@ -29,6 +29,7 @@ import { OutreachTab } from '@/components/outreach/OutreachTab'
 import { PendingResponsePrompt } from '@/components/outreach/PendingResponsePrompt'
 import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
 import { ActiveClients } from '@/components/active-clients/ActiveClients'
+import { RevertSuccessfulConfirmModal, type PendingRevert } from '@/components/active-clients/RevertSuccessfulConfirmModal'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
 import { useKeyboardShortcuts, type ShortcutBinding } from '@/lib/hooks/useKeyboardShortcuts'
 import { consumeSse } from '@/lib/sse-client'
@@ -1746,7 +1747,17 @@ export default function Home() {
     })
   }, [])
 
-  function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
+  // Pending status-change requiring user confirmation. Currently used
+  // for the "leaving Successful" intercept — flipping status away from
+  // Successful auto-hides the row from Active Clients, so we ask first
+  // (Dylan 2026-06-08). Other status flips proceed without prompting.
+  const [pendingRevert, setPendingRevert] = useState<PendingRevert | null>(null)
+
+  // Internal: apply the update without running any guards. Both the
+  // normal updateOutreachEntry path and the modal-confirm path call
+  // this. Extracted so the confirm callback can persist without
+  // re-entering the guard (which would create an infinite loop).
+  function applyOutreachUpdate(id: string, field: keyof OutreachEntry, value: any) {
     saveOutreach(outreach.map(e => {
       if (e.id !== id) return e
       const updated = { ...e, [field]: value }
@@ -1807,6 +1818,24 @@ export default function Home() {
 
       return updated
     }))
+  }
+
+  // Public entry point — runs the Active-Clients revert guard, then
+  // delegates to applyOutreachUpdate. Anything calling this gets the
+  // confirmation modal automatically when flipping a Successful entry
+  // away from Successful.
+  function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
+    if (field === 'status' && value !== 'Successful') {
+      const target = outreach.find(e => e.id === id)
+      if (target && target.status === 'Successful') {
+        setPendingRevert({
+          entry: target,
+          newStatus: value as NonNullable<OutreachEntry['status']>,
+        })
+        return // wait for user — applyOutreachUpdate fires on confirm
+      }
+    }
+    applyOutreachUpdate(id, field, value)
   }
 
   const [searchingContactIds, setSearchingContactIds] = useState<Set<string>>(new Set())
@@ -4548,6 +4577,19 @@ export default function Home() {
         2026-05-31. */}
     <PendingResponsePrompt
       onConfirm={(rowId) => updateOutreachEntry(rowId, 'status', 'No Response')}
+    />
+    {/* Revert-Successful confirm — fires when the user changes status
+        from 'Successful' to anything else (which would silently hide
+        the entry from Active Clients). Dylan 2026-06-08. */}
+    <RevertSuccessfulConfirmModal
+      pending={pendingRevert}
+      onCancel={() => setPendingRevert(null)}
+      onConfirm={() => {
+        if (pendingRevert) {
+          applyOutreachUpdate(pendingRevert.entry.id, 'status', pendingRevert.newStatus)
+          setPendingRevert(null)
+        }
+      }}
     />
     </TourProvider>
     </GuidanceContext.Provider>
