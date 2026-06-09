@@ -1708,21 +1708,28 @@ export default function Home() {
     setRecentlyAddedIds(prev => new Set([...prev, entry.id]))
   }
 
-  // Both reorder handlers are stable: they touch only setters + a
-  // module-level persistence import, so an empty dep array is correct.
+  // Results reorder is safe to memoize — only stable setters + a
+  // module-level import; nothing else captured.
   const reorderResultCols = useCallback((newConfig: ColConfig[]) => {
     setColConfig(newConfig)
     setDraftCols(newConfig)
     void saveColConfig(newConfig)
   }, [])
 
-  const reorderOutreachCols = useCallback((newConfig: OutreachColConfig[]) => {
-    // Drag-reorder + show/hide on the live table writes to the active
-    // platform's slot only. setActivePlatformOutreachCols handles the
-    // map update + persistence in one call.
+  // Outreach reorder is intentionally NOT memoized (Dylan 2026-06-09):
+  // useCallback with [] deps was freezing the first-render version of
+  // setActivePlatformOutreachCols (which captures both activePlatform
+  // AND outreachColConfigByPlatform via closure). After the DB load
+  // populated outreachColConfigByPlatform, drag-drop kept writing to
+  // the snapshot from before the load — so the new order appeared to
+  // "snap back" because the actual state update merged into a stale
+  // map and was immediately re-derived from the latest map. Recreating
+  // per render captures the current closure on every call, no extra
+  // cost since OutreachTab isn't memoized anyway.
+  const reorderOutreachCols = (newConfig: OutreachColConfig[]) => {
     setActivePlatformOutreachCols(newConfig)
     setDraftOutreachCols(newConfig)
-  }, [])
+  }
 
   // ---------------------------------------------------------------------
   // Phase 3b memoization helpers — extracted from inline arrows in JSX so
