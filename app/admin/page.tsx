@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
+import { ErrorInbox } from '@/components/admin/ErrorInbox'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -216,6 +217,15 @@ export default async function AdminPage() {
         <div className="mb-6">
           <ConnectionStatusPanel />
         </div>
+
+        {/* Central inbox for silent save failures across any user.
+            Built 2026-06-08 after the 16-day data-loss incident where
+            migration 0033 wasn't applied and every save returned
+            PGRST204 to nowhere. The inbox is empty 99% of the time —
+            when it isn't, it means a regression slipped past code
+            review or a migration didn't get applied. Investigate
+            immediately. */}
+        <ErrorInbox />
 
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg p-4 mb-6">

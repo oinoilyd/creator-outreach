@@ -10,6 +10,7 @@
  */
 
 import { createClient } from './supabase/client'
+import { reportSaveFailure } from './error-log'
 import type {
   OutreachEntry, Creator, ScoreWeights, GuidanceEntry,
   ColConfig, OutreachColConfig, PlatformId,
@@ -1021,25 +1022,16 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
       .upsert(rows, { onConflict: 'id' })
     if (upErr) {
       console.error('[saveOutreach] upsert failed:', upErr.message, upErr)
-      // TEMPORARY DIAGNOSTIC (Dylan 2026-05-31 data-loss incident):
-      // surface the error to the UI so it can't be ignored. Will be
-      // removed once the root cause is identified.
-      if (typeof window !== 'undefined') {
-        const errCode = (upErr as { code?: string }).code ?? 'unknown'
-        const errDetails = (upErr as { details?: string }).details ?? ''
-        const errHint = (upErr as { hint?: string }).hint ?? ''
-        const sample = rows[0] ? JSON.stringify(Object.keys(rows[0])) : '(no rows)'
-        window.alert(
-          `❌ SAVE FAILED — outreach not persisted!\n\n` +
-          `Error: ${upErr.message}\n` +
-          `Code: ${errCode}\n` +
-          `Details: ${errDetails}\n` +
-          `Hint: ${errHint}\n\n` +
-          `Rows attempted: ${rows.length}\n` +
-          `Columns in payload: ${sample}\n\n` +
-          `Send this whole alert to your dev — copy with Cmd+C.`,
-        )
-      }
+      // Replaces the silent-failure pattern that caused the
+      // 2026-05-23 → 2026-06-08 data-loss window. reportSaveFailure
+      // logs to client_error_log (admin sees in /admin Error Inbox)
+      // AND fires a blocking alert if the current user IS admin.
+      // Regular users see nothing scary — but the error is captured.
+      void reportSaveFailure({
+        functionName: 'saveOutreach',
+        error: upErr,
+        payloadKeys: rows[0] ? Object.keys(rows[0]) : [],
+      })
     }
   }
 }
@@ -1088,7 +1080,14 @@ export async function saveDismissed(items: Creator[]): Promise<void> {
         items.map(c => ({ user_id: uid, channel_id: c.channelId, data: c })),
         { onConflict: 'user_id,channel_id' },
       )
-    if (upErr) console.error('[saveDismissed] upsert failed:', upErr.message, upErr)
+    if (upErr) {
+      console.error('[saveDismissed] upsert failed:', upErr.message, upErr)
+      void reportSaveFailure({
+        functionName: 'saveDismissed',
+        error: upErr,
+        payloadKeys: ['user_id', 'channel_id', 'data'],
+      })
+    }
   }
 }
 
@@ -1117,6 +1116,11 @@ export async function saveDismissedRow(c: Creator): Promise<void> {
     )
   if (error) {
     console.error('[saveDismissedRow] upsert failed:', error.message, error)
+    void reportSaveFailure({
+      functionName: 'saveDismissedRow',
+      error,
+      payloadKeys: ['user_id', 'channel_id', 'data'],
+    })
     // 2026-05-10: throw so the caller surfaces the error visibly
     // instead of silently swallowing. Dylan reported deep-searched
     // emails not persisting; the old version logged to console only,

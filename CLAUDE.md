@@ -85,6 +85,17 @@ Don't wait to be asked. If the answer to any of these is "I don't know" or "no,"
 - [ ] Confirm `NOTIFY pgrst, 'reload schema';` ran (the PostgREST cache refresh — every migration that adds/changes columns needs this)
 - [ ] If anything looks off, FREEZE and investigate before proceeding
 
+### Step 4b — Code that writes new columns MUST gate on the migration being applied first (2026-06-08 update)
+
+We had a 16-day silent data-loss window because migration 0033 added 4 columns AND the code that wrote those columns shipped in the same commit. The migration sat unapplied; every outreach save returned `PGRST204` → buried in `console.error` → user kept losing data.
+
+**Rule:** whenever you add a new column to `outreachToRow()` / any payload going into `.upsert()` / `.insert()`:
+
+1. **Apply the migration to prod BEFORE the code that uses it deploys.** Two separate steps. Apply migration, verify columns exist via `information_schema.columns`, THEN merge the code.
+2. **Wrap any new save-path error with `reportSaveFailure()`** from `lib/error-log.ts`. That writes to the central `client_error_log` table (admin sees on `/admin` → Error Inbox) AND shows a blocking alert to admin so silent failures can't recur. Never `console.error` and continue.
+3. **Verify the Error Inbox is empty** on `/admin` after deploy. If anything shows up, the migration didn't take.
+4. **Update the migration audit query in CLAUDE.md** (the one in chat history under "Run this audit query in Supabase SQL Editor") to include the new columns. Any future re-audit catches drift.
+
 ### Step 5 — Code patterns to refuse
 
 These patterns are banned in any new code:
