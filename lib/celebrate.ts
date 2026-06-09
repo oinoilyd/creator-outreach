@@ -115,12 +115,17 @@ interface Particle {
 }
 
 /**
- * The four "Win celebration" effect styles users can pick under
+ * The "Win celebration" effect styles users can pick under
  * Appearance → Win celebration (Dylan 2026-05-24). Persists to
  * localStorage as `creator-outreach.success-effect-style`. Defaults
  * to 'confetti' for users who haven't picked.
+ *
+ * Dylan 2026-05-31: "Subtle pulse" removed — it never landed visually
+ * (single radial bloom read as a stray UI artifact, not a celebration).
+ * Anyone whose localStorage held 'subtle' gets migrated to 'confetti'
+ * in getSuccessEffectStyle().
  */
-export type SuccessEffectStyle = 'confetti' | 'fireworks' | 'subtle' | 'off'
+export type SuccessEffectStyle = 'confetti' | 'fireworks' | 'off'
 
 export const SUCCESS_EFFECT_STYLES: Array<{
   id: SuccessEffectStyle
@@ -138,11 +143,6 @@ export const SUCCESS_EFFECT_STYLES: Array<{
     description: 'Concentrated brand-color burst from the click point. Bolder, briefer.',
   },
   {
-    id: 'subtle',
-    label: 'Subtle pulse',
-    description: 'Soft brand-gradient glow that blooms and fades. Minimal motion.',
-  },
-  {
     id: 'off',
     label: 'Off',
     description: 'No visual effect — the success toast still appears.',
@@ -151,12 +151,19 @@ export const SUCCESS_EFFECT_STYLES: Array<{
 
 const SUCCESS_EFFECT_STORAGE_KEY = 'creator-outreach.success-effect-style'
 
-/** Read the user's chosen success-effect style. Defaults to confetti. */
+/** Read the user's chosen success-effect style. Defaults to confetti.
+ *  Legacy 'subtle' values get auto-migrated to 'confetti' (removed in
+ *  2026-05-31 — see SuccessEffectStyle docblock). */
 export function getSuccessEffectStyle(): SuccessEffectStyle {
   if (typeof window === 'undefined') return 'confetti'
   try {
     const v = window.localStorage.getItem(SUCCESS_EFFECT_STORAGE_KEY)
-    if (v === 'confetti' || v === 'fireworks' || v === 'subtle' || v === 'off') return v
+    if (v === 'confetti' || v === 'fireworks' || v === 'off') return v
+    if (v === 'subtle') {
+      // Migrate: stamp 'confetti' so subsequent reads skip this branch.
+      try { window.localStorage.setItem(SUCCESS_EFFECT_STORAGE_KEY, 'confetti') } catch { /* ignore */ }
+      return 'confetti'
+    }
   } catch { /* ignore */ }
   return 'confetti'
 }
@@ -191,12 +198,6 @@ export function celebrateSuccess(originX?: number, originY?: number) {
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (prefersReducedMotion) {
     spawnReducedMotionFlash(ox, oy)
-    return
-  }
-
-  // Subtle: just the glow, no particles.
-  if (style === 'subtle') {
-    spawnSubtlePulse(ox, oy)
     return
   }
 
@@ -320,43 +321,7 @@ export function celebrateSuccess(originX?: number, originY?: number) {
   requestAnimationFrame(tick)
 }
 
-// ── Style variants (subtle / fireworks) ────────────────────────────
-
-/**
- * Subtle pulse — single brand-gradient radial that blooms and fades
- * over ~900ms at the click point. No particles, no movement other
- * than the scale animation. For users who want a quieter signal.
- */
-function spawnSubtlePulse(ox: number, oy: number) {
-  const container = makeContainer()
-  const pulse = document.createElement('div')
-  Object.assign(pulse.style, {
-    position: 'fixed',
-    left: `${ox}px`,
-    top: `${oy}px`,
-    width: '40px',
-    height: '40px',
-    marginLeft: '-20px',
-    marginTop: '-20px',
-    borderRadius: '50%',
-    background:
-      'radial-gradient(circle, rgba(168,85,247,0.55) 0%, rgba(59,130,246,0.40) 40%, rgba(6,182,212,0.20) 70%, transparent 85%)',
-    pointerEvents: 'none',
-    willChange: 'transform, opacity',
-    filter: 'blur(1px)',
-    zIndex: String(Z_INDEX),
-  } satisfies Partial<CSSStyleDeclaration>)
-  container.appendChild(pulse)
-  pulse.animate(
-    [
-      { transform: 'scale(0)', opacity: 0 },
-      { transform: 'scale(4)', opacity: 1, offset: 0.25 },
-      { transform: 'scale(8)', opacity: 0.5, offset: 0.6 },
-      { transform: 'scale(11)', opacity: 0 },
-    ],
-    { duration: 900, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
-  ).finished.then(() => container.remove())
-}
+// ── Style variants (fireworks) ─────────────────────────────────────
 
 /**
  * Fireworks burst — concentrated brand-color radial explosion from

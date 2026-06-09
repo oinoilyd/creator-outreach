@@ -156,6 +156,19 @@ export function HamburgerMenu({
   // 'Themes' header is clickable to expand/collapse so the menu
   // doesn't bloat for users not actively switching themes.
   const [themesExpanded, setThemesExpanded] = useState(false)
+  // Win celebration picker collapse (Dylan 2026-05-31). Collapsed by
+  // default to keep the Appearance section compact — chevron flips it
+  // open inline. Persisted to localStorage so user prefs survive reloads.
+  const [winCelebrationExpanded, setWinCelebrationExpandedState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem('creator-outreach.menu.win-celebration-expanded') === 'true'
+    } catch { return false }
+  })
+  const setWinCelebrationExpanded = (next: boolean) => {
+    setWinCelebrationExpandedState(next)
+    try { window.localStorage.setItem('creator-outreach.menu.win-celebration-expanded', String(next)) } catch { /* ignore */ }
+  }
   // Win celebration style picker (Dylan 2026-05-24). Live-readable
   // from localStorage so SSR/first-paint is consistent. The picker
   // calls setSuccessEffectStyle which writes localStorage; we mirror
@@ -777,10 +790,11 @@ export function HamburgerMenu({
             </div>
           )}
 
-          {/* Win celebration picker (Dylan 2026-05-24) — sits below
-              the Themes section inside Appearance. Lets the user pick
-              what fires on the Successful status flip. Pure
-              localStorage; no backend. Defaults to 'confetti'. */}
+          {/* Win celebration picker (Dylan 2026-05-24, collapse added
+              2026-05-31). Sits below the Themes section inside
+              Appearance. Collapsible — header click toggles, chevron
+              indicates state. Mirrors the Themes collapse pattern so
+              the section feels visually consistent. */}
           <div data-tour-id="win-celebration-picker" className="pl-10 pr-4 py-3 border-t border-border/60">
             <div className="flex items-start gap-3">
               <span className="text-muted-foreground mt-0.5 shrink-0">
@@ -790,38 +804,80 @@ export function HamburgerMenu({
                 </svg>
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-[12.5px] text-foreground font-medium leading-tight mb-1">
-                  Win celebration
-                </div>
-                <div className="text-[10.5px] text-muted-foreground/85 mb-2 leading-snug">
-                  What fires when you mark an outreach Successful.
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {SUCCESS_EFFECT_STYLES.map(s => {
-                    const isActive = successEffect === s.id
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); pickSuccessEffect(s.id) }}
-                        title={s.description}
-                        className={`text-[11px] px-2 py-1 rounded border transition-colors ${
-                          isActive
-                            ? 'bg-purple-500/15 border-purple-500/40 text-foreground font-medium'
-                            : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                {/* Current selection's description as a one-liner
-                    below the chip row — gives context for the pick
-                    without needing to hover. */}
-                <div className="text-[10.5px] text-muted-foreground/70 mt-2 leading-snug">
-                  {SUCCESS_EFFECT_STYLES.find(s => s.id === successEffect)?.description}
-                </div>
+                {/* Header row — full-width clickable, flips chevron. */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setWinCelebrationExpanded(!winCelebrationExpanded) }}
+                  aria-expanded={winCelebrationExpanded}
+                  className="w-full flex items-center justify-between gap-1.5 -mx-1 px-1 py-0.5 rounded text-left hover:bg-muted/30 transition-colors"
+                >
+                  <span className="text-[12.5px] text-foreground font-medium leading-tight">
+                    Win celebration
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {/* Current selection as a hint when collapsed so
+                        users see what's set without expanding. */}
+                    {!winCelebrationExpanded && (
+                      <span className="text-[10.5px] text-muted-foreground/80">
+                        {SUCCESS_EFFECT_STYLES.find(s => s.id === successEffect)?.label}
+                      </span>
+                    )}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${winCelebrationExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {winCelebrationExpanded && (
+                    <motion.div
+                      key="win-celebration-body"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-2">
+                        <div className="text-[10.5px] text-muted-foreground/85 mb-2 leading-snug">
+                          What fires when you mark an outreach Successful.
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {SUCCESS_EFFECT_STYLES.map(s => {
+                            const isActive = successEffect === s.id
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); pickSuccessEffect(s.id) }}
+                                title={s.description}
+                                className={`text-[11px] px-2 py-1 rounded border transition-colors ${
+                                  isActive
+                                    ? 'bg-purple-500/15 border-purple-500/40 text-foreground font-medium'
+                                    : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
+                                }`}
+                              >
+                                {s.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {/* Current selection's description as a one-liner
+                            below the chip row. */}
+                        <div className="text-[10.5px] text-muted-foreground/70 mt-2 leading-snug">
+                          {SUCCESS_EFFECT_STYLES.find(s => s.id === successEffect)?.description}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
