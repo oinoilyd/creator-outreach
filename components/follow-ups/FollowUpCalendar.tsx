@@ -77,8 +77,35 @@ export function FollowUpCalendar({
     return d && d.getFullYear() === viewMonth.getFullYear() && d.getMonth() === viewMonth.getMonth()
   }).length
 
+  // Overdue: any entry whose follow-up date is in the past AND whose
+  // outreach is still in flight (not Successful / Rejected). These
+  // get a muted-amber pill on today's tile so missed deadlines stop
+  // vanishing from view. Computed once per render — the day sheet
+  // for today consumes the same list as its "Overdue" section.
+  // Dylan 2026-06-08 (post-data-loss redesign).
+  const overdueEntries = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    return entries.filter(e => {
+      if (e.status === 'Successful' || e.status === 'Rejected') return false
+      const d = parseLocalDate(e.followUpDate)
+      if (!d) return false
+      d.setHours(0, 0, 0, 0)
+      return d.getTime() < today.getTime()
+    }).sort((a, b) => {
+      // Oldest miss first — most overdue at the top of the list.
+      const da = parseLocalDate(a.followUpDate)?.getTime() ?? 0
+      const db = parseLocalDate(b.followUpDate)?.getTime() ?? 0
+      return da - db
+    })
+  }, [entries])
+  const overdueCount = overdueEntries.length
+
   // Bucket → tailwind color class for the dot. Mirrors the High /
   // Medium / Low convention in the list view.
+  // 2026-06-08: past dates where the entry is overdue (status still
+  // in flight) get a desaturated/muted variant so they read as
+  // "historical guilt" rather than "active alert." The active alert
+  // moves to today's tile via the overdue pill.
   function dotClass(e: OutreachEntry, dayIsoForBucket: string): string {
     if (e.status === 'No Response') return 'bg-purple-500'
     const d = parseLocalDate(e.followUpDate)
@@ -87,7 +114,14 @@ export function FollowUpCalendar({
     const dayDate = parseLocalDate(dayIsoForBucket)
     if (!dayDate) return 'bg-gray-500'
     const diffDays = Math.round((dayDate.getTime() - today.getTime()) / 86_400_000)
-    if (diffDays <= 0) return 'bg-red-500'
+    if (diffDays < 0) {
+      // Past + still in flight → muted (history). Closed-out entries
+      // (Successful/Rejected) keep their normal color since they're
+      // not actually overdue.
+      const inFlight = e.status !== 'Successful' && e.status !== 'Rejected'
+      return inFlight ? 'bg-red-500/30' : 'bg-red-500'
+    }
+    if (diffDays === 0) return 'bg-red-500'
     if (diffDays <= 7) return 'bg-yellow-500'
     return 'bg-blue-500'
   }
@@ -181,6 +215,20 @@ export function FollowUpCalendar({
               >
                 {d.getDate()}
               </span>
+              {/* Overdue pill — only on today's tile when there are
+                  past-due in-flight follow-ups. Subtle amber so it
+                  doesn't compete with today's actual dot count, but
+                  unmissable when present. Clicking the tile opens
+                  the day sheet which shows the Overdue section
+                  inline above today's follow-ups. */}
+              {isToday && overdueCount > 0 && (
+                <span
+                  className="absolute top-1 right-1 inline-flex items-center gap-0.5 text-[9px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300 leading-none"
+                  title={`${overdueCount} follow-up${overdueCount === 1 ? '' : 's'} missed and still pending — click to see them.`}
+                >
+                  ⚠ {overdueCount}
+                </span>
+              )}
               {dayEntries.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1 items-start">
                   {dayEntries.slice(0, 3).map(e => (
@@ -202,11 +250,14 @@ export function FollowUpCalendar({
         })}
       </div>
 
-      {/* SELECTED DAY SHEET */}
+      {/* SELECTED DAY SHEET — when today is open, pass the overdue
+          list so the sheet can render its "Overdue" section above
+          today's regular follow-ups. */}
       {selectedIso && (
         <FollowUpDaySheet
           dateIso={selectedIso}
           entries={byDate.get(selectedIso) ?? []}
+          overdueEntries={selectedIso === todayIsoStr ? overdueEntries : []}
           onClose={() => setSelectedIso(null)}
           onOpenEntry={onOpenEntry}
           profile={profile}
