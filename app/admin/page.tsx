@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
+import { CacheStatsPanel } from '@/components/admin/CacheStatsPanel'
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { ErrorInbox } from '@/components/admin/ErrorInbox'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
@@ -217,6 +218,12 @@ export default async function AdminPage() {
         <div className="mb-6">
           <ConnectionStatusPanel />
         </div>
+
+        {/* Creator enrichment cache stats — the SaaS moat. Surfaces
+            the size + freshness so Dylan can see the network effect
+            grow over time. Added 2026-06-08 after Dylan noticed his
+            cache hit 10k. */}
+        <CacheStatsPanel />
 
         {/* Central inbox for silent save failures across any user.
             Built 2026-06-08 after the 16-day data-loss incident where

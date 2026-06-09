@@ -43,7 +43,15 @@ function money(n: number): string {
  * win-rate trailing clauses.
  */
 function inverseRate(pct: number): string {
-  if (pct >= 50) return 'roughly half are replying'
+  // Dylan 2026-06-08: bug fix — previously anything >= 50% returned
+  // "roughly half are replying" which was wrong for 70%, 80%, etc.
+  // Tiers re-banded so "roughly half" only fires for actually-half-ish
+  // rates (45-55%) and higher rates get their own descriptors.
+  if (pct >= 90) return 'almost everyone replies'
+  if (pct >= 75) return 'most are replying'
+  if (pct >= 60) return 'about two-thirds reply'
+  if (pct >= 55) return 'a majority reply'
+  if (pct >= 45) return 'roughly half are replying'
   if (pct >= 33) return 'about 1 in 3'
   if (pct >= 25) return 'about 1 in 4'
   if (pct >= 20) return 'about 1 in 5'
@@ -53,6 +61,9 @@ function inverseRate(pct: number): string {
 }
 
 function inverseClose(pct: number): string {
+  // Same fix as inverseRate — broader high-end so 70%+ isn't called
+  // "over half closing" (technically true but understates the win).
+  if (pct >= 75) return 'most are closing'
   if (pct >= 50) return 'over half closing'
   if (pct >= 33) return '1 in 3 closing'
   if (pct >= 25) return '1 in 4 closing'
