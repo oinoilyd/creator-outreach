@@ -297,6 +297,20 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
           </button>
         </div>
 
+        {/* Auto-tailored-variables callout — Dylan 2026-06-08. Makes
+            it unmistakable that {variables} get filled in per recipient
+            so users don't think the template is sent verbatim. */}
+        <div className="px-6 py-2.5 border-b border-border bg-purple-500/5 shrink-0">
+          <div className="flex items-start gap-2 text-[12px] text-foreground/85 leading-snug">
+            <Info className="w-3.5 h-3.5 mt-0.5 text-purple-600 dark:text-purple-400 shrink-0" aria-hidden />
+            <p>
+              Variables in <span className="font-mono text-purple-700 dark:text-purple-300">{'{curly braces}'}</span> get
+              automatically replaced per recipient — their name, channel, top video, your pitch, etc.
+              You write the template once; each creator gets a tailored version.
+            </p>
+          </div>
+        </div>
+
         {/* Platform tabs */}
         <div className="px-6 pt-4 border-b border-border shrink-0">
           <div className="flex gap-1 overflow-x-auto">

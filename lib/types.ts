@@ -341,6 +341,10 @@ export interface UserProfile {
   fullName: string
   linkedinUrl: string
   pitchLine: string
+  /** Free-text description of who the user reaches out to. Used by AI
+   *  fit scoring + (eventually) tailored UI hints. Backed by migration
+   *  0039 (user_profile.target_audience). */
+  targetAudience?: string | null
   // Custom subject line for outreach emails. Supports placeholders
   // {name}, {channel}, {content} that lib/format.ts substitutes at
   // compose time. Empty or undefined falls back to the default subject.

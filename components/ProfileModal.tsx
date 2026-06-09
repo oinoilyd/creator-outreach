@@ -27,109 +27,26 @@ export function ProfileModal({
   const [fullName, setFullName] = useState(initial.fullName)
   const [linkedinUrl, setLinkedinUrl] = useState(initial.linkedinUrl)
   const [pitchLine, setPitchLine] = useState(initial.pitchLine)
-  const [subjectTemplate, setSubjectTemplate] = useState(initial.subjectTemplate ?? '')
+  const [targetAudience, setTargetAudience] = useState(initial.targetAudience ?? '')
   const [mailClient, setMailClient] = useState<UserProfile['mailClient']>(initial.mailClient ?? 'default')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Unipile / "Connect Gmail" + "Connect LinkedIn" state. Decoupled
-  // from the save() flow because the link happens via Unipile's
-  // hosted page + webhook, not the local form. We poll /api/unipile/me
-  // on mount to render the right Connect / Disconnect affordance for
-  // each provider.
-  const [unipileEmail, setUnipileEmail] = useState<string | null>(null)
-  const [unipileLinkedInUsername, setUnipileLinkedInUsername] = useState<string | null>(null)
-  const [unipileLoading, setUnipileLoading] = useState(false)
-  const [unipileLinkedInLoading, setUnipileLinkedInLoading] = useState(false)
-  const [unipileError, setUnipileError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const resp = await fetch('/api/unipile/me', { cache: 'no-store' })
-        if (!resp.ok) return
-        const data = (await resp.json()) as {
-          connected?: boolean
-          email?: string | null
-          linkedinConnected?: boolean
-          linkedinUsername?: string | null
-        }
-        if (!cancelled && data.connected) setUnipileEmail(data.email ?? null)
-        if (!cancelled && data.linkedinConnected) setUnipileLinkedInUsername(data.linkedinUsername ?? null)
-      } catch {
-        // best-effort — surface only when user clicks the action
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  async function handleConnectGmail() {
-    setUnipileError(null)
-    setUnipileLoading(true)
-    try {
-      const resp = await fetch('/api/unipile/connect', { method: 'POST' })
-      const data = await resp.json()
-      if (!resp.ok || !data.url) {
-        setUnipileError(data.error ?? 'Could not start Gmail connect flow')
-        setUnipileLoading(false)
-        return
-      }
-      // Whole-page navigation — Unipile's hosted page redirects back
-      // to /unipile/connected once OAuth finishes.
-      window.location.href = data.url
-    } catch (e) {
-      setUnipileError((e as Error).message)
-      setUnipileLoading(false)
-    }
-  }
-
-  async function handleConnectLinkedIn() {
-    setUnipileError(null)
-    setUnipileLinkedInLoading(true)
-    try {
-      const resp = await fetch('/api/unipile/connect-linkedin', { method: 'POST' })
-      const data = await resp.json()
-      if (!resp.ok || !data.url) {
-        setUnipileError(data.error ?? 'Could not start LinkedIn connect flow')
-        setUnipileLinkedInLoading(false)
-        return
-      }
-      window.location.href = data.url
-    } catch (e) {
-      setUnipileError((e as Error).message)
-      setUnipileLinkedInLoading(false)
-    }
-  }
-
-  async function handleDisconnectGmail() {
-    setUnipileError(null)
-    setUnipileLoading(true)
-    try {
-      const resp = await fetch('/api/unipile/disconnect', { method: 'POST' })
-      const data = await resp.json()
-      if (!resp.ok) {
-        setUnipileError(data.error ?? 'Could not disconnect')
-        setUnipileLoading(false)
-        return
-      }
-      setUnipileEmail(null)
-      if (data.warning) setUnipileError(`Disconnected locally. Note: ${data.warning}`)
-    } catch (e) {
-      setUnipileError((e as Error).message)
-    } finally {
-      setUnipileLoading(false)
-    }
-  }
+  // 2026-06-08: Unipile "Connect Gmail" + "Connect LinkedIn" cards
+  // removed. Both were rendering 404s on production (Unipile's
+  // /api/v1/hosted/accounts/link is returning Route Not Found) and
+  // crowding the Profile modal with template-adjacent integration UI.
+  // The send flow falls back to the existing mailto:/Gmail-compose
+  // path via the "Email link opens in" picker below. Backend routes
+  // (/api/unipile/*) are kept for now but unused; rip if they stay
+  // dead for another pass.
 
   // Reset form if the initial prop changes (e.g. user re-opens after editing)
   useEffect(() => {
     setFullName(initial.fullName)
     setLinkedinUrl(initial.linkedinUrl)
     setPitchLine(initial.pitchLine)
-    setSubjectTemplate(initial.subjectTemplate ?? '')
+    setTargetAudience(initial.targetAudience ?? '')
     setMailClient(initial.mailClient ?? 'default')
   }, [initial])
 
@@ -145,19 +62,36 @@ export function ProfileModal({
       fullName: fullName.trim(),
       linkedinUrl: linkedinUrl.trim(),
       pitchLine: pitchLine.trim(),
-      subjectTemplate: subjectTemplate.trim() || undefined,
+      targetAudience: targetAudience.trim() || null,
       mailClient,
     }
-    const { error: err } = await supabase
+    // Migration-tolerant write: try with target_audience first
+    // (migration 0039). If the column is missing, retry without it
+    // so the rest of the save still lands. Same fallback pattern as
+    // the home-page profile load.
+    let { error: err } = await supabase
       .from('user_profile')
       .update({
         full_name: next.fullName,
         linkedin_url: next.linkedinUrl,
         pitch_line: next.pitchLine,
-        subject_template: next.subjectTemplate ?? null,
+        target_audience: next.targetAudience ?? null,
         mail_client: next.mailClient,
       })
       .eq('user_id', userId)
+    if (err && /target_audience|schema cache|PGRST204|column .* does not exist/i.test(err.message)) {
+      console.warn('[ProfileModal] target_audience write failed (migration 0039 not applied?), retrying without it:', err.message)
+      const retry = await supabase
+        .from('user_profile')
+        .update({
+          full_name: next.fullName,
+          linkedin_url: next.linkedinUrl,
+          pitch_line: next.pitchLine,
+          mail_client: next.mailClient,
+        })
+        .eq('user_id', userId)
+      err = retry.error
+    }
 
     if (err) {
       setError(err.message)
@@ -193,7 +127,7 @@ export function ProfileModal({
               className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors"
             >✕</button>
           </div>
-          <p className="text-muted-foreground text-sm">Used in your outreach emails. Edits apply to every future email you send.</p>
+          <p className="text-muted-foreground text-sm">Who you are and who you target. Outreach templates pull from this — message content lives in the Templates panel.</p>
         </div>
 
         {/* Scrollable middle */}
@@ -227,7 +161,7 @@ export function ProfileModal({
 
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Pitch line <span className="text-muted-foreground/70">(optional)</span>
+              What do you do? <span className="text-muted-foreground/70">(optional)</span>
             </label>
             <textarea
               value={pitchLine}
@@ -236,33 +170,27 @@ export function ProfileModal({
               rows={3}
               className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500 resize-none"
             />
-            <p className="text-[11px] text-muted-foreground/70 mt-1">One line about what you do. Goes after &quot;I&apos;m [your name]&quot; in outreach emails.</p>
+            <p className="text-[11px] text-muted-foreground/70 mt-1">One line about your work. Your outreach templates pull this in automatically (via the <code className="text-foreground/80">{'{pitch}'}</code> variable).</p>
           </div>
 
-          {/* Subject-line template — used as the actual email subject when
-              the user clicks an outreach link. Supports placeholders that
-              lib/format.ts substitutes per recipient at compose time. */}
+          {/* Target audience — Dylan 2026-06-08. Free-text description
+              of who the user is reaching out to. Stored as
+              user_profile.target_audience (migration 0039). Used today
+              for AI fit scoring context + visible on the dashboard;
+              future work: auto-suggest niche buckets + tailor template
+              tone based on this. */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Subject line template <span className="text-muted-foreground/70">(optional)</span>
+              Who do you target? <span className="text-muted-foreground/70">(optional)</span>
             </label>
-            <input
-              type="text"
-              value={subjectTemplate}
-              onChange={e => setSubjectTemplate(e.target.value)}
-              placeholder="e.g. quick question about {channel}"
-              maxLength={140}
-              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500"
+            <textarea
+              value={targetAudience}
+              onChange={e => setTargetAudience(e.target.value)}
+              placeholder="e.g. fitness creators 100K-1M subs, mostly YouTube. Sometimes Instagram if they post Reels."
+              rows={3}
+              className="w-full bg-muted border border-border rounded px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500 resize-none"
             />
-            <p className="text-[11px] text-muted-foreground/70 mt-1 leading-relaxed">
-              Used as the subject when you click an outreach email link. Placeholders:{' '}
-              <code className="px-1 py-0.5 rounded bg-muted-foreground/10 text-foreground/80">{'{name}'}</code>{' '}
-              recipient first name,{' '}
-              <code className="px-1 py-0.5 rounded bg-muted-foreground/10 text-foreground/80">{'{channel}'}</code>{' '}
-              channel name,{' '}
-              <code className="px-1 py-0.5 rounded bg-muted-foreground/10 text-foreground/80">{'{content}'}</code>{' '}
-              top video title. Leave blank to use the default subject.
-            </p>
+            <p className="text-[11px] text-muted-foreground/70 mt-1">Helps the AI score better and (soon) tailor templates to the creator type you actually reach.</p>
           </div>
 
           {/* Mail client preference — controls where outreach email
@@ -302,101 +230,11 @@ export function ProfileModal({
           {/* Backdrop theme picker moved to the hamburger menu next to
               the dark/light toggle (Dylan 2026-05-10): both are visual
               settings, they belong together. */}
-
-          {/* Connect Gmail (Unipile) — the path forward. When connected
-              we send programmatically via Unipile's API, eliminating
-              the multi-account / wrong-To bugs entirely. Existing
-              "Email link opens in" preference above stays as the
-              fallback for users who don't connect. */}
-          <div className="border-t border-border pt-4">
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Connect Gmail for one-click sending
-              <span className="ml-2 text-[10px] uppercase tracking-[0.16em] text-purple-700 dark:text-purple-300 font-bold">Beta</span>
-            </label>
-            {unipileEmail ? (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs text-muted-foreground">Connected as</div>
-                  <div className="text-sm font-mono text-foreground break-all">{unipileEmail}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDisconnectGmail}
-                  disabled={unipileLoading}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-red-700 dark:hover:text-red-400 hover:border-red-400/60 transition-colors disabled:opacity-50"
-                >
-                  {unipileLoading ? 'Working…' : 'Disconnect'}
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleConnectGmail}
-                disabled={unipileLoading}
-                className="w-full rounded-lg border border-border bg-card hover:border-purple-500/60 hover:bg-purple-500/5 transition-colors px-4 py-3 text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
-              >
-                <span className="text-xl" aria-hidden>✉️</span>
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-foreground">
-                    {unipileLoading ? 'Opening Google…' : 'Connect Gmail'}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground leading-snug">
-                    One-time Google sign-in. After that, &quot;Send&quot; in our app sends from
-                    your Gmail — no compose tab, no account confusion.
-                  </div>
-                </div>
-                <span className="text-muted-foreground/60" aria-hidden>→</span>
-              </button>
-            )}
-            {unipileError && (
-              <div className="mt-2 text-[11px] text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-2.5 py-1.5 leading-relaxed">
-                {unipileError}
-              </div>
-            )}
-            <p className="text-[10px] text-muted-foreground/70 mt-1.5 leading-relaxed">
-              Sends via Unipile, an email infrastructure provider. They get access to
-              messages you send / receive through this connection. Disconnect any time.
-            </p>
-          </div>
-
-          {/* Connect LinkedIn (Phase 6) — same hosted-auth flow as
-              Gmail, lets us send connection requests + DMs from your
-              real LinkedIn account. Heavy usage risks LinkedIn flagging
-              the account, so default off and gated per-action. */}
-          <div className="border-t border-border pt-4">
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Connect LinkedIn for outreach DMs
-              <span className="ml-2 text-[10px] uppercase tracking-[0.16em] text-purple-700 dark:text-purple-300 font-bold">Beta</span>
-            </label>
-            {unipileLinkedInUsername ? (
-              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs text-muted-foreground">LinkedIn connected</div>
-                  <div className="text-sm font-mono text-foreground break-all">{unipileLinkedInUsername}</div>
-                </div>
-                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-blue-700 dark:text-blue-300">Active</span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleConnectLinkedIn}
-                disabled={unipileLinkedInLoading}
-                className="w-full rounded-lg border border-border bg-card hover:border-blue-500/60 hover:bg-blue-500/5 transition-colors px-4 py-3 text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
-              >
-                <span className="text-xl" aria-hidden>in</span>
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-foreground">
-                    {unipileLinkedInLoading ? 'Opening LinkedIn…' : 'Connect LinkedIn'}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground leading-snug">
-                    DMs + connection requests come from your real account.
-                    Heavy usage can trigger LinkedIn flags — keep activity human-paced.
-                  </div>
-                </div>
-                <span className="text-muted-foreground/60" aria-hidden>→</span>
-              </button>
-            )}
-          </div>
+          {/* 2026-06-08: Removed "Connect Gmail" + "Connect LinkedIn"
+              Unipile cards — both were rendering 404s on production
+              and crowding the profile with template-adjacent
+              integration UI. The /api/unipile/* routes remain (for
+              now) but aren't surfaced from anywhere. */}
         </div>
 
           {error && <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded px-3 py-2 mt-4">{error}</div>}

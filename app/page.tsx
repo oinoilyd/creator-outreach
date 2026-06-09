@@ -1238,7 +1238,7 @@ export default function Home() {
         // the new template + footer columns. Optional fields stay
         // undefined and the defaults in lib/templates.ts kick in.
         const BASE_COLS = 'full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end'
-        const TEMPLATE_COLS = 'email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at'
+        const TEMPLATE_COLS = 'email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at, target_audience'
         const CONSENT_COLS = 'terms_privacy_agreed_at, terms_privacy_version'
         const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}`
 
@@ -1378,10 +1378,17 @@ export default function Home() {
         }
 
         if (profileRow) {
+          // Cast for migration-tolerant target_audience read — the
+          // base SELECT may not include it on environments without
+          // 0039 applied. Falls back to null.
+          const profileRowAny = profileRow as typeof profileRow & {
+            target_audience?: string | null
+          }
           setProfile({
             fullName: profileRow.full_name ?? '',
             linkedinUrl: profileRow.linkedin_url ?? '',
             pitchLine: profileRow.pitch_line ?? '',
+            targetAudience: profileRowAny.target_audience ?? null,
             subjectTemplate: profileRow.subject_template ?? undefined,
             mailClient: (profileRow.mail_client ?? 'default') as UserProfile['mailClient'],
             // Auth email — used by composeUrl to pin the Gmail/Outlook
