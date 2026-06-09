@@ -1135,24 +1135,43 @@ export default function Home() {
       if (!isYouTube && (c.id === 'avgViews' || c.id === 'subscribers' || c.id === 'lastVideo' || c.id === 'lastShort')) {
         return { ...c, visible: false }
       }
+      // Hide the dedicated YouTube column on YouTube platform — the
+      // Channel name column already IS the YT link, so showing both
+      // would just be duplicate hyperlinks. On every other platform
+      // it gets force-shown by the cluster block below.
+      // Dylan 2026-06-09.
+      if (isYouTube && c.id === 'youtube') {
+        return { ...c, visible: false }
+      }
       // Force the selected platform's column visible.
       if (selected && c.id === selected) return { ...c, visible: true }
       // Force email + trio socials always visible in Results.
       if (c.id === 'email' || TRIO_SOCIALS.includes(c.id)) return { ...c, visible: true }
+      // Force YouTube column visible on non-YouTube platforms — Dylan
+      // 2026-06-09: when searching IG/X/TikTok/LinkedIn, the YT
+      // channel link is high-signal context for evaluating fit.
+      if (!isYouTube && c.id === 'youtube') return { ...c, visible: true }
       // Platform-specific auto-show columns (e.g. IG followers + posts).
       if (autoShow.includes(c.id)) return { ...c, visible: true }
       return c
     })
 
     // Build the desired ordered cluster:
-    //   YouTube: [email]                         — socials stay at end
-    //   Other:   [selected, email, other trio socials]
+    //   YouTube: [email]                                       — socials stay at end
+    //   Other:   [selected, email, youtube, other trio socials]
+    //
+    // Dylan 2026-06-09: YouTube column hoisted to right after email
+    // on non-YouTube platforms. Rationale: when searching IG/X/TT/LI,
+    // the creator's YT channel is the most valuable cross-platform
+    // signal (audience, output cadence, monetization) — surface it
+    // ahead of the other social handles.
     const clusterIds: ColId[] = []
     if (isYouTube) {
       clusterIds.push('email')
     } else {
       if (selected && selected !== 'email') clusterIds.push(selected)
       clusterIds.push('email')
+      clusterIds.push('youtube')
       for (const id of TRIO_SOCIALS) {
         if (id !== selected) clusterIds.push(id)
       }
@@ -3763,7 +3782,31 @@ export default function Home() {
                 Outreach > Follow-ups, Outreach > Active Clients. */}
           {activeTab !== 'dismissed' &&
             !(activeTab === 'outreach' && (outreachSubTab === 'analytics' || outreachSubTab === 'followups' || outreachSubTab === 'active')) && (
-            <div ref={exportMenuRef} className="ml-auto relative">
+            <div className="ml-auto flex items-center gap-1.5">
+              {/* Standalone "Customize columns" button on Results — Dylan
+                  2026-06-09 said the entry was hard to find inside the
+                  gear menu. Surface a direct shortcut next to the gear. */}
+              {activeTab === 'results' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const draft = activePlatform === 'youtube'
+                      ? colConfig
+                      : colConfig.filter(c => !YOUTUBE_ONLY_COL_IDS.includes(c.id))
+                    setDraftCols(draft)
+                    setShowCustomize(true)
+                  }}
+                  title="Customize columns — show / hide / reorder"
+                  aria-label="Customize columns"
+                  className="flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border hover:border-border/80 transition-colors mb-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h13M3 12h13M3 18h7" />
+                  </svg>
+                  <span className="hidden sm:inline">Customize</span>
+                </button>
+              )}
+            <div ref={exportMenuRef} className="relative">
               <button
                 onClick={() => setShowExport(v => !v)}
                 title={activeTab === 'outreach' ? 'Export this list' : 'Customize columns (export is on the Outreach tab)'}
@@ -3842,13 +3885,13 @@ export default function Home() {
                 </div>
               )}
             </div>
+            </div>
           )}
-          {/* Old standalone Customize button removed (2026-05-09).
-              On Results tab, customize is now an entry inside the
-              Settings gear popover above. On Outreach the in-tab
-              "Customize columns" link in OutreachTab still works.
-              On Dismissed there's nothing to customize (fixed
-              schema). */}
+          {/* Standalone Customize button on Results re-added 2026-06-09
+              (Dylan: "the entry inside the gear was either hard to find
+              or doesn't exist like I don't see it at all"). On Outreach
+              the in-tab "Customize columns" link in OutreachTab still
+              works. On Dismissed there's nothing to customize. */}
         </div>
 
         {/* Customize drawer */}

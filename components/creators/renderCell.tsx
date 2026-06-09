@@ -130,6 +130,10 @@ export function renderCell(
     )
     case 'twitter':   return <td key={id} className="px-4 py-3">{c.twitter   ? <a href={c.twitter}   target="_blank" rel="noopener noreferrer" onClick={() => copyDmForPlatform('x_dm', c.channelName, profile)} title="Open X + copy DM template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
     case 'tiktok':    return <td key={id} className="px-4 py-3">{c.tiktok    ? <a href={c.tiktok}    target="_blank" rel="noopener noreferrer" onClick={() => copyDmForPlatform('tiktok_dm', c.channelName, profile)} title="Open TikTok + copy DM template" className="text-blue-800 dark:text-blue-400 hover:underline">Message</a> : '—'}</td>
+    // YouTube channel link — Dylan 2026-06-09. Surfaces the YT channel
+    // alongside other socials, useful when searching a non-YouTube
+    // platform and you want quick context on the creator's YT footprint.
+    case 'youtube':   return <td key={id} className="px-4 py-3">{c.channelUrl ? <a href={c.channelUrl} target="_blank" rel="noopener noreferrer" title="Open YouTube channel" className="text-red-700 dark:text-red-400 hover:underline">Channel</a> : '—'}</td>
     case 'igFollowers': return <td key={id} className="px-4 py-3 text-xs tabular-nums"><InstagramMetricCell instagramUrl={c.instagram} field="followers" /></td>
     case 'igPosts':     return <td key={id} className="px-4 py-3 text-xs tabular-nums"><InstagramMetricCell instagramUrl={c.instagram} field="posts" /></td>
   }

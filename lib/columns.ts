@@ -206,6 +206,13 @@ export const DEFAULT_COLS: ColConfig[] = [
   { id: 'instagram',   label: 'Instagram',   visible: true  },
   { id: 'twitter',     label: 'X',           visible: true  },
   { id: 'linkedin',    label: 'LinkedIn',    visible: true  },
+  // YouTube column — Dylan 2026-06-09. Surfaces the creator's
+  // YouTube channel link on non-YouTube searches (LinkedIn search
+  // can show LinkedIn URL + YT channel side-by-side). Defaults OFF
+  // because on YouTube search the Channel name IS the YT link, so
+  // this column would be redundant. effectiveColConfig() in app/page.tsx
+  // hides it on YouTube platform and force-shows it everywhere else.
+  { id: 'youtube',     label: 'YouTube',     visible: false },
   { id: 'website',     label: 'Website',     visible: false },
   // Instagram-derived metrics — defaults OFF (the Instagram column
   // already gives you the DM link). They auto-show when the user
@@ -237,5 +244,6 @@ export const COL_SORT: Record<ColId, SortCol> = {
   lastVideo: 'lastVideo', lastShort: 'lastShort',
   email: 'email', linkedin: 'linkedin', website: 'website',
   instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
+  youtube: 'youtube',
   igFollowers: 'igFollowers', igPosts: 'igPosts',
 }

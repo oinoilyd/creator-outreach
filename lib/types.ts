@@ -28,6 +28,7 @@ export interface Creator {
 export type SortCol =
   | 'channelName' | 'avgViews' | 'subscribers' | 'lastVideo' | 'lastShort'
   | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
+  | 'youtube'
   | 'fitScore'
   // Instagram-API-derived metrics. Sortable columns the user can
   // surface via Customize Columns or auto-shown when filtering by IG.
@@ -45,6 +46,7 @@ export type SortKey = { col: SortCol; dir: SortDir }
 export type ColId =
   | 'avgViews' | 'subscribers' | 'lastVideo' | 'lastShort'
   | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok'
+  | 'youtube'
   | 'fitScore'
   | 'igFollowers' | 'igPosts'
 export type ActiveTab = 'results' | 'outreach' | 'dismissed'
