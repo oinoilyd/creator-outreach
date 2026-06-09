@@ -287,10 +287,35 @@ export function pickRandom(arr: string[], n: number): string[] {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
 }
 
-export function formatSubscribers(s: string): string {
-  if (!s) return '—'
-  const n = Number(s)
-  if (isNaN(n)) return s
+/**
+ * Format a subscriber count for display. Handles every format we've
+ * seen come out of YouTube + manual entry:
+ *   • Raw numbers: 3000000 → "3.0M"
+ *   • Comma-formatted strings: "3,000,000" → "3.0M"
+ *   • Already-abbreviated strings: "3M" / "550K" / "1.5B" → reformatted cleanly
+ *   • Numbers as strings: "3000000" → "3.0M"
+ *   • Bigint: 3000000000n → "3.0B"
+ *   • Empty / null / undefined → "—"
+ *
+ * Dylan 2026-06-09: previous version called `Number(s)` directly, so
+ * "3,000,000" (commas → NaN) fell through to the raw-passthrough branch
+ * and "3M" stayed as "3M". The real bug was that "Number('3M')" returned
+ * NaN → passthrough, but other paths could store a literal "3" without
+ * suffix and we'd display it as "3". Going through parseSubscriberCount
+ * normalizes everything to a number first.
+ */
+export function formatSubscribers(s: string | number | null | undefined): string {
+  if (s == null || s === '') return '—'
+  if (typeof s === 'number') return formatSubsNumber(s)
+  const raw = String(s).trim()
+  if (!raw) return '—'
+  const n = parseSubscriberCount(raw)
+  if (n == null) return raw // unparseable — pass through whatever we have
+  return formatSubsNumber(n)
+}
+
+function formatSubsNumber(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`
   return n.toLocaleString()
