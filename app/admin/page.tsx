@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AuditMenu } from '@/components/admin/AuditMenu'
-import { CacheStatsPanel } from '@/components/admin/CacheStatsPanel'
+import { CacheStatsPanel, type CacheStats } from '@/components/admin/CacheStatsPanel'
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { ErrorInbox } from '@/components/admin/ErrorInbox'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
@@ -41,6 +41,29 @@ export default async function AdminPage() {
     .from('contact_messages')
     .select('id', { count: 'exact', head: true })
     .eq('resolved', false)
+
+  // Enrichment cache stats — uses the authenticated server client
+  // (creator_enrichment grants SELECT to authenticated per migration
+  // 0011, so we don't need the service role key). Fetched in parallel
+  // alongside the existing user/profile data so the panel renders
+  // synchronously from props with no flash-then-disappear glitch.
+  // Dylan 2026-06-08.
+  const now7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const now24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const cacheStatsResults = await Promise.all([
+    supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }),
+    supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }).not('email', 'is', null),
+    supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }).eq('email_bounced', true),
+    supabase.from('creator_enrichment').select('id', { count: 'exact', head: true }).gte('fetched_at', now7),
+    supabase.from('creator_enrichment').select('id', { count: 'exact', head: true }).gte('fetched_at', now24),
+  ])
+  const cacheStats: CacheStats = {
+    total: cacheStatsResults[0].count ?? 0,
+    withEmail: cacheStatsResults[1].count ?? 0,
+    bouncedCount: cacheStatsResults[2].count ?? 0,
+    fetchedLast7d: cacheStatsResults[3].count ?? 0,
+    fetchedLast24h: cacheStatsResults[4].count ?? 0,
+  }
 
   // Per-user activity + timezone, fetched from user_profile.
   // admin_user_summary doesn't return either, so we merge by user_id
@@ -223,7 +246,7 @@ export default async function AdminPage() {
             the size + freshness so Dylan can see the network effect
             grow over time. Added 2026-06-08 after Dylan noticed his
             cache hit 10k. */}
-        <CacheStatsPanel />
+        <CacheStatsPanel stats={cacheStats} />
 
         {/* Central inbox for silent save failures across any user.
             Built 2026-06-08 after the 16-day data-loss incident where

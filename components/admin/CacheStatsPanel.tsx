@@ -8,17 +8,23 @@
  * (~2-10s + API costs). This panel surfaces that moat as a visible
  * stat so its growth is trackable week-over-week.
  *
- * Stats shown:
- *   • Total cached creators (the moat — bigger = faster + cheaper)
- *   • Email coverage % (how many of those have emails resolved)
- *   • Fresh enrichments last 7d / 24h (cache miss / refetch volume)
- *   • Bounced emails (cleanup target)
- *
- * Server component — fetches via getEnrichmentStats() on render.
- * No client interactivity needed; the numbers update on page reload.
+ * Dylan 2026-06-08 v2: refactored from async server component to
+ * a pure dumb component that takes stats as props. The original
+ * version called getEnrichmentStats() which uses the service-role
+ * client (null in prod because SUPABASE_SERVICE_ROLE_KEY isn't in
+ * Vercel env), making the panel return zeros and producing a
+ * flash-then-disappear glitch on the admin page. The page now
+ * fetches via the authenticated server client (creator_enrichment
+ * grants SELECT to authenticated per migration 0011).
  */
 
-import { getEnrichmentStats } from '@/lib/creator-enrichment'
+export interface CacheStats {
+  total: number
+  withEmail: number
+  bouncedCount: number
+  fetchedLast7d: number
+  fetchedLast24h: number
+}
 
 function formatNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -27,8 +33,7 @@ function formatNum(n: number): string {
   return n.toLocaleString('en-US')
 }
 
-export async function CacheStatsPanel() {
-  const stats = await getEnrichmentStats()
+export function CacheStatsPanel({ stats }: { stats: CacheStats }) {
   const { total, withEmail, bouncedCount, fetchedLast7d, fetchedLast24h } = stats
 
   const emailPct = total > 0 ? Math.round((withEmail / total) * 100) : 0
