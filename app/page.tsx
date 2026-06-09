@@ -26,6 +26,7 @@ import { OutreachSubTabs } from '@/components/outreach/OutreachSubTabs'
 import { AnalyticsCustomizeShell } from '@/components/outreach/AnalyticsCustomizeShell'
 import { OutreachAnalytics } from '@/components/outreach/OutreachAnalytics'
 import { OutreachTab } from '@/components/outreach/OutreachTab'
+import { PendingResponsePrompt } from '@/components/outreach/PendingResponsePrompt'
 import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
 import { ActiveClients } from '@/components/active-clients/ActiveClients'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
@@ -4540,6 +4541,13 @@ export default function Home() {
       open={exportGateOpen}
       request={exportGateRequest}
       onClose={() => setExportGateOpen(false)}
+    />
+    {/* Pending-Response prompt — surfaces after the user clicks an
+        email link and returns from their mail client. Replaces the
+        old silent auto-flip with an explicit confirmation. Dylan
+        2026-05-31. */}
+    <PendingResponsePrompt
+      onConfirm={(rowId) => updateOutreachEntry(rowId, 'status', 'No Response')}
     />
     </TourProvider>
     </GuidanceContext.Provider>

@@ -20,6 +20,8 @@ import { guardOutreachClick } from '@/components/creators/renderCell'
 import { EmailEditToggle } from '@/components/outreach/EmailEditToggle'
 import { FollowUpDateCell } from '@/components/follow-ups/FollowUpDateCell'
 import { EngagementStatusPill } from '@/components/outreach/EngagementStatusPill'
+import { emitEmailClick } from '@/components/outreach/PendingResponsePrompt'
+import { statusSelectClasses, STATUS_OPTIONS } from '@/lib/outreach-status'
 
 /**
  * Phase 2 click interceptor — when the user has a Unipile-connected
@@ -130,8 +132,14 @@ export function renderOutreachCell(
                     recipientLabel: e.channelName,
                   })) return
                   // Phase 1 — click-to-track (legacy compose-URL path).
+                  // 2026-05-31: silent auto-flip replaced by a deferred
+                  // confirmation prompt. We only emit the event for
+                  // rows still at 'Not Outreached' (or empty); the
+                  // PendingResponsePrompt component listens for
+                  // visibilitychange and asks the user after they
+                  // return from their mail client.
                   if (e.status === 'Not Outreached' || e.status === '') {
-                    onUpdate(e.id, 'status', 'No Response')
+                    emitEmailClick({ rowId: e.id, channelName: e.channelName })
                   }
                 }}
                 className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all flex-1"
@@ -221,12 +229,10 @@ export function renderOutreachCell(
       return (
         <div className="flex flex-col gap-0.5">
           <select value={e.status || 'Not Outreached'} onChange={ev => onUpdate(e.id, 'status', ev.target.value)}
-            className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${e.status === 'Successful' ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300' : e.status === 'Open' ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300' : e.status === 'Rejected' ? 'bg-red-50 dark:bg-red-900/40 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300' : e.status === 'No Response' ? 'bg-muted border-border text-muted-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
-            <option value="Not Outreached">Not Outreached</option>
-            <option value="Open">Open</option>
-            <option value="No Response">No Response</option>
-            <option value="Successful">Successful</option>
-            <option value="Rejected">Rejected</option>
+            className={`w-full rounded px-2 py-0.5 text-xs focus:outline-none border ${statusSelectClasses(e.status)}`}>
+            {STATUS_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
         </div>
       )

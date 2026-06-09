@@ -150,11 +150,11 @@ export function FollowedUpPopover({
             onChange={e => setStatus(e.target.value)}
             className="w-full bg-muted border border-border rounded px-2 py-1.5 text-[11px] text-foreground focus:outline-none focus:border-purple-500"
           >
-            <option value="Open">Open — still waiting</option>
-            <option value="No Response">No Response — likely ghosting</option>
+            <option value="Not Outreached">Not Outreached</option>
+            <option value="No Response">Pending Response — sent, waiting</option>
+            <option value="Open">Warm — active back-and-forth</option>
             <option value="Successful">Successful — they said yes</option>
             <option value="Rejected">Rejected — they said no</option>
-            <option value="Not Outreached">Not Outreached</option>
           </select>
         </div>
 

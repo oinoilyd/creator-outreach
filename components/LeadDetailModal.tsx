@@ -6,6 +6,8 @@ import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { buildOutreachEmail, buildOutreachContent, recipientIssue } from '@/lib/format'
 import { copyInstagramDm, copyLinkedInMessage } from '@/lib/outreach'
+import { emitEmailClick } from '@/components/outreach/PendingResponsePrompt'
+import { statusBadgeClasses, statusLabel } from '@/lib/outreach-status'
 import { Briefcase, CheckCircle2 } from 'lucide-react'
 
 export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
@@ -88,10 +90,12 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
         entry.trackingId,
       )
       if (href) window.open(href, '_blank', 'noopener,noreferrer')
-      // Auto-flip status to 'No Response' on first click — same rule
-      // as the row-level email click handler in app/page.tsx.
+      // 2026-05-31: replaced silent auto-flip with the deferred
+      // PendingResponsePrompt. Only emit for rows still at the
+      // 'Not Outreached' starting state; the prompt asks the user
+      // after they return from their mail client.
       if (entry.status === 'Not Outreached' || !entry.status) {
-        onUpdate(entry.id, 'status', 'No Response')
+        emitEmailClick({ rowId: entry.id, channelName: entry.channelName })
       }
     } else if (modality === 'instagram') {
       window.open(igUrl, '_blank', 'noopener,noreferrer')
@@ -102,14 +106,7 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
     }
   }
 
-  const statusColor = {
-    'Successful': 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
-    'Rejected': 'bg-red-500/15 text-red-300 border-red-500/40',
-    'Open': 'bg-blue-500/15 text-blue-300 border-blue-500/40',
-    'No Response': 'bg-gray-500/15 text-foreground/80 border-border/40',
-    'Not Outreached': 'bg-muted/40 text-muted-foreground border-border',
-    '': 'bg-muted/40 text-muted-foreground border-border',
-  }[entry.status] || 'bg-muted/40 text-muted-foreground border-border'
+  const statusColor = statusBadgeClasses(entry.status)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -140,7 +137,7 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
             <h2 id={titleId} className="text-lg font-bold text-foreground truncate">{entry.channelName || '(unnamed)'}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${statusColor}`}>
-                {entry.status || 'Not Outreached'}
+                {statusLabel(entry.status)}
               </span>
               {entry.favorite && <span className="text-[10px] text-yellow-400">★ Favorite</span>}
               {entry.channelUrl && (
