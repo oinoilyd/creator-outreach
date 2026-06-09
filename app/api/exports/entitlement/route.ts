@@ -12,7 +12,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { requireUser } from '@/lib/api-auth'
-import { getExportEntitlement } from '@/lib/billing/exports'
+import { getExportEntitlement, PAID_EXPORT_PRICE_CENTS } from '@/lib/billing/exports'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,20 +32,23 @@ export async function GET() {
 
   const sb = getServiceClient()
   if (!sb) {
-    // Permissive fallback if service role isn't configured.
+    // Service role missing → fall back to requires_payment. Was
+    // "free" before Dylan 2026-06-08 — but the free tier is gone, and
+    // we shouldn't accidentally hand out free exports just because
+    // SUPABASE_SERVICE_ROLE_KEY isn't set.
     return NextResponse.json({
-      canExportFree: true,
-      reason: 'under_threshold_free_monthly',
+      canExportFree: false,
+      reason: 'requires_payment',
       outreachRowCount: 0,
       threshold: 10,
       freeQuotaResetsAt: null,
       paidCredits: 0,
-      paidExportPriceCents: 2500,
+      paidExportPriceCents: PAID_EXPORT_PRICE_CENTS,
     })
   }
 
   const { count: outreachCount, error: countErr } = await sb
-    .from('outreach')
+    .from('outreach_entries') // Dylan 2026-06-08: was 'outreach' — wrong table, count silently returned 0
     .select('id', { count: 'exact', head: true })
     .eq('user_id', auth.id)
 

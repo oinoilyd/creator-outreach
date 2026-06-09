@@ -27,6 +27,7 @@ import { requireUser, rateLimit } from '@/lib/api-auth'
 import {
   getExportEntitlement,
   consumeExportEntitlement,
+  PAID_EXPORT_PRICE_CENTS,
   type ExportEntitlement,
 } from '@/lib/billing/exports'
 
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
 
   if (sb) {
     const { count: outreachCount, error: countErr } = await sb
-      .from('outreach')
+      .from('outreach_entries') // Dylan 2026-06-08: was 'outreach' — wrong table, count always failed, gate silently fell through to "free"
       .select('id', { count: 'exact', head: true })
       .eq('user_id', auth.id)
     if (countErr) {
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
         {
           needsPayment: true,
           reason: 'requires_payment',
-          paidExportPriceCents: 2500,
+          paidExportPriceCents: PAID_EXPORT_PRICE_CENTS,
         },
         { status: 402 },
       )

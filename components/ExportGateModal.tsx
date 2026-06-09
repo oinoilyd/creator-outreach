@@ -207,24 +207,10 @@ export function ExportGateModal({ open, request, onClose }: Props) {
         </>
       )
     }
-    if (entitlement.reason === 'under_threshold_free_monthly') {
-      const resets = entitlement.freeQuotaResetsAt
-        ? new Date(entitlement.freeQuotaResetsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-        : 'next month'
-      return (
-        <>
-          <div className="mb-4 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 rounded-md text-sm text-blue-800 dark:text-blue-200">
-            <div className="font-semibold mb-0.5">Free export available</div>
-            <div className="text-xs opacity-80">
-              You&apos;re under {entitlement.threshold} outreach entries — your free export this month is on the house. Next free export resets {resets}.
-            </div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {request.entries.length} {request.entries.length === 1 ? 'entry' : 'entries'} → {request.format.toUpperCase()}
-          </div>
-        </>
-      )
-    }
+    // Dylan 2026-06-08: 'under_threshold_free_monthly' branch removed
+    // because the gate no longer returns it. The reason value still
+    // exists in the union for legacy session continuity, but nothing
+    // in the gate produces it anymore.
     if (entitlement.reason === 'paid_credit_available') {
       return (
         <>
@@ -247,8 +233,8 @@ export function ExportGateModal({ open, request, onClose }: Props) {
         <div className="mb-4 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-md text-sm text-amber-900 dark:text-amber-100">
           <div className="font-semibold mb-0.5">${dollars} to export</div>
           <div className="text-xs opacity-90">
-            You have {entitlement.outreachRowCount} outreach entries (over the free-tier limit of {entitlement.threshold}).
             One-time charge via Stripe Checkout — saved card if you have one, no subscription change.
+            You have {entitlement.outreachRowCount} outreach {entitlement.outreachRowCount === 1 ? 'entry' : 'entries'} to export.
           </div>
         </div>
         <div className="text-sm text-muted-foreground">

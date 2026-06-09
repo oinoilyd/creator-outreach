@@ -2,30 +2,30 @@
  * Export entitlement logic — single source of truth for "can this user
  * export right now, and what does it cost?"
  *
- * Three tiers of access:
- *   1. unlimited_exports = true       — comp account, always free, never counts
- *   2. < FREE_TIER_ROW_THRESHOLD rows
- *      AND monthly_export_count = 0   — 1 free per calendar month
- *   3. paid_export_credits > 0        — pre-paid $25 credit, consume one
- *   4. otherwise                      — needs to pay $25 via Stripe Checkout
+ * Tiers of access (Dylan 2026-06-08 — removed the free-under-10 tier):
+ *   1. unlimited_exports = true       — comp account, always free
+ *   2. paid_export_credits > 0        — pre-paid $50 credit, consume one
+ *   3. otherwise                      — needs to pay $50 via Stripe Checkout
  *
- * The threshold gate uses the user's CURRENT outreach row count, not a
- * historical max. A user who shrinks back below 10 (delete some entries)
- * gets their free-tier quota back next month. This is intentional — we
- * want to encourage hygiene + reward low-volume users.
+ * The "1 free per month if under 10 rows" tier was removed because it
+ * was an abuse vector for an outreach tool: trial users could sign up,
+ * load 9 leads, export to XLSX, cancel before being charged. Removing
+ * it means every export is either an unlimited comp account, a pre-paid
+ * credit, or a $50 Stripe charge — no free path for new users to grab
+ * data and bounce.
  *
- * Why a lazy reset (not a cron)? No infra dependency, no race condition
- * with month-rollover at midnight. Every read checks if we crossed
- * export_count_resets_at and writes-back the new (0, +1 month) state.
+ * FREE_TIER_ROW_THRESHOLD is kept in the file but unused by the gate;
+ * still exported because the migration and DB columns reference it
+ * conceptually + the modal might want to show row counts.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-/** Rows in the user's Outreach tab above this require payment. */
+/** Historical free-tier cutoff. Kept for reference; the gate no longer uses it. */
 export const FREE_TIER_ROW_THRESHOLD = 10
 
 /** Stripe price (in cents) for one paid export. */
-export const PAID_EXPORT_PRICE_CENTS = 2500 // $25.00
+export const PAID_EXPORT_PRICE_CENTS = 5000 // $50.00 (Dylan 2026-06-08, was $25)
 
 /**
  * What the export endpoint reports back to the client before performing
@@ -39,9 +39,12 @@ export interface ExportEntitlement {
   /** Why they can / can't. */
   reason:
     | 'unlimited_account'
-    | 'under_threshold_free_monthly'
     | 'paid_credit_available'
     | 'requires_payment'
+    // Kept in the union so old session/storage values continue to
+    // type-check, but the gate never returns this anymore (Dylan
+    // 2026-06-08 removed the free-under-10 tier).
+    | 'under_threshold_free_monthly'
   /** Current Outreach row count, server-side. UI shouldn't trust client. */
   outreachRowCount: number
   /** Threshold above which payment is required. */
@@ -85,12 +88,14 @@ export async function getExportEntitlement(
     .maybeSingle()
 
   if (error || !data) {
-    // Schema not yet migrated OR profile row missing. Either way, the
-    // SAFE default is "free export, no charge" — we never want to
-    // accidentally charge someone because of an infrastructure miss.
+    // Schema not yet migrated OR profile row missing. Fall back to
+    // requires_payment — better to ask the user to pay than to
+    // accidentally hand out free exports because of an infrastructure
+    // miss. (The old "free fallback" matched the now-removed Tier 2
+    // and is no longer appropriate.)
     return {
-      canExportFree: true,
-      reason: 'under_threshold_free_monthly',
+      canExportFree: false,
+      reason: 'requires_payment',
       outreachRowCount,
       threshold: FREE_TIER_ROW_THRESHOLD,
       freeQuotaResetsAt: null,
@@ -138,20 +143,13 @@ export async function getExportEntitlement(
     }
   }
 
-  // Tier 2: under threshold + free quota available this month.
-  if (outreachRowCount < FREE_TIER_ROW_THRESHOLD && monthlyCount < 1) {
-    return {
-      canExportFree: true,
-      reason: 'under_threshold_free_monthly',
-      outreachRowCount,
-      threshold: FREE_TIER_ROW_THRESHOLD,
-      freeQuotaResetsAt: resetsAt,
-      paidCredits: credits,
-      paidExportPriceCents: PAID_EXPORT_PRICE_CENTS,
-    }
-  }
+  // 2026-06-08: Tier 2 (under_threshold_free_monthly) removed —
+  // see top-of-file comment. monthlyCount / resetsAt are kept so the
+  // schema columns continue to read OK, but no entitlement path
+  // consults them anymore. Safe to leave in place.
+  void monthlyCount
 
-  // Tier 3: pre-paid credit available.
+  // Tier 3 (now tier 2): pre-paid credit available.
   if (credits > 0) {
     return {
       canExportFree: true,

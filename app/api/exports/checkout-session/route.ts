@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
           unit_amount: PAID_EXPORT_PRICE_CENTS,
           product_data: {
             name: 'Outreach Export',
-            description: 'One Excel/CSV export of your Outreach pipeline (>10 entries).',
+            description: 'One Excel/CSV export of your Outreach pipeline.',
           },
         },
       },
