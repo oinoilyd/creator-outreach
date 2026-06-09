@@ -33,53 +33,57 @@ export default async function AdminPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.email !== ADMIN_EMAIL) notFound()
 
-  const { data, error } = await supabase.rpc('admin_user_summary')
-  const rows = (data || []) as UserRow[]
-
-  // Unread contact messages — for the inbox badge in the header.
-  const { count: unresolvedContact } = await supabase
-    .from('contact_messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('resolved', false)
-
-  // Enrichment cache stats — uses the authenticated server client
-  // (creator_enrichment grants SELECT to authenticated per migration
-  // 0011, so we don't need the service role key). Fetched in parallel
-  // alongside the existing user/profile data so the panel renders
-  // synchronously from props with no flash-then-disappear glitch.
-  // Dylan 2026-06-08.
+  // Fan out every independent fetch in a single Promise.all so they
+  // run in parallel. Previously these were sequential awaits and the
+  // admin page felt chunky as the dataset grew. Dylan 2026-06-08.
   const now7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const now24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  const cacheStatsResults = await Promise.all([
+  const [
+    summaryResult,
+    contactResult,
+    profileExtrasResult,
+    cacheTotal,
+    cacheWithEmail,
+    cacheBounced,
+    cacheLast7,
+    cacheLast24,
+  ] = await Promise.all([
+    supabase.rpc('admin_user_summary'),
+    supabase.from('contact_messages').select('id', { count: 'exact', head: true }).eq('resolved', false),
+    // Profile extras come through a SECURITY DEFINER RPC so admin can
+    // see other users' timezone + last_seen_at. The direct SELECT path
+    // was RLS-filtered to admin's own row, hiding Ryan's data. Backed
+    // by migration 0038 (Dylan 2026-06-08).
+    supabase.rpc('admin_user_profile_extras'),
     supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }),
     supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }).not('email', 'is', null),
     supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }).eq('email_bounced', true),
     supabase.from('creator_enrichment').select('id', { count: 'exact', head: true }).gte('fetched_at', now7),
     supabase.from('creator_enrichment').select('id', { count: 'exact', head: true }).gte('fetched_at', now24),
   ])
+  const { data, error } = summaryResult
+  const rows = (data || []) as UserRow[]
+  const unresolvedContact = contactResult.count
   const cacheStats: CacheStats = {
-    total: cacheStatsResults[0].count ?? 0,
-    withEmail: cacheStatsResults[1].count ?? 0,
-    bouncedCount: cacheStatsResults[2].count ?? 0,
-    fetchedLast7d: cacheStatsResults[3].count ?? 0,
-    fetchedLast24h: cacheStatsResults[4].count ?? 0,
+    total: cacheTotal.count ?? 0,
+    withEmail: cacheWithEmail.count ?? 0,
+    bouncedCount: cacheBounced.count ?? 0,
+    fetchedLast7d: cacheLast7.count ?? 0,
+    fetchedLast24h: cacheLast24.count ?? 0,
   }
 
-  // Per-user activity + timezone, fetched from user_profile.
-  // admin_user_summary doesn't return either, so we merge by user_id
-  // at render time.
+  // Per-user activity + timezone, returned by admin_user_profile_extras
+  // (migration 0038) so admin sees every user's row — not just their
+  // own (RLS would gate a direct SELECT to auth.uid()=user_id).
   //
   // last_seen_at: bumped on every page load by app/page.tsx (0016).
   // We use this — NOT auth.last_sign_in_at — for the Idle and
   // "Active last 7d" metrics, because last_sign_in_at only moves
   // when a user re-authenticates, while sessions stay valid for
-  // weeks. A user who logs in once and uses the app daily would
-  // otherwise look "idle" forever.
+  // weeks.
   //
   // timezone: IANA name (0015). NULL = pre-migration user.
-  // terms_privacy_*: GDPR Art. 7 consent audit trail (0027). NULL = user
-  // signed up before the consent checkbox was wired; treated as implicit
-  // accept (they used the Service, which is the contractual lawful basis).
+  // terms_privacy_*: GDPR Art. 7 consent audit trail (0027).
   // unlimited_exports: 0034. Per-user export paywall bypass.
   type ProfileExtras = {
     timezone: string | null
@@ -88,40 +92,24 @@ export default async function AdminPage() {
     terms_privacy_version: string | null
     unlimited_exports: boolean
   }
-  // Migration-tolerant SELECT — full first, fall back to base cols if
-  // 0027 hasn't been applied. Same pattern as the home-page profile load.
   type ExtraRow = {
     user_id: string
     timezone: string | null
     last_seen_at: string | null
-    terms_privacy_agreed_at?: string | null
-    terms_privacy_version?: string | null
-    unlimited_exports?: boolean | null
+    terms_privacy_agreed_at: string | null
+    terms_privacy_version: string | null
+    unlimited_exports: boolean | null
   }
-  let profileExtraRows: ExtraRow[] | null = null
-  const fullExtras = await supabase
-    .from('user_profile')
-    .select('user_id, timezone, last_seen_at, terms_privacy_agreed_at, terms_privacy_version, unlimited_exports')
-  if (fullExtras.error) {
-    // Cascade through fallback queries — drop the newest column first,
-    // then the next, until we land on a query that works against
-    // whatever migration the DB is on.
-    const midExtras = await supabase
-      .from('user_profile')
-      .select('user_id, timezone, last_seen_at, terms_privacy_agreed_at, terms_privacy_version')
-    if (midExtras.error) {
-      const fallback = await supabase
-        .from('user_profile')
-        .select('user_id, timezone, last_seen_at')
-      profileExtraRows = (fallback.data as unknown as ExtraRow[] | null) ?? null
-    } else {
-      profileExtraRows = (midExtras.data as unknown as ExtraRow[] | null) ?? null
-    }
-  } else {
-    profileExtraRows = (fullExtras.data as unknown as ExtraRow[] | null) ?? null
+  const profileExtraRows = (profileExtrasResult.data as unknown as ExtraRow[] | null) ?? []
+  if (profileExtrasResult.error) {
+    // Likely cause: migration 0038 not yet applied. Falls back to an
+    // empty map, which means timezone + last_seen_at will be null for
+    // every user (admin page shows the last_sign_in_at fallback).
+    // Apply 0038 SQL in Supabase to fix.
+    console.warn('[admin] admin_user_profile_extras failed:', profileExtrasResult.error.message)
   }
   const profileExtras = new Map<string, ProfileExtras>(
-    (profileExtraRows ?? []).map(r => [
+    profileExtraRows.map(r => [
       r.user_id,
       {
         timezone: r.timezone ?? null,
