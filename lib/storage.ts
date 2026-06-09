@@ -1019,7 +1019,28 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
     const { error: upErr } = await supabase
       .from('outreach_entries')
       .upsert(rows, { onConflict: 'id' })
-    if (upErr) console.error('[saveOutreach] upsert failed:', upErr.message, upErr)
+    if (upErr) {
+      console.error('[saveOutreach] upsert failed:', upErr.message, upErr)
+      // TEMPORARY DIAGNOSTIC (Dylan 2026-05-31 data-loss incident):
+      // surface the error to the UI so it can't be ignored. Will be
+      // removed once the root cause is identified.
+      if (typeof window !== 'undefined') {
+        const errCode = (upErr as { code?: string }).code ?? 'unknown'
+        const errDetails = (upErr as { details?: string }).details ?? ''
+        const errHint = (upErr as { hint?: string }).hint ?? ''
+        const sample = rows[0] ? JSON.stringify(Object.keys(rows[0])) : '(no rows)'
+        window.alert(
+          `❌ SAVE FAILED — outreach not persisted!\n\n` +
+          `Error: ${upErr.message}\n` +
+          `Code: ${errCode}\n` +
+          `Details: ${errDetails}\n` +
+          `Hint: ${errHint}\n\n` +
+          `Rows attempted: ${rows.length}\n` +
+          `Columns in payload: ${sample}\n\n` +
+          `Send this whole alert to your dev — copy with Cmd+C.`,
+        )
+      }
+    }
   }
 }
 
