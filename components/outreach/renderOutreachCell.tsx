@@ -13,7 +13,6 @@ import {
   copyInstagramDm,
   copyLinkedInMessage,
   copyDmForPlatform,
-  markEmailBounced,
 } from '@/lib/outreach'
 import { AutoTextarea } from '@/components/ui'
 import { guardOutreachClick } from '@/components/creators/renderCell'
@@ -146,25 +145,12 @@ export function renderOutreachCell(
               >
                 {e.email}
               </a>
-              {/* Mark email bad — flips creator_enrichment.email_bounced
-                  so the cache forces a re-fetch next time. Confirms before
-                  firing so we don\\'t flag good emails on a fat-finger. */}
-              <button
-                type="button"
-                title="Mark email bad — clears it from the cache so the next enrichment runs fresh"
-                onClick={() => {
-                  if (!confirm(`Mark ${e.email} as bad?\n\nThe cache will clear and next enrichment will re-fetch from scratch.`)) return
-                  void markEmailBounced(e.channelId, e.email, e.channelName)
-                }}
-                className="shrink-0 mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded text-muted-foreground/50 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                aria-label="Mark email bad"
-              >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 7l1 13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-13" />
-                  <path d="M8 7V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
-                  <line x1="3" y1="7" x2="21" y2="7" />
-                </svg>
-              </button>
+              {/* Trash icon next to the email (mark-email-bad) removed
+                  per Dylan 2026-06-09 — read as a row-delete shortcut
+                  and was rarely the right action. Email-bad flagging
+                  can be added back as an explicit menu item if needed.
+                  markEmailBounced helper still exists in lib/outreach.ts
+                  for future callers. */}
             </div>
           )}
           {/* When the email exists we don't repeat it as plain text

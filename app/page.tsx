@@ -30,6 +30,7 @@ import { PendingResponsePrompt } from '@/components/outreach/PendingResponseProm
 import { OutreachFollowUps } from '@/components/follow-ups/OutreachFollowUps'
 import { ActiveClients } from '@/components/active-clients/ActiveClients'
 import { RevertSuccessfulConfirmModal, type PendingRevert } from '@/components/active-clients/RevertSuccessfulConfirmModal'
+import { DeleteSuccessfulConfirmModal } from '@/components/active-clients/DeleteSuccessfulConfirmModal'
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal'
 import { useKeyboardShortcuts, type ShortcutBinding } from '@/lib/hooks/useKeyboardShortcuts'
 import { consumeSse } from '@/lib/sse-client'
@@ -2097,8 +2098,29 @@ export default function Home() {
     }
   }
 
-  function removeOutreachEntry(id: string) {
+  // Pending delete requiring user confirmation — only set when the
+  // user is trying to delete a 'Successful' (= Active Client) row.
+  // All other deletes proceed without a prompt. Dylan 2026-06-09.
+  const [pendingDelete, setPendingDelete] = useState<OutreachEntry | null>(null)
+
+  // Internal: skips the guard and does the actual delete. Used by
+  // both the no-guard path (non-Successful rows) and the modal
+  // confirm callback for Successful rows.
+  function applyRemoveOutreach(id: string) {
     saveOutreach(outreach.filter(e => e.id !== id))
+  }
+
+  function removeOutreachEntry(id: string) {
+    // Successful rows are Active Clients — deleting wipes the
+    // outreach row AND every client_* field (budget, lifecycle,
+    // milestones, activity, contract, collaborators). Always
+    // confirm to prevent fat-finger loss.
+    const target = outreach.find(e => e.id === id)
+    if (target && target.status === 'Successful') {
+      setPendingDelete(target)
+      return // wait for user — applyRemoveOutreach fires on confirm
+    }
+    applyRemoveOutreach(id)
   }
 
   function saveDismissed(updated: Creator[]) {
@@ -4595,6 +4617,20 @@ export default function Home() {
         if (pendingRevert) {
           applyOutreachUpdate(pendingRevert.entry.id, 'status', pendingRevert.newStatus)
           setPendingRevert(null)
+        }
+      }}
+    />
+    {/* Delete-Successful confirm — fires when the user deletes an
+        outreach row whose status is Successful. Stronger warning
+        than revert because delete is permanent (wipes all client_*
+        fields too). Dylan 2026-06-09. */}
+    <DeleteSuccessfulConfirmModal
+      entry={pendingDelete}
+      onCancel={() => setPendingDelete(null)}
+      onConfirm={() => {
+        if (pendingDelete) {
+          applyRemoveOutreach(pendingDelete.id)
+          setPendingDelete(null)
         }
       }}
     />
