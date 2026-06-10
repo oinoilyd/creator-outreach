@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   // per session. Bigger ceiling than rewrite-outreach (20) because the
   // payload is tiny; smaller than guidance (60) because each call
   // touches the model.
-  const limited = rateLimit(user.id, 'insights-weekly', 12)
+  const limited = rateLimit(user.id, 'insights-weekly', 12, user.email)
   if (limited) return limited
 
   let body: InsightRequestBody

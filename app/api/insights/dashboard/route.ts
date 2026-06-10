@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   // Generous limit — the work is in-process and the cost is
   // basically zero, but we keep a ceiling so a runaway client
   // can't hammer the route.
-  const limited = rateLimit(user.id, 'insights-dashboard', 60)
+  const limited = rateLimit(user.id, 'insights-dashboard', 60, user.email)
   if (limited) return limited
 
   let body: DashboardRequestBody

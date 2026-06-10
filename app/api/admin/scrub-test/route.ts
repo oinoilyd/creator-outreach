@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const forbidden = forbidIfNotAdmin(auth)
   if (forbidden) return forbidden
-  const limited = rateLimit(auth.id, 'admin-scrub-test', 200)
+  const limited = rateLimit(auth.id, 'admin-scrub-test', 200, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

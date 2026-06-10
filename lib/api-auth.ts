@@ -20,6 +20,14 @@ export async function requireUser() {
   return user
 }
 
+// Admin emails that bypass rate limits entirely. Mirrors the
+// FALLBACK_BYPASS pattern in lib/billing/paywall.ts. Critical because
+// bulk admin operations (seed, enrich) authenticate AS Dylan and
+// each one of those internal /api/search calls consumes his hourly
+// quota — meaning a single bulk-seed run locks him out of his own
+// app for ~52 minutes. Dylan 2026-06-09 post-incident.
+const RATE_LIMIT_BYPASS_EMAILS = new Set(['dmeehanj@gmail.com'])
+
 // In-memory sliding-window rate limiter. Per-instance state — good enough for
 // abuse protection on AI/scrape endpoints (Anthropic + axios cost). A single
 // abusive user is bounded to LIMIT*N where N = warm Vercel instances.
@@ -29,8 +37,20 @@ const WINDOW_MS = 60 * 60 * 1000 // 1 hour
 /**
  * Returns null if the user is under the limit (and records this hit).
  * Returns a 429 NextResponse if they're over.
+ *
+ * Admin emails on RATE_LIMIT_BYPASS_EMAILS skip the check entirely.
+ * Pass `userEmail` so the bypass can fire — without it the caller
+ * is treated as a regular user.
  */
-export function rateLimit(userId: string, endpoint: string, limitPerHour: number) {
+export function rateLimit(
+  userId: string,
+  endpoint: string,
+  limitPerHour: number,
+  userEmail?: string | null,
+) {
+  if (userEmail && RATE_LIMIT_BYPASS_EMAILS.has(userEmail)) {
+    return null // admin bypass — no bucket write, no 429
+  }
   const key = `${userId}:${endpoint}`
   const now = Date.now()
   const cutoff = now - WINDOW_MS

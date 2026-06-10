@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const forbidden = forbidIfNotAdmin(auth)
   if (forbidden) return forbidden
-  const limited = rateLimit(auth.id, 'admin-verify-email', 30)
+  const limited = rateLimit(auth.id, 'admin-verify-email', 30, auth.email)
   if (limited) return limited
 
   let body: { emails?: string[] }

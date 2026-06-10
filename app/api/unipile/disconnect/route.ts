@@ -27,7 +27,7 @@ export async function POST() {
   if (auth instanceof NextResponse) return auth
   const user = auth
 
-  const limited = rateLimit(user.id, 'unipile-disconnect', 20)
+  const limited = rateLimit(user.id, 'unipile-disconnect', 20, user.email)
   if (limited) return limited
 
   const supabase = await createClient()

@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (forbidden) return forbidden
 
   // Rate limit even admin routes — DOS / runaway-script protection
-  const limited = rateLimit(auth.id, 'admin-educated-assumption', 50)
+  const limited = rateLimit(auth.id, 'admin-educated-assumption', 50, auth.email)
   if (limited) return limited
 
   let body: AssumptionInput

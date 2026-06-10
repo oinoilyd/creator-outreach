@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const user = auth
 
-  const limited = rateLimit(user.id, 'unipile-send', 60)
+  const limited = rateLimit(user.id, 'unipile-send', 60, user.email)
   if (limited) return limited
 
   let body: SendRequestBody

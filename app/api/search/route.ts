@@ -997,7 +997,12 @@ export async function GET(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
 
-  const limited = rateLimit(auth.id, 'search', 100)
+  // Limit bumped 100 → 300/hour (Dylan 2026-06-09): 100/hour is too
+  // tight when a single user can legitimately run 30-50 searches
+  // exploring different niches. Admin email passes through to
+  // rateLimit() so bulk-seed / bulk-enrich admin operations don't
+  // exhaust the same bucket and lock Dylan out of his own app.
+  const limited = rateLimit(auth.id, 'search', 300, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

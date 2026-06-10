@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const user = auth
 
-  const limited = rateLimit(user.id, 'unipile-connect', 10)
+  const limited = rateLimit(user.id, 'unipile-connect', 10, user.email)
   if (limited) return limited
 
   // Determine the public origin we'll redirect Unipile back to.

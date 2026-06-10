@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   // email-test orchestrates 15+ downstream fetches per creator; cap
   // tightly to prevent runaway/infinite loops from DOS-ing our own
   // search/enrich endpoints.
-  const limited = rateLimit(auth.id, 'admin-email-test', 5)
+  const limited = rateLimit(auth.id, 'admin-email-test', 5, auth.email)
   if (limited) return limited
 
   let body: {

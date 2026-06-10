@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const forbidden = forbidIfNotAdmin(auth)
   if (forbidden) return forbidden
-  const limited = rateLimit(auth.id, 'admin-new-methodology', 50)
+  const limited = rateLimit(auth.id, 'admin-new-methodology', 50, auth.email)
   if (limited) return limited
 
   let body: MethodologyInput
