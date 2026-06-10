@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Innertube } from 'youtubei.js'
-import { cacheGet, cacheSet, searchCacheKey, CACHE_TTL } from '@/lib/cache'
+import { cacheGet, cacheSet, cacheIncr, searchCacheKey, CACHE_TTL } from '@/lib/cache'
 import { bulkSaveSearchResults } from '@/lib/creator-enrichment'
 import { clampString, clampInt } from '@/lib/security'
 import { requireUser, rateLimit } from '@/lib/api-auth'
@@ -1062,7 +1062,7 @@ export async function GET(req: NextRequest) {
   // Key includes ALL query-affecting params so cache stays correct
   // when the user changes filters. `expand` is part of the key so
   // expanded vs non-expanded results don't collide.
-  const cacheKey = searchCacheKey(keyword || keywordsParam || '', {
+  const baseCacheKey = searchCacheKey(keyword || keywordsParam || '', {
     keywordsParam,
     maxResults,
     minViews,
@@ -1070,11 +1070,39 @@ export async function GET(req: NextRequest) {
     gl,
     expand: canExpand,
   })
+
+  // ── Auto-cycle on repeat searches (Dylan 2026-06-10) ──────────────
+  // Without this, a user re-searching "finance" gets the IDENTICAL
+  // cached channel list each time for 14 days — kills discovery.
+  // Per-user counter increments on every search; we use that to drive
+  // a youtubei.js page cursor that cycles 1 → 2 → 3 → 4 → 5 → back to 1.
+  // Each cycle gets its own cache key, so:
+  //   • First time the user searches a query → cycle 1, page 1, hits
+  //     any prior user's cached cycle-1 result (still fast via the moat)
+  //   • Same user re-searches → cycle 2, fetches pages 1-2 of youtubei.js
+  //     → returns ~2× the channels including ones page 1 alone missed
+  //   • Subsequent re-searches deepen until cycle 5, then loop
+  // The client-side dismissed + outreach filtering naturally hides
+  // anything the user has already acted on, so deeper cycles surface
+  // genuinely-new creators in practice.
+  //
+  // Skipped entirely on ?fresh=true (Load More + bulk seed) — those
+  // paths already pass their own `pages` cursor + bypass cache.
+  const MAX_CYCLE_PAGES = 5
   // ?fresh=true bypasses the search-results cache entirely. Used by
   // the bulk-seed admin tool so every preset run discovers new
   // channels rather than re-returning the same cached set. End-user
   // searches default to cached (10-min TTL) for navigation speed.
   const skipSearchCache = searchParams.get('fresh') === 'true'
+  let cyclePages = pages
+  if (!skipSearchCache) {
+    const counterKey = `search-cycle:v1:${auth.id}:${baseCacheKey}`
+    const count = await cacheIncr(counterKey, CACHE_TTL.searchResults)
+    cyclePages = Math.min(MAX_CYCLE_PAGES, ((count - 1) % MAX_CYCLE_PAGES) + 1)
+  }
+  // Per-cycle cache slot so cycle-2 results don't collide with cycle-1.
+  // Different users on the same cycle still share — the moat survives.
+  const cacheKey = `${baseCacheKey}|c${cyclePages}`
   if (!skipSearchCache) {
     const cached = await cacheGet<{ channels: unknown[]; expandedQueries: string[] }>(cacheKey)
     if (cached) {
@@ -1185,14 +1213,16 @@ export async function GET(req: NextRequest) {
       keyword,
       keywordsList,
       cacheKey,
-      pages,
+      // Pass cyclePages here so the streaming path uses the per-user
+      // auto-cycled depth rather than the raw client `pages` param.
+      pages: cyclePages,
     })
   }
 
   try {
     const yt = await getInnertubeInstance(gl)
 
-    let hits = await runBatched(yt, queries, pages)
+    let hits = await runBatched(yt, queries, cyclePages)
 
     // count unique channel IDs with actual view data
     const withViews = new Set(hits.filter(h => !isNaN(h.viewCount)).map(h => h.channelId))

@@ -109,6 +109,26 @@ export async function cacheDel(key: string): Promise<void> {
 }
 
 /**
+ * Atomic INCR on an arbitrary key with a TTL applied on first write.
+ * Used for per-user search-cycle counters that drive auto-pagination
+ * on repeat queries. Returns the post-increment value, or 1 when
+ * Redis is unconfigured (treats missing cache as "first hit").
+ */
+export async function cacheIncr(key: string, ttlSeconds: number): Promise<number> {
+  const client = getClient()
+  if (!client) return 1
+  try {
+    const value = await client.incr(key)
+    // NX so the TTL only sets on first increment, not reset on every
+    // subsequent INCR (otherwise a hot key would never expire).
+    await client.expire(key, ttlSeconds, 'NX')
+    return typeof value === 'number' ? value : Number(value) || 1
+  } catch {
+    return 1
+  }
+}
+
+/**
  * Increment a Redis counter, bucketed by current UTC date so the
  * admin can see hit rates over the last 24h / 7d. Counter keys
  * look like `metric:enrich:hit:l1:2026-05-08`. Each key auto-
