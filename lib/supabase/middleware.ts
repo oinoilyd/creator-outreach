@@ -121,7 +121,28 @@ export async function updateSession(request: NextRequest) {
           .eq('user_id', user.id)
           .maybeSingle()
 
-        if (!hasLiveSubscription(profileRow?.subscription_status ?? null)) {
+        let allowed = hasLiveSubscription(profileRow?.subscription_status ?? null)
+
+        // Team-access resolution (2026-06-10 fix). A team plan's
+        // subscription lives on the ORGANIZATIONS row, not on any
+        // member's user_profile — so without this, every team member
+        // AND the owner got bounced to /pricing and the whole team
+        // feature was unusable. Only runs on the slow path (individual
+        // sub already failed), so individual subscribers + bypass-list
+        // users never pay this cost. auth_user_org_access() is a
+        // SECURITY DEFINER RPC (migration 0041) that returns the
+        // caller's org subscription_status + unlimited_exports, or
+        // empty for individual users.
+        if (!allowed) {
+          const { data: orgAccess } = await supabase.rpc('auth_user_org_access')
+          const orgRow = Array.isArray(orgAccess) ? orgAccess[0] : orgAccess
+          if (orgRow) {
+            const o = orgRow as { subscription_status: string | null; unlimited_exports: boolean | null }
+            allowed = hasLiveSubscription(o.subscription_status) || o.unlimited_exports === true
+          }
+        }
+
+        if (!allowed) {
           const url = request.nextUrl.clone()
           url.pathname = '/pricing'
           url.searchParams.set('required', '1')
