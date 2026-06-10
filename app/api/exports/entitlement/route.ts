@@ -6,7 +6,7 @@
  * canExportFree=true when the user IS allowed.
  *
  * The pre-export modal polls this on open so it can render the right
- * message ("1 free this month" vs "$25 charge" vs "comp account") without
+ * message ("1 free this month" vs "$50 charge" vs "comp account") without
  * waiting for the user to click the button and discover the cost.
  */
 import { NextResponse } from 'next/server'

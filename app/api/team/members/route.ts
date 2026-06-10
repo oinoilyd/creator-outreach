@@ -126,8 +126,40 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'forbidden by role' }, { status: 403 })
   }
 
-  // Reassign their outreach rows back to the Owner (so we don't orphan
-  // any rows on the Member's removal). Find the Owner first.
+  // Audit 2026-06-10: sync Stripe DOWN *before* touching the DB.
+  // Previously the order was delete-then-sync, so a Stripe failure
+  // left the member gone from the DB but the seat still billed —
+  // permanent over-billing with no abort path. Now a Stripe failure
+  // aborts the whole removal with zero drift (member + seat both
+  // unchanged). Current member count is N; after this removal it's
+  // N-1, so we target extraSeatsQuantity(N-1).
+  const { data: org } = await sb
+    .from('organizations')
+    .select('stripe_subscription_id')
+    .eq('id', actor.organization_id)
+    .maybeSingle()
+  const subId = org ? (org as { stripe_subscription_id: string | null }).stripe_subscription_id : null
+  if (subId) {
+    const { count } = await sb
+      .from('organization_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', actor.organization_id)
+    const postRemovalCount = Math.max(0, (count ?? 1) - 1)
+    try {
+      await syncTeamSeatQuantity(subId, extraSeatsQuantity(postRemovalCount))
+    } catch (err) {
+      // Stripe failed — abort the removal entirely so nothing drifts.
+      console.error('[team/members] seat sync failed; aborting removal', err)
+      return NextResponse.json(
+        { error: 'Could not update billing. Member not removed — please try again.' },
+        { status: 502 },
+      )
+    }
+  }
+
+  // Stripe is now correct (or the org has no subscription). Reassign
+  // the member's outreach rows to the Owner so removal doesn't orphan
+  // them, then delete the membership row.
   const { data: ownerRow } = await sb
     .from('organization_members')
     .select('user_id')
@@ -143,38 +175,16 @@ export async function DELETE(req: NextRequest) {
       .eq('assigned_to_user_id', target.user_id)
   }
 
-  // Delete the membership row.
   const { error: deleteErr } = await sb
     .from('organization_members')
     .delete()
     .eq('id', memberIdToRemove)
   if (deleteErr) {
-    console.error('[team/members] delete failed', deleteErr)
+    // Rare: Stripe is now at N-1 seats but the member row survived.
+    // Under-bill (member still active, not charged) rather than the
+    // old over-bill. Logged loudly so admin can reconcile.
+    console.error('[team/members] delete failed AFTER seat sync — under-billing until reconciled', deleteErr)
     return NextResponse.json({ error: 'delete failed' }, { status: 500 })
-  }
-
-  // Sync Stripe seat quantity downward.
-  const { data: org } = await sb
-    .from('organizations')
-    .select('stripe_subscription_id')
-    .eq('id', actor.organization_id)
-    .maybeSingle()
-  if (org && (org as { stripe_subscription_id: string | null }).stripe_subscription_id) {
-    const { count } = await sb
-      .from('organization_members')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', actor.organization_id)
-    try {
-      await syncTeamSeatQuantity(
-        (org as { stripe_subscription_id: string }).stripe_subscription_id,
-        extraSeatsQuantity(count ?? 0),
-      )
-    } catch (err) {
-      // Non-fatal — Stripe will reconcile via the next webhook or a
-      // manual sync. Worst case: customer is charged for one extra seat
-      // for the rest of the period.
-      console.error('[team/members] seat sync failed', err)
-    }
   }
 
   return NextResponse.json({ ok: true })

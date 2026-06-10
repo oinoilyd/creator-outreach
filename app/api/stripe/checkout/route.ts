@@ -74,8 +74,7 @@ export async function POST(req: NextRequest) {
 
   // Service-role client — we need to read/write stripe_customer_id
   // on user_profile. The RLS-friendly server client could read the
-  // user's own row, but writes are simpler with the service role
-  // and this matches the pattern used in /api/contacts/mark-bounced.
+  // user's own row, but writes are simpler with the service role.
   const sb = getServiceClient()
   if (!sb) {
     return NextResponse.json({ error: 'service role not configured' }, { status: 500 })
@@ -118,6 +117,25 @@ export async function POST(req: NextRequest) {
       // log it loudly so the admin can spot a drift if it persists.
       console.error('[stripe/checkout] failed to persist stripe_customer_id', persistErr)
     }
+  }
+
+  // Trial-abuse guard (audit 2026-06-10). Stripe honors
+  // trial_period_days even for a customer who already used a trial,
+  // so a user could cancel and re-checkout for another free 7 days
+  // indefinitely. Only grant the trial if this customer has NEVER had
+  // a subscription. Failure to list defaults to "grant trial" (we'd
+  // rather over-grant a trial than block a legit new signup on a
+  // transient Stripe error).
+  let grantTrial = true
+  try {
+    const priorSubs = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: 'all',
+      limit: 1,
+    })
+    if (priorSubs.data.length > 0) grantTrial = false
+  } catch (e) {
+    console.error('[stripe/checkout] prior-subscription lookup failed; granting trial by default', e)
   }
 
   // Build the success/cancel URLs from the incoming request origin so
@@ -163,12 +181,10 @@ export async function POST(req: NextRequest) {
     customer: stripeCustomerId,
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
-      // 7-day trial (Dylan 2026-05-24, was 14). Rationale: urgency
-      // dies past day 7 and conversion data consistently shows users
-      // who don't engage by day 7 rarely convert. Shorter trial =
-      // faster conversion signal without sacrificing the chance for
-      // a real evaluation.
-      trial_period_days: 7,
+      // 7-day trial (Dylan 2026-05-24, was 14) — but ONLY for
+      // first-time customers. grantTrial is false when this Stripe
+      // customer already had a subscription (trial-abuse guard above).
+      ...(grantTrial ? { trial_period_days: 7 } : {}),
       metadata: { supabase_user_id: user.id },
     },
     // Pre-applied promo wins; otherwise let user enter one at Stripe UI.

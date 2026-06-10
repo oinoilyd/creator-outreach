@@ -195,22 +195,13 @@ export async function consumeExportEntitlement(
     return true
   }
 
-  if (reason === 'under_threshold_free_monthly') {
-    // Bump monthly count. Conditional WHERE so we don't accidentally
-    // grant a free export to someone who already used theirs this month
-    // (concurrent request edge case).
-    const { data, error } = await sb
-      .from('user_profile')
-      .update({ monthly_export_count: 1 })
-      .eq('user_id', userId)
-      .eq('monthly_export_count', 0)
-      .select('user_id')
-    if (error) {
-      console.error('[exports] free quota consume failed', userId, error.message)
-      return false
-    }
-    return (data?.length ?? 0) > 0
-  }
+  // Audit 2026-06-10: the 'under_threshold_free_monthly' consume
+  // branch was removed. getExportEntitlement no longer returns that
+  // reason (free-under-10 tier killed 2026-06-08), but the live
+  // consume code still granted a free export by bumping
+  // monthly_export_count if any stale session/value passed it. With
+  // the branch gone, an unexpected 'under_threshold_free_monthly'
+  // falls through to the fail-closed `return false` at the bottom.
 
   if (reason === 'paid_credit_available') {
     // Decrement credits. Conditional WHERE on credits > 0 prevents

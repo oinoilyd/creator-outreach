@@ -93,50 +93,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'session is not an export charge' }, { status: 400 })
   }
 
-  // Insert into paid_exports. PK on stripe_session_id makes this
-  // idempotent — duplicate POSTs (or a race with the webhook) hit the
-  // UNIQUE constraint and we treat it as "already fulfilled".
+  // Atomic idempotent grant (migration 0040) — same RPC the webhook
+  // uses. Inserts the paid_exports marker + increments the credit in
+  // one transaction; returns false when already fulfilled. Replaces
+  // the prior read-modify-write that could lose a credit on a missing
+  // profile row. Audit 2026-06-10.
   const amountCents = session.amount_total ?? 0
-  const { error: insertErr } = await sb
-    .from('paid_exports')
-    .insert({
-      stripe_session_id: session.id,
-      user_id: user.id,
-      amount_cents: amountCents,
-      fulfilled_via: 'redirect',
-    })
-
-  if (insertErr) {
-    if ((insertErr as { code?: string }).code === '23505') {
-      // Already fulfilled (likely by the webhook). Credit was already
-      // granted then — just return success.
-      return NextResponse.json({ ok: true, already: true })
-    }
-    console.error('[exports/fulfill] insert failed', sessionId, insertErr.message)
-    return NextResponse.json({ error: 'fulfill insert failed' }, { status: 500 })
+  const { data: granted, error: rpcErr } = await sb.rpc('grant_export_credit', {
+    p_user_id: user.id,
+    p_session_id: session.id,
+    p_amount_cents: amountCents,
+    p_fulfilled_via: 'redirect',
+  })
+  if (rpcErr) {
+    console.error('[exports/fulfill] grant_export_credit failed', sessionId, rpcErr.message)
+    return NextResponse.json({ error: 'fulfill failed' }, { status: 500 })
   }
-
-  // First fulfillment — grant the credit. Atomic increment via RPC
-  // would be cleaner; using read-modify-write here for parity with the
-  // rest of the codebase (no RPCs yet for this table).
-  const { data: profileRow, error: readErr } = await sb
-    .from('user_profile')
-    .select('paid_export_credits')
-    .eq('user_id', user.id)
-    .maybeSingle()
-  if (readErr) {
-    console.error('[exports/fulfill] credit read failed', user.id, readErr.message)
-    return NextResponse.json({ error: 'credit read failed' }, { status: 500 })
+  if (granted === false) {
+    // Already fulfilled (likely by the webhook). No double-grant.
+    return NextResponse.json({ ok: true, already: true })
   }
-  const current = (profileRow as { paid_export_credits: number | null } | null)?.paid_export_credits ?? 0
-  const { error: writeErr } = await sb
-    .from('user_profile')
-    .update({ paid_export_credits: current + 1 })
-    .eq('user_id', user.id)
-  if (writeErr) {
-    console.error('[exports/fulfill] credit write failed', user.id, writeErr.message)
-    return NextResponse.json({ error: 'credit write failed' }, { status: 500 })
-  }
-
-  return NextResponse.json({ ok: true, already: false, credits: current + 1 })
+  return NextResponse.json({ ok: true, already: false })
 }

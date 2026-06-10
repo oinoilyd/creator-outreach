@@ -146,11 +146,10 @@ export function renderOutreachCell(
                 {e.email}
               </a>
               {/* Trash icon next to the email (mark-email-bad) removed
-                  per Dylan 2026-06-09 — read as a row-delete shortcut
-                  and was rarely the right action. Email-bad flagging
-                  can be added back as an explicit menu item if needed.
-                  markEmailBounced helper still exists in lib/outreach.ts
-                  for future callers. */}
+                  2026-06-09; the helper + route were fully removed in
+                  the 2026-06-10 audit (dead code + cross-user cache
+                  poisoning vector). Re-add with an ownership check if
+                  email-bad flagging ever returns. */}
             </div>
           )}
           {/* When the email exists we don't repeat it as plain text

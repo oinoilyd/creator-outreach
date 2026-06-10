@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   // 20 rewrites/hour/user is plenty — typical use is 1-3 per send.
   // Heavier than guidance interpretation (60/hr) because each call
   // is bigger context + more tokens.
-  const limited = rateLimit(user.id, 'rewrite-outreach', 20)
+  const limited = rateLimit(user.id, 'rewrite-outreach', 20, user.email)
   if (limited) return limited
 
   let body: RewriteRequestBody

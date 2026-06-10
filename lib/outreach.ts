@@ -214,39 +214,9 @@ export function copyDmForPlatform(
 }
 
 // ── Bounced-email recovery ─────────────────────────────────────────
-
-/**
- * Mark a creator's email as bounced/bad in the durable contacts
- * cache. Fire-and-forget — we don't block the UI on the round-trip.
- * Posts to /api/contacts/mark-bounced which inserts a new
- * creator_enrichment snapshot with email_bounced=true. That row
- * then forces a fresh re-fetch the next time anyone enriches this
- * channel, so we never serve the bad email again.
- */
-export async function markEmailBounced(
-  channelId: string,
-  email: string,
-  channelName: string,
-): Promise<void> {
-  if (!channelId) {
-    toast.error("No channel ID — can't mark this email")
-    return
-  }
-  try {
-    const res = await fetch('/api/contacts/mark-bounced', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ channelId, email }),
-    })
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({} as { error?: string }))
-      toast.error(`Couldn't mark email — ${j.error || `HTTP ${res.status}`}`)
-      return
-    }
-    toast.success(`${channelName || 'Email'} marked bad`, {
-      description: 'Cache cleared — next enrichment will re-fetch from scratch.',
-    })
-  } catch (e: unknown) {
-    toast.error(`Couldn't mark email — ${(e as Error)?.message || e}`)
-  }
-}
+// markEmailBounced + its /api/contacts/mark-bounced route removed in
+// the 2026-06-10 audit. The trash icon that called it was already
+// gone (2026-06-09), so the function was dead code AND the route was
+// a cross-user cache-poisoning vector (any authed user could flag any
+// channel's email bad in the shared creator_enrichment cache). If
+// email-bad flagging returns, rebuild it with an ownership check.

@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   // Cap polling load — frontend polls every 3s for ~30s per handle.
   // 100/hr per user is generous: covers a 100-creator search × 12
   // poll cycles each, then some.
-  const limited = rateLimit(auth.id, 'instagram-status', 100)
+  const limited = rateLimit(auth.id, 'instagram-status', 100, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

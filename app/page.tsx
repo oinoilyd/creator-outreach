@@ -152,7 +152,6 @@ import {
   isoDaysFromNow,
 } from '@/lib/dates'
 import {
-  markEmailBounced,
   filterOutreachByKeyword,
   nextFollowUpDays,
 } from '@/lib/outreach'
@@ -1258,9 +1257,17 @@ export default function Home() {
         // the new template + footer columns. Optional fields stay
         // undefined and the defaults in lib/templates.ts kick in.
         const BASE_COLS = 'full_name, linkedin_url, pitch_line, subject_template, mail_client, onboarded, timezone, unipile_account_id, unipile_account_email, unipile_connected_at, physical_address, stripe_customer_id, stripe_subscription_id, subscription_status, subscription_current_period_end, subscription_price_id, subscription_cancel_at_period_end'
-        const TEMPLATE_COLS = 'email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at, target_audience'
+        const TEMPLATE_COLS = 'email_template, ig_dm_template, linkedin_dm_template, x_dm_template, tiktok_dm_template, include_can_spam_footer, footer_disabled_acknowledged_at'
         const CONSENT_COLS = 'terms_privacy_agreed_at, terms_privacy_version'
-        const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}`
+        // target_audience (migration 0039) is its OWN tier. Audit
+        // 2026-06-10: it was bundled into TEMPLATE_COLS, so if 0039
+        // wasn't applied to prod, the FULL_COLS SELECT failed and the
+        // fallback dropped ALL the 0026 template columns — every user's
+        // custom templates appeared blank. Now a missing 0039 only
+        // costs target_audience; templates survive.
+        const TARGET_AUDIENCE_COL = 'target_audience'
+        const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}, ${TARGET_AUDIENCE_COL}`
+        const MID_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}` // everything except 0039
 
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
@@ -1268,14 +1275,28 @@ export default function Home() {
           .eq('user_id', user.id)
           .maybeSingle()
         if (profileErr) {
-          console.warn('[home-init] full SELECT failed (likely missing migration 0026), retrying with base cols:', profileErr.message)
-          const retry = await supabase
+          // Tier 2: drop only target_audience (0039 unapplied) — keeps
+          // 0026 templates + 0027 consent intact.
+          console.warn('[home-init] full SELECT failed (likely missing migration 0039), retrying without target_audience:', profileErr.message)
+          const mid = await supabase
             .from('user_profile')
-            .select(BASE_COLS)
+            .select(MID_COLS)
             .eq('user_id', user.id)
             .maybeSingle()
-          profileRow = retry.data as unknown as typeof profileRow
-          profileErr = retry.error
+          if (mid.error) {
+            // Tier 3: drop templates + consent too (pre-0026 env).
+            console.warn('[home-init] mid SELECT failed (likely missing migration 0026), retrying with base cols:', mid.error.message)
+            const retry = await supabase
+              .from('user_profile')
+              .select(BASE_COLS)
+              .eq('user_id', user.id)
+              .maybeSingle()
+            profileRow = retry.data as unknown as typeof profileRow
+            profileErr = retry.error
+          } else {
+            profileRow = mid.data as unknown as typeof profileRow
+            profileErr = mid.error
+          }
         }
 
         // Defensive: if no profile row exists (trigger may have failed),

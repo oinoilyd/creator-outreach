@@ -1,6 +1,6 @@
 /**
  * POST /api/exports/checkout-session — start a Stripe Checkout session
- * for a $25 one-off export charge.
+ * for a $50 one-off export charge.
  *
  * Flow:
  *   1. Auth-gated (user must be signed in).
@@ -16,7 +16,7 @@
  *
  * Why a one-off Checkout instead of metered billing? Cleaner UX — user
  * sees the exact charge before paying, no surprise on next invoice.
- * Matches the "I'm paying $25 right now to export this thing" mental
+ * Matches the "I'm paying $50 right now to export this thing" mental
  * model.
  */
 import { NextRequest, NextResponse } from 'next/server'

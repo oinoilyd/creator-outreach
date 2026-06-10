@@ -633,7 +633,12 @@ async function createFollowOnEngagement(
     .from('outreach_entries')
     .insert(rowWithOrg)
   if (error) {
+    // Audit 2026-06-10: this was console-only. The wrap-up still
+    // returns ok:true, so the user thinks the repeat engagement was
+    // created when it silently wasn't. Surface to admin so the drop
+    // is visible.
     console.error('[wrapUpEngagement] follow-on insert failed:', error.message)
+    void reportSaveFailure({ functionName: 'createFollowOnEngagement', error, payloadKeys: Object.keys(rowWithOrg) })
     return undefined
   }
   return newId
@@ -997,7 +1002,10 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
       // upserts whatever the caller actually wanted to write.
     } else {
       const { error: delErr } = await supabase.from('outreach_entries').delete().in('id', toDelete)
-      if (delErr) console.error('[saveOutreach] delete failed:', delErr.message)
+      if (delErr) {
+        console.error('[saveOutreach] delete failed:', delErr.message)
+        void reportSaveFailure({ functionName: 'saveOutreach_delete', error: delErr, payloadKeys: ['id'] })
+      }
     }
   }
 
@@ -1066,11 +1074,18 @@ export async function saveDismissed(items: Creator[]): Promise<void> {
     .eq('user_id', uid)
   const toDelete = (existing ?? []).filter(r => !newIds.has(r.channel_id)).map(r => r.channel_id)
   if (toDelete.length > 0) {
-    await supabase
+    const { error: delErr } = await supabase
       .from('dismissed_creators')
       .delete()
       .eq('user_id', uid)
       .in('channel_id', toDelete)
+    if (delErr) {
+      // Audit 2026-06-10: the upsert path below already surfaces via
+      // reportSaveFailure; this delete path was fully swallowed. A
+      // failed delete means un-dismissed creators reappear on reload.
+      console.error('[saveDismissed] delete failed:', delErr.message)
+      void reportSaveFailure({ functionName: 'saveDismissed_delete', error: delErr, payloadKeys: ['user_id', 'channel_id'] })
+    }
   }
 
   if (items.length > 0) {
@@ -1147,7 +1162,11 @@ export async function saveColConfig(config: ColConfig[]): Promise<void> {
   const uid = await userId()
   if (!uid) return
   const supabase = createClient()
-  await supabase.from('user_preferences').update({ col_config: config }).eq('user_id', uid)
+  const { error } = await supabase.from('user_preferences').update({ col_config: config }).eq('user_id', uid)
+  if (error) {
+    console.error('[saveColConfig] update failed:', error.message)
+    void reportSaveFailure({ functionName: 'saveColConfig', error, payloadKeys: ['col_config'] })
+  }
 }
 
 /**
@@ -1201,10 +1220,14 @@ export async function saveOutreachColConfig(
   const uid = await userId()
   if (!uid) return
   const supabase = createClient()
-  await supabase
+  const { error } = await supabase
     .from('user_preferences')
     .update({ outreach_col_config: configByPlatform })
     .eq('user_id', uid)
+  if (error) {
+    console.error('[saveOutreachColConfig] update failed:', error.message)
+    void reportSaveFailure({ functionName: 'saveOutreachColConfig', error, payloadKeys: ['outreach_col_config'] })
+  }
 }
 
 // ── Custom analytics metrics ───────────────────────────────────────────────
@@ -1226,7 +1249,11 @@ export async function saveCustomMetrics(metrics: import('./types').CustomMetric[
   const uid = await userId()
   if (!uid) return
   const supabase = createClient()
-  await supabase.from('user_preferences').update({ custom_metrics: metrics }).eq('user_id', uid)
+  const { error } = await supabase.from('user_preferences').update({ custom_metrics: metrics }).eq('user_id', uid)
+  if (error) {
+    console.error('[saveCustomMetrics] update failed:', error.message)
+    void reportSaveFailure({ functionName: 'saveCustomMetrics', error, payloadKeys: ['custom_metrics'] })
+  }
 }
 
 // ── Per-platform scoring state (read-modify-write on platform_state JSONB) ──
@@ -1243,7 +1270,17 @@ async function getPlatformState(uid: string): Promise<Record<string, { weights?:
 
 async function setPlatformState(uid: string, ps: Record<string, any>): Promise<void> {
   const supabase = createClient()
-  await supabase.from('user_preferences').update({ platform_state: ps }).eq('user_id', uid)
+  // platform_state holds score weights + guidance + narrative for all
+  // five platforms — the data that drives the fit-score ranking. A
+  // silent failure here meant a whole scoring-config session reverted
+  // on refresh with no signal. Surfaced via reportSaveFailure (audit
+  // 2026-06-10). This is the shared writer for savePlatformWeights /
+  // savePlatformNarrative / savePlatformGuidance.
+  const { error } = await supabase.from('user_preferences').update({ platform_state: ps }).eq('user_id', uid)
+  if (error) {
+    console.error('[setPlatformState] update failed:', error.message)
+    void reportSaveFailure({ functionName: 'setPlatformState', error, payloadKeys: ['platform_state'] })
+  }
 }
 
 export async function savePlatformWeights(platform: PlatformId, weights: ScoreWeights): Promise<void> {

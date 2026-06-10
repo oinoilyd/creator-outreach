@@ -134,6 +134,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Trial-abuse guard (audit 2026-06-10) — same as the individual
+  // checkout. No second free trial for a returning Stripe customer.
+  let grantTrial = true
+  try {
+    const priorSubs = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: 'all',
+      limit: 1,
+    })
+    if (priorSubs.data.length > 0) grantTrial = false
+  } catch (e) {
+    console.error('[team/checkout] prior-subscription lookup failed; granting trial by default', e)
+  }
+
   const origin =
     req.headers.get('origin') ||
     `${req.nextUrl.protocol}//${req.nextUrl.host}`
@@ -145,9 +159,8 @@ export async function POST(req: NextRequest) {
       { price: basePriceId, quantity: 1 },
     ],
     subscription_data: {
-      // Team plan trial — same 7 days as individual. Per Dylan's
-      // monetization call, urgency dies past day 7 for either tier.
-      trial_period_days: 7,
+      // Team plan trial — 7 days, first-time customers only.
+      ...(grantTrial ? { trial_period_days: 7 } : {}),
       // metadata.kind='team' tags the subscription so the webhook
       // handler routes it to the org-creation branch instead of the
       // individual-subscription branch.

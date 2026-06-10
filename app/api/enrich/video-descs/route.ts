@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
 
   // Phase C runs once per enrichment + 175 rows = 175/search at max.
   // 600/hr cap supports ~3 full searches per hour per user.
-  const limited = rateLimit(auth.id, 'enrich-video-descs', 600)
+  const limited = rateLimit(auth.id, 'enrich-video-descs', 600, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

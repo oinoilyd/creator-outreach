@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
 
   // Cap exports/hr to prevent DOS via XLSX generation loop.
   // (Paywall stops abuse via cost; rate-limit stops abuse via compute.)
-  const limited = rateLimit(auth.id, 'export-outreach', 20)
+  // auth.email so admin (dmeehanj@gmail.com) isn't throttled on his
+  // own testing — admin already bypasses the paywall too.
+  const limited = rateLimit(auth.id, 'export-outreach', 20, auth.email)
   if (limited) return limited
 
   const body = await req.json()
@@ -66,28 +68,40 @@ export async function POST(req: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', auth.id)
     if (countErr) {
-      // Count failed — fall back to permissive (no charge). Safer to
-      // miss a charge than to lock a paying user out.
-      console.warn('[export-outreach] count failed, falling back to permissive', countErr.message)
-    } else {
-      const ent = await getExportEntitlement(sb, auth.id, outreachCount ?? 0)
-      if (!ent.canExportFree) {
-        return NextResponse.json(
-          {
-            needsPayment: true,
-            reason: ent.reason,
-            outreachRowCount: ent.outreachRowCount,
-            threshold: ent.threshold,
-            paidExportPriceCents: ent.paidExportPriceCents,
-            freeQuotaResetsAt: ent.freeQuotaResetsAt,
-          },
-          { status: 402 },
-        )
-      }
-      entitlementReason = ent.reason
+      // Count failed. Audit 2026-06-10: previously "fell back to
+      // permissive" and served the file FREE on any transient DB
+      // error — same fail-open class as the wrong-table bug. Now we
+      // return a retriable 503 instead of giving away a paid export.
+      console.error('[export-outreach] entitlement count failed, refusing export', countErr.message)
+      return NextResponse.json(
+        { error: 'Export temporarily unavailable. Please try again in a moment.' },
+        { status: 503 },
+      )
     }
+    const ent = await getExportEntitlement(sb, auth.id, outreachCount ?? 0)
+    if (!ent.canExportFree) {
+      return NextResponse.json(
+        {
+          needsPayment: true,
+          reason: ent.reason,
+          outreachRowCount: ent.outreachRowCount,
+          threshold: ent.threshold,
+          paidExportPriceCents: ent.paidExportPriceCents,
+          freeQuotaResetsAt: ent.freeQuotaResetsAt,
+        },
+        { status: 402 },
+      )
+    }
+    entitlementReason = ent.reason
   } else {
-    console.error('[export-outreach] service role not configured; bypassing paywall')
+    // Service role missing. Audit 2026-06-10: previously logged and
+    // served the file FREE — a misconfigured deploy handed out
+    // unlimited exports. Now we fail closed.
+    console.error('[export-outreach] service role not configured; refusing export')
+    return NextResponse.json(
+      { error: 'Export temporarily unavailable. Please try again later.' },
+      { status: 503 },
+    )
   }
 
   // Consume the entitlement BEFORE generating the file. If consumption

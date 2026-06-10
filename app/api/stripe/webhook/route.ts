@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session
 
         // Three flavors of Checkout sessions land here:
-        //   • mode='payment' + metadata.kind='export'  — $25 one-off
+        //   • mode='payment' + metadata.kind='export'  — $50 one-off
         //     export charge (Dylan 2026-05-24)
         //   • mode='subscription' + metadata.kind='team' — Team plan
         //     creation; we provision the Organization + Owner row
@@ -601,7 +601,7 @@ async function syncTeamSubscription(
 }
 
 /**
- * Grant the user one paid_export_credit for a $25 export Checkout
+ * Grant the user one paid_export_credit for a $50 export Checkout
  * session.
  *
  * Idempotent with /api/exports/fulfill — both paths INSERT into
@@ -624,43 +624,25 @@ async function grantExportCredit(
   }
   const amountCents = session.amount_total ?? 0
 
-  // PK-conflict-based idempotency: try insert, swallow 23505.
-  const { error: insertErr } = await sb
-    .from('paid_exports')
-    .insert({
-      stripe_session_id: session.id,
-      user_id: supabaseUserId,
-      amount_cents: amountCents,
-      fulfilled_via: 'webhook',
-    })
-
-  if (insertErr) {
-    if ((insertErr as { code?: string }).code === '23505') {
-      // Already fulfilled (likely by the redirect path). Credit was
-      // granted there — no-op here.
-      return
-    }
-    console.error('[stripe/webhook] paid_exports insert failed', session.id, insertErr.message)
-    throw insertErr
+  // Atomic idempotent grant (migration 0040). Replaces the prior
+  // read-then-write that (a) lost the credit if the profile row was
+  // missing and (b) wasn't atomic. The RPC inserts the idempotency
+  // marker + increments the credit in one transaction; returns false
+  // when the session was already fulfilled. A raised exception
+  // (missing profile) rolls back the marker so Stripe's retry can
+  // re-attempt cleanly. Audit 2026-06-10.
+  const { data: granted, error: rpcErr } = await sb.rpc('grant_export_credit', {
+    p_user_id: supabaseUserId,
+    p_session_id: session.id,
+    p_amount_cents: amountCents,
+    p_fulfilled_via: 'webhook',
+  })
+  if (rpcErr) {
+    console.error('[stripe/webhook] grant_export_credit failed', session.id, rpcErr.message)
+    throw rpcErr // let the webhook 500 so Stripe retries before processed_at is stamped
   }
-
-  // First fulfillment — increment paid_export_credits by 1.
-  const { data: profileRow, error: readErr } = await sb
-    .from('user_profile')
-    .select('paid_export_credits')
-    .eq('user_id', supabaseUserId)
-    .maybeSingle()
-  if (readErr) {
-    console.error('[stripe/webhook] export credit read failed', supabaseUserId, readErr.message)
-    throw readErr
-  }
-  const current = (profileRow as { paid_export_credits: number | null } | null)?.paid_export_credits ?? 0
-  const { error: writeErr } = await sb
-    .from('user_profile')
-    .update({ paid_export_credits: current + 1 })
-    .eq('user_id', supabaseUserId)
-  if (writeErr) {
-    console.error('[stripe/webhook] export credit write failed', supabaseUserId, writeErr.message)
-    throw writeErr
+  if (granted === false) {
+    // Already fulfilled by the redirect path or a prior delivery — no-op.
+    return
   }
 }

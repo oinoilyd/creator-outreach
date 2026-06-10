@@ -526,7 +526,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
 
-  const limited = rateLimit(auth.id, 'enrich', 500)
+  const limited = rateLimit(auth.id, 'enrich', 500, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

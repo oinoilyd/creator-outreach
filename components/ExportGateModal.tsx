@@ -13,7 +13,7 @@
  *   • Pre-paid credit available
  *       → "Export now — uses 1 of your N paid credits"
  *   • Requires payment
- *       → "$25 export. Pay with Stripe → " (opens Stripe Checkout)
+ *       → "$50 export. Pay with Stripe → " (opens Stripe Checkout)
  *
  * Loading state while entitlement is fetched. Error state if either
  * the entitlement or the export request fails.

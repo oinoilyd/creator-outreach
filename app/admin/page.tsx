@@ -303,7 +303,7 @@ export default async function AdminPage() {
                   <th className="px-4 py-3 text-right font-medium">Dismissed</th>
                   <th
                     className="px-4 py-3 text-center font-medium"
-                    title="Unlimited exports flag — when 'comp', this user bypasses the $25 export paywall and monthly free-tier limit entirely. Toggle on/off per-user; used for VIPs / partners / our own internal accounts."
+                    title="Unlimited exports flag — when 'comp', this user bypasses the $50 export paywall and monthly free-tier limit entirely. Toggle on/off per-user; used for VIPs / partners / our own internal accounts."
                   >
                     Exports
                   </th>
