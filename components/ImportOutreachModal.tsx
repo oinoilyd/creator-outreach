@@ -6,23 +6,86 @@ import type { OutreachEntry } from '@/lib/types'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 /**
- * Lets a user upload an .xlsx file (the format produced by
- * /api/export-outreach) and writes its rows to their Supabase row.
+ * Lets a user upload a spreadsheet (.xlsx, .xls, or .csv) and import
+ * its rows as OutreachEntry records.
  *
- * Maps Excel column names → OutreachEntry fields:
- *   "Channel Name"   → channelName
- *   "YouTube URL"    → channelUrl
- *   "Email"          → email
- *   "Description"    → description
- *   "Product"        → product
- *   "Reached Out"    → reachedOut ("Yes"/"No" → boolean)
- *   "Medium"         → medium
- *   "Subject Line"   → headerUsed
- *   "Status"         → status
+ * Dylan 2026-06-09: original version required EXACT column names
+ * ("Channel Name", "YouTube URL") and EXACT YouTube channel-URL
+ * format (must match /channel/UCxxx). Spreadsheets coming from other
+ * CRMs almost never look like that, so most imports failed with
+ * "No usable rows found." This version is intentionally forgiving:
  *
- * Other OutreachEntry fields default to '' / 0 / false / current timestamp
- * since the export format doesn't include them.
+ *   • Column-name aliases — case-insensitive, accepts common variants
+ *     ("Name", "Creator", "Channel Name" all → channelName etc.)
+ *   • CSV support — same XLSX library handles all three formats
+ *   • No YouTube requirement — rows without a YT channel URL still
+ *     import. Synthetic ID is generated. Social URLs in any column
+ *     get auto-routed to the right field (instagram.com → instagram,
+ *     linkedin.com → linkedin, etc.).
+ *
+ * Minimum bar: a column matching the channelName aliases. Everything
+ * else is optional.
  */
+
+/** Case-insensitive header alias table. Each entry's array lists the
+ *  column-name variants we accept and map to a single OutreachEntry
+ *  field. Add to this as users surface common naming patterns. */
+const COLUMN_ALIASES: Record<string, readonly string[]> = {
+  channelName: ['channel name', 'name', 'creator', 'channel', 'creator name', 'full name', 'lead name', 'company', 'first name'],
+  channelUrl:  ['youtube url', 'youtube', 'channel url', 'url', 'link', 'profile url', 'profile', 'yt url'],
+  email:       ['email', 'email address', 'contact email', 'e-mail', 'mail'],
+  description: ['description', 'notes', 'note', 'comments', 'about', 'bio', 'summary'],
+  product:     ['product', 'service', 'offering', 'product/service'],
+  reachedOut:  ['reached out', 'contacted', 'reached', 'has reached out', 'outreach started'],
+  medium:      ['medium', 'method', 'outreach method', 'channel of contact'],
+  headerUsed:  ['subject line', 'subject', 'email subject', 'header'],
+  status:      ['status', 'state', 'stage', 'lead status'],
+  instagram:   ['instagram', 'ig', 'ig url', 'instagram url', 'instagram handle', 'instagram profile'],
+  linkedin:    ['linkedin', 'linkedin url', 'linkedin profile', 'linkedin profile url'],
+  twitter:     ['twitter', 'x', 'x url', 'twitter url', 'x handle', 'twitter handle'],
+  tiktok:      ['tiktok', 'tiktok url', 'tiktok handle', 'tiktok profile'],
+  website:     ['website', 'site', 'web', 'homepage'],
+}
+
+/** Case-insensitive lookup of the first matching column. */
+function getField(row: Record<string, unknown>, aliases: readonly string[]): string {
+  const keys = Object.keys(row)
+  for (const alias of aliases) {
+    const found = keys.find(k => k.trim().toLowerCase() === alias)
+    if (found && row[found] != null) {
+      const val = String(row[found]).trim()
+      if (val) return val
+    }
+  }
+  return ''
+}
+
+/** Scan every string value in the row for known social-platform URLs.
+ *  Routes them to the right field even when they live in a column
+ *  named something unrelated like "Profile" or "Link". */
+interface DetectedSocials {
+  channelUrl?: string
+  instagram?: string
+  linkedin?: string
+  twitter?: string
+  tiktok?: string
+  website?: string
+}
+function detectSocialsFromRow(row: Record<string, unknown>): DetectedSocials {
+  const result: DetectedSocials = {}
+  for (const val of Object.values(row)) {
+    if (typeof val !== 'string') continue
+    const url = val.trim()
+    if (!/^https?:\/\//i.test(url)) continue
+    if (/youtube\.com\/(channel|c|user|@)/i.test(url) && !result.channelUrl) result.channelUrl = url
+    else if (/instagram\.com\//i.test(url) && !result.instagram) result.instagram = url
+    else if (/linkedin\.com\//i.test(url) && !result.linkedin) result.linkedin = url
+    else if (/(twitter|x)\.com\//i.test(url) && !result.twitter) result.twitter = url
+    else if (/tiktok\.com\//i.test(url) && !result.tiktok) result.tiktok = url
+    else if (!result.website) result.website = url
+  }
+  return result
+}
 export function ImportOutreachModal({
   onImport,
   onClose,
@@ -53,46 +116,74 @@ export function ImportOutreachModal({
   async function processFile(file: File) {
     setError('')
     setPreview(null)
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      setError(`Need an Excel file (.xlsx or .xls). Got: ${file.name}`)
+    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+      setError(`Need a spreadsheet file (.xlsx, .xls, or .csv). Got: ${file.name}`)
       return
     }
     setBusy(true)
     try {
       const buf = await file.arrayBuffer()
+      // XLSX.read handles xlsx, xls, AND csv with the same call — the
+      // library auto-detects the format from the buffer contents.
       const wb = XLSX.read(buf, { type: 'array' })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' })
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
 
       const entries: OutreachEntry[] = []
       const now = Date.now()
       let i = 0
       for (const r of rows) {
-        const channelName = String(r['Channel Name'] || '').trim()
-        const channelUrl = String(r['YouTube URL'] || '').trim()
-        if (!channelName || !channelUrl) continue
-        const channelId = extractChannelId(channelUrl)
-        if (!channelId) continue
-        const reachedOutRaw = String(r['Reached Out'] || '').trim().toLowerCase()
+        // Required: a recognizable name column. Without it we can't
+        // render the row in the table, so skip silently.
+        const channelName = getField(r, COLUMN_ALIASES.channelName)
+        if (!channelName) continue
+
+        // Try to find a YouTube channel URL anywhere in the row + the
+        // explicit URL column. Falls back to "" if none — the lead
+        // still imports as a non-YouTube row.
+        const explicitUrl = getField(r, COLUMN_ALIASES.channelUrl)
+        const detected = detectSocialsFromRow(r)
+        const channelUrl = detected.channelUrl || (explicitUrl.match(/youtube\.com/i) ? explicitUrl : '')
+        const ytChannelId = channelUrl ? extractChannelId(channelUrl) : ''
+
+        // ID generation: YouTube channel ID if we found one (lets the
+        // same creator dedupe across imports), else synthetic.
+        const id = ytChannelId
+          ? `${ytChannelId}-${now + i}`
+          : `manual-${now + i}`
+        const channelId = ytChannelId || id
+
+        const reachedOutRaw = getField(r, COLUMN_ALIASES.reachedOut).toLowerCase()
+        const reachedOut = reachedOutRaw === 'yes' || reachedOutRaw === 'true' || reachedOutRaw === '1'
+
+        // Social fields: prefer the auto-detected URL from row scan,
+        // fall back to whatever the user put in a named column.
+        const instagram = detected.instagram || getField(r, COLUMN_ALIASES.instagram)
+        const linkedin  = detected.linkedin  || getField(r, COLUMN_ALIASES.linkedin)
+        const twitter   = detected.twitter   || getField(r, COLUMN_ALIASES.twitter)
+        const tiktok    = detected.tiktok    || getField(r, COLUMN_ALIASES.tiktok)
+        const website   = detected.website   || getField(r, COLUMN_ALIASES.website)
+
         entries.push({
-          id: `${channelId}-${now + i}`,
+          id,
           channelId,
           channelName,
-          channelUrl,
-          description: String(r['Description'] || ''),
-          email: String(r['Email'] || ''),
-          product: String(r['Product'] || ''),
+          // channelUrl is YT-specific. For non-YT leads we use the
+          // first social URL we found (instagram/linkedin/etc.) so the
+          // row has a clickable "go to creator" link.
+          channelUrl: channelUrl || instagram || linkedin || twitter || tiktok || website || '',
+          description: getField(r, COLUMN_ALIASES.description),
+          email: getField(r, COLUMN_ALIASES.email),
+          product: getField(r, COLUMN_ALIASES.product),
           favorite: false,
-          reachedOut: reachedOutRaw === 'yes' || reachedOutRaw === 'true',
-          medium: (String(r['Medium'] || '') as OutreachEntry['medium']) || '',
+          reachedOut,
+          medium: (getField(r, COLUMN_ALIASES.medium) as OutreachEntry['medium']) || '',
           mediumOther: '',
-          headerUsed: String(r['Subject Line'] || ''),
+          headerUsed: getField(r, COLUMN_ALIASES.headerUsed),
           status: ((): OutreachEntry['status'] => {
-            const raw = (String(r['Status'] || '') as OutreachEntry['status']) || ''
+            const raw = getField(r, COLUMN_ALIASES.status) as OutreachEntry['status']
             if (raw) return raw
-            // No explicit status from the sheet — derive a reasonable default.
-            const hasReached = reachedOutRaw === 'yes' || reachedOutRaw === 'true'
-            return hasReached ? 'Open' : 'Not Outreached'
+            return reachedOut ? 'Open' : 'Not Outreached'
           })(),
           addedAt: now + i,
           notes: '',
@@ -103,11 +194,11 @@ export function ImportOutreachModal({
           subscribers: '',
           avgViews: 0,
           fitScore: 0,
-          linkedin: '',
-          instagram: '',
-          twitter: '',
-          tiktok: '',
-          website: '',
+          linkedin,
+          instagram,
+          twitter,
+          tiktok,
+          website,
           contentNiche: '',
           phone: '',
           dealValue: '',
@@ -118,13 +209,18 @@ export function ImportOutreachModal({
       }
 
       if (entries.length === 0) {
-        setError('No usable rows found. Make sure the file has "Channel Name" and "YouTube URL" columns.')
+        setError(
+          'No usable rows found. Each row needs at least a name column ' +
+          '(e.g. "Name", "Creator", "Channel Name", "Full Name", "Lead Name"). ' +
+          'Email + URLs are optional and auto-detected from any column.',
+        )
         setBusy(false)
         return
       }
       setPreview(entries)
-    } catch (caught: any) {
-      setError(`Could not read file: ${caught?.message || caught}`)
+    } catch (caught: unknown) {
+      const message = caught instanceof Error ? caught.message : String(caught)
+      setError(`Could not read file: ${message}`)
     } finally {
       setBusy(false)
     }
@@ -180,7 +276,7 @@ export function ImportOutreachModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-start justify-between mb-1">
-          <h2 id={titleId} className="text-xl font-bold text-foreground">Import outreach from Excel</h2>
+          <h2 id={titleId} className="text-xl font-bold text-foreground">Import outreach</h2>
           <button
             onClick={onClose}
             aria-label="Close import dialog"
@@ -188,7 +284,11 @@ export function ImportOutreachModal({
           >✕</button>
         </div>
         <p className="text-muted-foreground text-sm mb-5">
-          Upload an <code className="text-muted-foreground">.xlsx</code> file you downloaded from this app (or from another export with matching columns).
+          Drop a spreadsheet from your CRM, Excel, or Google Sheets. Accepts
+          {' '}<code className="text-muted-foreground">.xlsx</code>,{' '}
+          <code className="text-muted-foreground">.xls</code>, or{' '}
+          <code className="text-muted-foreground">.csv</code>. Column names
+          are auto-matched — no need to rename anything.
         </p>
 
         {!preview && (
@@ -196,7 +296,7 @@ export function ImportOutreachModal({
             <input
               ref={inputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv"
               onChange={handleFile}
               className="hidden"
             />
@@ -218,11 +318,18 @@ export function ImportOutreachModal({
                 ? 'Reading file…'
                 : dragOver
                   ? '📥 Drop the file to upload'
-                  : <>📁 <span className="block mt-1">Click or drag an <code className="text-foreground/80">.xlsx</code> file here</span></>
+                  : <>📁 <span className="block mt-1">Click or drag a spreadsheet here</span></>
               }
             </div>
-            <p className="text-[11px] text-muted-foreground/70 mt-3">
-              Required columns: <span className="text-muted-foreground">Channel Name</span>, <span className="text-muted-foreground">YouTube URL</span>. All other columns are optional.
+            <p className="text-[11px] text-muted-foreground/70 mt-3 leading-relaxed">
+              Each row needs at least a name column —{' '}
+              <span className="text-muted-foreground">Name</span>,{' '}
+              <span className="text-muted-foreground">Creator</span>,{' '}
+              <span className="text-muted-foreground">Channel Name</span>,{' '}
+              <span className="text-muted-foreground">Lead Name</span>, etc. all work.
+              Emails and URLs are auto-detected from any column. Social URLs
+              (Instagram / LinkedIn / TikTok / X / YouTube) get routed to the
+              right field automatically.
             </p>
           </>
         )}
