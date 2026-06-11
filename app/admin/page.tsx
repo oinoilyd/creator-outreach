@@ -188,6 +188,13 @@ export default async function AdminPage() {
               <span aria-hidden>📚</span>Tutorials
             </Link>
             <Link
+              href="/admin/team-preview"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+              title="Flip between roles instantly — no logins. The easy way to see the team feature."
+            >
+              <span aria-hidden>🎛️</span>Team preview
+            </Link>
+            <Link
               href="/admin/sandbox"
               className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
               title="5-user Test Team with magic-link sign-in per role"
