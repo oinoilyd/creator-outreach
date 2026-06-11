@@ -66,6 +66,37 @@ export function SandboxClient() {
   // on page reload.
   const [passwords, setPasswords] = useState<Record<string, string>>({})
 
+  // "Make ME the owner" — puts the admin's own account in a test team
+  // so they see the enterprise UI in their normal session (no
+  // magic-link/incognito dance). Dylan 2026-06-10.
+  const [selfBusy, setSelfBusy] = useState<false | 'create' | 'teardown'>(false)
+  const [selfResult, setSelfResult] = useState<string | null>(null)
+  const [selfMembers, setSelfMembers] = useState<Array<{ email: string; fullName: string; password: string }>>([])
+
+  async function makeMeOwner(action: 'create' | 'teardown') {
+    if (action === 'teardown' && !confirm('Restore your account to individual?\n\nThis removes the test team. Any rows you assigned to a teammate are returned to you (never deleted).')) return
+    setSelfBusy(action)
+    setSelfResult(null)
+    try {
+      const res = await fetch('/api/admin/make-me-team-owner', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setSelfResult(`❌ ${data.error || `HTTP ${res.status}`}${data.detail ? ` — ${data.detail}` : ''}`)
+        return
+      }
+      setSelfResult(`✓ ${data.message}`)
+      setSelfMembers(action === 'create' ? (data.members ?? []) : [])
+    } catch (err) {
+      setSelfResult(`❌ ${err instanceof Error ? err.message : 'failed'}`)
+    } finally {
+      setSelfBusy(false)
+    }
+  }
+
   async function loadState() {
     setLoading(true)
     setError(null)
@@ -146,6 +177,52 @@ export function SandboxClient() {
     void loadState()
   }, [])
 
+  // The "see it in YOUR own session" card — the fast path. No magic
+  // links, no incognito, no passwords. Click → refresh app → you're
+  // the Owner of a test team.
+  const selfOwnerCard = (
+    <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-xl p-5 mb-6">
+      <div className="text-base font-semibold text-foreground mb-1">
+        ⚡ See the enterprise in YOUR account (fast path)
+      </div>
+      <p className="text-sm text-muted-foreground mb-4 max-w-2xl leading-snug">
+        Skips the magic-link / incognito dance. This makes <strong>your own logged-in account</strong> the
+        Owner of a test team with 2 teammates + a few assigned rows. Click it, then refresh the main app —
+        you&apos;ll see the full owner UI (Team members, assignee filters, reassign). Your real outreach is
+        never touched; teardown returns any assigned rows to you.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => makeMeOwner('create')}
+          disabled={!!selfBusy}
+          className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {selfBusy === 'create' ? 'Setting up…' : 'Make me a team owner'}
+        </button>
+        <button
+          onClick={() => makeMeOwner('teardown')}
+          disabled={!!selfBusy}
+          className="px-4 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          {selfBusy === 'teardown' ? 'Restoring…' : 'Leave test team (restore individual)'}
+        </button>
+      </div>
+      {selfResult && (
+        <div className="mt-3 text-sm text-foreground/90">{selfResult}</div>
+      )}
+      {selfMembers.length > 0 && (
+        <div className="mt-3 text-xs text-muted-foreground">
+          <div className="font-medium text-foreground/80 mb-1">To test the member view (optional, incognito):</div>
+          {selfMembers.map(m => (
+            <div key={m.email} className="font-mono">
+              {m.email} · {m.password}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="text-center text-sm text-muted-foreground py-16">
@@ -157,6 +234,8 @@ export function SandboxClient() {
   // No sandbox yet → show CTA to create.
   if (!state?.exists) {
     return (
+      <div>
+      {selfOwnerCard}
       <div className="bg-card border border-border rounded-xl p-8 text-center">
         <h2 className="text-lg font-semibold text-foreground mb-2">No sandbox yet</h2>
         <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
@@ -178,12 +257,14 @@ export function SandboxClient() {
           </div>
         )}
       </div>
+      </div>
     )
   }
 
   // Sandbox exists → show fixtures table.
   return (
     <div className="space-y-6">
+      {selfOwnerCard}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card border border-border rounded-xl p-5">
         <div>
           <div className="text-sm text-muted-foreground">Sandbox</div>
