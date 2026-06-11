@@ -91,14 +91,6 @@ async function runSeedTestData() {
 const AUDIT_ITEMS: AuditItem[] = [
   {
     kind: 'link',
-    href: '/admin/sandbox',
-    icon: '👥',
-    label: 'Enterprise sandbox',
-    description:
-      '5-user Test Team (Owner / Admin / 3 Members) with one-click magic-link sign-in per role. Open each in an incognito window for parallel multi-role testing without losing your admin session.',
-  },
-  {
-    kind: 'link',
     href: '/admin/inbound-debug',
     icon: '📬',
     label: 'Inbound email debug',
