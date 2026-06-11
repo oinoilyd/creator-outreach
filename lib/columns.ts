@@ -12,12 +12,12 @@ export const ALL_OUTREACH_COLS: OutreachColDef[] = [
   { id: 'email',           label: 'Email',             defaultVisible: true,  defaultWidth: 190, tooltip: 'The creator\'s contact email. Click the green address to open a draft outreach email.' },
   { id: 'description',     label: 'Description',       defaultVisible: true,  defaultWidth: 230, tooltip: 'Channel description / bio.' },
   { id: 'product',         label: 'Product',           defaultVisible: true,  defaultWidth: 160, tooltip: 'Which product or pitch you\'re sending this creator.' },
-  { id: 'reachedOut',      label: 'Reached Out',       defaultVisible: true,  defaultWidth: 96,  tooltip: 'Check this once you\'ve actually sent the outreach.' },
+  { id: 'reachedOut',      label: 'Reached Out',       defaultVisible: false, defaultWidth: 96,  tooltip: 'Redundant with Status (any status past Not Outreached means you reached out). Hidden by default 2026-06-10; still available here if you want the explicit checkbox.' },
   { id: 'medium',          label: 'Medium',            defaultVisible: true,  defaultWidth: 170, tooltip: 'How you reached out — Email, LinkedIn, or Other.' },
   { id: 'headerUsed',      label: 'Subject Line',      defaultVisible: true,  defaultWidth: 210, tooltip: 'The subject line or opening hook you used.' },
   { id: 'status',          label: 'Status',            defaultVisible: true,  defaultWidth: 130, tooltip: 'Outcome of your outreach: Open, Successful, Rejected, or No Response.' },
   { id: 'notes',           label: 'Notes',             defaultVisible: true,  defaultWidth: 220, tooltip: 'Free-form notes about this lead.' },
-  { id: 'followUpDate',    label: 'Follow Up Date',    defaultVisible: true,  defaultWidth: 140, tooltip: 'When to ping them again. Auto-set to today + 14 days when you mark a row as Open or No Response. Past dates with status Open show as Overdue in the Follow-ups tab.' },
+  { id: 'followUpDate',    label: 'Follow Up Date',    defaultVisible: false, defaultWidth: 140, tooltip: 'Manage follow-ups on the Follow-ups tab instead. Hidden from the Outreach table by default 2026-06-10; still available here if you prefer inline editing.' },
   { id: 'autoFollowup',    label: 'Auto Follow-up',    defaultVisible: false, defaultWidth: 110, tooltip: 'When ON, a cron auto-sends a follow-up email when this row\'s Follow Up Date hits AND no reply has been received. Requires connected Gmail (via Profile → Connect Gmail). Skips Successful/Rejected rows. Caps at 1 auto-send per 24h to prevent runaway.' },
   { id: 'openCount',       label: 'Opens',             defaultVisible: false, defaultWidth: 88,  tooltip: 'Number of times the most recent email was opened (tracked via Unipile pixel). Opens fire reliably ~70% of the time — absence isn\'t reliable signal but presence is. Off until you enable tracking on send.' },
   { id: 'dateReachedOut',  label: 'Date Reached Out',  defaultVisible: false, defaultWidth: 145, tooltip: 'Date you sent the outreach. Used by the velocity stat.' },
@@ -116,30 +116,30 @@ export const PLATFORM_OUTREACH_DEFAULTS: Record<PlatformId, OutreachColConfig[]>
   // visible (the YouTube-specific metric pair). X / TikTok columns
   // hidden.
   youtube: buildPlatformDefault(
-    ['favorite', 'channelName', 'channelUrl', 'email', 'description', 'product', 'subscribers', 'avgViews', 'reachedOut', 'medium', 'headerUsed', 'status', 'notes', 'followUpDate', 'instagram', 'dealValue', 'addedAt'],
+    ['favorite', 'channelName', 'channelUrl', 'email', 'description', 'product', 'subscribers', 'avgViews', 'medium', 'headerUsed', 'status', 'notes', 'instagram', 'dealValue', 'addedAt'],
     ['xFollowers', 'xPosts', 'tiktokFollowers', 'tiktokLikes', 'linkedin', 'twitter', 'tiktok'],
   ),
   // Instagram — IG handle + IG metrics lead. YouTube-specific metrics
   // hidden (subscribers / avgViews are YT data; IG creators won't have
   // it filled).
   instagram: buildPlatformDefault(
-    ['favorite', 'channelName', 'instagram', 'email', 'description', 'product', 'reachedOut', 'medium', 'headerUsed', 'status', 'notes', 'followUpDate', 'dealValue', 'addedAt'],
+    ['favorite', 'channelName', 'instagram', 'email', 'description', 'product', 'medium', 'headerUsed', 'status', 'notes', 'dealValue', 'addedAt'],
     ['subscribers', 'avgViews', 'xFollowers', 'xPosts', 'tiktokFollowers', 'tiktokLikes', 'channelUrl', 'linkedin', 'twitter', 'tiktok'],
   ),
   // TikTok — TikTok handle + TikTok metrics lead.
   tiktok: buildPlatformDefault(
-    ['favorite', 'channelName', 'tiktok', 'email', 'description', 'product', 'tiktokFollowers', 'tiktokLikes', 'reachedOut', 'medium', 'headerUsed', 'status', 'notes', 'followUpDate', 'dealValue', 'addedAt'],
+    ['favorite', 'channelName', 'tiktok', 'email', 'description', 'product', 'tiktokFollowers', 'tiktokLikes', 'medium', 'headerUsed', 'status', 'notes', 'dealValue', 'addedAt'],
     ['subscribers', 'avgViews', 'xFollowers', 'xPosts', 'channelUrl', 'instagram', 'linkedin', 'twitter'],
   ),
   // X (Twitter) — X handle + X metrics lead.
   twitter: buildPlatformDefault(
-    ['favorite', 'channelName', 'twitter', 'email', 'description', 'product', 'xFollowers', 'xPosts', 'reachedOut', 'medium', 'headerUsed', 'status', 'notes', 'followUpDate', 'dealValue', 'addedAt'],
+    ['favorite', 'channelName', 'twitter', 'email', 'description', 'product', 'xFollowers', 'xPosts', 'medium', 'headerUsed', 'status', 'notes', 'dealValue', 'addedAt'],
     ['subscribers', 'avgViews', 'tiktokFollowers', 'tiktokLikes', 'channelUrl', 'instagram', 'linkedin', 'tiktok'],
   ),
   // LinkedIn — LinkedIn handle leads. No platform-specific metric
   // columns yet (LinkedIn scraping is restricted).
   linkedin: buildPlatformDefault(
-    ['favorite', 'channelName', 'linkedin', 'email', 'description', 'product', 'reachedOut', 'medium', 'headerUsed', 'status', 'notes', 'followUpDate', 'dealValue', 'addedAt'],
+    ['favorite', 'channelName', 'linkedin', 'email', 'description', 'product', 'medium', 'headerUsed', 'status', 'notes', 'dealValue', 'addedAt'],
     ['subscribers', 'avgViews', 'xFollowers', 'xPosts', 'tiktokFollowers', 'tiktokLikes', 'channelUrl', 'instagram', 'twitter', 'tiktok'],
   ),
 }

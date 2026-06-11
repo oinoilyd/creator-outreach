@@ -16,6 +16,7 @@ import { FollowUpsViewToggle, type FUView } from '@/components/follow-ups/Follow
 import { FollowUpCalendar } from '@/components/follow-ups/FollowUpCalendar'
 import { FUStat } from '@/components/follow-ups/FUStat'
 import { FollowUpRow } from '@/components/follow-ups/FollowUpRow'
+import { AddFollowUpModal } from '@/components/follow-ups/AddFollowUpModal'
 
 // Lazy-loaded calendar variants — each only renders after the user
 // switches into its view, so they don't ride along on the initial JS
@@ -45,6 +46,10 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   profile: UserProfile | null
 }) {
   const [sort, setSort] = useState<'urgency' | 'pipeline' | 'touchpoints'>('urgency')
+  // Manual "Add follow-up" (Dylan 2026-06-10). The Follow Up Date
+  // column was removed from the Outreach table; this is how you put a
+  // creator on the tracker by hand from here.
+  const [showAddFollowUp, setShowAddFollowUp] = useState(false)
   const [showLater, setShowLater] = useState(false)
   const [showUnset, setShowUnset] = useState(false)
   // Per Dylan 2026-05-11: 'pipeline' added as a fourth filter mode.
@@ -207,8 +212,28 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
     onUpdate(e.id, 'followUpDate', newDate)
   }
 
+  // Shared "+ Add follow-up" button + modal — rendered in every view
+  // branch so manual scheduling is always one click away.
+  const addFollowUpButton = (
+    <button
+      type="button"
+      onClick={() => setShowAddFollowUp(true)}
+      className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded-md border border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-500/10 transition-colors shrink-0"
+    >
+      <span className="text-base leading-none">＋</span> Add follow-up
+    </button>
+  )
+  const addFollowUpModalEl = showAddFollowUp ? (
+    <AddFollowUpModal
+      entries={entries}
+      onAdd={(id, date) => onUpdate(id, 'followUpDate', date)}
+      onClose={() => setShowAddFollowUp(false)}
+    />
+  ) : null
+
   if (open.length === 0 && ghosted.length === 0) {
     return (
+      <>
       <div className="border border-dashed border-border rounded-xl py-16 px-6 text-center">
         <div className="mx-auto w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-blue-800 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -216,10 +241,13 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
           </svg>
         </div>
         <h3 className="text-base font-semibold text-foreground mb-1">No follow-ups yet</h3>
-        <p className="text-muted-foreground text-sm max-w-md mx-auto">
-          Once you reach out to a creator and set their status to <span className="text-blue-800 dark:text-blue-400">Open</span>, they'll appear here with a follow-up date 3 days out — then 7, 14, 21 as you keep pinging.
+        <p className="text-muted-foreground text-sm max-w-md mx-auto mb-5">
+          Reach out to a creator and set their status past Not Outreached — they&apos;ll appear here automatically. Or schedule one by hand:
         </p>
+        <div className="flex justify-center">{addFollowUpButton}</div>
       </div>
+      {addFollowUpModalEl}
+      </>
     )
   }
 
@@ -230,7 +258,11 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   if (view === 'month') {
     return (
       <div className="space-y-4">
-        <FollowUpsViewToggle current={view} onChange={setView} />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <FollowUpsViewToggle current={view} onChange={setView} />
+          {addFollowUpButton}
+        </div>
+        {addFollowUpModalEl}
         <FollowUpCalendar
           entries={[...open, ...ghosted]}
           onUpdate={onUpdate}
@@ -243,7 +275,11 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   if (view === 'week') {
     return (
       <div className="space-y-4">
-        <FollowUpsViewToggle current={view} onChange={setView} />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <FollowUpsViewToggle current={view} onChange={setView} />
+          {addFollowUpButton}
+        </div>
+        {addFollowUpModalEl}
         <FollowUpWeekStrip
           entries={[...open, ...ghosted]}
           onOpenEntry={onOpenEntry}
@@ -255,7 +291,11 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   if (view === 'gantt') {
     return (
       <div className="space-y-4">
-        <FollowUpsViewToggle current={view} onChange={setView} />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <FollowUpsViewToggle current={view} onChange={setView} />
+          {addFollowUpButton}
+        </div>
+        {addFollowUpModalEl}
         <FollowUpGantt
           entries={[...open, ...ghosted]}
           onOpenEntry={onOpenEntry}
@@ -267,7 +307,11 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
   if (view === 'split') {
     return (
       <div className="space-y-4">
-        <FollowUpsViewToggle current={view} onChange={setView} />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <FollowUpsViewToggle current={view} onChange={setView} />
+          {addFollowUpButton}
+        </div>
+        {addFollowUpModalEl}
         <FollowUpSplit
           entries={[...open, ...ghosted]}
           onOpenEntry={onOpenEntry}
@@ -279,7 +323,11 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
 
   return (
     <div className="space-y-6">
-      <FollowUpsViewToggle current={view} onChange={setView} />
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <FollowUpsViewToggle current={view} onChange={setView} />
+        {addFollowUpButton}
+      </div>
+      {addFollowUpModalEl}
       {/* Headline + 4 priority-aware stats */}
       <div>
         <p className="text-sm text-foreground/80">{headline}</p>
