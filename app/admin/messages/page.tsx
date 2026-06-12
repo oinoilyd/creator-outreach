@@ -14,7 +14,7 @@ export default async function AdminMessagesPage() {
   if (!user || user.email !== ADMIN_EMAIL) notFound()
 
   return (
-    <main className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+    <main className="h-[calc(100vh-2.75rem)] flex flex-col bg-background text-foreground overflow-hidden">
       <header className="shrink-0 h-14 px-4 sm:px-5 border-b border-border flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm shadow-blue-500/30 text-[13px]" aria-hidden>✉</span>

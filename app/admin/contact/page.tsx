@@ -61,9 +61,6 @@ export default async function AdminContactPage() {
               ← Users
             </Link>
             <ThemeToggle />
-            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-lg px-4 py-2 transition-colors">
-              Back to app
-            </Link>
           </div>
         </div>
 
