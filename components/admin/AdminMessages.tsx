@@ -10,10 +10,11 @@
  * spins a private direct thread (discussion); off means announcement.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Megaphone, Send, Loader2, User as UserIcon, MessageSquare, RefreshCw, Lock, RotateCcw, Search, PenSquare, X as XIcon } from 'lucide-react'
+import { Megaphone, Send, Loader2, User as UserIcon, MessageSquare, RefreshCw, Lock, RotateCcw, Search, PenSquare, X as XIcon, BookText, Trash2, Plus } from 'lucide-react'
 import {
   fetchAdminInbox, fetchAdminThread, createAdminThread, adminReply, closeThread,
-  type AdminThreadSummary, type AdminRecipient, type AdminThreadDetail,
+  fetchSavedReplies, createSavedReply, deleteSavedReply,
+  type AdminThreadSummary, type AdminRecipient, type AdminThreadDetail, type SavedReply,
 } from '@/lib/inbox-admin'
 
 // Background refresh of the thread list; the open thread polls faster.
@@ -57,6 +58,7 @@ export function AdminMessages() {
   const [segment, setSegment] = useState<SegmentKey>('needs_reply')
   const [query, setQuery] = useState('')
   const [composeOpen, setComposeOpen] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     const res = await fetchAdminInbox()
@@ -120,6 +122,43 @@ export function AdminMessages() {
     return list
   }, [threads, segment, query])
 
+  // Oldest unanswered ticket — the key triage health stat.
+  const oldestWaiting = useMemo(() => {
+    let oldest: string | null = null
+    for (const t of threads) {
+      if (!t.needsReply) continue
+      const at = t.lastMessage?.createdAt ?? t.updatedAt
+      if (!oldest || new Date(at).getTime() < new Date(oldest).getTime()) oldest = at
+    }
+    return oldest
+  }, [threads])
+
+  // Keyboard shortcuts: j/k move, r reply, c close/reopen, / search, Esc.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+      if (e.key === '/' && !typing) { e.preventDefault(); searchRef.current?.focus(); return }
+      if (e.key === 'Escape' && document.activeElement === searchRef.current) { setQuery(''); searchRef.current?.blur(); return }
+      if (typing) return
+      if (e.key === 'j' || e.key === 'k') {
+        if (visible.length === 0) return
+        e.preventDefault()
+        const idx = visible.findIndex(t => t.id === selectedId)
+        const next = idx === -1 ? 0 : Math.max(0, Math.min(visible.length - 1, idx + (e.key === 'j' ? 1 : -1)))
+        void openThread(visible[next].id)
+        return
+      }
+      if (e.key === 'r' && selectedId) { e.preventDefault(); window.dispatchEvent(new CustomEvent('admin-inbox-focus-reply')); return }
+      if (e.key === 'c' && selectedId && detail?.type === 'direct') {
+        e.preventDefault()
+        void (async () => { await closeThread(selectedId, !detail.closedAt); setDetail(await fetchAdminThread(selectedId)); void refresh() })()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [visible, selectedId, detail, openThread, refresh])
+
   return (
     <div className="space-y-4">
       {/* Toolbar — segments + search + compose */}
@@ -158,10 +197,11 @@ export function AdminMessages() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" aria-hidden />
             <input
+              ref={searchRef}
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search by email or message…"
+              placeholder="Search by email or message…  ( / )"
               className="w-full rounded-lg border border-border bg-background pl-8 pr-8 py-2 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-blue-500/50"
             />
             {query && (
@@ -186,6 +226,13 @@ export function AdminMessages() {
           >
             <PenSquare className="w-3.5 h-3.5" /> New message
           </button>
+        </div>
+        {/* Triage health stat + keyboard hint */}
+        <div className="flex items-center justify-between text-[10.5px] text-muted-foreground/60">
+          <span className={oldestWaiting ? 'text-amber-600/80 dark:text-amber-400/80 font-medium' : ''}>
+            {oldestWaiting ? `Oldest unanswered: ${relativeTime(oldestWaiting).replace(' ago', '')}` : 'All caught up — nothing waiting'}
+          </span>
+          <span className="hidden md:inline">j/k move · r reply · c close · / search</span>
         </div>
       </div>
 
@@ -456,7 +503,15 @@ function AdminThreadView({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [detail?.messages.length])
 
+  // 'r' keyboard shortcut focuses the reply box.
+  useEffect(() => {
+    function onFocus() { replyRef.current?.focus() }
+    window.addEventListener('admin-inbox-focus-reply', onFocus)
+    return () => window.removeEventListener('admin-inbox-focus-reply', onFocus)
+  }, [])
+
   const [closing, setClosing] = useState(false)
+  const replyRef = useRef<HTMLTextAreaElement>(null)
 
   async function send() {
     if (!detail || !text.trim() || sending) return
@@ -579,6 +634,7 @@ function AdminThreadView({
           {error && <p className="text-[11px] text-red-600 dark:text-red-400 mb-1.5">{error}</p>}
           <div className="flex items-end gap-1.5">
             <textarea
+              ref={replyRef}
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send() } }}
@@ -586,6 +642,7 @@ function AdminThreadView({
               placeholder="Write a reply… (⌘↵ to send)"
               className="flex-1 resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-blue-500/50 max-h-28"
             />
+            <SavedRepliesMenu text={text} onInsert={b => setText(prev => (prev.trim() ? `${prev}\n\n${b}` : b))} />
             <button
               type="button"
               onClick={send}
@@ -599,6 +656,92 @@ function AdminThreadView({
         </div>
       )}
     </>
+  )
+}
+
+// ── Saved replies (canned responses) ────────────────────────────────
+
+function SavedRepliesMenu({ text, onInsert }: { text: string; onInsert: (body: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [replies, setReplies] = useState<SavedReply[]>([])
+  const [loading, setLoading] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setReplies(await fetchSavedReplies())
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    void load()
+    function onClick(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open, load])
+
+  async function saveCurrent() {
+    const body = text.trim()
+    if (!body) return
+    const r = await createSavedReply('', body)
+    if (r) setReplies(prev => [...prev, r])
+  }
+  async function remove(id: string) {
+    setReplies(prev => prev.filter(r => r.id !== id))
+    await deleteSavedReply(id)
+  }
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        title="Saved replies"
+        aria-label="Saved replies"
+        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+      >
+        <BookText className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <div className="absolute bottom-full mb-2 right-0 w-72 max-h-72 overflow-y-auto bg-card border border-border rounded-lg shadow-xl shadow-black/30 z-20 p-1">
+          <div className="px-2 py-1.5 text-[10.5px] uppercase tracking-wide text-muted-foreground/70 font-semibold">Saved replies</div>
+          {loading ? (
+            <div className="px-2 py-2 text-[11px] text-muted-foreground">Loading…</div>
+          ) : replies.length === 0 ? (
+            <div className="px-2 py-2 text-[11px] text-muted-foreground">No saved replies yet. Type a reply, then “Save current draft”.</div>
+          ) : replies.map(r => (
+            <div key={r.id} className="group flex items-start gap-1">
+              <button
+                type="button"
+                onClick={() => { onInsert(r.body); setOpen(false) }}
+                className="flex-1 text-left px-2 py-1.5 rounded hover:bg-muted/50 min-w-0"
+              >
+                <div className="text-[12px] font-medium text-foreground truncate">{r.title || r.body.slice(0, 40)}</div>
+                <div className="text-[10.5px] text-muted-foreground truncate">{r.body}</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(r.id)}
+                aria-label="Delete saved reply"
+                className="opacity-0 group-hover:opacity-100 p-1 mt-1 text-muted-foreground/60 hover:text-red-500 transition-all"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+          {text.trim() && (
+            <button
+              type="button"
+              onClick={saveCurrent}
+              className="w-full text-left px-2 py-1.5 mt-1 border-t border-border text-[11.5px] text-blue-600 dark:text-blue-300 hover:bg-blue-500/10 rounded-b flex items-center gap-1.5"
+            >
+              <Plus className="w-3 h-3" /> Save current draft as a reply
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

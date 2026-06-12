@@ -134,3 +134,33 @@ export async function replyFromContact(
   }
   return { ok: true, threadId: data?.threadId }
 }
+
+// ── Saved replies (canned responses) ────────────────────────────────
+
+export interface SavedReply {
+  id: string
+  title: string
+  body: string
+}
+
+export async function fetchSavedReplies(): Promise<SavedReply[]> {
+  const res = await fetch('/api/admin/inbox/saved-replies', { cache: 'no-store' })
+  if (!res.ok) return []
+  const data = await res.json().catch(() => null)
+  return (data?.replies ?? []) as SavedReply[]
+}
+
+export async function createSavedReply(title: string, body: string): Promise<SavedReply | null> {
+  const res = await fetch('/api/admin/inbox/saved-replies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body }),
+  })
+  if (!res.ok) return null
+  const data = await res.json().catch(() => null)
+  return (data?.reply ?? null) as SavedReply | null
+}
+
+export async function deleteSavedReply(id: string): Promise<void> {
+  await fetch(`/api/admin/inbox/saved-replies?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
+}
