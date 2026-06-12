@@ -21,7 +21,7 @@ export async function GET() {
   const [threadsRes, readsRes, unreadRes] = await Promise.all([
     supabase
       .from('inbox_threads')
-      .select('id, type, subject, allow_replies, updated_at')
+      .select('id, type, subject, allow_replies, updated_at, closed_at')
       .order('updated_at', { ascending: false })
       .limit(100),
     supabase
@@ -32,7 +32,7 @@ export async function GET() {
   ])
 
   const threads = (threadsRes.data ?? []) as Array<{
-    id: string; type: 'broadcast' | 'direct'; subject: string; allow_replies: boolean; updated_at: string
+    id: string; type: 'broadcast' | 'direct'; subject: string; allow_replies: boolean; updated_at: string; closed_at: string | null
   }>
   const reads = new Map(
     ((readsRes.data ?? []) as Array<{ thread_id: string; last_read_at: string; dismissed: boolean }>)
@@ -74,6 +74,7 @@ export async function GET() {
       unread: hasNewSinceRead,
       // Hidden only while dismissed AND quiet; new activity un-hides it.
       dismissed: (read?.dismissed ?? false) && !hasNewSinceRead,
+      closedAt: t.closed_at,
     }
   })
 

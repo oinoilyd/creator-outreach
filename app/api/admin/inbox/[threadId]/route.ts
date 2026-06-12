@@ -24,13 +24,14 @@ type ThreadRow = {
   subject: string
   allow_replies: boolean
   target_user_id: string | null
+  closed_at: string | null
 }
 
 async function loadThread(threadId: string) {
   const supabase = await createClient()
   const { data: thread } = await supabase
     .from('inbox_threads')
-    .select('id, type, subject, allow_replies, target_user_id')
+    .select('id, type, subject, allow_replies, target_user_id, closed_at')
     .eq('id', threadId)
     .maybeSingle()
   return { supabase, thread: (thread as ThreadRow | null) }
@@ -65,7 +66,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ threadId: 
   }
 
   const detail: AdminThreadDetail = {
-    id: thread.id, type: thread.type, subject: thread.subject, allowReplies: thread.allow_replies, withEmail, messages,
+    id: thread.id, type: thread.type, subject: thread.subject, allowReplies: thread.allow_replies, withEmail, messages, closedAt: thread.closed_at,
   }
   return NextResponse.json(detail)
 }
@@ -82,6 +83,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ threadId: 
 
   const { supabase, thread } = await loadThread(threadId)
   if (!thread) return NextResponse.json({ error: 'not found' }, { status: 404 })
+  if (thread.closed_at) {
+    return NextResponse.json({ error: 'Ticket is closed. Reopen it to reply.' }, { status: 409 })
+  }
 
   const { error } = await supabase.from('inbox_messages').insert({
     thread_id: threadId, body: text, author_user_id: null, author_is_admin: true,

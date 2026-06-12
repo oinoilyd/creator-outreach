@@ -64,11 +64,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ threadId: 
   const supabase = await createClient()
   const { data: thread } = await supabase
     .from('inbox_threads')
-    .select('id, type, subject, allow_replies, target_user_id')
+    .select('id, type, subject, allow_replies, target_user_id, closed_at')
     .eq('id', threadId)
     .maybeSingle()
   if (!thread) return NextResponse.json({ error: 'not found' }, { status: 404 })
-  const t = thread as { id: string; type: 'broadcast' | 'direct'; subject: string; allow_replies: boolean; target_user_id: string | null }
+  const t = thread as { id: string; type: 'broadcast' | 'direct'; subject: string; allow_replies: boolean; target_user_id: string | null; closed_at: string | null }
+
+  // Closed ticket → no more replies; the user must start a new message.
+  if (t.closed_at) {
+    return NextResponse.json({ error: 'This conversation was closed. Start a new message instead.' }, { status: 409 })
+  }
 
   // Direct thread that's mine → reply straight in (RLS allows the insert).
   if (t.type === 'direct' && t.target_user_id === auth.id) {

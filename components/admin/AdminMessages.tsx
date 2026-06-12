@@ -10,9 +10,9 @@
  * spins a private direct thread (discussion); off means announcement.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Megaphone, Send, Loader2, User as UserIcon, MessageSquare, RefreshCw } from 'lucide-react'
+import { Megaphone, Send, Loader2, User as UserIcon, MessageSquare, RefreshCw, Lock, RotateCcw } from 'lucide-react'
 import {
-  fetchAdminInbox, fetchAdminThread, createAdminThread, adminReply,
+  fetchAdminInbox, fetchAdminThread, createAdminThread, adminReply, closeThread,
   type AdminThreadSummary, type AdminRecipient, type AdminThreadDetail,
 } from '@/lib/inbox-admin'
 
@@ -132,6 +132,11 @@ export function AdminMessages() {
                         {t.fromInquiry && (
                           <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 font-semibold">
                             inquiry
+                          </span>
+                        )}
+                        {t.closedAt && (
+                          <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
+                            closed
                           </span>
                         )}
                       </span>
@@ -306,6 +311,8 @@ function AdminThreadView({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [detail?.messages.length])
 
+  const [closing, setClosing] = useState(false)
+
   async function send() {
     if (!detail || !text.trim() || sending) return
     setSending(true); setError(null)
@@ -314,6 +321,15 @@ function AdminThreadView({
     if (!res.ok) { setError(res.error || 'Failed to send.'); return }
     setText('')
     onReplied()
+  }
+
+  async function toggleClosed(closed: boolean) {
+    if (!detail || closing) return
+    setClosing(true); setError(null)
+    const res = await closeThread(detail.id, closed)
+    setClosing(false)
+    if (!res.ok) { setError(res.error || 'Failed.'); return }
+    onReplied() // refetch → reflects closed state
   }
 
   if (loading || !detail) {
@@ -325,23 +341,51 @@ function AdminThreadView({
   }
 
   const isBroadcast = detail.type === 'broadcast'
+  const isClosed = !!detail.closedAt
 
   return (
     <>
-      <div className="px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-1.5">
-          {isBroadcast
-            ? <Megaphone className="w-3.5 h-3.5 text-indigo-500" aria-hidden />
-            : <UserIcon className="w-3.5 h-3.5 text-blue-500" aria-hidden />}
-          <span className="text-[13px] font-semibold text-foreground truncate">
-            {detail.subject || (isBroadcast ? 'Announcement' : 'Direct message')}
-          </span>
+      <div className="px-4 py-3 border-b border-border flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {isBroadcast
+              ? <Megaphone className="w-3.5 h-3.5 text-indigo-500" aria-hidden />
+              : <UserIcon className="w-3.5 h-3.5 text-blue-500" aria-hidden />}
+            <span className="text-[13px] font-semibold text-foreground truncate">
+              {detail.subject || (isBroadcast ? 'Announcement' : 'Direct message')}
+            </span>
+            {isClosed && (
+              <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
+                closed
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-muted-foreground/75 mt-0.5">
+            {isBroadcast
+              ? `Broadcast · ${detail.allowReplies ? 'replies on' : 'announcement only'}`
+              : `with ${detail.withEmail ?? 'user'}`}
+          </div>
         </div>
-        <div className="text-[11px] text-muted-foreground/75 mt-0.5">
-          {isBroadcast
-            ? `Broadcast · ${detail.allowReplies ? 'replies on' : 'announcement only'}`
-            : `with ${detail.withEmail ?? 'user'}`}
-        </div>
+        {/* Close / reopen — direct tickets only. */}
+        {!isBroadcast && (
+          <button
+            type="button"
+            onClick={() => toggleClosed(!isClosed)}
+            disabled={closing}
+            className={[
+              'shrink-0 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border transition-colors disabled:opacity-50',
+              isClosed
+                ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
+                : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/40',
+            ].join(' ')}
+            title={isClosed ? 'Reopen ticket' : 'Close ticket'}
+          >
+            {closing
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : isClosed ? <RotateCcw className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+            {isClosed ? 'Reopen' : 'Close'}
+          </button>
+        )}
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 max-h-[24rem]">
@@ -369,6 +413,21 @@ function AdminThreadView({
       {isBroadcast ? (
         <div className="border-t border-border px-4 py-3 text-center text-[11px] text-muted-foreground/70">
           This is a broadcast. To continue a conversation, reply inside the private thread a user starts.
+        </div>
+      ) : isClosed ? (
+        <div className="border-t border-border px-4 py-3 text-center">
+          <p className="text-[11px] text-muted-foreground/70 mb-2">
+            Ticket closed. The member can't reply — they'll need to start a new message.
+          </p>
+          <button
+            type="button"
+            onClick={() => toggleClosed(false)}
+            disabled={closing}
+            className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {closing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+            Reopen to reply
+          </button>
         </div>
       ) : (
         <div className="border-t border-border p-3">

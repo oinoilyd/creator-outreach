@@ -13,6 +13,7 @@
  * collapses to just the icon below sm.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Inbox as InboxIcon, X as XIcon, ChevronLeft, Send, Loader2, Megaphone, Trash2, PenSquare } from 'lucide-react'
 import {
   fetchInbox, fetchThread, replyToThread, dismissThread, startThread,
@@ -23,6 +24,8 @@ import {
 // so a live back-and-forth feels responsive.
 const POLL_MS = 90_000
 const THREAD_POLL_MS = 12_000
+const POS_KEY = 'inbox-panel-pos'
+const PANEL_W = 352 // 22rem, for clamping
 
 export function InboxBell() {
   const [open, setOpen] = useState(false)
@@ -33,6 +36,11 @@ export function InboxBell() {
   const [loadingThread, setLoadingThread] = useState(false)
   const [composing, setComposing] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const floatRef = useRef<HTMLDivElement>(null)
+  // null = anchored dropdown; {x,y} = floating window the user dragged.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const dragRef = useRef<{ mx: number; my: number; px: number; py: number } | null>(null)
+  const floating = pos !== null
 
   const refreshList = useCallback(async () => {
     setLoadingList(true)
@@ -52,9 +60,26 @@ export function InboxBell() {
     return () => window.clearInterval(id)
   }, [refreshList])
 
-  // Click-outside / Escape close.
+  // Restore a saved floating position (so it reopens where you left it).
   useEffect(() => {
-    if (!open) return
+    try {
+      const raw = window.localStorage.getItem(POS_KEY)
+      if (raw) {
+        const p = JSON.parse(raw)
+        if (typeof p?.x === 'number' && typeof p?.y === 'number') {
+          setPos({
+            x: Math.min(Math.max(0, p.x), window.innerWidth - PANEL_W),
+            y: Math.min(Math.max(0, p.y), window.innerHeight - 60),
+          })
+        }
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  // Click-outside / Escape close — only when ANCHORED. A floating window
+  // is meant to stay put while you work; close it via the bell or its X.
+  useEffect(() => {
+    if (!open || floating) return
     function onClick(ev: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(ev.target as Node)) setOpen(false)
     }
@@ -65,7 +90,65 @@ export function InboxBell() {
       document.removeEventListener('mousedown', onClick)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, floating])
+
+  // Drag the panel by its header. Starts from any element tagged
+  // data-inbox-drag (the sub-view headers), ignoring clicks on controls.
+  function onPanelPointerDown(e: React.PointerEvent) {
+    const target = e.target as HTMLElement
+    if (target.closest('button, a, input, textarea, select')) return
+    if (!target.closest('[data-inbox-drag]')) return
+    const rect = floatRef.current?.getBoundingClientRect()
+    if (!rect) return
+    e.preventDefault()
+    if (!floating) setPos({ x: rect.left, y: rect.top }) // pop out in place
+    dragRef.current = { mx: e.clientX, my: e.clientY, px: rect.left, py: rect.top }
+    const onMove = (ev: PointerEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      const w = floatRef.current?.offsetWidth ?? PANEL_W
+      const h = floatRef.current?.offsetHeight ?? 200
+      const x = Math.min(Math.max(0, d.px + (ev.clientX - d.mx)), window.innerWidth - w)
+      const y = Math.min(Math.max(0, d.py + (ev.clientY - d.my)), window.innerHeight - Math.min(h, 80))
+      setPos({ x, y })
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      // Persist the final dropped position (read the latest from state).
+      setPos(p => { if (p) { try { window.localStorage.setItem(POS_KEY, JSON.stringify(p)) } catch { /* ignore */ } } return p })
+      dragRef.current = null
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  // Double-click a header → re-dock to the bell.
+  function dock() { setPos(null); try { window.localStorage.removeItem(POS_KEY) } catch { /* ignore */ } }
+
+  const panelInner = composing ? (
+    <ComposeView
+      onBack={() => setComposing(false)}
+      onStarted={async (id) => { setComposing(false); await refreshList(); await openThread(id) }}
+    />
+  ) : active ? (
+    <ThreadView
+      detail={active}
+      onBack={back}
+      onSent={handleSent}
+      onStartNew={() => { setActive(null); setComposing(true) }}
+      loading={loadingThread}
+    />
+  ) : (
+    <ThreadList
+      threads={threads}
+      loading={loadingList}
+      onOpen={openThread}
+      onClose={() => setOpen(false)}
+      onDismiss={handleDismiss}
+      onCompose={() => setComposing(true)}
+    />
+  )
 
   // While a thread is open, poll it so the other side's new messages
   // appear without the user having to close + reopen.
@@ -142,30 +225,28 @@ export function InboxBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-2xl shadow-black/30 z-40 overflow-hidden">
-          {composing ? (
-            <ComposeView
-              onBack={() => setComposing(false)}
-              onStarted={async (id) => { setComposing(false); await refreshList(); await openThread(id) }}
-            />
-          ) : active ? (
-            <ThreadView
-              detail={active}
-              onBack={back}
-              onSent={handleSent}
-              loading={loadingThread}
-            />
-          ) : (
-            <ThreadList
-              threads={threads}
-              loading={loadingList}
-              onOpen={openThread}
-              onClose={() => setOpen(false)}
-              onDismiss={handleDismiss}
-              onCompose={() => setComposing(true)}
-            />
-          )}
-        </div>
+        floating && pos && typeof document !== 'undefined' ? (
+          createPortal(
+            <div
+              ref={floatRef}
+              onPointerDown={onPanelPointerDown}
+              onDoubleClick={(e) => { if ((e.target as HTMLElement).closest('[data-inbox-drag]')) dock() }}
+              style={{ left: pos.x, top: pos.y }}
+              className="fixed w-[22rem] max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-2xl shadow-black/40 z-[60] overflow-hidden"
+            >
+              {panelInner}
+            </div>,
+            document.body,
+          )
+        ) : (
+          <div
+            ref={floatRef}
+            onPointerDown={onPanelPointerDown}
+            className="absolute right-0 mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-2xl shadow-black/30 z-40 overflow-hidden"
+          >
+            {panelInner}
+          </div>
+        )
       )}
     </div>
   )
@@ -185,7 +266,7 @@ function ThreadList({
 }) {
   return (
     <>
-      <div className="px-4 pt-3.5 pb-2.5 border-b border-border flex items-center gap-2">
+      <div data-inbox-drag className="px-4 pt-3.5 pb-2.5 border-b border-border flex items-center gap-2 cursor-grab active:cursor-grabbing select-none">
         <div className="shrink-0 w-7 h-7 rounded-md bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white shadow-sm shadow-blue-500/30">
           <InboxIcon className="w-3.5 h-3.5" aria-hidden />
         </div>
@@ -256,6 +337,11 @@ function ThreadList({
                         {t.subject || (t.type === 'broadcast' ? 'Announcement' : 'Message')}
                       </span>
                       {t.unread && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden />}
+                      {t.closedAt && (
+                        <span className="shrink-0 text-[8.5px] uppercase tracking-wide px-1 py-0.5 rounded bg-muted text-muted-foreground/80 font-semibold">
+                          closed
+                        </span>
+                      )}
                     </span>
                     {t.lastMessage && (
                       <span className="block truncate text-[11.5px] text-muted-foreground mt-0.5">
@@ -288,11 +374,12 @@ function ThreadList({
 // ── Thread detail + composer ────────────────────────────────────────
 
 function ThreadView({
-  detail, onBack, onSent, loading,
+  detail, onBack, onSent, onStartNew, loading,
 }: {
   detail: InboxThreadDetail
   onBack: () => void
   onSent: (r: { ok: boolean; newThreadId?: string }) => void
+  onStartNew: () => void
   loading: boolean
 }) {
   const [text, setText] = useState('')
@@ -300,7 +387,8 @@ function ThreadView({
   const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const canReply = detail.type === 'direct' || detail.allowReplies
+  const isClosed = !!detail.closedAt
+  const canReply = (detail.type === 'direct' || detail.allowReplies) && !isClosed
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -320,7 +408,7 @@ function ThreadView({
 
   return (
     <>
-      <div className="px-3 pt-3 pb-2.5 border-b border-border flex items-center gap-2">
+      <div data-inbox-drag className="px-3 pt-3 pb-2.5 border-b border-border flex items-center gap-2 cursor-grab active:cursor-grabbing select-none">
         <button
           type="button"
           onClick={onBack}
@@ -371,7 +459,20 @@ function ThreadView({
         )}
       </div>
 
-      {canReply ? (
+      {isClosed ? (
+        <div className="border-t border-border px-3 py-3 text-center">
+          <p className="text-[11px] text-muted-foreground/70 mb-2">
+            This conversation was closed by the team.
+          </p>
+          <button
+            type="button"
+            onClick={onStartNew}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <PenSquare className="w-3.5 h-3.5" /> Start a new message
+          </button>
+        </div>
+      ) : canReply ? (
         <div className="border-t border-border p-2.5">
           {detail.type === 'broadcast' && (
             <p className="text-[10px] text-muted-foreground/70 mb-1.5 px-1">
@@ -435,7 +536,7 @@ function ComposeView({
 
   return (
     <>
-      <div className="px-3 pt-3 pb-2.5 border-b border-border flex items-center gap-2">
+      <div data-inbox-drag className="px-3 pt-3 pb-2.5 border-b border-border flex items-center gap-2 cursor-grab active:cursor-grabbing select-none">
         <button
           type="button"
           onClick={onBack}

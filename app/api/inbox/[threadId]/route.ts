@@ -21,13 +21,13 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ threadId: 
 
   const { data: thread, error: tErr } = await supabase
     .from('inbox_threads')
-    .select('id, type, subject, allow_replies')
+    .select('id, type, subject, allow_replies, closed_at')
     .eq('id', threadId)
     .maybeSingle()
   if (tErr || !thread) {
     return NextResponse.json({ error: 'not found' }, { status: 404 })
   }
-  const t = thread as { id: string; type: 'broadcast' | 'direct'; subject: string; allow_replies: boolean }
+  const t = thread as { id: string; type: 'broadcast' | 'direct'; subject: string; allow_replies: boolean; closed_at: string | null }
 
   const { data: msgs } = await supabase
     .from('inbox_messages')
@@ -59,6 +59,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ threadId: 
     subject: t.subject,
     allowReplies: t.allow_replies,
     messages,
+    closedAt: t.closed_at,
   }
   return NextResponse.json(detail)
 }

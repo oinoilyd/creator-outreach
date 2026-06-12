@@ -13,6 +13,8 @@ export interface InboxThreadSummary {
   lastMessage: { body: string; createdAt: string; fromAdmin: boolean } | null
   unread: boolean
   dismissed: boolean
+  /** Set when the admin closed the ticket — user can't reply, must start anew. */
+  closedAt: string | null
 }
 
 export interface InboxMessage {
@@ -29,6 +31,8 @@ export interface InboxThreadDetail {
   subject: string
   allowReplies: boolean
   messages: InboxMessage[]
+  /** Set when the admin closed the ticket — composer is disabled. */
+  closedAt: string | null
 }
 
 export interface InboxListResponse {

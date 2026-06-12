@@ -29,6 +29,7 @@ type ThreadRow = {
   updated_at: string
   target_user_id: string | null
   origin_contact_id: string | null
+  closed_at: string | null
 }
 
 export async function GET() {
@@ -41,7 +42,7 @@ export async function GET() {
   const [threadsRes, usersRes] = await Promise.all([
     supabase
       .from('inbox_threads')
-      .select('id, type, subject, allow_replies, updated_at, target_user_id, origin_contact_id')
+      .select('id, type, subject, allow_replies, updated_at, target_user_id, origin_contact_id, closed_at')
       .order('updated_at', { ascending: false })
       .limit(200),
     supabase.rpc('admin_user_summary'),
@@ -81,8 +82,9 @@ export async function GET() {
       updatedAt: t.updated_at,
       withEmail: t.type === 'direct' && t.target_user_id ? emailByUser.get(t.target_user_id) ?? '(unknown)' : null,
       lastMessage: last,
-      needsReply: !!last && !last.fromAdmin,
+      needsReply: !!last && !last.fromAdmin && !t.closed_at,
       fromInquiry: t.origin_contact_id != null,
+      closedAt: t.closed_at,
     }
   })
 

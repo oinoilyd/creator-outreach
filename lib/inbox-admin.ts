@@ -20,6 +20,8 @@ export interface AdminThreadSummary {
   needsReply: boolean
   /** Spun from a contact-form inquiry. */
   fromInquiry: boolean
+  /** Set when the ticket was closed. */
+  closedAt: string | null
 }
 
 export interface AdminRecipient {
@@ -39,6 +41,7 @@ export interface AdminThreadDetail {
   allowReplies: boolean
   withEmail: string | null
   messages: InboxMessage[]
+  closedAt: string | null
 }
 
 // ── client helpers ──────────────────────────────────────────────────
@@ -84,6 +87,21 @@ export async function adminReply(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ body }),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) return { ok: false, error: data?.error || `HTTP ${res.status}` }
+  return { ok: true }
+}
+
+/** Close (or reopen) a ticket. Closed → the user can't reply. */
+export async function closeThread(
+  threadId: string,
+  closed: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`/api/admin/inbox/${threadId}/close`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ closed }),
   })
   const data = await res.json().catch(() => null)
   if (!res.ok) return { ok: false, error: data?.error || `HTTP ${res.status}` }
