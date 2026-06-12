@@ -130,6 +130,7 @@ export function InboxBell() {
     <ComposeView
       onBack={() => setComposing(false)}
       onStarted={async (id) => { setComposing(false); await refreshList(); await openThread(id) }}
+      onClose={() => setOpen(false)}
     />
   ) : active ? (
     <ThreadView
@@ -137,6 +138,7 @@ export function InboxBell() {
       onBack={back}
       onSent={handleSent}
       onStartNew={() => { setActive(null); setComposing(true) }}
+      onClose={() => setOpen(false)}
       loading={loadingThread}
     />
   ) : (
@@ -374,12 +376,13 @@ function ThreadList({
 // ── Thread detail + composer ────────────────────────────────────────
 
 function ThreadView({
-  detail, onBack, onSent, onStartNew, loading,
+  detail, onBack, onSent, onStartNew, onClose, loading,
 }: {
   detail: InboxThreadDetail
   onBack: () => void
   onSent: (r: { ok: boolean; newThreadId?: string }) => void
   onStartNew: () => void
+  onClose: () => void
   loading: boolean
 }) {
   const [text, setText] = useState('')
@@ -427,6 +430,15 @@ function ThreadView({
               : <>Direct message</>}
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close inbox"
+          title="Close"
+          className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors shrink-0"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       <div ref={scrollRef} className="max-h-[20rem] overflow-y-auto px-3 py-3 space-y-2.5">
@@ -514,10 +526,11 @@ function ThreadView({
 // ── Compose a new message to the team ───────────────────────────────
 
 function ComposeView({
-  onBack, onStarted,
+  onBack, onStarted, onClose,
 }: {
   onBack: () => void
   onStarted: (threadId: string) => void
+  onClose: () => void
 }) {
   const [subject, setSubject] = useState('')
   const [text, setText] = useState('')
@@ -549,6 +562,15 @@ function ComposeView({
           <div className="text-[12.5px] font-semibold text-foreground">New message</div>
           <div className="text-[10.5px] text-muted-foreground/75">Goes straight to the team</div>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close inbox"
+          title="Close"
+          className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors shrink-0"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       <div className="p-3 space-y-2">
