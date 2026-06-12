@@ -40,12 +40,9 @@ export function Footer() {
           <Link href="/cookies" className="hover:text-foreground transition-colors">
             Cookies
           </Link>
-          <a
-            href="mailto:dmeehanj@gmail.com"
-            className="hover:text-foreground transition-colors"
-          >
+          <Link href="/#contact" className="hover:text-foreground transition-colors">
             Contact
-          </a>
+          </Link>
         </nav>
       </div>
     </footer>

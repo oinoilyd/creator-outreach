@@ -77,8 +77,9 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
         <nav className="hidden md:flex items-center gap-6 text-[14px] text-muted-foreground font-medium">
           <a href="#product" className="hover:text-foreground transition-colors">Product</a>
           <a href="#solutions" className="hover:text-foreground transition-colors">Solutions</a>
-          <a href="#customers" className="hover:text-foreground transition-colors">Customers</a>
+          <a href="#customers" className="hover:text-foreground transition-colors">Why</a>
           <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+          <a href="#contact" className="hover:text-foreground transition-colors">Contact</a>
           {/* Roadmap intentionally absent from the desktop bar — it
               lives in the hamburger menu only so the bar stays focused
               on the marketing-page anchors (Product / Solutions /
@@ -176,18 +177,8 @@ export function LandingTopNav({ isAuthed }: { isAuthed: boolean }) {
                 </MenuGroup>
 
                 <MenuGroup label="Connect">
-                  <MenuItem
-                    href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
-                    onSelect={() => setOpen(false)}
-                  >
-                    Talk to founder
-                  </MenuItem>
-                  <MenuItem
-                    href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20feedback"
-                    onSelect={() => setOpen(false)}
-                  >
-                    Send feedback
-                  </MenuItem>
+                  <MenuItem href="#contact" onSelect={() => setOpen(false)}>Contact us</MenuItem>
+                  <MenuItem href="#contact" onSelect={() => setOpen(false)}>Request a demo</MenuItem>
                 </MenuGroup>
 
                 {/* GROUP 4 — Account */}

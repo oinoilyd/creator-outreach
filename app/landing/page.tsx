@@ -6,6 +6,7 @@ import { ScreenshotZoom } from '@/components/landing/ScreenshotZoom'
 import { PLATFORM_MARKS } from '@/components/landing/PlatformBrandMarks'
 import { StatBandSpotlight } from '@/components/landing/StatBandSpotlight'
 import { WhyThisExists } from '@/components/landing/WhyThisExists'
+import { ContactForm } from '@/components/landing/ContactForm'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -137,10 +138,10 @@ export default async function LandingPage() {
                 <span aria-hidden>→</span>
               </Link>
               <a
-                href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo"
+                href="#contact"
                 className="inline-flex items-center gap-2 bg-card text-foreground border border-border hover:border-foreground hover:bg-card px-7 py-3.5 rounded-md font-semibold text-[15px] transition-colors"
               >
-                Talk to the founder
+                Book a demo
               </a>
             </div>
             <div className="mt-10 pt-7 border-t border-border">
@@ -482,7 +483,7 @@ export default async function LandingPage() {
               No charges until your trial ends. Cancel anytime from the customer portal.
             </p>
           </div>
-          <div className="grid md:grid-cols-2 gap-5 max-w-[820px] mx-auto items-stretch">
+          <div className="grid md:grid-cols-3 gap-5 max-w-[1180px] mx-auto items-stretch">
             <PricingCard
               tier="Monthly"
               price="$50"
@@ -493,6 +494,7 @@ export default async function LandingPage() {
                 'Built-in CRM: status pills, medium tracker, follow-up cadence',
                 'Templated outreach per channel + Instagram DM auto-composer',
                 'Customizable analytics — 7 default KPIs, 30+ custom metrics',
+                'Live in-app support — message the team without leaving the app',
                 'CSV / Excel export — your data, anytime',
               ]}
               cta={isAuthed ? 'Open the app' : 'Start 7-day free trial'}
@@ -505,7 +507,7 @@ export default async function LandingPage() {
               features={[
                 'Everything in Monthly',
                 'Two months free (paid annually)',
-                'Priority email support',
+                'Priority support',
                 'Early access to new features',
                 'Custom scoring presets',
                 'CSV / Excel export — your data, anytime',
@@ -514,6 +516,41 @@ export default async function LandingPage() {
               ctaHref={isAuthed ? '/' : '/pricing'}
               featured
             />
+            <PricingCard
+              tier="Teams"
+              price="Custom"
+              priceSub="for teams & agencies · request a demo"
+              features={[
+                'Everything in Annual',
+                'Seats for your whole team',
+                'Shared pipeline — assign leads to teammates',
+                'Centralized billing',
+                'Hands-on onboarding',
+              ]}
+              cta="Request a demo"
+              ctaHref="#contact"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* CONTACT / DEMO — public, Gmail-free. Form posts to /api/contact
+          (rate-limited by IP) and lands in the admin inbox. Doubles as
+          the "request a demo" destination for the Teams card + nav, so no
+          personal email is exposed anywhere on the marketing site. */}
+      <section id="contact" className="px-6 py-20 md:py-28 scroll-mt-24 border-t border-border">
+        <div className="max-w-[640px] mx-auto">
+          <div className="text-center mb-10">
+            <div className="text-[12px] uppercase tracking-[0.2em] text-brand mb-4 font-semibold">Talk to us</div>
+            <h2 className="font-semibold tracking-[-0.025em] text-foreground" style={{ fontSize: 'clamp(2rem, 4.5vw, 3.25rem)' }}>
+              Questions, or want a team demo?
+            </h2>
+            <p className="mt-5 text-[17px] text-muted-foreground leading-[1.55]">
+              Send a note and we&apos;ll get right back to you. Already a member? You also get live support inside the app.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-6 md:p-8 shadow-sm shadow-foreground/[0.04]">
+            <ContactForm />
           </div>
         </div>
       </section>
@@ -555,7 +592,7 @@ export default async function LandingPage() {
               playbooks, changelog) is published yet. Honest framing
               beats four mailto: links pretending to be real pages. */}
           <FooterColPlaceholder heading="Resources" labels={['Guides', 'Playbooks', 'Changelog']} />
-          <FooterCol heading="Company"   links={[['About','#'],['Contact','mailto:dmeehanj@gmail.com'],['Talk to us','mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20demo']]} />
+          <FooterCol heading="Company"   links={[['Why Creator Outreach','#customers'],['Contact','#contact'],['Request a demo','#contact']]} />
           <FooterCol heading="Legal"     links={[['Privacy','/privacy'],['Terms','/terms'],['Refunds','/refunds'],['Security','/security'],['Subprocessors & DPAs','/subprocessors'],['Support','/support'],['Cookies','/cookies']]} />
         </div>
       </footer>
