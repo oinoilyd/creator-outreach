@@ -61,6 +61,7 @@ import { HamburgerMenu } from '@/components/HamburgerMenu'
 import { UpgradeButton, computeUpgradeLabel } from '@/components/billing/UpgradeButton'
 import { DashboardInsightPill } from '@/components/billing/DashboardInsightPill'
 import { TipsAndTricksPill } from '@/components/billing/TipsAndTricksPill'
+import { InboxBell } from '@/components/inbox/InboxBell'
 import { TourProvider } from '@/components/tour/TourContext'
 import { Tour } from '@/components/tour/Tour'
 import { FirstRunPickerHost } from '@/components/tour/TutorialPicker'
@@ -3174,6 +3175,10 @@ export default function Home() {
                   profile={profile}
                 />
               )}
+              {/* In-app inbox — admin broadcasts + two-way direct
+                  messages (migration 0042). Visible on mobile too,
+                  unlike the insight pills. */}
+              {userId && <InboxBell />}
               {/* Upgrade / Manage CTA — hides when Stripe isn't
                   configured (e.g. dev/preview without env vars). */}
               <UpgradeButton

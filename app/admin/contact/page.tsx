@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { ContactReplyButton } from '@/components/admin/ContactReplyButton'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
@@ -136,6 +137,12 @@ export default async function AdminContactPage() {
                     {r.user_agent}
                   </div>
                 )}
+                {/* Phase 4 — answer in-app (spins a direct thread to the
+                    matching account + emails them); falls back to mailto
+                    when the sender has no account. */}
+                <div className="mt-3 pt-3 border-t border-border/60">
+                  <ContactReplyButton contactId={r.id} email={r.email} resolved={r.resolved} />
+                </div>
               </article>
             ))}
           </div>

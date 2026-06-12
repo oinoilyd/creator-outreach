@@ -200,6 +200,14 @@ export default async function AdminPage() {
                 <span className="text-xs font-mono bg-yellow-500/20 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded" aria-label={`${unresolvedContact} unresolved`}>{unresolvedContact}</span>
               )}
             </Link>
+            {/* Two-way inbox composer — broadcast site-wide updates or
+                DM individual users (migration 0042). */}
+            <Link
+              href="/admin/messages"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <span aria-hidden>📣</span>Messages
+            </Link>
             {/* Email-test + Seed-test-data moved into AuditMenu
                 2026-05-12 — both are dev/diagnostic tools, not
                 production surfaces, so they belong behind the
