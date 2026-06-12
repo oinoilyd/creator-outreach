@@ -183,16 +183,18 @@ export function contactPriority(c: Creator): number {
  */
 function compareByCol(a: Creator, b: Creator, col: SortCol, weights: ScoreWeights, guidanceEntries: GuidanceEntry[]): number {
   const presence = (has: boolean) => has ? 1 : 0
-  // Presence columns: rows with the field rank ABOVE rows without —
-  // intentionally inverted (b - a) so "asc" still feels like "best
-  // first". The caller then flips again for desc.
-  if (col === 'email')          return presence(!!b.email)     - presence(!!a.email)
-  if (col === 'linkedin')       return presence(!!b.linkedin)  - presence(!!a.linkedin)
-  if (col === 'website')        return presence(!!b.website)   - presence(!!a.website)
-  if (col === 'instagram')      return presence(!!b.instagram) - presence(!!a.instagram)
-  if (col === 'twitter')        return presence(!!b.twitter)   - presence(!!a.twitter)
-  if (col === 'tiktok')         return presence(!!b.tiktok)    - presence(!!a.tiktok)
-  if (col === 'product')        return presence(!!b.productSummary) - presence(!!a.productSummary)
+  // Presence columns: "has the field" behaves like a high value. Return
+  // (a − b) so DESC — the default first click — puts the rows that HAVE
+  // it on TOP, the same mental model as sorting a numeric column desc.
+  // ASC flips to missing-first. (The caller adds an email/name tiebreak
+  // so equal groups aren't randomly shuffled.)
+  if (col === 'email')          return presence(!!a.email)     - presence(!!b.email)
+  if (col === 'linkedin')       return presence(!!a.linkedin)  - presence(!!b.linkedin)
+  if (col === 'website')        return presence(!!a.website)   - presence(!!b.website)
+  if (col === 'instagram')      return presence(!!a.instagram) - presence(!!b.instagram)
+  if (col === 'twitter')        return presence(!!a.twitter)   - presence(!!b.twitter)
+  if (col === 'tiktok')         return presence(!!a.tiktok)    - presence(!!b.tiktok)
+  if (col === 'product')        return presence(!!a.productSummary) - presence(!!b.productSummary)
   if (col === 'fitScore')       return computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
   if (col === 'avgViews')       return a.avgViews - b.avgViews
   if (col === 'channelName')    return a.channelName.localeCompare(b.channelName)
@@ -209,8 +211,6 @@ function compareByCol(a: Creator, b: Creator, col: SortCol, weights: ScoreWeight
   return 0
 }
 
-const PRESENCE_COLS: ReadonlySet<SortCol> = new Set(['email', 'linkedin', 'website', 'instagram', 'twitter', 'tiktok', 'product'])
-
 /**
  * Multi-column sort. Pass either a single col/dir pair (legacy) or
  * an array of SortKey for chained sorts.
@@ -219,10 +219,13 @@ const PRESENCE_COLS: ReadonlySet<SortCol> = new Set(['email', 'linkedin', 'websi
  * comparator iterates in order and returns the first non-zero
  * comparison. Stable on channel name as a final tie-break.
  *
- * `emailFirst` still applies as the absolute top-level sort —
- * creators with a discovered email always rank above those without,
- * regardless of which columns are sort-chained, so the high-value
- * leads stay surfaced.
+ * `emailFirst` is the DEFAULT top-of-list grouping (Dylan: "emails
+ * default to the top of results UNLESS someone clicks a different
+ * column"). It only LEADS when the active sort is the default relevance
+ * sort (fitScore) or nothing — clicking any other column to sort makes
+ * THAT column win, so "click Product → every product row floats up"
+ * works as expected. When it isn't leading, email presence still acts as
+ * a tiebreaker so emailed leads surface within equal groups.
  */
 export function sortCreators(
   list: Creator[],
@@ -236,21 +239,28 @@ export function sortCreators(
     ? colOrSorts
     : [{ col: colOrSorts, dir }]
 
+  const primaryCol = sorts[0]?.col
+  // Email-first leads only on the default/relevance sort; an explicit
+  // column click takes precedence over it.
+  const emailLeads = emailFirst && (primaryCol == null || primaryCol === 'fitScore')
+  const emailRank = (c: Creator) => (c.email ? 1 : 0)
+
   return [...list].sort((a, b) => {
-    if (emailFirst) {
-      const aHas = a.email ? 1 : 0
-      const bHas = b.email ? 1 : 0
-      if (aHas !== bHas) return bHas - aHas
+    if (emailLeads) {
+      const d = emailRank(b) - emailRank(a)
+      if (d !== 0) return d
     }
 
     for (const { col, dir } of sorts) {
-      let cmp = compareByCol(a, b, col, weights, guidanceEntries)
-      // Presence-only ties get a name-asc subsort so the "has X" and
-      // "missing X" groups don't look randomly shuffled.
-      if (cmp === 0 && PRESENCE_COLS.has(col)) {
-        cmp = a.channelName.localeCompare(b.channelName)
-      }
+      const cmp = compareByCol(a, b, col, weights, guidanceEntries)
       if (cmp !== 0) return dir === 'asc' ? cmp : -cmp
+    }
+
+    // Explicit, non-default sort active: keep email presence as a
+    // secondary preference (when the toggle is on) before the name tie.
+    if (emailFirst && !emailLeads) {
+      const d = emailRank(b) - emailRank(a)
+      if (d !== 0) return d
     }
 
     // Fully tied — final stable subsort by channel name.

@@ -3610,7 +3610,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setEmailFirstSort(v => !v)}
-                title="When on, creators with a discovered email always sort to the top regardless of which column you're sorting by"
+                title="When on, creators with a discovered email sort to the top by default — until you click a column to sort by it, which takes over (emails still break ties within that sort)."
                 className={`text-xs px-3 py-1 rounded border transition-colors ${emailFirstSort ? 'bg-blue-600 border-blue-500 text-white' : 'bg-muted border-border text-foreground/80 hover:border-border'}`}
               >
                 Email-first sort
