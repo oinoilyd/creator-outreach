@@ -214,6 +214,7 @@ export function InboxBell() {
     <div ref={panelRef} className="relative">
       <button
         type="button"
+        data-tour-id="inbox-bell"
         onClick={() => setOpen(v => !v)}
         aria-label="Open inbox"
         aria-expanded={open}

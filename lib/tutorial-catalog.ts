@@ -43,16 +43,19 @@
  *                users + people who clicked "I just want to use it."
  *
  *   pro        — short + customization moments. ~4-5 minutes.
- *                Adds: Lead Criteria, Templates, Follow-ups,
- *                Active Clients lifecycle, Wrap-up flow, Themes.
- *                For people who plan to actually live in the app.
+ *                Adds: Lead Criteria, the Product column, Templates,
+ *                Follow-ups, Active Clients lifecycle, Wrap-up flow,
+ *                Themes. For people who plan to live in the app.
  *
  *   granular   — pro + every advanced surface. ~8-10 minutes.
- *                Adds: per-platform column configs, AI keyword
- *                expansion, region filters, custom analytics
- *                metrics, referrals → outreach, under-budget flag,
- *                win celebration picker, connection status (admin).
- *                For power users + admins.
+ *                Adds: resizable/sortable Results columns, per-platform
+ *                column configs, AI keyword expansion, region filters,
+ *                custom analytics metrics, referrals → outreach,
+ *                under-budget flag, win celebration picker, connection
+ *                status (admin). For power users + admins.
+ *
+ *   (The Inbox / messages step is in ALL three tiers — it's how every
+ *    user reaches support + sees announcements.)
  *
  * ──────────────────────────────────────────────────────────────────
  *  WHEN YOU REMOVE A FEATURE
@@ -258,6 +261,26 @@ export const CATALOG_STEPS: CatalogStep[] = [
     onExit: ({ closeFilterPanel }) => closeFilterPanel(),
   },
 
+  {
+    id: 'product-column',
+    tiers: ['pro', 'granular'],
+    target: '[data-tour-id="results-table"]',
+    title: 'See what each creator sells',
+    body: 'The Product column auto-detects whether a creator sells something of their own — a course, coaching, membership, or physical product — and summarizes it in plain English. It fills in as results enrich; blank means nothing obvious was found. Click the Product header to float every creator who sells something to the top — a fast way to find monetizing creators worth pitching.',
+    placement: 'top',
+    onEnter: ({ navigate }) => navigate('results'),
+  },
+
+  {
+    id: 'results-table-controls',
+    tiers: ['granular'],
+    target: '[data-tour-id="results-table"]',
+    title: 'Resize + sort any column',
+    body: 'Drag the right edge of any column header to resize it. Click a header to sort by it — click again to reverse, a third to clear. Yes/no columns (Product, Email, Website, socials) bring the rows that HAVE it to the top on the first click. The "Email-first sort" toggle keeps email leads on top by default — until you click a column to sort, which takes over.',
+    placement: 'top',
+    onEnter: ({ navigate }) => navigate('results'),
+  },
+
   // ────────────────────────────────────────────────────────────────
   //  ACT 2 — ADDING TO OUTREACH
   // ────────────────────────────────────────────────────────────────
@@ -422,6 +445,15 @@ export const CATALOG_STEPS: CatalogStep[] = [
     placement: 'bottom',
   },
 
+  {
+    id: 'inbox',
+    tiers: ['short', 'pro', 'granular'],
+    target: '[data-tour-id="inbox-bell"]',
+    title: 'Inbox — messages & support',
+    body: 'Your two-way line to us. Product announcements land here, and you can start a thread any time to ask a question or report something — replies show up right here with an unread badge. Prefer email? Mirror messages to your inbox from the bell\'s settings.',
+    placement: 'bottom',
+  },
+
   // Both tiers — open the hamburger so the user sees the menu live.
   {
     id: 'hamburger-menu',
@@ -519,14 +551,14 @@ export const TIER_META: Record<TutorialTier, TierMeta> = {
     id: 'pro',
     label: 'Pro tour',
     duration: '~4 minutes',
-    pitch: 'Quick tour plus the surfaces power users live in: Lead Criteria, Templates, Follow-ups, Wrap-up flow, Themes.',
+    pitch: 'Quick tour plus the surfaces power users live in: Lead Criteria, the Product column, Templates, Follow-ups, Wrap-up flow, Themes.',
     accent: 'violet',
   },
   granular: {
     id: 'granular',
     label: 'The deep dive',
     duration: '~8 minutes',
-    pitch: 'Pro tour plus every advanced surface: per-platform column configs, AI keyword expansion, custom metrics, referrals → outreach, under-budget flag, win celebration picker, admin tools.',
+    pitch: 'Pro tour plus every advanced surface: resizable/sortable columns, per-platform column configs, AI keyword expansion, custom metrics, referrals → outreach, under-budget flag, win celebration picker, admin tools.',
     accent: 'amber',
   },
 }

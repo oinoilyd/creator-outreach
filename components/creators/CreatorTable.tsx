@@ -124,7 +124,7 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
   }
 
   return (
-    <div className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
+    <div data-tour-id="results-table" className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
       <table className="text-sm table-fixed" style={{ width: '100%', minWidth: totalWidth }}>
         <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
           <tr>
