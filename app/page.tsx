@@ -3138,6 +3138,33 @@ export default function Home() {
   const softHiddenCount = structuralList.length - softFilteredList.length
   const progressPct = enrichProgress.total > 0 ? Math.round((enrichProgress.current / enrichProgress.total) * 100) : 0
 
+  // "Load more" results, filtered to the same visibility rules as the
+  // main list. Rendered below the "— additional results —" divider in
+  // the DEFAULT (relevance) view.
+  const loadMoreFiltered = useMemo(() => loadMoreCreators.filter(c =>
+    !dismissedIds.has(c.channelId) &&
+    !outreachIds.has(c.channelId) &&
+    (bypassFilters || (
+      c.avgViews >= minViews && c.avgViews <= maxViews &&
+      (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
+      (!emailOnly || !!c.email)
+    )) &&
+    (activePlatform === 'youtube' || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
+  ), [loadMoreCreators, dismissedIds, outreachIds, bypassFilters, minViews, maxViews, maxAgeDays, emailOnly, activePlatform])
+
+  // When the user sorts by an EXPLICIT column (anything but the default
+  // fitScore), the "additional results" must join the main list so the
+  // sort is COMPLETE — otherwise product / subscriber / etc. rows stuck
+  // in the load-more batch never reach the top ("click Product → all
+  // product rows up, not just some"). For the default relevance view we
+  // keep them in their own divider section (stable append, no list jump).
+  const isExplicitResultsSort = !!sorts[0] && sorts[0].col !== 'fitScore'
+  const resultsMainList = useMemo(() => {
+    if (!isExplicitResultsSort || loadMoreFiltered.length === 0) return currentList
+    const seen = new Set(currentList.map(c => c.channelId))
+    return [...currentList, ...loadMoreFiltered.filter(c => !seen.has(c.channelId))]
+  }, [isExplicitResultsSort, currentList, loadMoreFiltered])
+
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
     <TourProvider signedIn={!!userId} isAdmin={userEmail === 'dmeehanj@gmail.com'}>
@@ -4450,7 +4477,7 @@ export default function Home() {
                 toggle UX may come back later as a hidden setting. */}
             <div data-tour-id="results-table">
             <CreatorTable
-              creators={currentList} outreachIds={outreachIds}
+              creators={resultsMainList} outreachIds={outreachIds}
               dismissedIds={dismissedIds}
               onAddToOutreach={addToOutreach}
               onDismiss={dismissCreator}
@@ -4459,27 +4486,11 @@ export default function Home() {
               sorts={sorts} onSort={handleSort}
               colConfig={effectiveColConfig}
               emailFirst={emailFirstSort}
-              loadMoreBatch={activeTab === 'results' ? loadMoreCreators.filter(c =>
-                !dismissedIds.has(c.channelId) &&
-                // Mirror the "hide from results once added to outreach"
-                // filter we applied to the main list (2026-05-19) — without
-                // this, the "— N additional results —" divider keeps
-                // showing stale rows for creators already in the user's
-                // outreach pipeline.
-                !outreachIds.has(c.channelId) &&
-                // Soft filters skipped when the "showing all" toggle is on,
-                // so the Load More batch matches the main list's bypass state.
-                (bypassFilters || (
-                  c.avgViews >= minViews && c.avgViews <= maxViews &&
-                  // Same pass-through-on-missing-date logic as the main list filter above.
-                  (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
-                  (!emailOnly || !!c.email)
-                )) &&
-                // Strict platform filter — structural, always applied
-                // (reverted from the "pass through while enriching"
-                // version on 2026-05-21).
-                (activePlatform === 'youtube' || (activePlatform === 'instagram' ? !!c.instagram : activePlatform === 'tiktok' ? !!c.tiktok : activePlatform === 'twitter' ? !!c.twitter : activePlatform === 'linkedin' ? !!c.linkedin : true))
-              ) : undefined}
+              // Default (relevance) view: extra "Load more" rows render
+              // below the divider. Explicit column sort: they're folded
+              // into the main list (resultsMainList) so the sort is
+              // complete, and we drop the separate section here.
+              loadMoreBatch={(activeTab === 'results' && !isExplicitResultsSort) ? loadMoreFiltered : undefined}
               scoreWeights={scoreWeights}
               scoreNarrative={scoreNarrative}
               activePlatform={activePlatform}
