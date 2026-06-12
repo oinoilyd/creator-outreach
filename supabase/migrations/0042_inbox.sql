@@ -16,10 +16,26 @@
 --   inbox_reads     — per-user read state (lets ONE broadcast row be
 --                     read independently by N users, no fan-out)
 --
--- Additive only. No changes to existing tables/data.
+-- IMPORTANT — two Supabase gotchas this migration avoids:
+--   1. NO foreign keys to auth.users. Supabase has tightened the SQL
+--      Editor's access to the auth schema, so `REFERENCES auth.users(id)`
+--      now throws "permission denied for table users". User ids are
+--      plain UUID columns; the app sources them from real users.
+--   2. Admin RLS uses (auth.jwt() ->> 'email'), never a SELECT on
+--      auth.users (same error). Matches 0006/0007.
+--
+-- Re-runnable: drops + recreates the (brand-new, empty) inbox tables so
+-- a half-applied earlier attempt is cleaned up. Safe — these tables have
+-- never successfully held data (every write errored until this fix).
+
+-- Clear any partial state from earlier failed runs. CASCADE also removes
+-- the trigger + policies on these tables. Safe: brand-new, no real data.
+DROP TABLE IF EXISTS public.inbox_reads    CASCADE;
+DROP TABLE IF EXISTS public.inbox_messages CASCADE;
+DROP TABLE IF EXISTS public.inbox_threads  CASCADE;
 
 -- ── 1. inbox_threads ────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.inbox_threads (
+CREATE TABLE public.inbox_threads (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -27,7 +43,9 @@ CREATE TABLE IF NOT EXISTS public.inbox_threads (
   -- 'broadcast' = NULL target, visible to everyone.
   -- 'direct'    = one-to-one with target_user_id.
   type              TEXT NOT NULL CHECK (type IN ('broadcast', 'direct')),
-  target_user_id    UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- auth.users id of the recipient (direct only). Plain UUID — no FK to
+  -- auth.users (see header). NULL for broadcasts.
+  target_user_id    UUID,
   -- Broadcasts only: whether users can reply (reply spins a direct
   -- thread). Direct threads are always repliable.
   allow_replies     BOOLEAN NOT NULL DEFAULT true,
@@ -37,23 +55,24 @@ CREATE TABLE IF NOT EXISTS public.inbox_threads (
   origin_thread_id  UUID REFERENCES public.inbox_threads(id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS inbox_threads_target_idx
+CREATE INDEX inbox_threads_target_idx
   ON public.inbox_threads(target_user_id) WHERE target_user_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS inbox_threads_type_updated_idx
+CREATE INDEX inbox_threads_type_updated_idx
   ON public.inbox_threads(type, updated_at DESC);
 
 -- ── 2. inbox_messages ───────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.inbox_messages (
+CREATE TABLE public.inbox_messages (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id       UUID NOT NULL REFERENCES public.inbox_threads(id) ON DELETE CASCADE,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   body            TEXT NOT NULL,
-  -- NULL author = sent by admin / system.
-  author_user_id  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- auth.users id of the author; NULL = sent by admin / system.
+  -- Plain UUID — no FK to auth.users (see header).
+  author_user_id  UUID,
   author_is_admin BOOLEAN NOT NULL DEFAULT false
 );
 
-CREATE INDEX IF NOT EXISTS inbox_messages_thread_idx
+CREATE INDEX inbox_messages_thread_idx
   ON public.inbox_messages(thread_id, created_at);
 
 -- Bump the parent thread's updated_at on every new message (drives
@@ -71,9 +90,10 @@ CREATE TRIGGER inbox_messages_touch_thread
   FOR EACH ROW EXECUTE FUNCTION public.touch_inbox_thread();
 
 -- ── 3. inbox_reads (per-user read state) ────────────────────────────
-CREATE TABLE IF NOT EXISTS public.inbox_reads (
+CREATE TABLE public.inbox_reads (
   thread_id    UUID NOT NULL REFERENCES public.inbox_threads(id) ON DELETE CASCADE,
-  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- auth.users id; plain UUID — no FK to auth.users (see header).
+  user_id      UUID NOT NULL,
   last_read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   dismissed    BOOLEAN NOT NULL DEFAULT false,
   PRIMARY KEY (thread_id, user_id)
@@ -149,10 +169,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_messages TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_reads    TO authenticated;
 
 -- ── Unread-count helper ─────────────────────────────────────────────
--- Returns how many threads visible to the caller have at least one
--- message they haven't read (no inbox_reads row, or a message newer
--- than last_read_at). SECURITY DEFINER so the per-thread message scan
--- isn't blocked by message RLS.
+-- How many threads visible to the caller have a message they haven't
+-- read (no inbox_reads row, or a message newer than last_read_at).
+-- SECURITY DEFINER so the per-thread message scan isn't blocked by RLS.
 --
 -- Note: dismissing a thread stamps last_read_at = now, so a dismissed
 -- thread only re-counts when a NEW message arrives after the dismiss —
@@ -160,7 +179,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_reads    TO authenticated;
 -- why there's no explicit `dismissed` exclusion here.
 CREATE OR REPLACE FUNCTION public.inbox_unread_count()
 RETURNS INTEGER
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
   SELECT COUNT(*)::int FROM public.inbox_threads t
   WHERE (t.type = 'broadcast' OR t.target_user_id = auth.uid())
