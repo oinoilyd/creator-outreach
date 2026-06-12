@@ -1,25 +1,31 @@
 /**
  * /api/enrich/product — Results "Product" column summarizer.
  *
- * Given a creator's text signals, returns a short summary of what they
- * SELL (a course, coaching, membership, physical product, etc) — or
- * { sells: false } when there's no clear product. Drives the new
- * Results "Product" column. Distinct from the Outreach "Product"
- * column (which is the USER's own pitch).
+ * Given a creator, returns a short summary of what they SELL (a course,
+ * coaching, membership, physical product, etc) — or { sells: false }
+ * when there's no clear product. Drives the new Results "Product"
+ * column. Distinct from the Outreach "Product" column (the USER's pitch).
  *
- * Cost discipline (this is the only AI call in the enrichment path):
- *   1. Cache first — creator_product_summary, keyed by channel id.
- *      Computed once, reused forever. A repeat search costs ~0.
- *   2. Keyword gate — corpusMentionsProduct() (the same set behind the
- *      has_product_mention guidance rule). No product keywords → cache a
- *      negative and return WITHOUT spending an AI call. The client gates
- *      too, so in practice the model only sees plausible sellers.
- *   3. Only then: a single Haiku call on the channel's /about + titles.
+ * 2026-06-12 hit-rate rework. The first cut gated on thin client text
+ * (channel name + video titles) BEFORE fetching anything richer, so any
+ * seller who didn't put "course/shop/etc" in their titles got skipped
+ * before the model ever looked — return rate was ~5%. Now we gather the
+ * signal that actually carries product mentions:
+ *   • the channel /about description, AND
+ *   • recent VIDEO DESCRIPTIONS (where creators plug "📚 my course:",
+ *     "🛒 shop:", "join my membership:" in nearly every upload),
+ * then run the keyword gate on THAT rich corpus, and feed it all to the
+ * model. The cheap fetches happen for every creator the client sends;
+ * the model only runs when the rich text actually mentions a product.
  *
- * Designed to run as a background phase in the client (after handles +
- * emails resolve), so it never blocks the perceived speed of search.
- * Any failure returns 200 with {} so the client treats it as "nothing
- * to show" and the row's other data is unaffected.
+ * Cost discipline:
+ *   1. Cache first (creator_product_summary) — computed once, reused.
+ *   2. Rich-text keyword gate — no product signal in /about + video
+ *      descriptions + titles → cache a negative, no AI call.
+ *   3. Only then: a single Haiku call.
+ *
+ * Runs as a background phase in the client, so it never blocks search.
+ * Any failure returns 200 {} so the row just stays blank.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -31,11 +37,11 @@ import { getProductSummary, saveProductSummary } from '@/lib/creator-product'
 
 // Longest summary we'll store / show. The model is told <=12 words; this
 // is a hard backstop so a runaway response can't bloat the cell.
-const SUMMARY_MAX = 80
-// Cap the text we feed the model — bounds token cost per call. The
-// /about description + a handful of titles is plenty of signal.
-const CORPUS_MAX = 2200
+const SUMMARY_MAX = 90
+// Cap the text we feed the model — bounds token cost per call.
+const CORPUS_MAX = 3200
 const FETCH_TIMEOUT_MS = 7000
+const MAX_VIDEOS_TO_SCAN = 8
 
 const YT_CHANNEL_RE = /^UC[a-zA-Z0-9_-]{22}$/
 
@@ -59,31 +65,29 @@ async function fetchHtml(url: string): Promise<string | null> {
   }
 }
 
-/**
- * Pull the channel /about description out of ytInitialData. Mirrors the
- * working extraction in /api/enrich (fromYouTubeAbout): the description
- * lives on aboutChannelViewModel.description. Best-effort — returns ''
- * on any miss so the caller falls back to the passed-in text.
- */
-function extractAboutDescription(html: string): string {
+function parseYtInitialData(html: string): unknown | null {
   const m = html.match(
     /(?:var\s+ytInitialData|window\["ytInitialData"\])\s*=\s*(\{[\s\S]*?\});\s*(?:<\/script>|var\s|window\[)/,
   )
-  if (!m) return ''
-  let data: unknown
+  if (!m) return null
   try {
-    data = JSON.parse(m[1])
+    return JSON.parse(m[1])
   } catch {
-    return ''
+    return null
   }
+}
+
+/**
+ * Channel /about description — where creators describe their business.
+ * Lives on aboutChannelViewModel.description (mirrors /api/enrich's
+ * fromYouTubeAbout). Best-effort; '' on any miss.
+ */
+function extractAboutDescription(data: unknown): string {
   let found = ''
   function walk(node: unknown, depth = 0): void {
     if (found || depth > 30 || !node || typeof node !== 'object') return
     if (Array.isArray(node)) {
-      for (const item of node) {
-        if (found) return
-        walk(item, depth + 1)
-      }
+      for (const item of node) { if (found) return; walk(item, depth + 1) }
       return
     }
     const obj = node as Record<string, unknown>
@@ -92,19 +96,42 @@ function extractAboutDescription(html: string): string {
       found = (vm as Record<string, unknown>).description as string
       return
     }
-    for (const v of Object.values(obj)) {
-      if (found) return
-      walk(v, depth + 1)
-    }
+    for (const v of Object.values(obj)) { if (found) return; walk(v, depth + 1) }
   }
   walk(data)
   return found
 }
 
-const PROMPT = (corpus: string) =>
-  `You are analyzing a content creator to decide whether they SELL a product of their own — a course, coaching/consulting, membership/community, digital product, or physical goods (merch, supplements, books, etc). Just making videos or having sponsors does NOT count.
+/**
+ * Recent video-description snippets — the highest-signal place for
+ * product mentions ("Get my course:", "Shop:", "Join the membership:").
+ * YT's /videos ytInitialData carries a descriptionSnippet per tile.
+ * Mirrors the extraction in /api/enrich/video-descs.
+ */
+function extractVideoDescSnippets(data: unknown): string {
+  const snippets: string[] = []
+  function walk(node: unknown, depth = 0): void {
+    if (snippets.length >= MAX_VIDEOS_TO_SCAN || depth > 30 || !node || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      for (const item of node) { if (snippets.length >= MAX_VIDEOS_TO_SCAN) return; walk(item, depth + 1) }
+      return
+    }
+    const obj = node as Record<string, unknown>
+    if (obj.descriptionSnippet && typeof obj.descriptionSnippet === 'object') {
+      const ds = obj.descriptionSnippet as { runs?: Array<{ text?: string }>; simpleText?: string }
+      if (ds.simpleText) snippets.push(ds.simpleText)
+      else if (Array.isArray(ds.runs)) snippets.push(ds.runs.map(r => r.text || '').join(''))
+    }
+    for (const v of Object.values(obj)) { if (snippets.length >= MAX_VIDEOS_TO_SCAN) return; walk(v, depth + 1) }
+  }
+  walk(data)
+  return snippets.join('\n')
+}
 
-Creator text (channel description + recent video titles):
+const PROMPT = (corpus: string) =>
+  `You are analyzing a content creator to decide whether they SELL something of their own. Count ANY of these as selling: an online course or class, coaching/consulting, a membership or paid community (Patreon, Discord, etc), a digital product (ebook, presets, templates, guides, downloads, software/app), a newsletter or subscription, or physical goods (merch, books, supplements, gear). Just making videos, or having brand sponsors, does NOT count.
+
+Creator text (channel description + recent video descriptions + titles):
 """
 ${corpus}
 """
@@ -115,9 +142,9 @@ or
 {"sells": false, "summary": ""}
 
 Rules:
-- Only set sells=true when the text gives real evidence of something they sell. If it's ambiguous or they just make content, use sells=false.
-- Do NOT invent a product that isn't evidenced in the text.
-- Good summaries: "Online stock-trading course", "1:1 fitness coaching + meal plans", "Branded apparel and supplements", "Paid Discord trading community".`
+- If there's reasonable evidence of something they sell — a store/course/membership link, a "get my…", "shop", "enroll", "join", "download", "my book/course/app", a Patreon/Gumroad/Teachable/Substack mention — set sells=true and name it.
+- Don't invent a product with no support in the text. If it's genuinely just content with no offer, sells=false.
+- Good summaries: "Online stock-trading course", "1:1 fitness coaching + meal plans", "Lightroom presets + photo course", "Paid Discord trading community", "Branded apparel and supplements".`
 
 function parseModelJson(raw: string): { sells: boolean; summary: string } | null {
   const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
@@ -137,9 +164,11 @@ export async function POST(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
 
-  // Gated + cached, so most calls never reach the model — but cap to
-  // bound worst-case AI spend (a search heavy with course-sellers).
-  const limited = rateLimit(auth.id, 'enrich-product', 500, auth.email)
+  // Gated + cached, so most calls never reach the model (cache hits and
+  // gated negatives spend no AI). Broad client trigger → more requests
+  // per search, so the cap is generous; the AI cost stays bounded by the
+  // rich-text gate, not this number.
+  const limited = rateLimit(auth.id, 'enrich-product', 800, auth.email)
   if (limited) return limited
 
   let body: unknown
@@ -169,26 +198,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ sells: cached.sells, summary: cached.summary })
     }
 
-    // 2. Cheap keyword gate on what the client already has. If nothing
-    //    smells like a product, cache the negative and skip the AI call.
-    const clientCorpus = [name, description, ...titles].join('  ')
-    if (!corpusMentionsProduct(clientCorpus)) {
+    // 2. Gather the RICH signal. For standard YT channels, fetch the
+    //    /about description AND recent video descriptions in parallel —
+    //    that's where products actually get mentioned. For anything else
+    //    (non-UC ids), fall back to the text the client provided.
+    let aboutDesc = ''
+    let videoDescs = ''
+    if (YT_CHANNEL_RE.test(channelId)) {
+      const [aboutHtml, videosHtml] = await Promise.all([
+        fetchHtml(`https://www.youtube.com/channel/${channelId}/about`),
+        fetchHtml(`https://www.youtube.com/channel/${channelId}/videos`),
+      ])
+      if (aboutHtml) {
+        const data = parseYtInitialData(aboutHtml)
+        if (data) aboutDesc = extractAboutDescription(data)
+      }
+      if (videosHtml) {
+        const data = parseYtInitialData(videosHtml)
+        if (data) videoDescs = extractVideoDescSnippets(data)
+      }
+    }
+    const corpus = clampString(
+      [name, aboutDesc || description, videoDescs, ...titles].filter(Boolean).join('\n'),
+      CORPUS_MAX,
+    )
+
+    // 3. Keyword gate on the RICH corpus — no product signal anywhere →
+    //    cache the negative, no AI call.
+    if (!corpusMentionsProduct(corpus)) {
       await saveProductSummary(channelId, false, '')
       return NextResponse.json({ sells: false, summary: '' })
     }
-
-    // 3. Best-effort: enrich the signal with the channel's /about
-    //    description (richer than the search snippet). Skip for ids
-    //    that aren't standard YT channel ids — just use passed text.
-    let aboutDesc = ''
-    if (YT_CHANNEL_RE.test(channelId)) {
-      const html = await fetchHtml(`https://www.youtube.com/channel/${channelId}/about`)
-      if (html) aboutDesc = extractAboutDescription(html)
-    }
-    const corpus = clampString(
-      [name, aboutDesc || description, ...titles].filter(Boolean).join('\n'),
-      CORPUS_MAX,
-    )
 
     const apiKey = process.env.AI_Score_Key
     if (!apiKey) {
@@ -209,8 +249,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({})
     }
 
-    // A "sells" verdict with no summary is useless to show — normalize
-    // it to a negative so the column reads cleanly.
+    // A "sells" verdict with no summary is useless to show — normalize to
+    // a negative so the column reads cleanly.
     const summary = clampString(parsed.summary, SUMMARY_MAX)
     const sells = parsed.sells && summary.length > 0
     const finalSummary = sells ? summary : ''
@@ -218,8 +258,6 @@ export async function POST(req: NextRequest) {
     await saveProductSummary(channelId, sells, finalSummary)
     return NextResponse.json({ sells, summary: finalSummary })
   } catch {
-    // Fail-quiet: the column just stays blank for this row; everything
-    // else about it is unaffected.
     return NextResponse.json({})
   }
 }

@@ -11,7 +11,7 @@ export const DEFAULT_GUIDANCE_WEIGHT = 10 // default pts weight for each new cri
  * server gate (don't spend an AI call on creators that mention nothing)
  * both call this instead of each keeping a drifting copy of the list.
  */
-const PRODUCT_MENTION_RE = /\b(course|courses|coaching|coach|program|programs|book|books|store|shop|merch|merchandise|product|products|membership|community|consulting|consultant|service|services|brand|sell|selling|offer|template|templates|mentorship|mentor|workshop|workshops|academy|masterclass|training|agency|studio|media|business|entrepreneur|founder|creator economy|digital product|online business|side hustle|passive income|build your|grow your business|ecommerce|e-commerce|dropship)\b/
+const PRODUCT_MENTION_RE = /\b(course|courses|coaching|coach|program|programs|book|books|store|shop|merch|merchandise|product|products|membership|community|consulting|consultant|service|services|brand|sell|selling|offer|template|templates|mentorship|mentor|workshop|workshops|academy|masterclass|training|agency|studio|media|business|entrepreneur|founder|creator economy|digital product|online business|side hustle|passive income|build your|grow your business|ecommerce|e-commerce|dropship|patreon|gumroad|teachable|kajabi|podia|skool|substack|newsletter|ebook|e-book|preset|presets|bundle|bundles|bootcamp|cohort|enroll|enrolling|enrollment|waitlist|preorder|pre-order|linktree|link in bio|sign up for|my book|my course|merch store)\b/
 
 export function corpusMentionsProduct(corpus: string): boolean {
   return PRODUCT_MENTION_RE.test((corpus || '').toLowerCase())

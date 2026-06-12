@@ -2558,14 +2558,18 @@ export default function Home() {
             phaseCQueue.push(idx)
             tryStartPhaseC()
           }
-          // Chain into Phase D (Product column) when the creator's text
-          // mentions something sellable. Same keyword gate as the
-          // has_product_mention rule — only plausible sellers cost an AI
-          // call; the rest read "—". One-shot per row (productSummary
-          // stays undefined until Phase D writes a verdict).
+          // Chain into Phase D (Product column). Trigger on a product
+          // keyword OR a business signal (website / LinkedIn) — the
+          // endpoint then fetches the creator's /about + video
+          // descriptions and makes the real call on that rich text, so a
+          // seller whose titles say nothing still gets caught. The endpoint
+          // is cached + gates on rich text before any AI call, so the
+          // broader trigger only adds cheap fetches, not AI spend on
+          // non-sellers. One-shot per row (productSummary stays undefined
+          // until Phase D writes a verdict).
           if (row.productSummary === undefined) {
             const productCorpus = [row.description || '', row.channelName || '', ...(row.videoTitles || [])].join(' ')
-            if (corpusMentionsProduct(productCorpus)) {
+            if (corpusMentionsProduct(productCorpus) || row.website || row.linkedin) {
               phaseDQueue.push(idx)
               tryStartPhaseD()
             }
