@@ -84,24 +84,26 @@ ALTER TABLE public.inbox_threads  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inbox_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inbox_reads    ENABLE ROW LEVEL SECURITY;
 
--- Admin-email helper (inline so policies stay readable).
--- Mirrors the pattern used elsewhere; SECURITY DEFINER not needed here
--- since auth.users is readable in policy context for the current uid.
+-- Admin check uses (auth.jwt() ->> 'email') — reads the email straight
+-- from the request JWT, NO table access. A direct `SELECT email FROM
+-- auth.users` in a policy throws "permission denied for table users"
+-- because the `authenticated` role can't read auth.users. Matches the
+-- working pattern in 0006_contact_messages / 0007_email_test_runs.
 
 -- THREADS: see broadcasts + your own direct threads; admin sees all.
 DROP POLICY IF EXISTS "inbox_threads_select" ON public.inbox_threads;
 CREATE POLICY "inbox_threads_select" ON public.inbox_threads FOR SELECT USING (
   type = 'broadcast'
   OR target_user_id = auth.uid()
-  OR (SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com'
+  OR (auth.jwt() ->> 'email') = 'dmeehanj@gmail.com'
 );
 -- Only admin inserts/updates threads directly. The "user reply spins a
 -- direct thread" flow runs server-side via the service role (bypasses RLS).
 DROP POLICY IF EXISTS "inbox_threads_admin_write" ON public.inbox_threads;
 CREATE POLICY "inbox_threads_admin_write" ON public.inbox_threads FOR ALL USING (
-  (SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com'
+  (auth.jwt() ->> 'email') = 'dmeehanj@gmail.com'
 ) WITH CHECK (
-  (SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com'
+  (auth.jwt() ->> 'email') = 'dmeehanj@gmail.com'
 );
 
 -- MESSAGES: visible if the parent thread is visible.
@@ -113,7 +115,7 @@ CREATE POLICY "inbox_messages_select" ON public.inbox_messages FOR SELECT USING 
       AND (
         t.type = 'broadcast'
         OR t.target_user_id = auth.uid()
-        OR (SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com'
+        OR (auth.jwt() ->> 'email') = 'dmeehanj@gmail.com'
       )
   )
 );
@@ -131,7 +133,7 @@ CREATE POLICY "inbox_messages_insert" ON public.inbox_messages FOR INSERT WITH C
         AND t.target_user_id = auth.uid()
     )
   )
-  OR (SELECT email FROM auth.users WHERE id = auth.uid()) = 'dmeehanj@gmail.com'
+  OR (auth.jwt() ->> 'email') = 'dmeehanj@gmail.com'
 );
 
 -- READS: each user manages only their own.
