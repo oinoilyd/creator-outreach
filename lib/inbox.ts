@@ -71,3 +71,18 @@ export async function replyToThread(
 export async function dismissThread(threadId: string): Promise<void> {
   await fetch(`/api/inbox/${threadId}/dismiss`, { method: 'POST' }).catch(() => {})
 }
+
+/** User starts a brand-new direct thread with the admin. */
+export async function startThread(
+  subject: string,
+  body: string,
+): Promise<{ ok: boolean; error?: string; threadId?: string }> {
+  const res = await fetch('/api/inbox/new', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject, body }),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) return { ok: false, error: data?.error || `HTTP ${res.status}` }
+  return { ok: true, threadId: data?.threadId }
+}

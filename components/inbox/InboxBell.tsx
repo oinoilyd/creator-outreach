@@ -13,13 +13,16 @@
  * collapses to just the icon below sm.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Inbox as InboxIcon, X as XIcon, ChevronLeft, Send, Loader2, Megaphone, Trash2 } from 'lucide-react'
+import { Inbox as InboxIcon, X as XIcon, ChevronLeft, Send, Loader2, Megaphone, Trash2, PenSquare } from 'lucide-react'
 import {
-  fetchInbox, fetchThread, replyToThread, dismissThread,
+  fetchInbox, fetchThread, replyToThread, dismissThread, startThread,
   type InboxThreadSummary, type InboxThreadDetail,
 } from '@/lib/inbox'
 
+// Background list refresh (unread badge). The open thread polls faster
+// so a live back-and-forth feels responsive.
 const POLL_MS = 90_000
+const THREAD_POLL_MS = 12_000
 
 export function InboxBell() {
   const [open, setOpen] = useState(false)
@@ -28,6 +31,7 @@ export function InboxBell() {
   const [loadingList, setLoadingList] = useState(false)
   const [active, setActive] = useState<InboxThreadDetail | null>(null)
   const [loadingThread, setLoadingThread] = useState(false)
+  const [composing, setComposing] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
   const refreshList = useCallback(async () => {
@@ -63,7 +67,20 @@ export function InboxBell() {
     }
   }, [open])
 
+  // While a thread is open, poll it so the other side's new messages
+  // appear without the user having to close + reopen.
+  const activeId = active?.id ?? null
+  useEffect(() => {
+    if (!activeId) return
+    const id = window.setInterval(async () => {
+      const fresh = await fetchThread(activeId)
+      if (fresh) setActive(fresh)
+    }, THREAD_POLL_MS)
+    return () => window.clearInterval(id)
+  }, [activeId])
+
   async function openThread(id: string) {
+    setComposing(false)
     setLoadingThread(true)
     try {
       const detail = await fetchThread(id)
@@ -126,7 +143,12 @@ export function InboxBell() {
 
       {open && (
         <div className="absolute right-0 mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-2xl shadow-black/30 z-40 overflow-hidden">
-          {active ? (
+          {composing ? (
+            <ComposeView
+              onBack={() => setComposing(false)}
+              onStarted={async (id) => { setComposing(false); await refreshList(); await openThread(id) }}
+            />
+          ) : active ? (
             <ThreadView
               detail={active}
               onBack={back}
@@ -140,6 +162,7 @@ export function InboxBell() {
               onOpen={openThread}
               onClose={() => setOpen(false)}
               onDismiss={handleDismiss}
+              onCompose={() => setComposing(true)}
             />
           )}
         </div>
@@ -151,13 +174,14 @@ export function InboxBell() {
 // ── Thread list ─────────────────────────────────────────────────────
 
 function ThreadList({
-  threads, loading, onOpen, onClose, onDismiss,
+  threads, loading, onOpen, onClose, onDismiss, onCompose,
 }: {
   threads: InboxThreadSummary[]
   loading: boolean
   onOpen: (id: string) => void
   onClose: () => void
   onDismiss: (id: string) => void
+  onCompose: () => void
 }) {
   return (
     <>
@@ -169,6 +193,15 @@ function ThreadList({
           <div className="text-[12.5px] font-semibold text-foreground">Inbox</div>
           <div className="text-[10.5px] text-muted-foreground/75">Updates &amp; messages</div>
         </div>
+        <button
+          type="button"
+          onClick={onCompose}
+          aria-label="New message"
+          title="New message"
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-300 hover:bg-blue-500/10 px-2 py-1 rounded-md transition-colors"
+        >
+          <PenSquare className="w-3.5 h-3.5" /> New
+        </button>
         <button
           type="button"
           onClick={onClose}
@@ -189,9 +222,16 @@ function ThreadList({
           <div className="px-4 py-8 text-center">
             <InboxIcon className="w-6 h-6 mx-auto text-muted-foreground/40 mb-2" aria-hidden />
             <p className="text-[12.5px] text-muted-foreground">No messages yet.</p>
-            <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+            <p className="text-[11px] text-muted-foreground/70 mt-0.5 mb-3">
               Product updates and replies land here.
             </p>
+            <button
+              type="button"
+              onClick={onCompose}
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <PenSquare className="w-3.5 h-3.5" /> Message the team
+            </button>
           </div>
         ) : (
           <ul className="divide-y divide-border">
@@ -366,6 +406,87 @@ function ThreadView({
           <p className="text-[11px] text-muted-foreground/70">This is an announcement — replies are off.</p>
         </div>
       )}
+    </>
+  )
+}
+
+// ── Compose a new message to the team ───────────────────────────────
+
+function ComposeView({
+  onBack, onStarted,
+}: {
+  onBack: () => void
+  onStarted: (threadId: string) => void
+}) {
+  const [subject, setSubject] = useState('')
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function send() {
+    const body = text.trim()
+    if (!body || sending) return
+    setSending(true); setError(null)
+    const res = await startThread(subject.trim(), body)
+    setSending(false)
+    if (!res.ok || !res.threadId) { setError(res.error || 'Could not send.'); return }
+    onStarted(res.threadId)
+  }
+
+  return (
+    <>
+      <div className="px-3 pt-3 pb-2.5 border-b border-border flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back"
+          className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors shrink-0"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-foreground">New message</div>
+          <div className="text-[10.5px] text-muted-foreground/75">Goes straight to the team</div>
+        </div>
+      </div>
+
+      <div className="p-3 space-y-2">
+        <input
+          type="text"
+          value={subject}
+          onChange={e => setSubject(e.target.value)}
+          placeholder="Subject (optional)"
+          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-blue-500/50"
+        />
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void send() } }}
+          rows={4}
+          placeholder="What's on your mind?"
+          autoFocus
+          className="w-full resize-y min-h-[5rem] rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-blue-500/50"
+        />
+        {error && <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-[12px] text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={send}
+            disabled={sending || !text.trim()}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed px-3.5 py-1.5 rounded-lg transition-colors"
+          >
+            {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            Send
+          </button>
+        </div>
+      </div>
     </>
   )
 }

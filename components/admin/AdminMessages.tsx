@@ -16,6 +16,10 @@ import {
   type AdminThreadSummary, type AdminRecipient, type AdminThreadDetail,
 } from '@/lib/inbox-admin'
 
+// Background refresh of the thread list; the open thread polls faster.
+const POLL_MS = 20_000
+const THREAD_POLL_MS = 10_000
+
 export function AdminMessages() {
   const [threads, setThreads] = useState<AdminThreadSummary[]>([])
   const [recipients, setRecipients] = useState<AdminRecipient[]>([])
@@ -31,7 +35,14 @@ export function AdminMessages() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { void refresh() }, [refresh])
+  // Initial load + background poll so user replies show up live without
+  // a manual refresh (the bug: the admin "never received" replies that
+  // were in fact saved — the view just never re-fetched).
+  useEffect(() => {
+    void refresh()
+    const id = window.setInterval(() => { void refresh() }, POLL_MS)
+    return () => window.clearInterval(id)
+  }, [refresh])
 
   const openThread = useCallback(async (id: string) => {
     setSelectedId(id)
@@ -42,6 +53,17 @@ export function AdminMessages() {
       setLoadingDetail(false)
     }
   }, [])
+
+  // Poll the open thread too, so an incoming reply appears while the
+  // admin is reading it.
+  useEffect(() => {
+    if (!selectedId) return
+    const id = window.setInterval(async () => {
+      const fresh = await fetchAdminThread(selectedId)
+      if (fresh) setDetail(fresh)
+    }, THREAD_POLL_MS)
+    return () => window.clearInterval(id)
+  }, [selectedId])
 
   async function afterReply() {
     if (selectedId) setDetail(await fetchAdminThread(selectedId))
