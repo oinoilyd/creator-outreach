@@ -1,14 +1,19 @@
 /**
- * Inbox direct-message email notification.
+ * Inbox email notifications (direct messages + opt-in broadcasts).
  *
- * Fired when the admin sends or replies to a DIRECT thread, so the
- * user knows to check their in-app inbox. Broadcasts intentionally
- * stay in-app only — emailing every user on every announcement would
- * torch the domain's sending reputation. Same Resend pattern as the
- * team-invite + contact notifiers. Fails soft (returns false).
+ * Sent so the member checks their IN-APP inbox — replies belong in the
+ * app so they stay threaded in the admin triage queue. Sent from a
+ * no-reply address, but with Reply-To pointed at a human-monitored
+ * mailbox as a safety net: if someone replies by email out of habit it
+ * still reaches a person instead of bouncing into a black hole. Same
+ * Resend pattern as the team-invite + contact notifiers. Fails soft.
  */
 
 const FROM_ADDRESS = 'Creator Outreach <noreply@creatoroutreach.net>'
+// Stray email replies land here (a monitored inbox), so a habitual
+// "reply by email" isn't lost. Override via INBOX_REPLY_TO when a
+// support@ alias is set up (e.g. INBOX_REPLY_TO=support@creatoroutreach.net).
+const REPLY_TO = process.env.INBOX_REPLY_TO || 'dmeehanj@gmail.com'
 
 function escapeHtml(s: string): string {
   return s
@@ -49,8 +54,8 @@ export async function sendInboxMessageEmail(params: InboxNotifyParams): Promise<
           Open your inbox
         </a>
       </p>
-      <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">
-        Reply right inside the app — open Creator Outreach and click the inbox in the top bar.
+      <p style="margin:0;color:#6b7280;font-size:12.5px;line-height:1.5">
+        <strong>Please reply inside the app</strong> so it stays in your conversation thread — open the inbox in the top bar. (Replying to this email reaches us too, but in-app keeps everything together.)
       </p>
     </div>
   `
@@ -65,6 +70,7 @@ export async function sendInboxMessageEmail(params: InboxNotifyParams): Promise<
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: [to],
+        reply_to: REPLY_TO,
         subject: `${safeSubject} — Creator Outreach`,
         html,
       }),
@@ -93,6 +99,8 @@ export async function sendBroadcastEmails(params: {
   subject: string
   preview: string
   appUrl: string
+  /** When the broadcast accepts replies, the email invites an in-app reply. */
+  allowReplies?: boolean
 }): Promise<number> {
   const resendKey = process.env.RESEND_API_KEY
   if (!resendKey || params.recipients.length === 0) return 0
@@ -109,6 +117,9 @@ export async function sendBroadcastEmails(params: {
           Open Creator Outreach
         </a>
       </p>
+      ${params.allowReplies
+        ? `<p style="margin:0 0 12px;color:#6b7280;font-size:12.5px;line-height:1.5"><strong>Have a question?</strong> Reply inside the app — open the inbox in the top bar and it starts a private thread with us.</p>`
+        : ''}
       <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">
         You're receiving this because you have a Creator Outreach account.
       </p>
@@ -121,6 +132,7 @@ export async function sendBroadcastEmails(params: {
     const batch = chunk.map(to => ({
       from: FROM_ADDRESS,
       to: [to],
+      reply_to: REPLY_TO,
       subject: `${safeSubject} — Creator Outreach`,
       html,
     }))

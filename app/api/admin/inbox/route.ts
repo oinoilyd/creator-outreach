@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
     const recipients = ((users ?? []) as Array<{ email: string }>)
       .map(u => u.email)
       .filter((e): e is string => !!e && e.toLowerCase() !== ADMIN_EMAIL)
-    void sendBroadcastEmails({ recipients, subject: subject || 'New announcement', preview: text, appUrl })
+    void sendBroadcastEmails({ recipients, subject: subject || 'New announcement', preview: text, appUrl, allowReplies })
   }
 
   return NextResponse.json({ ok: true, threadId })
