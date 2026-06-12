@@ -521,6 +521,17 @@ function ThreadView({
           <p className="text-[11px] text-muted-foreground/70">
             {detail.type === 'broadcast' ? 'This is an announcement — replies are off.' : 'Replies are off for this message.'}
           </p>
+          {/* Direct one-way messages get a quiet exit; announcements
+              don't (inviting individual threads defeats a broadcast). */}
+          {detail.type !== 'broadcast' && (
+            <button
+              type="button"
+              onClick={onStartNew}
+              className="mt-1 text-[11px] text-blue-600 dark:text-blue-300 hover:underline"
+            >
+              Have a question? Start a new message
+            </button>
+          )}
         </div>
       )}
     </>
