@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useMemo, useContext, useRef } from 'react'
+import { useState, useMemo, useContext, useRef, useEffect } from 'react'
 import type {
   Creator, SortCol, SortKey, ColId, ColConfig, ScoreWeights, PlatformId, UserProfile,
 } from '@/lib/types'
 import { sortCreators } from '@/lib/scoring'
-import { COL_SORT } from '@/lib/columns'
+import { COL_SORT, DEFAULT_COL_WIDTH, RESULTS_LEADING_WIDTHS } from '@/lib/columns'
 import { PLATFORM_CONFIGS, getPrimaryUrlForPlatform, getHandleForPlatform } from '@/lib/platform'
 import { AnimatedRow } from '@/components/AnimatedRow'
 import { DismissIcon, PlusCircleIcon, SortIndicator } from '@/components/ui'
@@ -45,6 +45,40 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
   // sortCreators (which now accepts SortKey[] in its first overload).
   const sorted = useMemo(() => sortCreators(creators, sorts, 'desc', scoreWeights, guidanceEntries, emailFirst), [creators, sorts, scoreWeights, guidanceEntries, emailFirst])
   const visibleCols = colConfig.filter(c => c.visible)
+
+  // ── Resizable column headers (Dylan 2026-06-12) ──────────────────
+  // Drag the right edge of any header to set its width. Mirrors the
+  // Outreach table's resize. Session-local (Results colConfig isn't
+  // persisted), seeded from DEFAULT_COL_WIDTH; new columns backfill via
+  // the effect so a freshly-added ColId always has a width.
+  const [widths, setWidths] = useState<Record<string, number>>(() =>
+    Object.fromEntries(Object.entries(DEFAULT_COL_WIDTH))
+  )
+  useEffect(() => {
+    setWidths(prev => {
+      const next = { ...prev }
+      colConfig.forEach(c => { if (!(c.id in next)) next[c.id] = DEFAULT_COL_WIDTH[c.id] ?? 120 })
+      return next
+    })
+  }, [colConfig])
+  const resizing = useRef<{ id: string; startX: number; startW: number } | null>(null)
+  function startResize(e: React.MouseEvent, colId: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    resizing.current = { id: colId, startX: e.clientX, startW: widths[colId] ?? DEFAULT_COL_WIDTH[colId as ColId] ?? 120 }
+    const onMove = (ev: MouseEvent) => {
+      if (!resizing.current) return
+      const { id, startX, startW } = resizing.current
+      setWidths(prev => ({ ...prev, [id]: Math.max(60, startW + ev.clientX - startX) }))
+    }
+    const onUp = () => { resizing.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+  // Total = the two icon columns + Channel + every visible data column.
+  const totalWidth = RESULTS_LEADING_WIDTHS.dismiss + RESULTS_LEADING_WIDTHS.outreach + RESULTS_LEADING_WIDTHS.channel
+    + visibleCols.reduce((sum, c) => sum + (widths[c.id] ?? DEFAULT_COL_WIDTH[c.id] ?? 120), 0)
+
   const dragIdx = useRef<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   // Right-click context menu state — same pattern as OutreachTab.
@@ -91,22 +125,22 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
 
   return (
     <div className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
-      <table className="w-full text-sm">
+      <table className="text-sm table-fixed" style={{ width: '100%', minWidth: totalWidth }}>
         <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
           <tr>
-            <th className="px-2 py-3 text-center w-12" title="Dismiss — hide this creator from results">
+            <th style={{ width: RESULTS_LEADING_WIDTHS.dismiss }} className="px-2 py-3 text-center" title="Dismiss — hide this creator from results">
               <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
                 <DismissIcon active={false} />
                 <span className="text-[9px] font-semibold tracking-wide uppercase">Dismiss</span>
               </div>
             </th>
-            <th className="px-2 py-3 text-center w-12" title="Add to Outreach list">
+            <th style={{ width: RESULTS_LEADING_WIDTHS.outreach }} className="px-2 py-3 text-center" title="Add to Outreach list">
               <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
                 <PlusCircleIcon added={false} />
                 <span className="text-[9px] font-semibold tracking-wide uppercase">Outreach</span>
               </div>
             </th>
-            <th className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">
+            <th style={{ width: RESULTS_LEADING_WIDTHS.channel }} className="text-left px-4 py-3 whitespace-nowrap select-none font-medium">
               {activePlatform === 'youtube' ? 'Channel' : 'Handle'}
             </th>
             {visibleCols.map((col, idx) => {
@@ -135,13 +169,19 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                   // keyboard alternative to drag-to-reorder, satisfies
                   // WCAG 2.5.7.
                   tabIndex={0}
+                  style={{ width: widths[col.id] ?? DEFAULT_COL_WIDTH[col.id] }}
                   draggable
                   onDragStart={() => { dragIdx.current = idx }}
                   onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
                   onDragLeave={() => setDragOverIdx(null)}
                   onDrop={e => { e.preventDefault(); handleColDrop(idx) }}
                   onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
-                  onClick={() => sc && onSort(sc)}
+                  onClick={(e) => {
+                    // Ignore clicks bubbling up from the resize handle so
+                    // grabbing the edge to resize doesn't also re-sort.
+                    if ((e.target as HTMLElement).closest('[data-no-sort]')) return
+                    if (sc) onSort(sc)
+                  }}
                   onKeyDown={(e) => {
                     if ((e.key === 'Enter' || e.key === ' ') && sc) {
                       e.preventDefault()
@@ -168,7 +208,7 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                       y: e.clientY,
                     })
                   }}
-                  className={`text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-foreground' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
+                  className={`relative text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-foreground' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
                 >
                   <span className="mr-1 text-muted-foreground/70 text-xs">⠿</span>
                   {col.label}
@@ -210,6 +250,16 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                       </button>
                     )
                   })()}
+                  {/* Drag the right edge to resize this column. data-no-sort
+                      so the header's onClick sort ignores it. */}
+                  <div
+                    data-no-sort
+                    onMouseDown={e => startResize(e, col.id)}
+                    title="Drag to resize column"
+                    className="absolute right-0 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center"
+                  >
+                    <div className="w-px h-4 bg-border group-hover:bg-blue-400 transition-colors" />
+                  </div>
                 </th>
               )
             })}
@@ -407,7 +457,7 @@ function NameCell({ c, activePlatform }: { c: Creator; activePlatform: PlatformI
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+        className="block truncate text-blue-800 dark:text-blue-400 hover:underline font-medium"
         title={`Open ${c.channelName} on YouTube`}
       >
         {c.channelName}
@@ -418,12 +468,12 @@ function NameCell({ c, activePlatform }: { c: Creator; activePlatform: PlatformI
   const handle = getHandleForPlatform(c, activePlatform)
   if (handle) {
     return (
-      <div className="flex flex-col">
+      <div className="flex flex-col min-w-0">
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+          className="block truncate text-blue-800 dark:text-blue-400 hover:underline font-medium"
           title={`Open @${handle} on ${platformLabel}`}
         >
           @{handle}
@@ -445,7 +495,7 @@ function NameCell({ c, activePlatform }: { c: Creator; activePlatform: PlatformI
       href={c.channelUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-blue-800 dark:text-blue-400 hover:underline font-medium"
+      className="block truncate text-blue-800 dark:text-blue-400 hover:underline font-medium"
       title={`No ${platformLabel} handle resolved — opens YouTube`}
     >
       {c.channelName}

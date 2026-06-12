@@ -228,6 +228,26 @@ export const DEFAULT_COLS: ColConfig[] = [
   { id: 'tiktok',      label: 'TikTok',      visible: false },
 ]
 
+// Default pixel width per Results column — seeds the resizable-header
+// widths in CreatorTable. Non-Partial Record so adding a ColId without a
+// width is a compile error (same guard as COL_SORT). Product is wide on
+// purpose: its summary text wraps within the column.
+export const DEFAULT_COL_WIDTH: Record<ColId, number> = {
+  // Sized so the header label + grip + sort arrow + resize handle fit
+  // without clipping at the th's px-4 padding. The table scrolls in its
+  // overflow-x-auto wrapper when many columns are shown — expected for a
+  // resizable data grid.
+  email: 210, fitScore: 132, avgViews: 122, subscribers: 126,
+  product: 240,
+  lastVideo: 126, lastShort: 126,
+  instagram: 136, twitter: 120, linkedin: 126, youtube: 120, website: 108,
+  igFollowers: 130, igPosts: 120, tiktok: 120,
+}
+
+// Fixed widths for the three leading columns that aren't part of
+// colConfig (Dismiss / Add-to-outreach icons + the Channel/Handle name).
+export const RESULTS_LEADING_WIDTHS = { dismiss: 52, outreach: 56, channel: 230 } as const
+
 export const YOUTUBE_ONLY_COL_IDS: ColId[] = ['avgViews', 'subscribers', 'lastVideo', 'lastShort']
 
 /** Columns that are surfaced ONLY when the platform filter is set to

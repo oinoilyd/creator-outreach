@@ -83,9 +83,9 @@ export function renderCell(
     // text on hover. Em-dash when nothing sellable was detected OR while
     // the background pass is still working (it just appears in place).
     case 'product': return (
-      <td key={id} className="px-4 py-3">
+      <td key={id} className="px-4 py-3 align-top">
         {c.productSummary
-          ? <span className="block max-w-[220px] truncate text-xs text-foreground/80" title={c.productSummary}>{c.productSummary}</span>
+          ? <span className="block whitespace-normal break-words text-xs leading-snug text-foreground/80" title={c.productSummary}>{c.productSummary}</span>
           : <span className="text-muted-foreground/40" title="No product detected from this creator's channel (or still checking).">—</span>}
       </td>
     )
@@ -111,7 +111,8 @@ export function renderCell(
             target="_blank"
             rel="noopener noreferrer"
             onClick={ev => guardOutreachClick(ev, c.email, profile?.userEmail)}
-            className="text-emerald-700 dark:text-green-400 hover:underline"
+            title={c.email}
+            className="block truncate text-emerald-700 dark:text-green-400 hover:underline"
           >{c.email}</a>
         ) : c.enriching ? (
           <span className="flex items-center gap-1 text-muted-foreground"><Spinner />looking...</span>
