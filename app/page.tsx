@@ -1556,13 +1556,37 @@ export default function Home() {
           return result
         }
 
-        setOutreachColConfigByPlatform({
+        const merged: Record<PlatformId, OutreachColConfig[]> = {
           youtube:   mergeForPlatform(storedByPlatform.youtube,   'youtube'),
           instagram: mergeForPlatform(storedByPlatform.instagram, 'instagram'),
           tiktok:    mergeForPlatform(storedByPlatform.tiktok,    'tiktok'),
           twitter:   mergeForPlatform(storedByPlatform.twitter,   'twitter'),
           linkedin:  mergeForPlatform(storedByPlatform.linkedin,  'linkedin'),
-        })
+        }
+
+        // One-time deprecation (Dylan 2026-06-10): force-hide the
+        // "Reached Out" + "Follow Up Date" columns in EXISTING saved
+        // configs once, so the cleaned-up default actually reaches
+        // users who already customized. Guarded by a localStorage flag
+        // so we only do it once — afterward the user can freely re-add
+        // either column via Customize Columns and it sticks.
+        const DEPRECATE_FLAG = 'outreach-cols-deprecated-v1'
+        const DEPRECATED_HIDDEN = new Set(['reachedOut', 'followUpDate'])
+        let configToUse = merged
+        try {
+          if (typeof window !== 'undefined' && !window.localStorage.getItem(DEPRECATE_FLAG)) {
+            configToUse = Object.fromEntries(
+              (Object.entries(merged) as Array<[PlatformId, OutreachColConfig[]]>).map(([p, cols]) => [
+                p,
+                cols.map(c => (DEPRECATED_HIDDEN.has(c.id as string) ? { ...c, visible: false } : c)),
+              ]),
+            ) as Record<PlatformId, OutreachColConfig[]>
+            window.localStorage.setItem(DEPRECATE_FLAG, '1')
+            void saveOutreachColConfig(configToUse) // persist the cleaned layout
+          }
+        } catch { /* localStorage unavailable — non-fatal, just skip the one-time strip */ }
+
+        setOutreachColConfigByPlatform(configToUse)
       }
 
       const storedMetrics = await getCustomMetrics()
