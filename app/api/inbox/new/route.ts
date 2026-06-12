@@ -51,7 +51,7 @@ async function notifyAdmin(subject: string, userEmail: string, body: string) {
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
-  const limited = rateLimit(auth.id, 'inbox-new', 30, auth.email)
+  const limited = rateLimit(auth.id, 'inbox-new', 10, auth.email)
   if (limited) return limited
 
   const payload = await req.json().catch(() => ({}))

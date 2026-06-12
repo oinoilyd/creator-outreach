@@ -24,6 +24,20 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
+// The app URL is derived from NEXT_PUBLIC_SITE_URL or the request Origin
+// header (attacker-influenceable). Validate it's plain http(s) and escape
+// quotes before it lands in an email href — avoids link injection if the
+// env var is ever unset. Falls back to the canonical domain.
+function safeUrl(raw: string): string {
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return 'https://creatoroutreach.net'
+    return raw.replace(/"/g, '&quot;')
+  } catch {
+    return 'https://creatoroutreach.net'
+  }
+}
+
 export interface InboxNotifyParams {
   to: string
   subject: string
@@ -50,7 +64,7 @@ export async function sendInboxMessageEmail(params: InboxNotifyParams): Promise<
       <p style="margin:0 0 16px;color:#6b7280;font-size:13px">You have a new message in your Creator Outreach inbox.</p>
       <div style="white-space:pre-wrap;background:#f7f7f8;border:1px solid #e5e7eb;border-radius:8px;padding:14px;line-height:1.55;color:#111;margin-bottom:24px">${safePreview}</div>
       <p style="margin:0 0 24px">
-        <a href="${appUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
+        <a href="${safeUrl(appUrl)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
           Open your inbox
         </a>
       </p>
@@ -113,7 +127,7 @@ export async function sendBroadcastEmails(params: {
       <h2 style="margin:0 0 12px;font-size:18px">${safeSubject}</h2>
       <div style="white-space:pre-wrap;background:#f7f7f8;border:1px solid #e5e7eb;border-radius:8px;padding:14px;line-height:1.55;color:#111;margin-bottom:24px">${safePreview}</div>
       <p style="margin:0 0 24px">
-        <a href="${params.appUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
+        <a href="${safeUrl(params.appUrl)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
           Open Creator Outreach
         </a>
       </p>

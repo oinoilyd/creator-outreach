@@ -53,7 +53,7 @@ async function notifyAdmin(subject: string, userEmail: string, body: string) {
 export async function POST(req: NextRequest, ctx: { params: Promise<{ threadId: string }> }) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
-  const limited = rateLimit(auth.id, 'inbox-reply', 60, auth.email)
+  const limited = rateLimit(auth.id, 'inbox-reply', 30, auth.email)
   if (limited) return limited
 
   const { threadId } = await ctx.params

@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ threadId: 
 
   const { threadId } = await ctx.params
   const payload = await req.json().catch(() => ({}))
-  const closed = payload.closed !== false // default: close
+  const closed = payload.closed === true // explicit intent; ambiguous → don't close
 
   const supabase = await createClient()
   const { error } = await supabase
