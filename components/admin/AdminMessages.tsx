@@ -9,8 +9,8 @@
  * Broadcasts carry an "Allow replies" toggle — on means a user's reply
  * spins a private direct thread (discussion); off means announcement.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Megaphone, Send, Loader2, User as UserIcon, MessageSquare, RefreshCw, Lock, RotateCcw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Megaphone, Send, Loader2, User as UserIcon, MessageSquare, RefreshCw, Lock, RotateCcw, Search, PenSquare, X as XIcon } from 'lucide-react'
 import {
   fetchAdminInbox, fetchAdminThread, createAdminThread, adminReply, closeThread,
   type AdminThreadSummary, type AdminRecipient, type AdminThreadDetail,
@@ -20,6 +20,33 @@ import {
 const POLL_MS = 20_000
 const THREAD_POLL_MS = 10_000
 
+type SegmentKey = 'needs_reply' | 'open' | 'closed' | 'inquiry' | 'broadcast' | 'all'
+const SEGMENTS: { key: SegmentKey; label: string }[] = [
+  { key: 'needs_reply', label: 'Needs reply' },
+  { key: 'open', label: 'Open' },
+  { key: 'closed', label: 'Closed' },
+  { key: 'inquiry', label: 'Inquiries' },
+  { key: 'broadcast', label: 'Broadcasts' },
+  { key: 'all', label: 'All' },
+]
+
+function inSegment(t: AdminThreadSummary, seg: SegmentKey): boolean {
+  switch (seg) {
+    case 'needs_reply': return t.needsReply
+    case 'open': return t.type === 'direct' && !t.closedAt
+    case 'closed': return t.type === 'direct' && !!t.closedAt
+    case 'inquiry': return t.fromInquiry
+    case 'broadcast': return t.type === 'broadcast'
+    case 'all': return true
+  }
+}
+
+function matchesQuery(t: AdminThreadSummary, q: string): boolean {
+  if (!q) return true
+  const hay = `${t.withEmail ?? ''} ${t.subject ?? ''} ${t.lastMessage?.body ?? ''}`.toLowerCase()
+  return hay.includes(q)
+}
+
 export function AdminMessages() {
   const [threads, setThreads] = useState<AdminThreadSummary[]>([])
   const [recipients, setRecipients] = useState<AdminRecipient[]>([])
@@ -27,6 +54,9 @@ export function AdminMessages() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<AdminThreadDetail | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [segment, setSegment] = useState<SegmentKey>('needs_reply')
+  const [query, setQuery] = useState('')
+  const [composeOpen, setComposeOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     const res = await fetchAdminInbox()
@@ -35,9 +65,6 @@ export function AdminMessages() {
     setLoading(false)
   }, [])
 
-  // Initial load + background poll so user replies show up live without
-  // a manual refresh (the bug: the admin "never received" replies that
-  // were in fact saved — the view just never re-fetched).
   useEffect(() => {
     void refresh()
     const id = window.setInterval(() => { void refresh() }, POLL_MS)
@@ -54,8 +81,7 @@ export function AdminMessages() {
     }
   }, [])
 
-  // Poll the open thread too, so an incoming reply appears while the
-  // admin is reading it.
+  // Poll the open thread too, so an incoming reply appears live.
   useEffect(() => {
     if (!selectedId) return
     const id = window.setInterval(async () => {
@@ -71,80 +97,180 @@ export function AdminMessages() {
   }
 
   async function afterCompose(newId?: string) {
+    setComposeOpen(false)
     await refresh()
     if (newId) void openThread(newId)
   }
 
+  // Per-segment counts (off the full set, before search).
+  const counts = useMemo(() => {
+    const c = {} as Record<SegmentKey, number>
+    for (const s of SEGMENTS) c[s.key] = 0
+    for (const t of threads) for (const s of SEGMENTS) if (inSegment(t, s.key)) c[s.key]++
+    return c
+  }, [threads])
+
+  // Filtered + searched + sorted list for the active segment.
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const list = threads.filter(t => inSegment(t, segment) && matchesQuery(t, q))
+    const ts = (t: AdminThreadSummary) => new Date(t.lastMessage?.createdAt ?? t.updatedAt).getTime()
+    // Needs-reply → longest-waiting first; everything else → newest first.
+    list.sort((a, b) => segment === 'needs_reply' ? ts(a) - ts(b) : ts(b) - ts(a))
+    return list
+  }, [threads, segment, query])
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5">
-      {/* Left — composer + list */}
-      <div className="space-y-5">
-        <Composer recipients={recipients} onSent={afterCompose} />
+    <div className="space-y-4">
+      {/* Toolbar — segments + search + compose */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {SEGMENTS.map(s => {
+            const active = segment === s.key
+            const n = counts[s.key]
+            const urgent = s.key === 'needs_reply' && n > 0
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSegment(s.key)}
+                className={[
+                  'shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-medium border transition-colors',
+                  active
+                    ? (urgent
+                        ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        : 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300')
+                    : 'border-border bg-card text-muted-foreground hover:text-foreground hover:border-border/80',
+                ].join(' ')}
+              >
+                {s.label}
+                {n > 0 && (
+                  <span className={[
+                    'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold',
+                    urgent ? 'bg-amber-500 text-white' : active ? 'bg-blue-500 text-white' : 'bg-muted text-muted-foreground',
+                  ].join(' ')}>{n}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" aria-hidden />
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search by email or message…"
+              className="w-full rounded-lg border border-border bg-background pl-8 pr-8 py-2 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-blue-500/50"
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} aria-label="Clear" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground">
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => { void refresh() }}
+            className="shrink-0 text-muted-foreground hover:text-foreground p-2 rounded-lg border border-border hover:bg-muted/40 transition-colors"
+            aria-label="Refresh"
+            title="Refresh"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setComposeOpen(v => !v)}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500 text-white text-[12.5px] font-medium hover:bg-blue-600 transition-colors"
+          >
+            <PenSquare className="w-3.5 h-3.5" /> New message
+          </button>
+        </div>
+      </div>
+
+      {/* Composer — collapsed until "New message", so the queue stays the focus */}
+      {composeOpen && (
+        <div className="relative">
+          <Composer recipients={recipients} onSent={afterCompose} />
+          <button
+            type="button"
+            onClick={() => setComposeOpen(false)}
+            aria-label="Close composer"
+            className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5">
+        {/* Left — the queue */}
         <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-foreground">All threads</span>
-            <button
-              type="button"
-              onClick={() => { void refresh() }}
-              className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40 transition-colors"
-              aria-label="Refresh"
-              title="Refresh"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+          <div className="px-4 py-2 border-b border-border text-[11px] text-muted-foreground/80">
+            {loading ? 'Loading…' : `${visible.length} ${visible.length === 1 ? 'thread' : 'threads'}${query ? ' matching' : ''}`}
           </div>
           {loading ? (
             <div className="p-4 space-y-2">
               <div className="h-3 bg-muted/60 rounded animate-pulse w-10/12" />
               <div className="h-3 bg-muted/60 rounded animate-pulse w-7/12" />
             </div>
-          ) : threads.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-              No threads yet. Send your first broadcast or direct message above.
+          ) : visible.length === 0 ? (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              {threads.length === 0
+                ? 'No threads yet. Send your first message with “New message”.'
+                : query
+                  ? 'No threads match your search.'
+                  : segment === 'needs_reply'
+                    ? 'Inbox zero — nothing awaiting a reply. 🎉'
+                    : 'Nothing here.'}
             </div>
           ) : (
-            <ul className="divide-y divide-border max-h-[28rem] overflow-y-auto">
-              {threads.map(t => (
+            <ul className="divide-y divide-border max-h-[34rem] overflow-y-auto">
+              {visible.map(t => (
                 <li key={t.id}>
                   <button
                     type="button"
                     onClick={() => openThread(t.id)}
                     className={[
-                      'w-full text-left px-4 py-3 flex items-start gap-2.5 transition-colors',
-                      selectedId === t.id ? 'bg-blue-500/10' : 'hover:bg-muted/40',
+                      'w-full text-left px-3 py-3 flex items-start gap-2.5 transition-colors border-l-2',
+                      selectedId === t.id ? 'bg-blue-500/10 border-blue-500' : t.needsReply ? 'border-amber-400/70 hover:bg-muted/40' : 'border-transparent hover:bg-muted/40',
                     ].join(' ')}
                   >
+                    {/* Avatar / type marker */}
                     <span className="shrink-0 mt-0.5">
-                      {t.type === 'broadcast'
-                        ? <Megaphone className="w-3.5 h-3.5 text-indigo-500" aria-hidden />
-                        : <UserIcon className="w-3.5 h-3.5 text-blue-500" aria-hidden />}
+                      {t.type === 'broadcast' ? (
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-500/15 text-indigo-500">
+                          <Megaphone className="w-3.5 h-3.5" aria-hidden />
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-300 text-[11px] font-semibold uppercase">
+                          {(t.withEmail ?? '?').charAt(0)}
+                        </span>
+                      )}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 flex-wrap">
-                        <span className="truncate text-[12.5px] font-medium text-foreground">
-                          {t.subject || (t.type === 'broadcast' ? 'Announcement' : 'Direct message')}
+                        <span className={['truncate text-[12.5px]', t.needsReply ? 'font-semibold text-foreground' : 'font-medium text-foreground/90'].join(' ')}>
+                          {t.type === 'broadcast' ? (t.subject || 'Announcement') : (t.withEmail || 'Direct message')}
                         </span>
-                        {t.needsReply && (
-                          <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-semibold">
-                            needs reply
-                          </span>
-                        )}
                         {t.fromInquiry && (
-                          <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 font-semibold">
-                            inquiry
-                          </span>
+                          <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 font-semibold">inquiry</span>
                         )}
                         {t.closedAt && (
-                          <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
-                            closed
-                          </span>
+                          <span className="shrink-0 text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">closed</span>
                         )}
                       </span>
+                      {/* subject line for direct threads (secondary) */}
+                      {t.type === 'direct' && t.subject && (
+                        <span className="block truncate text-[11px] text-foreground/70 mt-0.5">{t.subject}</span>
+                      )}
                       <span className="block truncate text-[11px] text-muted-foreground mt-0.5">
-                        {t.type === 'direct' && t.withEmail ? `${t.withEmail} · ` : ''}
                         {t.lastMessage ? `${t.lastMessage.fromAdmin ? 'You: ' : ''}${t.lastMessage.body}` : 'No messages'}
                       </span>
-                      <span className="block text-[10px] text-muted-foreground/60 mt-0.5">{relativeTime(t.updatedAt)}</span>
+                      <span className={['block text-[10px] mt-0.5', t.needsReply ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground/60'].join(' ')}>
+                        {t.needsReply ? `waiting ${relativeTime(t.lastMessage?.createdAt ?? t.updatedAt).replace(' ago', '')}` : relativeTime(t.updatedAt)}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -152,22 +278,22 @@ export function AdminMessages() {
             </ul>
           )}
         </div>
-      </div>
 
-      {/* Right — selected thread */}
-      <div className="rounded-xl border border-border bg-card/40 min-h-[24rem] flex flex-col">
-        {!selectedId ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
-            <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-3" aria-hidden />
-            <p className="text-sm text-muted-foreground">Select a thread to read and reply.</p>
-          </div>
-        ) : (
-          <AdminThreadView
-            detail={detail}
-            loading={loadingDetail}
-            onReplied={afterReply}
-          />
-        )}
+        {/* Right — selected thread */}
+        <div className="rounded-xl border border-border bg-card/40 min-h-[24rem] flex flex-col">
+          {!selectedId ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
+              <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-3" aria-hidden />
+              <p className="text-sm text-muted-foreground">Select a thread to read and reply.</p>
+            </div>
+          ) : (
+            <AdminThreadView
+              detail={detail}
+              loading={loadingDetail}
+              onReplied={afterReply}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
