@@ -1,135 +1,179 @@
 'use client'
 
 /**
- * TeamOnboardClient — name your team, then go to Stripe Checkout.
+ * TeamOnboardClient — "Teams & Enterprise" inquiry form.
  *
- * Three UI states:
- *   • idle — name input + Continue button
- *   • redirecting — spinner while we hit the server to start Checkout
- *   • error — shows the failure with actionable next steps
- *
- * If the user already has an individual subscription, the server
- * returns `requiresIndividualCancel: true` and we render a "Cancel
- * first" CTA pointing to the billing portal.
+ * Dylan 2026-06-10: pivoted from self-serve Stripe checkout to a
+ * sales-led "request a demo" flow while the team feature is finished
+ * + dogfooded. Submits through /api/contact (persists to
+ * contact_messages + emails Dylan via Resend), tagged as an
+ * enterprise inquiry so it's easy to spot in the inbox.
  */
 
 import { useState } from 'react'
-import { TEAM_BASE_PRICE_CENTS, TEAM_BASE_SEATS, TEAM_SEAT_PRICE_CENTS, formatPriceCents } from '@/lib/team'
 
-export function TeamOnboardClient() {
+const FEATURES = [
+  'One shared pipeline — your whole team\'s outreach in a single board',
+  'Roles that fit how you work — Owner, Admin, and Member',
+  'Assign creators + active-client engagements to the right teammate',
+  'Owners & Admins see everything and reassign work; Members focus on just theirs',
+  'Centralized billing — one subscription, seats added as you grow',
+]
+
+export function TeamOnboardClient({ userEmail }: { userEmail: string | null }) {
   const [name, setName] = useState('')
+  const [email, setEmail] = useState(userEmail ?? '')
+  const [company, setCompany] = useState('')
+  const [teamSize, setTeamSize] = useState('2–5')
+  const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [requiresCancel, setRequiresCancel] = useState(false)
+  const [done, setDone] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = name.trim()
-    if (!trimmed) return
+    if (!name.trim() || !email.trim()) {
+      setError('Please add your name and a work email.')
+      return
+    }
     setSubmitting(true)
     setError(null)
-    setRequiresCancel(false)
+    // Compose a structured message so the inquiry reads clearly in
+    // Dylan's inbox / contact_messages table.
+    const composed =
+      `ENTERPRISE / TEAM INQUIRY\n` +
+      `Company / team: ${company.trim() || '—'}\n` +
+      `Team size: ${teamSize}\n` +
+      `\n${message.trim() || '(no additional message)'}`
     try {
-      const res = await fetch('/api/team/checkout', {
+      const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamName: trimmed }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), message: composed }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        setError(data?.error || `Could not start checkout (HTTP ${res.status}).`)
-        setRequiresCancel(data?.requiresIndividualCancel === true)
+        setError(data?.error || `Could not send (HTTP ${res.status}). Try again.`)
         setSubmitting(false)
         return
       }
-      const data: { url?: string } = await res.json()
-      if (!data.url) {
-        setError('No checkout URL returned.')
-        setSubmitting(false)
-        return
-      }
-      window.location.href = data.url
+      setDone(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error.')
       setSubmitting(false)
     }
   }
 
+  if (done) {
+    return (
+      <div className="bg-card border border-border rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+        <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center mb-4">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400" aria-hidden>
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        </div>
+        <h1 className="text-xl font-semibold text-foreground mb-2">Thanks — we&apos;ll be in touch</h1>
+        <p className="text-sm text-muted-foreground">
+          We&apos;ll reach out within a day or two to walk you through a demo and get your team set up.
+          Keep using your individual account in the meantime.
+        </p>
+        <a href="/" className="inline-block mt-6 text-sm font-medium text-foreground underline underline-offset-2">
+          ← Back to the app
+        </a>
+      </div>
+    )
+  }
+
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-xl max-w-md w-full p-8">
-      <h1 className="text-2xl font-semibold text-foreground mb-2">Create your team</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        Start the Team plan: <strong>{formatPriceCents(TEAM_BASE_PRICE_CENTS)}/mo</strong> for {TEAM_BASE_SEATS} seats, then{' '}
-        <strong>{formatPriceCents(TEAM_SEAT_PRICE_CENTS)}/mo</strong> per extra seat. 7-day free trial.
+    <div className="bg-card border border-border rounded-2xl shadow-xl max-w-lg w-full p-8">
+      <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 border border-purple-500/30 rounded-full px-2.5 py-1 mb-3">
+        Teams & Enterprise · early access
+      </div>
+      <h1 className="text-2xl font-semibold text-foreground mb-2">Run outreach as a team</h1>
+      <p className="text-sm text-muted-foreground mb-5">
+        Bring your whole team into one shared pipeline with roles, assignments, and centralized billing.
+        We&apos;re onboarding teams hands-on right now — tell us a bit about yours and we&apos;ll set up a demo.
       </p>
 
-      {/* Reassurance banner — Dylan flagged 2026-05-26 that the
-          original copy ("existing outreach will be migrated") was
-          ambiguous. Explicit list of what carries over + confirmation
-          that canceling the individual sub first is safe. */}
-      <div className="mb-6 p-3 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40">
-        <div className="text-xs font-semibold text-emerald-900 dark:text-emerald-100 mb-1">
-          Your pipeline carries over — fully
-        </div>
-        <ul className="text-xs text-emerald-800 dark:text-emerald-200 space-y-0.5 ml-3 list-disc">
-          <li>All <strong>outreach entries</strong> (every status, every stage)</li>
-          <li>All <strong>active client engagements</strong> (budgets, contracts, notes, milestones)</li>
-          <li>Favorites, dismissed creators, templates, and your scoring config</li>
-        </ul>
-        <div className="text-[11px] text-emerald-700 dark:text-emerald-300/90 mt-2">
-          Canceling your individual subscription first <strong>does not delete any data</strong> — it just stops the individual billing. When you create the team, everything moves into the new org with you as Owner.
-        </div>
-      </div>
+      <ul className="space-y-1.5 mb-6">
+        {FEATURES.map((f, i) => (
+          <li key={i} className="flex items-start gap-2 text-[13px] text-foreground/85">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" aria-hidden>
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-xs font-medium text-foreground/80">Your name</span>
+            <input
+              type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Jane Smith" required disabled={submitting}
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/20 disabled:opacity-60"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-foreground/80">Work email</span>
+            <input
+              type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com" required disabled={submitting}
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/20 disabled:opacity-60"
+            />
+          </label>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-xs font-medium text-foreground/80">Company / team</span>
+            <input
+              type="text" value={company} onChange={e => setCompany(e.target.value)}
+              placeholder="Acme Creators" disabled={submitting}
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/20 disabled:opacity-60"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-foreground/80">Team size</span>
+            <select
+              value={teamSize} onChange={e => setTeamSize(e.target.value)} disabled={submitting}
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 disabled:opacity-60"
+            >
+              <option>2–5</option>
+              <option>6–10</option>
+              <option>11–25</option>
+              <option>25+</option>
+            </select>
+          </label>
+        </div>
         <label className="block">
-          <span className="text-xs font-medium text-foreground/80 uppercase tracking-wider">Team name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="e.g. Ryan Gaynor Co."
-            maxLength={80}
-            autoFocus
-            required
+          <span className="text-xs font-medium text-foreground/80">Anything else? <span className="text-muted-foreground/70">(optional)</span></span>
+          <textarea
+            value={message} onChange={e => setMessage(e.target.value)} rows={3}
+            placeholder="What are you hoping to do with a team account?"
             disabled={submitting}
-            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/20 disabled:opacity-60"
+            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/20 resize-none disabled:opacity-60"
           />
         </label>
-        <p className="text-xs text-muted-foreground mt-1">
-          You can change this later. Pick something your team will recognize.
-        </p>
 
         {error && (
-          <div className="mt-4 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40">
-            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-            {requiresCancel && (
-              <>
-                <p className="text-xs text-red-700 dark:text-red-300 mt-2">
-                  Your outreach + active clients are safe — they&apos;ll migrate when you create the team.
-                </p>
-                <a
-                  href="/pricing"
-                  className="inline-block mt-2 text-xs font-medium text-red-900 dark:text-red-100 underline"
-                >
-                  Manage individual subscription →
-                </a>
-              </>
-            )}
+          <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 text-sm text-red-800 dark:text-red-200">
+            {error}
           </div>
         )}
 
         <button
           type="submit"
-          disabled={submitting || !name.trim()}
-          className="mt-6 w-full px-4 py-2.5 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={submitting || !name.trim() || !email.trim()}
+          className="w-full px-4 py-2.5 rounded-md bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Redirecting to Stripe…' : 'Continue to checkout →'}
+          {submitting ? 'Sending…' : 'Request a demo →'}
         </button>
       </form>
 
-      <p className="text-xs text-muted-foreground/70 mt-6">
-        You&apos;ll be set as Owner. Cancel anytime from billing.
+      <p className="text-xs text-muted-foreground/70 mt-5 text-center">
+        No charge today. We&apos;ll set up pricing + seats together on the call.
       </p>
     </div>
   )

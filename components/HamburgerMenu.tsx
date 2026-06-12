@@ -918,9 +918,10 @@ export function HamburgerMenu({
 
           {subscriptionHref && <div className="mx-4 my-1 border-t border-border" />}
 
-          {/* Team — Dylan 2026-05-24. Branches by team context:
-              • Individual users see a CTA to create a team ($150/mo Team
-                plan via Stripe).
+          {/* Team — Dylan 2026-05-24, repitched 2026-06-10. Branches:
+              • Individual users see a CTA to inquire about a team /
+                enterprise account (sales-led demo while the feature is
+                finished + dogfooded — not self-serve checkout yet).
               • Team users (any role) get a link to the team management
                 page (Owner/Admin see invite UI there; Members read-only).
               Hidden entirely if teamContext is null (still loading).
@@ -939,12 +940,12 @@ export function HamburgerMenu({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-[12.5px] text-foreground font-medium leading-tight">
-                  {teamContext.mode === 'team' ? 'Team members' : 'Add team members'}
+                  {teamContext.mode === 'team' ? 'Team members' : 'Teams & Enterprise'}
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
                   {teamContext.mode === 'team'
                     ? `${teamContext.organization?.name ?? 'Your team'} · ${teamContext.role}`
-                    : 'Upgrade to Team plan ($150/mo, 5 seats incl.)'}
+                    : 'Run outreach as a team — request a demo'}
                 </div>
               </div>
               <ChevronRight />
