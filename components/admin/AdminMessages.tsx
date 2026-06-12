@@ -185,6 +185,7 @@ function Composer({
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [allowReplies, setAllowReplies] = useState(true)
+  const [emailEveryone, setEmailEveryone] = useState(true)
   const [targetUserId, setTargetUserId] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -200,8 +201,9 @@ function Composer({
       kind,
       subject: subject.trim(),
       body: body.trim(),
-      allowReplies: kind === 'broadcast' ? allowReplies : true,
+      allowReplies, // honoured for both kinds now
       targetUserId: kind === 'direct' ? targetUserId : undefined,
+      emailEveryone: kind === 'broadcast' ? emailEveryone : undefined,
     })
     setSending(false)
     if (!res.ok) { setError(res.error || 'Failed to send.'); return }
@@ -258,17 +260,34 @@ function Composer({
         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-blue-500/50 resize-y min-h-[5rem]"
       />
 
+      {/* Allow replies — honoured for both kinds. */}
+      <label className="flex items-center gap-2 mt-2.5 text-[12px] text-muted-foreground cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={allowReplies}
+          onChange={e => setAllowReplies(e.target.checked)}
+          className="rounded border-border"
+        />
+        Allow replies
+        <span className="text-[10.5px] text-muted-foreground/60">
+          ({allowReplies
+            ? (kind === 'broadcast' ? 'a reply opens a private thread' : 'the member can reply')
+            : (kind === 'broadcast' ? 'announcement only' : 'one-way, no replies')})
+        </span>
+      </label>
+
+      {/* Email everyone — broadcast only. */}
       {kind === 'broadcast' && (
-        <label className="flex items-center gap-2 mt-2.5 text-[12px] text-muted-foreground cursor-pointer select-none">
+        <label className="flex items-center gap-2 mt-2 text-[12px] text-muted-foreground cursor-pointer select-none">
           <input
             type="checkbox"
-            checked={allowReplies}
-            onChange={e => setAllowReplies(e.target.checked)}
+            checked={emailEveryone}
+            onChange={e => setEmailEveryone(e.target.checked)}
             className="rounded border-border"
           />
-          Allow replies
+          Email everyone
           <span className="text-[10.5px] text-muted-foreground/60">
-            ({allowReplies ? 'a reply opens a private thread' : 'announcement only'})
+            (also email all users a nudge)
           </span>
         </label>
       )}
@@ -363,7 +382,7 @@ function AdminThreadView({
           <div className="text-[11px] text-muted-foreground/75 mt-0.5">
             {isBroadcast
               ? `Broadcast · ${detail.allowReplies ? 'replies on' : 'announcement only'}`
-              : `with ${detail.withEmail ?? 'user'}`}
+              : `with ${detail.withEmail ?? 'user'} · ${detail.allowReplies ? 'replies on' : 'one-way'}`}
           </div>
         </div>
         {/* Close / reopen — direct tickets only. */}

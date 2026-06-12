@@ -77,6 +77,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ threadId: 
 
   // Direct thread that's mine → reply straight in (RLS allows the insert).
   if (t.type === 'direct' && t.target_user_id === auth.id) {
+    // Admin can send a one-way direct message (replies turned off).
+    if (!t.allow_replies) {
+      return NextResponse.json({ error: 'Replies are turned off for this message.' }, { status: 403 })
+    }
     const { error } = await supabase.from('inbox_messages').insert({
       thread_id: threadId, body: text, author_user_id: auth.id, author_is_admin: false,
     })

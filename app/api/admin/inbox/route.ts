@@ -15,8 +15,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/api-auth'
 import { forbidIfNotAdmin } from '@/lib/admin'
-import { sendInboxMessageEmail } from '@/lib/email/inbox-notify'
+import { sendInboxMessageEmail, sendBroadcastEmails } from '@/lib/email/inbox-notify'
 import type { AdminThreadSummary, AdminRecipient } from '@/lib/inbox-admin'
+
+const ADMIN_EMAIL = 'dmeehanj@gmail.com'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -103,6 +105,7 @@ export async function POST(req: NextRequest) {
   const subject = (body.subject || '').toString().trim().slice(0, 200)
   const text = (body.body || '').toString().trim().slice(0, 10000)
   const allowReplies = body.allowReplies !== false // default true
+  const emailEveryone = body.emailEveryone === true // broadcast opt-in
   const targetUserId = (body.targetUserId || '').toString() || null
 
   if (!kind) return NextResponse.json({ error: 'kind must be "broadcast" or "direct".' }, { status: 400 })
@@ -117,7 +120,9 @@ export async function POST(req: NextRequest) {
       type: kind,
       subject,
       target_user_id: kind === 'direct' ? targetUserId : null,
-      allow_replies: kind === 'broadcast' ? allowReplies : true,
+      // Honour the toggle for BOTH kinds now — a direct message can be
+      // one-way (no member reply) too.
+      allow_replies: allowReplies,
     })
     .select('id')
     .single()
@@ -131,14 +136,26 @@ export async function POST(req: NextRequest) {
   })
   if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
 
-  // Direct messages also notify by email. Broadcasts stay in-app.
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || req.headers.get('origin') || ''
+  const appUrl = origin || 'https://creatoroutreach.net'
+
+  // Direct messages notify the one recipient by email.
   if (kind === 'direct' && targetUserId) {
     const { data: users } = await supabase.rpc('admin_user_summary')
     const recipient = ((users ?? []) as Array<{ user_id: string; email: string }>).find(u => u.user_id === targetUserId)
     if (recipient?.email) {
-      const origin = process.env.NEXT_PUBLIC_SITE_URL || req.headers.get('origin') || ''
-      void sendInboxMessageEmail({ to: recipient.email, subject: subject || 'New message', preview: text, appUrl: origin || 'https://creatoroutreach.net' })
+      void sendInboxMessageEmail({ to: recipient.email, subject: subject || 'New message', preview: text, appUrl })
     }
+  }
+
+  // Broadcasts email everyone ONLY when the admin opted in (mass-mail is
+  // a reputation risk, so it's per-broadcast, not automatic).
+  if (kind === 'broadcast' && emailEveryone) {
+    const { data: users } = await supabase.rpc('admin_user_summary')
+    const recipients = ((users ?? []) as Array<{ email: string }>)
+      .map(u => u.email)
+      .filter((e): e is string => !!e && e.toLowerCase() !== ADMIN_EMAIL)
+    void sendBroadcastEmails({ recipients, subject: subject || 'New announcement', preview: text, appUrl })
   }
 
   return NextResponse.json({ ok: true, threadId })

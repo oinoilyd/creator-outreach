@@ -64,6 +64,8 @@ export interface CreateThreadInput {
   body: string
   allowReplies?: boolean
   targetUserId?: string
+  /** Broadcast only: also email every user that an announcement landed. */
+  emailEveryone?: boolean
 }
 
 export async function createAdminThread(

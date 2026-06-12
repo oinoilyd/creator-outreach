@@ -391,7 +391,9 @@ function ThreadView({
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const isClosed = !!detail.closedAt
-  const canReply = (detail.type === 'direct' || detail.allowReplies) && !isClosed
+  // Both broadcasts and direct messages now honour allowReplies — a
+  // direct message can be sent one-way (no member reply).
+  const canReply = detail.allowReplies && !isClosed
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -516,7 +518,9 @@ function ThreadView({
         </div>
       ) : (
         <div className="border-t border-border px-3 py-2.5 text-center">
-          <p className="text-[11px] text-muted-foreground/70">This is an announcement — replies are off.</p>
+          <p className="text-[11px] text-muted-foreground/70">
+            {detail.type === 'broadcast' ? 'This is an announcement — replies are off.' : 'Replies are off for this message.'}
+          </p>
         </div>
       )}
     </>

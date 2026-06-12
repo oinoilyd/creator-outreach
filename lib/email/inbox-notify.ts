@@ -80,3 +80,61 @@ export async function sendInboxMessageEmail(params: InboxNotifyParams): Promise<
     return false
   }
 }
+
+/**
+ * Email every user that a new broadcast/announcement landed in their
+ * inbox. Opt-in per broadcast (admin checks "Email everyone") because
+ * mass mail is a domain-reputation risk. Uses Resend's batch endpoint
+ * (max 100 per call) and chunks beyond that. Fire-and-forget; returns
+ * how many were accepted.
+ */
+export async function sendBroadcastEmails(params: {
+  recipients: string[]
+  subject: string
+  preview: string
+  appUrl: string
+}): Promise<number> {
+  const resendKey = process.env.RESEND_API_KEY
+  if (!resendKey || params.recipients.length === 0) return 0
+
+  const safeSubject = escapeHtml(params.subject || 'New announcement')
+  const safePreview = escapeHtml(params.preview.slice(0, 280))
+  const html = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.04em">Announcement</p>
+      <h2 style="margin:0 0 12px;font-size:18px">${safeSubject}</h2>
+      <div style="white-space:pre-wrap;background:#f7f7f8;border:1px solid #e5e7eb;border-radius:8px;padding:14px;line-height:1.55;color:#111;margin-bottom:24px">${safePreview}</div>
+      <p style="margin:0 0 24px">
+        <a href="${params.appUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600">
+          Open Creator Outreach
+        </a>
+      </p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">
+        You're receiving this because you have a Creator Outreach account.
+      </p>
+    </div>
+  `
+
+  let sent = 0
+  for (let i = 0; i < params.recipients.length; i += 100) {
+    const chunk = params.recipients.slice(i, i + 100)
+    const batch = chunk.map(to => ({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject: `${safeSubject} — Creator Outreach`,
+      html,
+    }))
+    try {
+      const resp = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(batch),
+      })
+      if (resp.ok) sent += chunk.length
+      else console.error('[broadcast-email] batch rejected', resp.status, await resp.text().catch(() => ''))
+    } catch (err) {
+      console.error('[broadcast-email] send failed', err)
+    }
+  }
+  return sent
+}
