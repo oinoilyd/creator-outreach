@@ -14,26 +14,20 @@ export default async function AdminMessagesPage() {
   if (!user || user.email !== ADMIN_EMAIL) notFound()
 
   return (
-    <main className="min-h-screen bg-background text-foreground px-6 py-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Admin · Messages</h1>
-            <p className="text-muted-foreground/80 text-sm mt-1">
-              Broadcast site-wide updates or message users one-to-one. Replies land in their in-app inbox.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/admin" className="text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg px-4 py-2 transition-colors">
-              ← Users
-            </Link>
-            <Link href="/admin/contact" className="text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg px-4 py-2 transition-colors">
-              Inquiries
-            </Link>
-            <ThemeToggle />
-          </div>
+    <main className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+      <header className="shrink-0 h-14 px-4 sm:px-5 border-b border-border flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm shadow-blue-500/30 text-[13px]" aria-hidden>✉</span>
+          <h1 className="text-[15px] font-bold tracking-tight">Messages</h1>
+          <span className="hidden md:inline text-[12px] text-muted-foreground/70">Broadcasts &amp; member conversations</span>
         </div>
-
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Link href="/admin" className="text-[12.5px] text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 transition-colors">← Admin</Link>
+          <Link href="/admin/contact" className="text-[12.5px] text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 transition-colors">Inquiries</Link>
+          <ThemeToggle />
+        </div>
+      </header>
+      <div className="flex-1 min-h-0">
         <AdminMessages />
       </div>
     </main>
