@@ -164,9 +164,13 @@ CREATE POLICY "inbox_reads_self" ON public.inbox_reads FOR ALL USING (
   user_id = auth.uid()
 );
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_threads  TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_messages TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_reads    TO authenticated;
+-- Grant BOTH authenticated AND service_role. Raw-SQL tables in this
+-- project don't auto-grant, and the user-initiated flows (start a
+-- thread, broadcast-reply spin-off) write via the service role, which
+-- otherwise hits "permission denied for table inbox_threads".
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_threads  TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_messages TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inbox_reads    TO authenticated, service_role;
 
 -- ── Unread-count helper ─────────────────────────────────────────────
 -- How many threads visible to the caller have a message they haven't
