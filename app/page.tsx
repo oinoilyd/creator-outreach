@@ -49,6 +49,7 @@ import {
   YOUTUBE_ONLY_COL_IDS, COL_SORT, PLATFORM_AUTOSHOW_COLS,
   PLATFORM_OUTREACH_DEFAULTS, OUTREACH_PLATFORM_AUTOSHOW,
 } from '@/lib/columns'
+import { corpusMentionsProduct } from '@/lib/guidance'
 import { PLATFORM_CONFIGS, PLATFORM_LOCK_ID } from '@/lib/platform'
 import { REGIONS } from '@/lib/regions'
 import { classifySearchInput } from '@/lib/search-classify'
@@ -2454,21 +2455,31 @@ export default function Home() {
       // social profile and runs the shared social-text extractor on
       // them. Only rows still missing IG/X/TikTok/LinkedIn enqueue.
       // Concurrency 8 to be polite to YT's video-list page.
+      //
+      // Phase D (background, "Product" column) — for rows whose text
+      // mentions a sellable product, summarizes WHAT they sell via
+      // /api/enrich/product (one gated + cached Haiku call). Concurrency
+      // 6 — these can make an AI call, so keep the fan-out modest.
       const PHASE_A_CONCURRENCY = 32
       const PHASE_B_CONCURRENCY = 8
       const PHASE_C_CONCURRENCY = 8
+      const PHASE_D_CONCURRENCY = 6
       let phaseAActive = 0
       let phaseBActive = 0
       let phaseCActive = 0
+      let phaseDActive = 0
       const phaseAQueue: number[] = []
       const phaseBQueue: number[] = []
       const phaseCQueue: number[] = []
+      const phaseDQueue: number[] = []
       let phaseACompleted = 0
       let phaseBCompleted = 0
       let phaseCCompleted = 0
+      let phaseDCompleted = 0
       let phaseAStartedCount = 0
       let phaseBStartedCount = 0
       let phaseCStartedCount = 0
+      let phaseDStartedCount = 0
 
       // Throttled flush — coalesce multiple state changes per animation
       // frame so React doesn't re-render N times per second when
@@ -2546,6 +2557,18 @@ export default function Home() {
           if (!row.instagram || !row.twitter || !row.tiktok || !row.linkedin) {
             phaseCQueue.push(idx)
             tryStartPhaseC()
+          }
+          // Chain into Phase D (Product column) when the creator's text
+          // mentions something sellable. Same keyword gate as the
+          // has_product_mention rule — only plausible sellers cost an AI
+          // call; the rest read "—". One-shot per row (productSummary
+          // stays undefined until Phase D writes a verdict).
+          if (row.productSummary === undefined) {
+            const productCorpus = [row.description || '', row.channelName || '', ...(row.videoTitles || [])].join(' ')
+            if (corpusMentionsProduct(productCorpus)) {
+              phaseDQueue.push(idx)
+              tryStartPhaseD()
+            }
           }
         } catch {
           // Don't propagate — the row stays in its current state
@@ -2642,6 +2665,41 @@ export default function Home() {
         }
       }
 
+      async function runPhaseDFor(idx: number) {
+        if (version !== searchVersion.current) return
+        const c = enriched[idx]
+        // Already resolved (cache hit on a prior pass) — skip.
+        if (c.productSummary !== undefined) { phaseDCompleted++; return }
+        try {
+          const r = await fetch('/api/enrich/product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              channelId: c.channelId,
+              name: c.channelName,
+              description: c.description || '',
+              videoTitles: c.videoTitles || [],
+            }),
+          })
+          // Non-OK (eg. rate-limited) — leave undefined so the cell
+          // reads "—"; the server-side cache fills on a later search.
+          if (!r.ok) return
+          const extra = await r.json() as { sells?: boolean; summary?: string }
+          if (version !== searchVersion.current) return
+          const current = enriched[idx]
+          // '' = checked, nothing sellable. Non-empty = the summary.
+          const summary = extra.sells && extra.summary ? extra.summary : ''
+          if (current.productSummary !== summary) {
+            enriched[idx] = { ...current, productSummary: summary }
+            scheduleFlush()
+          }
+        } catch {
+          // Background pass — silent. Row stays "—".
+        } finally {
+          phaseDCompleted++
+        }
+      }
+
       function tryStartPhaseA() {
         while (phaseAActive < PHASE_A_CONCURRENCY && phaseAQueue.length > 0) {
           const idx = phaseAQueue.shift()!
@@ -2672,6 +2730,17 @@ export default function Home() {
           runPhaseCFor(idx).finally(() => {
             phaseCActive--
             tryStartPhaseC()
+          })
+        }
+      }
+      function tryStartPhaseD() {
+        while (phaseDActive < PHASE_D_CONCURRENCY && phaseDQueue.length > 0) {
+          const idx = phaseDQueue.shift()!
+          phaseDActive++
+          phaseDStartedCount++
+          runPhaseDFor(idx).finally(() => {
+            phaseDActive--
+            tryStartPhaseD()
           })
         }
       }
@@ -2848,6 +2917,8 @@ export default function Home() {
       void phaseBStartedCount
       void phaseCStartedCount
       void phaseCCompleted
+      void phaseDStartedCount
+      void phaseDCompleted
       setStatus(`Done — ${enriched.length} creators found.`)
       setEnrichProgress({ current: 0, total: 0 })
       // Phase C may still be running in the background — that's fine,

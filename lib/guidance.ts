@@ -3,6 +3,20 @@ import { parseRelativeDays, parseSubscriberCount } from './format'
 
 export const DEFAULT_GUIDANCE_WEIGHT = 10 // default pts weight for each new criterion
 
+/**
+ * Canonical "does this text mention a sellable product?" keyword set —
+ * the signal behind the has_product_mention guidance rule. Exported so
+ * the Results "Product" column pipeline shares the EXACT same definition:
+ * the client gate (which creators to summarize) and the /api/enrich/product
+ * server gate (don't spend an AI call on creators that mention nothing)
+ * both call this instead of each keeping a drifting copy of the list.
+ */
+const PRODUCT_MENTION_RE = /\b(course|courses|coaching|coach|program|programs|book|books|store|shop|merch|merchandise|product|products|membership|community|consulting|consultant|service|services|brand|sell|selling|offer|template|templates|mentorship|mentor|workshop|workshops|academy|masterclass|training|agency|studio|media|business|entrepreneur|founder|creator economy|digital product|online business|side hustle|passive income|build your|grow your business|ecommerce|e-commerce|dropship)\b/
+
+export function corpusMentionsProduct(corpus: string): boolean {
+  return PRODUCT_MENTION_RE.test((corpus || '').toLowerCase())
+}
+
 export function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
   // c.subscribers is a string and can come back as "10K", "1.2M", or
   // "550 subscribers" depending on the source. Number("10K") is NaN —
@@ -32,8 +46,8 @@ export function evaluateGuidanceRule(rule: GuidanceRule, c: Creator): boolean {
         c.description || '',
         c.channelName || '',
         ...(c.videoTitles || []),
-      ].join(' ').toLowerCase()
-      return /\b(course|courses|coaching|coach|program|programs|book|books|store|shop|merch|merchandise|product|products|membership|community|consulting|consultant|service|services|brand|sell|selling|offer|template|templates|mentorship|mentor|workshop|workshops|academy|masterclass|training|agency|studio|media|business|entrepreneur|founder|creator economy|digital product|online business|side hustle|passive income|build your|grow your business|ecommerce|e-commerce|dropship)\b/.test(corpus)
+      ].join(' ')
+      return corpusMentionsProduct(corpus)
     }
     case 'has_english_description': {
       const corpus = [

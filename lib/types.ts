@@ -22,6 +22,14 @@ export interface Creator {
   videoDates: string[]
   shortDates: string[]
   description: string
+  /** Short AI summary of what this creator SELLS (course, coaching,
+   *  product, etc), shown in the Results "Product" column. Filled in by
+   *  a background enrichment phase (Phase D → /api/enrich/product).
+   *    undefined = not checked yet (gate hasn't run / row not eligible)
+   *    ''        = checked, nothing sellable detected
+   *    non-empty = the summary to display
+   *  Distinct from OutreachEntry.product, which is the user's OWN pitch. */
+  productSummary?: string
   enriching?: boolean
 }
 
@@ -30,6 +38,9 @@ export type SortCol =
   | 'email' | 'website' | 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
   | 'youtube'
   | 'fitScore'
+  // Presence sort: creators with a detected product rank above those
+  // without — surfaces sellable leads when sorting on the column.
+  | 'product'
   // Instagram-API-derived metrics. Sortable columns the user can
   // surface via Customize Columns or auto-shown when filtering by IG.
   | 'igFollowers' | 'igPosts'
@@ -48,6 +59,7 @@ export type ColId =
   | 'email' | 'linkedin' | 'website' | 'instagram' | 'twitter' | 'tiktok'
   | 'youtube'
   | 'fitScore'
+  | 'product'
   | 'igFollowers' | 'igPosts'
 export type ActiveTab = 'results' | 'outreach' | 'dismissed'
 

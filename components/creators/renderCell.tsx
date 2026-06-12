@@ -78,6 +78,17 @@ export function renderCell(
       </td>
     )
     case 'subscribers': return <td key={id} className="px-4 py-3 text-foreground/80">{formatSubscribers(c.subscribers)}</td>
+    // What the creator SELLS — short AI summary (course, product,
+    // service). Filled in by Phase D enrichment; truncated with the full
+    // text on hover. Em-dash when nothing sellable was detected OR while
+    // the background pass is still working (it just appears in place).
+    case 'product': return (
+      <td key={id} className="px-4 py-3">
+        {c.productSummary
+          ? <span className="block max-w-[220px] truncate text-xs text-foreground/80" title={c.productSummary}>{c.productSummary}</span>
+          : <span className="text-muted-foreground/40" title="No product detected from this creator's channel (or still checking).">—</span>}
+      </td>
+    )
     case 'lastVideo': return (
       <td key={id} className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
         {c.videoDates?.[0]

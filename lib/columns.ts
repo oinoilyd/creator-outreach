@@ -193,6 +193,11 @@ export const DEFAULT_COLS: ColConfig[] = [
   { id: 'fitScore',    label: 'Fit Score',   visible: true  },
   { id: 'avgViews',    label: 'Avg Views',   visible: true  },
   { id: 'subscribers', label: 'Subscribers', visible: true  },
+  // What the creator SELLS — short AI summary (course, product, service).
+  // Distinct from the Outreach "Product" column (your own pitch). Fills
+  // in progressively after search via /api/enrich/product; blank when
+  // nothing sellable is detected. Shown on every platform.
+  { id: 'product',     label: 'Product',     visible: true, tooltip: 'What this creator sells — course, product, or service — auto-detected from their channel. Blank when nothing obvious is found.' },
   { id: 'lastVideo',   label: 'Last Video',  visible: true  },
   // Last Short defaults off — YouTube's /shorts tab returns sparse
   // publishedTime data for many channels (especially smaller ones),
@@ -245,5 +250,6 @@ export const COL_SORT: Record<ColId, SortCol> = {
   email: 'email', linkedin: 'linkedin', website: 'website',
   instagram: 'instagram', twitter: 'twitter', tiktok: 'tiktok',
   youtube: 'youtube',
+  product: 'product',
   igFollowers: 'igFollowers', igPosts: 'igPosts',
 }

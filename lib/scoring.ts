@@ -192,6 +192,7 @@ function compareByCol(a: Creator, b: Creator, col: SortCol, weights: ScoreWeight
   if (col === 'instagram')      return presence(!!b.instagram) - presence(!!a.instagram)
   if (col === 'twitter')        return presence(!!b.twitter)   - presence(!!a.twitter)
   if (col === 'tiktok')         return presence(!!b.tiktok)    - presence(!!a.tiktok)
+  if (col === 'product')        return presence(!!b.productSummary) - presence(!!a.productSummary)
   if (col === 'fitScore')       return computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
   if (col === 'avgViews')       return a.avgViews - b.avgViews
   if (col === 'channelName')    return a.channelName.localeCompare(b.channelName)
@@ -208,7 +209,7 @@ function compareByCol(a: Creator, b: Creator, col: SortCol, weights: ScoreWeight
   return 0
 }
 
-const PRESENCE_COLS: ReadonlySet<SortCol> = new Set(['email', 'linkedin', 'website', 'instagram', 'twitter', 'tiktok'])
+const PRESENCE_COLS: ReadonlySet<SortCol> = new Set(['email', 'linkedin', 'website', 'instagram', 'twitter', 'tiktok', 'product'])
 
 /**
  * Multi-column sort. Pass either a single col/dir pair (legacy) or
