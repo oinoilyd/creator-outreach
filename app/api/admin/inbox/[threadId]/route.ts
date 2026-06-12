@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/api-auth'
 import { forbidIfNotAdmin } from '@/lib/admin'
 import { sendInboxMessageEmail } from '@/lib/email/inbox-notify'
+import { isEmailOptedIn } from '@/lib/email/opt-in'
 import type { InboxMessage } from '@/lib/inbox'
 import type { AdminThreadDetail } from '@/lib/inbox-admin'
 
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ threadId: 
     const { data: users } = await supabase.rpc('admin_user_summary')
     const email = ((users ?? []) as Array<{ user_id: string; email: string }>)
       .find(u => u.user_id === thread.target_user_id)?.email
-    if (email) {
+    if (email && (await isEmailOptedIn(thread.target_user_id))) {
       const origin = process.env.NEXT_PUBLIC_SITE_URL || req.headers.get('origin') || ''
       void sendInboxMessageEmail({ to: email, subject: thread.subject || 'New message', preview: text, appUrl: origin || 'https://creatoroutreach.net' })
     }

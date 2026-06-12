@@ -14,9 +14,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Inbox as InboxIcon, X as XIcon, ChevronLeft, Send, Loader2, Megaphone, Trash2, PenSquare } from 'lucide-react'
+import { Inbox as InboxIcon, X as XIcon, ChevronLeft, Send, Loader2, Megaphone, Trash2, PenSquare, Bell, BellOff } from 'lucide-react'
 import {
-  fetchInbox, fetchThread, replyToThread, dismissThread, startThread,
+  fetchInbox, fetchThread, replyToThread, dismissThread, startThread, setEmailPref,
   type InboxThreadSummary, type InboxThreadDetail,
 } from '@/lib/inbox'
 
@@ -35,6 +35,7 @@ export function InboxBell() {
   const [active, setActive] = useState<InboxThreadDetail | null>(null)
   const [loadingThread, setLoadingThread] = useState(false)
   const [composing, setComposing] = useState(false)
+  const [emailOptIn, setEmailOptIn] = useState(true)
   const panelRef = useRef<HTMLDivElement>(null)
   const floatRef = useRef<HTMLDivElement>(null)
   // null = anchored dropdown; {x,y} = floating window the user dragged.
@@ -48,10 +49,18 @@ export function InboxBell() {
       const res = await fetchInbox()
       setThreads(res.threads)
       setUnread(res.unreadCount)
+      setEmailOptIn(res.emailOptIn)
     } finally {
       setLoadingList(false)
     }
   }, [])
+
+  async function handleToggleEmail() {
+    const next = !emailOptIn
+    setEmailOptIn(next) // optimistic
+    const ok = await setEmailPref(next)
+    if (!ok) setEmailOptIn(!next) // revert on failure
+  }
 
   // Initial load + background poll for the unread badge.
   useEffect(() => {
@@ -149,6 +158,8 @@ export function InboxBell() {
       onClose={() => setOpen(false)}
       onDismiss={handleDismiss}
       onCompose={() => setComposing(true)}
+      emailOptIn={emailOptIn}
+      onToggleEmail={handleToggleEmail}
     />
   )
 
@@ -257,7 +268,7 @@ export function InboxBell() {
 // ── Thread list ─────────────────────────────────────────────────────
 
 function ThreadList({
-  threads, loading, onOpen, onClose, onDismiss, onCompose,
+  threads, loading, onOpen, onClose, onDismiss, onCompose, emailOptIn, onToggleEmail,
 }: {
   threads: InboxThreadSummary[]
   loading: boolean
@@ -265,6 +276,8 @@ function ThreadList({
   onClose: () => void
   onDismiss: (id: string) => void
   onCompose: () => void
+  emailOptIn: boolean
+  onToggleEmail: () => void
 }) {
   return (
     <>
@@ -276,6 +289,18 @@ function ThreadList({
           <div className="text-[12.5px] font-semibold text-foreground">Inbox</div>
           <div className="text-[10.5px] text-muted-foreground/75">Updates &amp; messages</div>
         </div>
+        <button
+          type="button"
+          onClick={onToggleEmail}
+          aria-label={emailOptIn ? 'Turn off email notifications' : 'Turn on email notifications'}
+          title={emailOptIn ? 'Emailing you too — click for in-app only' : 'In-app only — click to also get emails'}
+          className={[
+            'p-1 rounded transition-colors',
+            emailOptIn ? 'text-blue-500 hover:bg-blue-500/10' : 'text-muted-foreground/60 hover:text-foreground hover:bg-muted/40',
+          ].join(' ')}
+        >
+          {emailOptIn ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+        </button>
         <button
           type="button"
           onClick={onCompose}

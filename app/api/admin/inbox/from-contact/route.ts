@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/api-auth'
 import { forbidIfNotAdmin } from '@/lib/admin'
 import { sendInboxMessageEmail } from '@/lib/email/inbox-notify'
+import { isEmailOptedIn } from '@/lib/email/opt-in'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -81,7 +82,9 @@ export async function POST(req: NextRequest) {
   await supabase.from('contact_messages').update({ resolved: true }).eq('id', c.id)
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || req.headers.get('origin') || ''
-  void sendInboxMessageEmail({ to: c.email, subject, preview: text, appUrl: origin || 'https://creatoroutreach.net' })
+  if (await isEmailOptedIn(match.user_id)) {
+    void sendInboxMessageEmail({ to: c.email, subject, preview: text, appUrl: origin || 'https://creatoroutreach.net' })
+  }
 
   return NextResponse.json({ ok: true, threadId })
 }

@@ -38,14 +38,26 @@ export interface InboxThreadDetail {
 export interface InboxListResponse {
   unreadCount: number
   threads: InboxThreadSummary[]
+  /** The user's "also email me" preference (default true). */
+  emailOptIn: boolean
 }
 
 // ── Client fetch helpers ────────────────────────────────────────────
 
 export async function fetchInbox(): Promise<InboxListResponse> {
   const res = await fetch('/api/inbox', { cache: 'no-store' })
-  if (!res.ok) return { unreadCount: 0, threads: [] }
+  if (!res.ok) return { unreadCount: 0, threads: [], emailOptIn: true }
   return res.json()
+}
+
+/** User toggles whether inbox messages also email them. */
+export async function setEmailPref(optIn: boolean): Promise<boolean> {
+  const res = await fetch('/api/inbox/email-pref', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ optIn }),
+  }).catch(() => null)
+  return !!res?.ok
 }
 
 export async function fetchThread(threadId: string): Promise<InboxThreadDetail | null> {

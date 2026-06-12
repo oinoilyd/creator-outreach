@@ -18,7 +18,7 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth
   const supabase = await createClient()
 
-  const [threadsRes, readsRes, unreadRes] = await Promise.all([
+  const [threadsRes, readsRes, unreadRes, prefRes] = await Promise.all([
     supabase
       .from('inbox_threads')
       .select('id, type, subject, allow_replies, updated_at, closed_at')
@@ -29,7 +29,9 @@ export async function GET() {
       .select('thread_id, last_read_at, dismissed')
       .eq('user_id', auth.id),
     supabase.rpc('inbox_unread_count'),
+    supabase.from('user_profile').select('email_opt_in').eq('user_id', auth.id).maybeSingle(),
   ])
+  const emailOptIn = (prefRes.data as { email_opt_in?: boolean } | null)?.email_opt_in !== false
 
   const threads = (threadsRes.data ?? []) as Array<{
     id: string; type: 'broadcast' | 'direct'; subject: string; allow_replies: boolean; updated_at: string; closed_at: string | null
@@ -81,5 +83,6 @@ export async function GET() {
   return NextResponse.json({
     unreadCount: typeof unreadRes.data === 'number' ? unreadRes.data : 0,
     threads: summaries.filter(s => !s.dismissed),
+    emailOptIn,
   })
 }

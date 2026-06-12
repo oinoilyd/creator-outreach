@@ -6,6 +6,7 @@ import { CacheStatsPanel, type CacheStats } from '@/components/admin/CacheStatsP
 import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { ErrorInbox } from '@/components/admin/ErrorInbox'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
+import { EmailNotifyToggle } from '@/components/admin/EmailNotifyToggle'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -91,6 +92,7 @@ export default async function AdminPage() {
     terms_privacy_agreed_at: string | null
     terms_privacy_version: string | null
     unlimited_exports: boolean
+    email_opt_in: boolean
   }
   type ExtraRow = {
     user_id: string
@@ -99,6 +101,7 @@ export default async function AdminPage() {
     terms_privacy_agreed_at: string | null
     terms_privacy_version: string | null
     unlimited_exports: boolean | null
+    email_opt_in: boolean | null
   }
   const profileExtraRows = (profileExtrasResult.data as unknown as ExtraRow[] | null) ?? []
   if (profileExtrasResult.error) {
@@ -117,6 +120,7 @@ export default async function AdminPage() {
         terms_privacy_agreed_at: r.terms_privacy_agreed_at ?? null,
         terms_privacy_version: r.terms_privacy_version ?? null,
         unlimited_exports: r.unlimited_exports === true,
+        email_opt_in: r.email_opt_in !== false, // default on
       },
     ]),
   )
@@ -392,10 +396,16 @@ export default async function AdminPage() {
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.outreach_count}</td>
                       <td className="px-4 py-2.5 text-right text-foreground font-mono">{r.dismissed_count}</td>
                       <td className="px-4 py-2.5 text-center">
-                        <UnlimitedExportsToggle
-                          userId={r.user_id}
-                          initial={profileExtras.get(r.user_id)?.unlimited_exports ?? false}
-                        />
+                        <div className="inline-flex flex-col items-center gap-1">
+                          <UnlimitedExportsToggle
+                            userId={r.user_id}
+                            initial={profileExtras.get(r.user_id)?.unlimited_exports ?? false}
+                          />
+                          <EmailNotifyToggle
+                            userId={r.user_id}
+                            initial={profileExtras.get(r.user_id)?.email_opt_in ?? true}
+                          />
+                        </div>
                       </td>
                     </tr>
                   )

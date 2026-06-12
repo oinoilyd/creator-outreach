@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/api-auth'
 import { forbidIfNotAdmin } from '@/lib/admin'
 import { sendInboxMessageEmail, sendBroadcastEmails } from '@/lib/email/inbox-notify'
+import { getEmailOptedOut, isEmailOptedIn } from '@/lib/email/opt-in'
 import type { AdminThreadSummary, AdminRecipient } from '@/lib/inbox-admin'
 
 const ADMIN_EMAIL = 'dmeehanj@gmail.com'
@@ -139,22 +140,25 @@ export async function POST(req: NextRequest) {
   const origin = process.env.NEXT_PUBLIC_SITE_URL || req.headers.get('origin') || ''
   const appUrl = origin || 'https://creatoroutreach.net'
 
-  // Direct messages notify the one recipient by email.
+  // Direct messages notify the one recipient by email — unless they
+  // turned email off (email_opt_in). In-app delivery is unaffected.
   if (kind === 'direct' && targetUserId) {
     const { data: users } = await supabase.rpc('admin_user_summary')
     const recipient = ((users ?? []) as Array<{ user_id: string; email: string }>).find(u => u.user_id === targetUserId)
-    if (recipient?.email) {
+    if (recipient?.email && (await isEmailOptedIn(targetUserId))) {
       void sendInboxMessageEmail({ to: recipient.email, subject: subject || 'New message', preview: text, appUrl })
     }
   }
 
-  // Broadcasts email everyone ONLY when the admin opted in (mass-mail is
-  // a reputation risk, so it's per-broadcast, not automatic).
+  // Broadcasts email everyone with email ON (opt-in per broadcast; mass
+  // mail is a reputation risk so it's never automatic). Recipients with
+  // email_opt_in=false are excluded — they still see it in-app.
   if (kind === 'broadcast' && emailEveryone) {
     const { data: users } = await supabase.rpc('admin_user_summary')
-    const recipients = ((users ?? []) as Array<{ email: string }>)
-      .map(u => u.email)
-      .filter((e): e is string => !!e && e.toLowerCase() !== ADMIN_EMAIL)
+    const all = ((users ?? []) as Array<{ user_id: string; email: string }>)
+      .filter(u => !!u.email && u.email.toLowerCase() !== ADMIN_EMAIL)
+    const optedOut = await getEmailOptedOut(all.map(u => u.user_id))
+    const recipients = all.filter(u => !optedOut.has(u.user_id)).map(u => u.email)
     void sendBroadcastEmails({ recipients, subject: subject || 'New announcement', preview: text, appUrl, allowReplies })
   }
 
