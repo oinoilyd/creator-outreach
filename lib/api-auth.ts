@@ -26,7 +26,10 @@ export async function requireUser() {
 // each one of those internal /api/search calls consumes his hourly
 // quota — meaning a single bulk-seed run locks him out of his own
 // app for ~52 minutes. Dylan 2026-06-09 post-incident.
-const RATE_LIMIT_BYPASS_EMAILS = new Set(['dmeehanj@gmail.com'])
+const RATE_LIMIT_BYPASS_EMAILS = new Set([
+  'dmeehanj@gmail.com',
+  'heydeewakar@gmail.com', // comped demo user (2026-06-12) — remove after demo
+])
 
 // In-memory sliding-window rate limiter. Per-instance state — good enough for
 // abuse protection on AI/scrape endpoints (Anthropic + axios cost). A single

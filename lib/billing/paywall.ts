@@ -20,7 +20,10 @@
  * the bypass list saves anyone (you + Ryan).
  */
 
-const FALLBACK_BYPASS = ['dmeehanj@gmail.com']
+const FALLBACK_BYPASS = [
+  'dmeehanj@gmail.com',
+  'heydeewakar@gmail.com', // comped demo user (2026-06-12) — move to BYPASS_PAYWALL_EMAILS or remove after demo
+]
 
 /** Subscription statuses that grant app access. */
 const LIVE_SUB_STATUSES = new Set(['trialing', 'active', 'past_due', 'unpaid'])
