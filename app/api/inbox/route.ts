@@ -1,9 +1,13 @@
 /**
  * GET /api/inbox — the signed-in user's threads + unread count.
  *
- * Reads through the user's RLS-scoped client, so they only ever see
- * broadcasts + their own direct threads (enforced by migration 0042
- * policies). Unread count comes from the inbox_unread_count() RPC.
+ * Scopes EXPLICITLY to broadcasts + the caller's own direct threads. We
+ * deliberately do NOT lean on RLS alone for the list: the admin's RLS
+ * policy (migration 0042) can read EVERY thread — that's required for the
+ * /admin inbox — so without an explicit filter here the admin's personal
+ * bell would list every user's direct messages. The filter mirrors the
+ * inbox_unread_count() RPC, so the badge and the list always agree.
+ * Unread count comes from that RPC.
  */
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -22,6 +26,10 @@ export async function GET() {
     supabase
       .from('inbox_threads')
       .select('id, type, subject, allow_replies, updated_at, closed_at')
+      // Broadcasts + the caller's OWN direct threads only. Required: the
+      // admin can read all threads under RLS, so this is what keeps the
+      // admin's personal bell from listing every user's DMs.
+      .or(`type.eq.broadcast,target_user_id.eq.${auth.id}`)
       .order('updated_at', { ascending: false })
       .limit(100),
     supabase
