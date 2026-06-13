@@ -7,6 +7,7 @@ import { ConnectionStatusPanel } from '@/components/admin/ConnectionStatusPanel'
 import { ErrorInbox } from '@/components/admin/ErrorInbox'
 import { UnlimitedExportsToggle } from '@/components/admin/UnlimitedExportsToggle'
 import { EmailNotifyToggle } from '@/components/admin/EmailNotifyToggle'
+import { AdminLoadStat } from '@/components/admin/AdminLoadStat'
 import { LocalDateTime } from '@/components/LocalDateTime'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -30,6 +31,7 @@ interface UserRow {
 export const dynamic = 'force-dynamic'
 
 export default async function AdminPage() {
+  const renderStart = Date.now()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.email !== ADMIN_EMAIL) notFound()
@@ -158,6 +160,10 @@ export default async function AdminPage() {
   const onboardedCount = rows.filter(r => r.onboarded).length
   const firstOutreachCount = rows.filter(r => !!r.first_outreach_at).length
 
+  // Server-side data-fetch + render time, surfaced in the admin-only
+  // AdminLoadStat badge so we can localize any "laggy to open" feeling.
+  const serverMs = Date.now() - renderStart
+
   return (
     <main className="min-h-screen bg-background text-foreground px-6 py-8">
       <div className="max-w-7xl mx-auto">
@@ -224,6 +230,7 @@ export default async function AdminPage() {
                 audit dropdown next to Inbound-debug + Test-data. */}
             <AuditMenu />
             <ThemeToggle />
+            <AdminLoadStat serverMs={serverMs} />
           </div>
         </div>
 
