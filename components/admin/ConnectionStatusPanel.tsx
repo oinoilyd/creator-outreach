@@ -109,7 +109,12 @@ function timeAgo(iso: string): string {
 export function ConnectionStatusPanel() {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  // Each check pings an EXTERNAL service (10 of them). Running that on
+  // mount made the admin page laggy to open, so health checks now run
+  // ON DEMAND — the 60s auto-poll only starts once the admin opens the
+  // panel. Dylan 2026-06-12.
+  const [started, setStarted] = useState(false)
   // Tracks the local "tick" so timeAgo() re-renders every 10s without
   // requiring a fresh API fetch.
   const [, setTick] = useState(0)
@@ -132,10 +137,17 @@ export function ConnectionStatusPanel() {
     }
   }, [])
 
+  // Auto-poll ONLY after the admin has opened the panel — never on mount.
   useEffect(() => {
-    void refresh()
+    if (!started) return
     const interval = setInterval(refresh, POLL_INTERVAL_MS)
     return () => clearInterval(interval)
+  }, [started, refresh])
+
+  const run = useCallback(() => {
+    setStarted(true)
+    setLoading(true)
+    void refresh()
   }, [refresh])
 
   // 10s ticker for relative timestamps (timeAgo).
@@ -174,10 +186,7 @@ export function ConnectionStatusPanel() {
         )}
         <button
           type="button"
-          onClick={() => {
-            setLoading(true)
-            void refresh()
-          }}
+          onClick={run}
           disabled={loading}
           className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
         >
@@ -195,12 +204,20 @@ export function ConnectionStatusPanel() {
           >
             <path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5" />
           </svg>
-          {loading ? 'Checking…' : 'Refresh now'}
+          {loading ? 'Checking…' : started ? 'Refresh now' : 'Check connections'}
         </button>
       </div>
 
       {/* Body */}
       <div className="divide-y divide-border">
+        {!started && !data && !error && (
+          <div className="px-4 py-6 text-center text-[13px] text-muted-foreground">
+            Health checks run on demand to keep this page fast.{' '}
+            <button type="button" onClick={run} className="text-foreground underline underline-offset-2 hover:opacity-80">
+              Check connections
+            </button>
+          </div>
+        )}
         {error && (
           <div className="px-4 py-3 text-[13px] text-rose-700 dark:text-rose-300 bg-rose-500/10">
             Failed to fetch status: {error}

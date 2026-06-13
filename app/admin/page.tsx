@@ -56,11 +56,17 @@ export default async function AdminPage() {
     // was RLS-filtered to admin's own row, hiding Ryan's data. Backed
     // by migration 0038 (Dylan 2026-06-08).
     supabase.rpc('admin_user_profile_extras'),
-    supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }),
-    supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }).not('email', 'is', null),
-    supabase.from('creator_enrichment_latest').select('id', { count: 'exact', head: true }).eq('email_bounced', true),
-    supabase.from('creator_enrichment').select('id', { count: 'exact', head: true }).gte('fetched_at', now7),
-    supabase.from('creator_enrichment').select('id', { count: 'exact', head: true }).gte('fetched_at', now24),
+    // Cache-stats counts use `estimated`, NOT `exact`. creator_enrichment
+    // is append-only and grows every search; `_latest` is a DISTINCT ON
+    // VIEW over it. An exact count forces Postgres to materialize the
+    // whole distinct set / scan the table on EVERY admin page open — that
+    // was the lag. `estimated` returns the planner's row estimate (near
+    // instant) and is plenty accurate for a dashboard tile. Dylan 2026-06-12.
+    supabase.from('creator_enrichment_latest').select('id', { count: 'estimated', head: true }),
+    supabase.from('creator_enrichment_latest').select('id', { count: 'estimated', head: true }).not('email', 'is', null),
+    supabase.from('creator_enrichment_latest').select('id', { count: 'estimated', head: true }).eq('email_bounced', true),
+    supabase.from('creator_enrichment').select('id', { count: 'estimated', head: true }).gte('fetched_at', now7),
+    supabase.from('creator_enrichment').select('id', { count: 'estimated', head: true }).gte('fetched_at', now24),
   ])
   const { data, error } = summaryResult
   const rows = (data || []) as UserRow[]
