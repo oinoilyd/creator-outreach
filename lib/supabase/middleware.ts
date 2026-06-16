@@ -25,6 +25,13 @@ const PUBLIC_PATHS = [
   '/terms', '/privacy', '/refunds', '/cookies', '/support',
   '/security', '/subprocessors',
   '/unsubscribe',
+  // The dynamically-generated link-share card. Unlike /favicon.ico,
+  // /icon.svg, /apple-icon.png (all excluded by the matcher because they
+  // have a file extension), /opengraph-image has NO extension — so the
+  // matcher catches it and, without this, auth-bounces the unfurler bot
+  // (Slack / iMessage / Twitter / LinkedIn) to /auth/signin, leaving link
+  // previews with no branded card. Must stay public. Dylan 2026-06-12.
+  '/opengraph-image',
 ]
 
 // Paths an authenticated-but-unsubscribed user is allowed to reach.
