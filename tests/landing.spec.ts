@@ -50,11 +50,14 @@ test.describe('Landing page', () => {
     await expect(page.getByText(/04\s*\/\s*follow-ups/i)).toBeVisible()
   })
 
-  test('Pricing section shows $0 free tier', async ({ page }) => {
+  test('Pricing section shows paid plans with a free trial', async ({ page }) => {
     const pricing = page.locator('#pricing')
     await expect(pricing).toBeVisible()
-    await expect(pricing.getByText('$0')).toBeVisible()
-    await expect(pricing.getByText(/beta/i).first()).toBeVisible()
+    // Resilient to exact price/plan copy (it churns — was a $0 beta tier,
+    // now $50/mo + $500/yr): assert a dollar amount and the free-trial
+    // hook are present, not a specific number or word.
+    await expect(pricing.getByText(/\$\d/).first()).toBeVisible()
+    await expect(pricing.getByText(/free trial/i).first()).toBeVisible()
   })
 
   test('Why-this-exists section present with 3 visual cards', async ({ page }) => {
@@ -87,9 +90,11 @@ test.describe('Landing page', () => {
     const hamburger = page.getByRole('button', { name: 'Open menu' })
     await expect(hamburger).toBeVisible()
     await hamburger.click()
-    // Menu should now contain at least one utility link.
+    // Menu should now contain utility links. Assert a stable item by text
+    // (menu labels change — this used to look for "talk to founder", now
+    // it's "Contact us"/"Request a demo") rather than one exact label.
     await expect(page.getByRole('menu')).toBeVisible()
-    await expect(page.getByRole('menu').getByRole('link', { name: /talk to founder/i })).toBeVisible()
+    await expect(page.getByRole('menu').getByText(/pricing/i).first()).toBeVisible()
   })
 
   test('theme toggle is visible and switches modes', async ({ page }) => {
