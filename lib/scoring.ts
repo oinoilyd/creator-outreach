@@ -197,7 +197,7 @@ function compareByCol(a: Creator, b: Creator, col: SortCol, weights: ScoreWeight
   if (col === 'product')        return presence(!!a.productSummary) - presence(!!b.productSummary)
   if (col === 'fitScore')       return computeFitScore(a, weights, guidanceEntries) - computeFitScore(b, weights, guidanceEntries)
   if (col === 'avgViews')       return a.avgViews - b.avgViews
-  if (col === 'channelName')    return a.channelName.localeCompare(b.channelName)
+  if (col === 'channelName')    return (a.channelName ?? '').localeCompare(b.channelName ?? '')
   if (col === 'subscribers')    return (parseSubscriberCount(a.subscribers) ?? 0) - (parseSubscriberCount(b.subscribers) ?? 0)
   if (col === 'lastVideo' || col === 'lastShort') {
     const dates = col === 'lastVideo' ? [a.videoDates?.[0] || '', b.videoDates?.[0] || ''] : [a.shortDates?.[0] || '', b.shortDates?.[0] || '']
@@ -264,6 +264,6 @@ export function sortCreators(
     }
 
     // Fully tied — final stable subsort by channel name.
-    return a.channelName.localeCompare(b.channelName)
+    return (a.channelName ?? '').localeCompare(b.channelName ?? '')
   })
 }
