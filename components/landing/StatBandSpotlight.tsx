@@ -356,6 +356,14 @@ export function StatBandSpotlight() {
  * the active beam, score subtitle, and Custom dot all match.
  * `activeDimension` highlights its beam-line.
  */
+// Snap a cos/sin-derived coordinate to 2 decimals. Math.cos/Math.sin are
+// NOT bit-reproducible across JS engines (Node SSR vs the browser), so raw
+// trig results stringify differently in SVG attributes (cx/cy/x1/…) and
+// trip React's hydration check — the same class of bug PlatformRain had.
+// Rounding collapses the sub-pixel divergence to one identical string; the
+// 2-decimal grid (≈0.012px on this 320-unit viewBox) is visually lossless.
+const snap = (n: number) => Math.round(n * 100) / 100
+
 function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
   // 12 twinkling particles for richer ambience.
   const particles = [
@@ -510,8 +518,8 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
       <svg viewBox="0 0 320 320" className="absolute inset-0 w-full h-full motion-reduce:hidden" aria-hidden>
         {particles.map((p, i) => {
           const rad = (p.angle * Math.PI) / 180
-          const cx = 160 + Math.cos(rad) * p.r
-          const cy = 160 + Math.sin(rad) * p.r
+          const cx = snap(160 + Math.cos(rad) * p.r)
+          const cy = snap(160 + Math.sin(rad) * p.r)
           return (
             <circle
               key={i}
@@ -571,10 +579,10 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         {/* TICK MARKS — 12 around inner ring */}
         {ticks.map(angle => {
           const rad = (angle * Math.PI) / 180
-          const x1 = 160 + Math.cos(rad) * 75
-          const y1 = 160 + Math.sin(rad) * 75
-          const x2 = 160 + Math.cos(rad) * 80
-          const y2 = 160 + Math.sin(rad) * 80
+          const x1 = snap(160 + Math.cos(rad) * 75)
+          const y1 = snap(160 + Math.sin(rad) * 75)
+          const x2 = snap(160 + Math.cos(rad) * 80)
+          const y2 = snap(160 + Math.sin(rad) * 80)
           return (
             <line
               key={angle}
@@ -601,10 +609,10 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
           const rad = (angle * Math.PI) / 180
           const r1 = 80 // beam start (just outside inner ring)
           const r2 = 105 // beam end (just inside dot)
-          const x1 = 160 + Math.cos(rad) * r1
-          const y1 = 160 + Math.sin(rad) * r1
-          const x2 = 160 + Math.cos(rad) * r2
-          const y2 = 160 + Math.sin(rad) * r2
+          const x1 = snap(160 + Math.cos(rad) * r1)
+          const y1 = snap(160 + Math.sin(rad) * r1)
+          const x2 = snap(160 + Math.cos(rad) * r2)
+          const y2 = snap(160 + Math.sin(rad) * r2)
           return (
             <line
               key={`beam-${label}`}
@@ -665,11 +673,11 @@ function FitScoreOrbital({ score, accent }: { score: number; accent: string }) {
         ].map(({ angle, label }) => {
           const rad = (angle * Math.PI) / 180
           const r = 110
-          const cx = 160 + Math.cos(rad) * r
-          const cy = 160 + Math.sin(rad) * r
+          const cx = snap(160 + Math.cos(rad) * r)
+          const cy = snap(160 + Math.sin(rad) * r)
           const lr = 138
-          const lx = 160 + Math.cos(rad) * lr
-          const ly = 160 + Math.sin(rad) * lr
+          const lx = snap(160 + Math.cos(rad) * lr)
+          const ly = snap(160 + Math.sin(rad) * lr)
           const isCustom = label === 'Custom'
           return (
             <g key={label}>
