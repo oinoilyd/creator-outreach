@@ -20,7 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { clampString } from '@/lib/security'
-import { requireUser, rateLimit } from '@/lib/api-auth'
+import { requireUser, rateLimitRedis } from '@/lib/api-auth'
 import { createClient } from '@/lib/supabase/server'
 
 const client = new Anthropic({ apiKey: process.env.AI_Score_Key })
@@ -62,7 +62,10 @@ export async function POST(req: NextRequest) {
   // 20 rewrites/hour/user is plenty — typical use is 1-3 per send.
   // Heavier than guidance interpretation (60/hr) because each call
   // is bigger context + more tokens.
-  const limited = rateLimit(user.id, 'rewrite-outreach', 20, user.email)
+  // Redis-backed so the cap holds across warm lambdas — the in-memory
+  // limiter let a user multiply 20/hr of Anthropic-token spend by the
+  // number of warm instances. (Audit SEC-H1.)
+  const limited = await rateLimitRedis(user.id, 'rewrite-outreach', 20, user.email)
   if (limited) return limited
 
   let body: RewriteRequestBody

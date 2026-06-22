@@ -30,7 +30,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { requireUser, rateLimit } from '@/lib/api-auth'
+import { requireUser, rateLimitRedis } from '@/lib/api-auth'
 import { createClient } from '@/lib/supabase/server'
 import { sendEmail, UnipileError } from '@/lib/unipile'
 import { recipientIssue } from '@/lib/format'
@@ -64,7 +64,10 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const user = auth
 
-  const limited = rateLimit(user.id, 'unipile-send', 60, user.email)
+  // Redis-backed so the cap holds across all warm Vercel lambdas — the
+  // in-memory limiter multiplied the effective limit by instance count,
+  // letting a user blow past 60/hr of paid Unipile sends. (Audit SEC-H1.)
+  const limited = await rateLimitRedis(user.id, 'unipile-send', 60, user.email)
   if (limited) return limited
 
   let body: SendRequestBody
