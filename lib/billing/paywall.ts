@@ -20,11 +20,12 @@
  * the bypass list saves anyone (you + Ryan).
  */
 
-// Owner only — intentional permanent bypass. Comp anyone else via the
-// BYPASS_PAYWALL_EMAILS env var, never by hardcoding here (a hardcoded
-// comp = a real account with permanent free access shipped in source).
+// Permanent paywall bypass: the owner + the comped demo account (Dylan
+// wants dewalker hardcoded to never hit the paywall). Comp anyone ELSE via
+// the BYPASS_PAYWALL_EMAILS env var rather than adding more emails here.
 const FALLBACK_BYPASS = [
   'dmeehanj@gmail.com',
+  'heydeewakar@gmail.com', // comped demo — hardcoded paywall pass per Dylan
 ]
 
 /** Subscription statuses that grant app access. */
