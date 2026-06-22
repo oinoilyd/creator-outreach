@@ -158,6 +158,21 @@ import {
   nextFollowUpDays,
 } from '@/lib/outreach'
 
+/**
+ * Turn a raw search/SSE error into a clean, human message for a toast —
+ * instead of dumping e.g. `SSE request failed (429): {"error":"Rate limit
+ * exceeded. Try again in 12 min."}` as faint gray status text. (Audit P0.)
+ */
+function friendlySearchError(raw: string): string {
+  const r = (raw || '').toString()
+  const jsonMatch = r.match(/"error"\s*:\s*"([^"]+)"/)
+  if (jsonMatch) return jsonMatch[1]
+  if (/\b429\b|rate limit/i.test(r)) return "You've hit the search limit for now — give it a few minutes and try again."
+  if (/\b401\b|unauthor/i.test(r)) return 'Your session expired — refresh the page and sign in again.'
+  if (/network|failed to fetch|timeout|ENOTFOUND|ECONN/i.test(r)) return 'Network hiccup — check your connection and try the search again.'
+  return 'Search failed — please try again in a moment.'
+}
+
 export default function Home() {
   const [keyword, setKeyword] = useState('')
   // Per-region cap. Bumped 100 → 175 (2026-05-12) to pair with the AI
@@ -362,6 +377,29 @@ export default function Home() {
 
     return () => {
       cancelled = true
+    }
+  }, [])
+
+  // Stripe SUBSCRIPTION Checkout return — confirm the outcome to the user.
+  // success_url=/?stripe=success, cancel_url=/pricing?stripe=canceled.
+  // (The export-credit flow has its own ?export_fulfilled handler above;
+  // the subscription return previously landed silently. Audit P0.)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const stripe = params.get('stripe')
+    if (stripe !== 'success' && stripe !== 'canceled') return
+    // Strip the param so a refresh / shared link doesn't replay the toast.
+    window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+    if (stripe === 'success') {
+      toast.success("You're all set — welcome to Creator Outreach Pro! 🎉", {
+        description: 'Your subscription is active. It can take a few seconds to reflect — refresh if the paywall lingers.',
+        duration: 8000,
+      })
+    } else {
+      toast('Checkout canceled — no charge was made.', {
+        description: 'You can upgrade any time from the menu.',
+      })
     }
   }, [])
 
@@ -1496,6 +1534,12 @@ export default function Home() {
           if (!profileRow.onboarded) {
             setShowOnboarding(true)
           }
+        } else {
+          // Profile row couldn't be loaded or created (the defensive insert
+          // above failed) — still show onboarding so the user sets a sender
+          // name instead of silently landing with a blank "from" on their
+          // outreach emails. (Audit P1.)
+          setShowOnboarding(true)
         }
       }
 
@@ -2833,12 +2877,19 @@ export default function Home() {
         )
       } catch (e) {
         if (version === searchVersion.current) {
-          setStatus(`Error: ${(e as Error).message}`)
+          const m = friendlySearchError((e as Error).message)
+          toast.error(m)
+          setStatus(m)
         }
         return
       }
       if (version !== searchVersion.current) return
-      if (streamError) { setStatus(`Error: ${streamError}`); return }
+      if (streamError) {
+        const m = friendlySearchError(streamError)
+        toast.error(m)
+        setStatus(m)
+        return
+      }
 
       // Handle-hint narrowing — applied AFTER the stream completes so
       // we have the full set to filter against. Drops any rows that
@@ -2877,7 +2928,7 @@ export default function Home() {
       flushVisible()
       setEnrichProgress({ current: phaseACompleted, total: enriched.length })
       if (enriched.length === 0) {
-        setStatus('No creators found.')
+        setStatus('No creators found. Try a broader keyword, a different platform, or clearing any active filters.')
         return
       }
       setStatus(`Found ${enriched.length} creators. Resolving handles ${phaseACompleted}/${enriched.length}…`)
@@ -2931,7 +2982,9 @@ export default function Home() {
       // new handles update rows in place.
     } catch (err: any) {
       if (version === searchVersion.current) {
-        setStatus(`Error: ${err.message}`)
+        const m = friendlySearchError(err?.message || String(err))
+        toast.error(m)
+        setStatus(m)
       }
     } finally {
       // Belt-and-suspenders: ALWAYS clear loading if we're still the
