@@ -56,8 +56,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid json body' }, { status: 400 })
   }
   const priceId = (body.priceId || '').trim()
-  if (!priceId || !priceId.startsWith('price_')) {
-    return NextResponse.json({ error: 'priceId required (price_…)' }, { status: 400 })
+  // Whitelist to our two known subscription prices. A bare `startsWith
+  // ('price_')` let a caller POST ANY price on the Stripe account (a
+  // cheaper plan, a test-mode price) and check out at the wrong amount.
+  // (Audit P0, 2026-06-22.)
+  const ALLOWED_PRICE_IDS = new Set(
+    [
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY,
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_ANNUAL,
+    ].filter((p): p is string => !!p),
+  )
+  if (!priceId || !ALLOWED_PRICE_IDS.has(priceId)) {
+    return NextResponse.json({ error: 'invalid priceId' }, { status: 400 })
   }
   // Optional promotion code — user-facing alias of a Stripe coupon
   // (e.g. "VIPOUTREACH"). Validated against Stripe BEFORE we create
@@ -138,12 +148,11 @@ export async function POST(req: NextRequest) {
     console.error('[stripe/checkout] prior-subscription lookup failed; granting trial by default', e)
   }
 
-  // Build the success/cancel URLs from the incoming request origin so
-  // this works on prod, preview deploys, and localhost without env-
-  // var gymnastics.
-  const origin =
-    req.headers.get('origin') ||
-    `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  // Build the success/cancel URLs from the request's OWN host (set by the
+  // platform), NOT the client-supplied Origin header — trusting that
+  // header let a caller point the post-checkout redirect off-site. This
+  // still works on prod, preview deploys, and localhost. (Audit, 2026-06-22.)
+  const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
   // Resolve promo code → Stripe promotion_code id, if user supplied
   // one in the body. Stripe's allow_promotion_codes:true also surfaces

@@ -66,9 +66,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No subscription' }, { status: 400 })
   }
 
-  const origin =
-    req.headers.get('origin') ||
-    `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  // Platform-set host, not the spoofable client Origin header (audit, 2026-06-22).
+  const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
   // return_url points at /billing/sync (not /) so we run an explicit
   // Stripe-to-Supabase sync on portal exit. This closes the gap when
