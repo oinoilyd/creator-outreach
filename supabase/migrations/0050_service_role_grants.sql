@@ -22,18 +22,31 @@
 -- GRANTs are idempotent — re-running is harmless, and if service_role
 -- already has access in this project these are no-ops.
 
--- Stripe webhook idempotency ledger (id UUID — no backing sequence).
-GRANT SELECT, INSERT, UPDATE ON public.stripe_events TO service_role;
+-- Guarded with to_regclass so a table that isn't present in a given
+-- database is skipped instead of erroring the whole block. Notably
+-- creator_ig_metrics (0010) was never applied to prod — IG metrics run
+-- off the Redis cache there, so that Postgres table is legitimately
+-- absent. GRANT runs fine inside a plpgsql DO block.
+DO $$
+BEGIN
+  -- Stripe webhook idempotency ledger (id UUID — no backing sequence).
+  IF to_regclass('public.stripe_events') IS NOT NULL THEN
+    GRANT SELECT, INSERT, UPDATE ON public.stripe_events TO service_role;
+  END IF;
 
--- Instagram metrics cache (id BIGSERIAL — grant the backing sequence so
--- INSERTs can draw the next id).
-GRANT SELECT, INSERT, UPDATE ON public.creator_ig_metrics TO service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.creator_ig_metrics_id_seq TO service_role;
+  -- Instagram metrics cache (id BIGSERIAL — grant the backing sequence too).
+  IF to_regclass('public.creator_ig_metrics') IS NOT NULL THEN
+    GRANT SELECT, INSERT, UPDATE ON public.creator_ig_metrics TO service_role;
+    GRANT USAGE, SELECT ON SEQUENCE public.creator_ig_metrics_id_seq TO service_role;
+  END IF;
 
--- Outreach deletion audit log (log_id BIGSERIAL). The BEFORE DELETE
--- trigger INSERTs here; the admin-only read policy needs `authenticated`
--- to hold table SELECT (RLS gates WHICH rows, the GRANT gates access at
--- all — without it even the admin gets "permission denied").
-GRANT SELECT, INSERT ON public.outreach_entries_deletion_log TO service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.outreach_entries_deletion_log_log_id_seq TO service_role;
-GRANT SELECT ON public.outreach_entries_deletion_log TO authenticated;
+  -- Outreach deletion audit log (log_id BIGSERIAL). The BEFORE DELETE
+  -- trigger INSERTs here; the admin-only read policy needs `authenticated`
+  -- to hold table SELECT (RLS gates WHICH rows, the GRANT gates access at
+  -- all — without it even the admin gets "permission denied").
+  IF to_regclass('public.outreach_entries_deletion_log') IS NOT NULL THEN
+    GRANT SELECT, INSERT ON public.outreach_entries_deletion_log TO service_role;
+    GRANT USAGE, SELECT ON SEQUENCE public.outreach_entries_deletion_log_log_id_seq TO service_role;
+    GRANT SELECT ON public.outreach_entries_deletion_log TO authenticated;
+  END IF;
+END $$;
