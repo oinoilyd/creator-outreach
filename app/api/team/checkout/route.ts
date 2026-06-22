@@ -148,9 +148,10 @@ export async function POST(req: NextRequest) {
     console.error('[team/checkout] prior-subscription lookup failed; granting trial by default', e)
   }
 
-  const origin =
-    req.headers.get('origin') ||
-    `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  // Origin from the request URL ONLY — never the client-controlled Origin
+  // header (attacker-settable → phishing-grade redirect off a legit app
+  // URL). Matches stripe/checkout + stripe/portal. (Audit BILL-M1.)
+  const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',

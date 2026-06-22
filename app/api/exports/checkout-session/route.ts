@@ -87,9 +87,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const origin =
-    req.headers.get('origin') ||
-    `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  // Origin from the request URL ONLY — never the client-controlled Origin
+  // header, which an attacker can set to point the Stripe success/cancel
+  // URLs at their own domain (phishing-grade redirect off a legit app URL).
+  // Matches stripe/checkout + stripe/portal. (Audit BILL-M1.)
+  const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',

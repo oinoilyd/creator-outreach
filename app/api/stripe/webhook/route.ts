@@ -44,6 +44,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe/client'
+import { syncTeamSeatQuantity } from '@/lib/stripe/team-pricing'
+import { extraSeatsQuantity } from '@/lib/team'
 import type Stripe from 'stripe'
 
 export const runtime = 'nodejs'
@@ -588,15 +590,42 @@ async function syncTeamSubscription(
   sb: ReturnType<typeof getServiceClient> extends infer T ? Exclude<T, null> : never,
   sub: Stripe.Subscription,
 ): Promise<void> {
-  const { error } = await sb
+  const { data: orgRow, error } = await sb
     .from('organizations')
     .update({
       subscription_status: sub.status,
       subscription_current_period_end: periodEndIso(sub),
     })
     .eq('stripe_subscription_id', sub.id)
+    .select('id')
+    .maybeSingle()
   if (error) {
     console.error('[stripe/webhook] team sub sync failed', { subId: sub.id, error: error.message })
+    return
+  }
+
+  // Self-heal seat quantity from the CURRENT member count on every team
+  // subscription event (including the monthly customer.subscription.updated
+  // renewal). invite-accept syncs seats inline, but that call is best-effort
+  // — if it failed (Stripe timeout/5xx) the extra seat was never billed and
+  // nothing repaired it, a silent permanent revenue leak. Reconciling here
+  // closes the gap within one billing cycle. syncTeamSeatQuantity is
+  // idempotent (no-ops when already at target), so this converges and can't
+  // loop. (Audit BILL-H1.)
+  if (orgRow?.id) {
+    const { count, error: countErr } = await sb
+      .from('organization_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgRow.id)
+    if (countErr) {
+      console.error('[stripe/webhook] team seat reconcile — member count failed', { subId: sub.id, error: countErr.message })
+      return
+    }
+    try {
+      await syncTeamSeatQuantity(sub.id, extraSeatsQuantity(count ?? 0))
+    } catch (e) {
+      console.error('[stripe/webhook] team seat reconcile failed', { subId: sub.id, error: (e as Error).message })
+    }
   }
 }
 

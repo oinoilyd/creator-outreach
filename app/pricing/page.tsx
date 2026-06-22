@@ -19,10 +19,12 @@
  */
 
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { PricingCheckoutButton } from '@/components/pricing/PricingCheckoutButton'
+import { StripeReturnToast } from '@/components/pricing/StripeReturnToast'
 import {
   PromoCodeApplier,
   PromoCodeProvider,
@@ -144,6 +146,12 @@ export default async function PricingPage({
 
   return (
     <main className="min-h-screen bg-white dark:bg-[#0B1020] text-[#0F1733] dark:text-white">
+      {/* Toasts "no charge was made" when returning from a canceled
+          Stripe Checkout (?stripe=canceled). Suspense-wrapped because it
+          reads useSearchParams. */}
+      <Suspense fallback={null}>
+        <StripeReturnToast />
+      </Suspense>
       {/* Lightweight top bar — brand mark + escape hatch. Brand mark MUST
           match LandingTopNav.tsx and AuthShell.tsx — purple→blue gradient
           tile + 16px wordmark.
