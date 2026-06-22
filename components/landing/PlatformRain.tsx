@@ -48,13 +48,26 @@ const DROPS_PER_PLATFORM: Record<(typeof PLATFORM_MARKS)[number]['name'], number
   LinkedIn: 4,
 }
 
-// Deterministic pseudo-random helpers — same input always returns
-// the same output, so SSR and client agree. Avoids hydration mismatch
-// warnings that Math.random() would cause.
+// Deterministic pseudo-random helper — same input always returns the
+// same output, so the SSR markup matches the client markup.
+//
+// The previous implementation used Math.sin(), which LOOKS deterministic
+// but isn't bit-reproducible across JS engines: transcendental functions
+// can differ in their low-order bits between the SSR runtime (Node) and
+// the browser. That produced e.g. server `left: "34.0572%"` vs client
+// `left: "34.05721816935693%"` — a React hydration mismatch on every
+// auth page. This mulberry32-style generator uses only integer bit-ops
+// plus a final 2^32 divide, all of which ARE bit-identical across
+// engines; we also round the result so the stringified values can't
+// diverge. Nothing here depends on cryptographic randomness.
 function pseudoRandom(seed: number, mod: number): number {
-  // Simple LCG-style hash. Good enough for visual variety; nothing
-  // depends on cryptographic randomness here.
-  return Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % mod
+  let t = (seed + 0x6d2b79f5) | 0
+  t = Math.imul(t ^ (t >>> 15), t | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  const unit = ((t ^ (t >>> 14)) >>> 0) / 4294967296 // [0, 1)
+  // Round to 4 decimals — keeps inline-style strings short and collapses
+  // any theoretical divergence to a single identical value.
+  return Math.round(unit * mod * 10000) / 10000
 }
 
 interface Drop {
