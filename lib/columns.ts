@@ -233,15 +233,17 @@ export const DEFAULT_COLS: ColConfig[] = [
 // width is a compile error (same guard as COL_SORT). Product is wide on
 // purpose: its summary text wraps within the column.
 export const DEFAULT_COL_WIDTH: Record<ColId, number> = {
-  // Sized so the header label + grip + sort arrow + resize handle fit
-  // without clipping at the th's px-4 padding. The table scrolls in its
-  // overflow-x-auto wrapper when many columns are shown — expected for a
-  // resizable data grid.
-  email: 210, fitScore: 132, avgViews: 122, subscribers: 126,
+  // Sized so the header (label + grip + sort arrow + resize handle ≈ 70px
+  // of chrome at the th's px-4 padding) fits without clipping. Headers are
+  // overflow-clipped in CreatorTable, so a too-narrow column truncates
+  // cleanly instead of spilling into its neighbour, and the table is sized
+  // to the SUM of these (not 100%) so there are no internal gaps — it
+  // scrolls in its overflow-x-auto wrapper when wider than the viewport.
+  email: 200, fitScore: 154, avgViews: 134, subscribers: 150,
   product: 240,
-  lastVideo: 126, lastShort: 126,
-  instagram: 136, twitter: 120, linkedin: 126, youtube: 120, website: 108,
-  igFollowers: 130, igPosts: 120, tiktok: 120,
+  lastVideo: 140, lastShort: 140,
+  instagram: 142, twitter: 116, linkedin: 132, youtube: 130, website: 124,
+  igFollowers: 156, igPosts: 126, tiktok: 118,
 }
 
 // Fixed widths for the three leading columns that aren't part of

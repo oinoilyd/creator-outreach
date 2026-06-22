@@ -69,7 +69,10 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
     const onMove = (ev: MouseEvent) => {
       if (!resizing.current) return
       const { id, startX, startW } = resizing.current
-      setWidths(prev => ({ ...prev, [id]: Math.max(60, startW + ev.clientX - startX) }))
+      // Clamp resize: floor so a column can't be dragged so narrow its
+      // header collides with the next (overflow-hidden then clips, not
+      // overlaps); ceiling so one column can't be dragged absurdly wide.
+      setWidths(prev => ({ ...prev, [id]: Math.min(700, Math.max(80, startW + ev.clientX - startX)) }))
     }
     const onUp = () => { resizing.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
@@ -125,7 +128,7 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
 
   return (
     <div data-tour-id="results-table" className="overflow-x-auto overscroll-x-contain rounded-lg border border-border">
-      <table className="text-sm table-fixed" style={{ width: '100%', minWidth: totalWidth }}>
+      <table className="text-sm table-fixed" style={{ width: totalWidth }}>
         <thead className="bg-card/95 backdrop-blur-md text-foreground/80 border-b border-border">
           <tr>
             <th style={{ width: RESULTS_LEADING_WIDTHS.dismiss }} className="px-2 py-3 text-center" title="Dismiss — hide this creator from results">
@@ -208,7 +211,7 @@ export function CreatorTable({ creators, outreachIds, dismissedIds, onAddToOutre
                       y: e.clientY,
                     })
                   }}
-                  className={`relative text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-foreground' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
+                  className={`relative overflow-hidden text-left px-4 py-3 select-none whitespace-nowrap transition-colors ${sc ? 'cursor-grab hover:text-foreground' : ''} ${isOver ? 'border-l-2 border-blue-400 bg-muted' : ''}`}
                 >
                   <span className="mr-1 text-muted-foreground/70 text-xs">⠿</span>
                   {col.label}
