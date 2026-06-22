@@ -20,9 +20,11 @@
  * the bypass list saves anyone (you + Ryan).
  */
 
+// Owner only — intentional permanent bypass. Comp anyone else via the
+// BYPASS_PAYWALL_EMAILS env var, never by hardcoding here (a hardcoded
+// comp = a real account with permanent free access shipped in source).
 const FALLBACK_BYPASS = [
   'dmeehanj@gmail.com',
-  'heydeewakar@gmail.com', // comped demo user (2026-06-12) — move to BYPASS_PAYWALL_EMAILS or remove after demo
 ]
 
 /** Subscription statuses that grant app access. */
