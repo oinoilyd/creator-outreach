@@ -8,9 +8,11 @@
 // failed to render.
 export default function GlobalError({
   error,
-  reset,
 }: {
   error: Error & { digest?: string }
+  // `reset` is intentionally unused: it re-renders the SAME crashed root
+  // layout, which almost always re-throws. A hard reload is what actually
+  // recovers here, so the button below calls window.location.reload().
   reset: () => void
 }) {
   const gradient = 'linear-gradient(135deg, #5b21b6, #2563eb)'
@@ -53,7 +55,7 @@ export default function GlobalError({
           Creator Outreach hit an unexpected error. Reloading usually fixes it. If it persists, email support@creatoroutreach.net.
         </p>
         <button
-          onClick={reset}
+          onClick={() => window.location.reload()}
           style={{
             marginTop: '0.5rem',
             padding: '0.625rem 1.25rem',

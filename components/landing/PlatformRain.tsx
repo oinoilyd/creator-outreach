@@ -65,9 +65,11 @@ function pseudoRandom(seed: number, mod: number): number {
   t = Math.imul(t ^ (t >>> 15), t | 1)
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
   const unit = ((t ^ (t >>> 14)) >>> 0) / 4294967296 // [0, 1)
-  // Round to 4 decimals — keeps inline-style strings short and collapses
-  // any theoretical divergence to a single identical value.
-  return Math.round(unit * mod * 10000) / 10000
+  // Round to 4 decimals (keeps inline-style strings short + collapses any
+  // cross-engine divergence) and clamp strictly below `mod`, so size-bucket
+  // math like Math.floor(pseudoRandom(_, 3)) can't yield an out-of-range
+  // 4th bucket when unit rounds up to exactly mod.
+  return Math.min(mod - 0.0001, Math.round(unit * mod * 10000) / 10000)
 }
 
 interface Drop {

@@ -105,9 +105,10 @@ function extractTrackingId(subject: string): string | null {
 /**
  * Verify HTTP Basic Auth against the configured shared secret. Returns
  * true when:
- *   - SENDGRID_INBOUND_BASIC_AUTH is unset (defer enforcement until
- *     the operator configures it — accepts requests but logs a
- *     warning so the gap is visible)
+ *   - SENDGRID_INBOUND_BASIC_AUTH is unset AND we're in local dev
+ *     (NODE_ENV=development) — accept so inbound can be exercised without
+ *     the secret. In any DEPLOYED environment an unset secret fails
+ *     CLOSED (returns false), so the endpoint can't be forged.
  *   - the Authorization: Basic header decodes to the expected
  *     "user:pass" string (constant-time compared)
  *
@@ -117,11 +118,21 @@ function extractTrackingId(subject: string): string | null {
 function verifyInboundAuth(req: NextRequest): boolean {
   const expected = process.env.SENDGRID_INBOUND_BASIC_AUTH
   if (!expected) {
-    console.warn(
-      '[inbound-email] SENDGRID_INBOUND_BASIC_AUTH not set — accepting request without auth. ' +
-      'See route header comment for the 3-minute setup to close this gap.',
+    // Fail CLOSED in any deployed environment. An unauthenticated inbound
+    // endpoint lets anyone POST forged reply events and corrupt CRM state
+    // (flip outreach rows to "Interested", etc.). Accept-without-auth ONLY
+    // in local dev (NODE_ENV=development) so inbound can be tested without
+    // the secret; on Vercel (prod + preview → NODE_ENV=production) reject
+    // until SENDGRID_INBOUND_BASIC_AUTH is configured. (Audit SEC-C2.)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[inbound-email] SENDGRID_INBOUND_BASIC_AUTH not set — accepting without auth (local dev only).')
+      return true
+    }
+    console.error(
+      '[inbound-email] SENDGRID_INBOUND_BASIC_AUTH not set in a deployed environment — REJECTING request. ' +
+      'Set it in Vercel env to enable inbound email.',
     )
-    return true
+    return false
   }
   const header = req.headers.get('authorization') || ''
   const match = /^Basic\s+(.+)$/i.exec(header.trim())

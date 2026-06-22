@@ -165,11 +165,21 @@ import {
  */
 function friendlySearchError(raw: string): string {
   const r = (raw || '').toString()
-  const jsonMatch = r.match(/"error"\s*:\s*"([^"]+)"/)
-  if (jsonMatch) return jsonMatch[1]
+  // Known categories first — clearest guidance, and they take precedence
+  // over any server-provided string.
   if (/\b429\b|rate limit/i.test(r)) return "You've hit the search limit for now — give it a few minutes and try again."
   if (/\b401\b|unauthor/i.test(r)) return 'Your session expired — refresh the page and sign in again.'
   if (/network|failed to fetch|timeout|ENOTFOUND|ECONN/i.test(r)) return 'Network hiccup — check your connection and try the search again.'
+  // Surface a server-provided message ONLY if it reads like safe, human
+  // copy — short and free of internal/DB/stack detail — so a raw SQL or
+  // stack-trace error body can never land in a user-facing toast.
+  const jsonMatch = r.match(/"error"\s*:\s*"([^"]+)"/)
+  if (jsonMatch) {
+    const msg = jsonMatch[1]
+    const looksInternal =
+      /SQLSTATE|relation |syntax error|permission denied|\b42P\d{2}\b|TypeError|ReferenceError|undefined is not|cannot read|\bat \w+[.(]|stack/i.test(msg)
+    if (msg.length <= 120 && !looksInternal) return msg
+  }
   return 'Search failed — please try again in a moment.'
 }
 
