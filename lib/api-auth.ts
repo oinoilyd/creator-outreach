@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from './supabase/server'
+import { cacheIncrWindow } from './cache'
 
 /**
  * Verify the request has a valid Supabase session.
@@ -67,5 +68,44 @@ export function rateLimit(
   }
   hits.push(now)
   buckets.set(key, hits)
+  return null
+}
+
+/**
+ * Cross-instance rate limit, backed by Redis (Upstash/Vercel KV).
+ *
+ * Use this for the HIGH-VOLUME cost endpoints (search / enrich / product /
+ * video-descs / instagram-status) — the ones called many times per search.
+ * The in-memory `rateLimit` above stores counts per-Vercel-instance, so
+ * under a traffic spike (many warm lambdas) the effective cap balloons to
+ * `limit × instanceCount` exactly when you'd want it to bind — a direct
+ * path to a runaway Anthropic/scraping bill. A shared Redis counter is the
+ * same regardless of how many instances are warm.
+ *
+ * Fails OPEN to the per-instance limiter when Redis is unconfigured/down,
+ * so a Redis hiccup degrades to today's behaviour rather than locking
+ * everyone out. Async — callers MUST await.
+ */
+export async function rateLimitRedis(
+  userId: string,
+  endpoint: string,
+  limitPerHour: number,
+  userEmail?: string | null,
+) {
+  if (userEmail && RATE_LIMIT_BYPASS_EMAILS.has(userEmail)) {
+    return null // owner bypass — no count, no 429
+  }
+  const count = await cacheIncrWindow(`rl:${userId}:${endpoint}`, WINDOW_MS / 1000)
+  if (count == null) {
+    // Redis unavailable → fall back to the per-instance limiter (no worse
+    // than before; there's still SOME cap).
+    return rateLimit(userId, endpoint, limitPerHour, userEmail)
+  }
+  if (count > limitPerHour) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Try again in a bit.' },
+      { status: 429, headers: { 'Retry-After': '600' } },
+    )
+  }
   return null
 }

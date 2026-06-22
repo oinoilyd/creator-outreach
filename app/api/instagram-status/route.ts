@@ -22,7 +22,7 @@
  * Auth: requires a valid Supabase session.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser, rateLimit } from '@/lib/api-auth'
+import { requireUser, rateLimitRedis } from '@/lib/api-auth'
 import { cacheGet, cacheSet, CACHE_TTL } from '@/lib/cache'
 import { isInstagramGraphConfigured, extractInstagramHandle } from '@/lib/instagram-graph'
 import { scrapeInstagramProfile } from '@/lib/instagram-scrape'
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   // Cap polling load — frontend polls every 3s for ~30s per handle.
   // 100/hr per user is generous: covers a 100-creator search × 12
   // poll cycles each, then some.
-  const limited = rateLimit(auth.id, 'instagram-status', 100, auth.email)
+  const limited = await rateLimitRedis(auth.id, 'instagram-status', 100, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

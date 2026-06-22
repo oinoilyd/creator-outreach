@@ -30,7 +30,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { requireUser, rateLimit } from '@/lib/api-auth'
+import { requireUser, rateLimitRedis } from '@/lib/api-auth'
 import { clampString } from '@/lib/security'
 import { corpusMentionsProduct } from '@/lib/guidance'
 import { getProductSummary, saveProductSummary } from '@/lib/creator-product'
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
   // gated negatives spend no AI). Broad client trigger → more requests
   // per search, so the cap is generous; the AI cost stays bounded by the
   // rich-text gate, not this number.
-  const limited = rateLimit(auth.id, 'enrich-product', 800, auth.email)
+  const limited = await rateLimitRedis(auth.id, 'enrich-product', 800, auth.email)
   if (limited) return limited
 
   let body: unknown

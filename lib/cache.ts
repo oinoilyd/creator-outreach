@@ -129,6 +129,26 @@ export async function cacheIncr(key: string, ttlSeconds: number): Promise<number
 }
 
 /**
+ * Like cacheIncr, but returns NULL when Redis is unavailable or errors —
+ * instead of 1. That lets the caller (the cross-instance rate limiter)
+ * distinguish "Redis says this is hit #1" from "no Redis, decide some
+ * other way" and fall back to a per-instance check rather than treating
+ * every request as the first. Fixed-window counter (TTL set NX on first
+ * hit).
+ */
+export async function cacheIncrWindow(key: string, ttlSeconds: number): Promise<number | null> {
+  const client = getClient()
+  if (!client) return null
+  try {
+    const value = await client.incr(key)
+    await client.expire(key, ttlSeconds, 'NX')
+    return typeof value === 'number' ? value : Number(value) || null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Increment a Redis counter, bucketed by current UTC date so the
  * admin can see hit rates over the last 24h / 7d. Counter keys
  * look like `metric:enrich:hit:l1:2026-05-08`. Each key auto-

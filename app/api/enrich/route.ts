@@ -4,7 +4,7 @@ import * as cheerio from 'cheerio'
 import { isSafeExternalUrl, clampString } from '@/lib/security'
 import { shouldSkip, recordFailure, recordSuccess, delay } from '@/lib/scrape-circuit-breaker'
 import { withScrapeBackoffFor, type ScrapePlatform } from '@/lib/scrape-politeness'
-import { requireUser, rateLimit } from '@/lib/api-auth'
+import { requireUser, rateLimitRedis } from '@/lib/api-auth'
 import { cacheGet, cacheSet, enrichmentCacheKey, CACHE_TTL, cacheBumpCounter } from '@/lib/cache'
 import { saveEnrichmentSnapshot, getLatestEnrichment } from '@/lib/creator-enrichment'
 import { newMethodology, isPlausibleEmail } from '@/lib/newMethodology'
@@ -522,11 +522,16 @@ async function fromDomainGuesses(website: string, foundEmails: string[]): Promis
   }
 }
 
+// Hard ceiling on lambda time — a hung youtubei.js / scrape call can't run
+// past this. A single enrich (one creator) normally finishes in a few
+// seconds. (Audit, 2026-06-22.)
+export const maxDuration = 60
+
 export async function GET(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
 
-  const limited = rateLimit(auth.id, 'enrich', 500, auth.email)
+  const limited = await rateLimitRedis(auth.id, 'enrich', 500, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

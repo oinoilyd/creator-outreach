@@ -3,7 +3,7 @@ import { Innertube } from 'youtubei.js'
 import { cacheGet, cacheSet, cacheIncr, searchCacheKey, CACHE_TTL } from '@/lib/cache'
 import { bulkSaveSearchResults } from '@/lib/creator-enrichment'
 import { clampString, clampInt } from '@/lib/security'
-import { requireUser, rateLimit } from '@/lib/api-auth'
+import { requireUser, rateLimitRedis } from '@/lib/api-auth'
 import { regionConfidence, hasForeignSignal, REGION_SIGNALS } from '@/lib/region-signals'
 import { expandKeyword } from '@/lib/keyword-expand'
 
@@ -993,6 +993,12 @@ async function getInnertubeInstance(gl: string) {
   return instance
 }
 
+// Hard ceiling on this route's lambda time. youtubei.js is an unofficial
+// API that can STALL (not error) under load; without a cap a hung call
+// keeps the function billing far longer. Streaming search finishes well
+// under this. (Audit, 2026-06-22.)
+export const maxDuration = 60
+
 export async function GET(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
@@ -1002,7 +1008,7 @@ export async function GET(req: NextRequest) {
   // exploring different niches. Admin email passes through to
   // rateLimit() so bulk-seed / bulk-enrich admin operations don't
   // exhaust the same bucket and lock Dylan out of his own app.
-  const limited = rateLimit(auth.id, 'search', 300, auth.email)
+  const limited = await rateLimitRedis(auth.id, 'search', 300, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)
