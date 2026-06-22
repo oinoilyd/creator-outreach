@@ -65,8 +65,8 @@ export function LegalLayout({
         <div className="mt-12 pt-6 border-t border-border/60 text-sm text-muted-foreground">
           <p>
             Questions about this document? Email{' '}
-            <a href="mailto:dmeehanj@gmail.com" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
-              dmeehanj@gmail.com
+            <a href="mailto:support@creatoroutreach.net" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
+              support@creatoroutreach.net
             </a>
             .
           </p>

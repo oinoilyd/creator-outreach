@@ -979,7 +979,7 @@ export function HamburgerMenu({
 
           {/* Contact Us */}
           <button
-            onClick={() => { window.open('mailto:dmeehanj@gmail.com', '_blank'); setOpen(false) }}
+            onClick={() => { window.open('mailto:support@creatoroutreach.net', '_blank'); setOpen(false) }}
             className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
           >
             <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">

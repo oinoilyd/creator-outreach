@@ -325,7 +325,7 @@ export default async function PricingPage({
                 q="What if I'm not sure this is right for me?"
                 a={
                   <>
-                    Start the trial anyway — you have 7 days to test it on a real campaign and decide. If it&apos;s not a fit, cancel in two clicks and nothing is charged. Or email <a href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20question" className="underline underline-offset-2 hover:text-[#E85D2F]">dmeehanj@gmail.com</a> with your use case and we&apos;ll tell you honestly whether it&apos;ll work.
+                    Start the trial anyway — you have 7 days to test it on a real campaign and decide. If it&apos;s not a fit, cancel in two clicks and nothing is charged. Or email <a href="mailto:support@creatoroutreach.net?subject=Creator%20Outreach%20question" className="underline underline-offset-2 hover:text-[#E85D2F]">support@creatoroutreach.net</a> with your use case and we&apos;ll tell you honestly whether it&apos;ll work.
                   </>
                 }
               />
@@ -335,10 +335,10 @@ export default async function PricingPage({
           <div className="mt-16 text-center text-[12px] text-[#0F1733]/50 dark:text-white/50">
             Still have questions?{' '}
             <a
-              href="mailto:dmeehanj@gmail.com?subject=Creator%20Outreach%20pricing%20question"
+              href="mailto:support@creatoroutreach.net?subject=Creator%20Outreach%20pricing%20question"
               className="underline underline-offset-2 hover:text-[#E85D2F]"
             >
-              dmeehanj@gmail.com
+              support@creatoroutreach.net
             </a>
             {' · '}
             <Link href="/refunds" className="underline underline-offset-2 hover:text-[#E85D2F]">

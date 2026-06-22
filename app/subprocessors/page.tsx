@@ -34,7 +34,7 @@ const LAST_UPDATED = 'May 19, 2026'
  * Only the five sub-processors that touch personal data are listed
  * here — Resend (admin-form-notification only) + Upstash (ephemeral
  * cache) handle DPAs case-by-case on request rather than as a public
- * library entry. Email dmeehanj@gmail.com to get those.
+ * library entry. Email support@creatoroutreach.net to get those.
  */
 const PUBLIC_DPAS: { vendor: string; title: string; signedOn: string; filename: string }[] = [
   {
@@ -212,8 +212,8 @@ export default function SubprocessorsPage() {
         Each subprocessor above that handles personal data has a counter-signed
         Data Processing Agreement on file. Download the current PDF below.
         Resend and Upstash DPAs are available on request &mdash; email{' '}
-        <a href="mailto:dmeehanj@gmail.com" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
-          dmeehanj@gmail.com
+        <a href="mailto:support@creatoroutreach.net" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
+          support@creatoroutreach.net
         </a>.
       </p>
       <details open className="not-prose rounded-lg border border-border/60 bg-card/40 overflow-hidden">
@@ -283,8 +283,8 @@ export default function SubprocessorsPage() {
       <h2>Questions</h2>
       <p>
         Email{' '}
-        <a href="mailto:dmeehanj@gmail.com" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
-          dmeehanj@gmail.com
+        <a href="mailto:support@creatoroutreach.net" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
+          support@creatoroutreach.net
         </a>{' '}
         if you need a current DPA, a copy of a specific subprocessor&apos;s
         certifications, or have any other questions about how we share

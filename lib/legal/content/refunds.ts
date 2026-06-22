@@ -41,7 +41,7 @@ const doc: LegalDoc = {
     { type: 'h2', text: 'How to request a refund' },
     {
       type: 'p',
-      md: 'Email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com) from the address associated with your account. Include:',
+      md: 'Email [support@creatoroutreach.net](mailto:support@creatoroutreach.net) from the address associated with your account. Include:',
     },
     {
       type: 'ul',
@@ -76,7 +76,7 @@ const doc: LegalDoc = {
     { type: 'h2', text: 'Questions?' },
     {
       type: 'p',
-      md: 'Email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com). We respond within 1–2 business days.',
+      md: 'Email [support@creatoroutreach.net](mailto:support@creatoroutreach.net). We respond within 1–2 business days.',
     },
   ],
 }

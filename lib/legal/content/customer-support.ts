@@ -24,7 +24,7 @@ const doc: LegalDoc = {
       type: 'ul',
       items: [
         '**Primary support inbox:** [support@creatoroutreach.net](mailto:support@creatoroutreach.net) (placeholder — until the dedicated inbox is live, please use the personal address below).',
-        '**Active address today:** [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com).',
+        '**Active address today:** [support@creatoroutreach.net](mailto:support@creatoroutreach.net).',
         'Please write from the email address associated with your Creator Outreach account so we can find you quickly.',
       ],
     },
@@ -123,7 +123,7 @@ const doc: LegalDoc = {
     { type: 'h2', text: '10. Contact' },
     {
       type: 'p',
-      md: 'Still stuck? Email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com) and we will take it from there.',
+      md: 'Still stuck? Email [support@creatoroutreach.net](mailto:support@creatoroutreach.net) and we will take it from there.',
     },
   ],
 }

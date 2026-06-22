@@ -220,7 +220,7 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
       </div>
       <p>
         Suspect the email is malicious? Forward it to{' '}
-        <a href="mailto:dmeehanj@gmail.com">dmeehanj@gmail.com</a> and we&apos;ll investigate.
+        <a href="mailto:support@creatoroutreach.net">support@creatoroutreach.net</a> and we&apos;ll investigate.
       </p>
     </LegalLayout>
   )

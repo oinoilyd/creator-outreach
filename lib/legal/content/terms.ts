@@ -18,7 +18,7 @@ const doc: LegalDoc = {
     { type: 'h2', text: '1. Eligibility & Account' },
     {
       type: 'p',
-      md: 'You must be at least 18 years old and able to form a binding contract to use the Service. You are responsible for safeguarding your account credentials and for all activity that occurs under your account. Notify us immediately at [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com) if you suspect unauthorized access.',
+      md: 'You must be at least 18 years old and able to form a binding contract to use the Service. You are responsible for safeguarding your account credentials and for all activity that occurs under your account. Notify us immediately at [support@creatoroutreach.net](mailto:support@creatoroutreach.net) if you suspect unauthorized access.',
     },
 
     { type: 'h2', text: '2. The Service' },
@@ -123,7 +123,7 @@ const doc: LegalDoc = {
     { type: 'h2', text: '15. Contact' },
     {
       type: 'p',
-      md: 'Questions, concerns, or notices? Email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com).',
+      md: 'Questions, concerns, or notices? Email [support@creatoroutreach.net](mailto:support@creatoroutreach.net).',
     },
   ],
 }

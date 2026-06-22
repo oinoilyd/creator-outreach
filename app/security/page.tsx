@@ -34,8 +34,8 @@ export default function SecurityPage() {
         controls we have in place to keep that data safe. If you need
         more detail — a security questionnaire, a copy of a
         subprocessor&apos;s SOC 2 report, or our DPA — email{' '}
-        <a href="mailto:dmeehanj@gmail.com" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
-          dmeehanj@gmail.com
+        <a href="mailto:support@creatoroutreach.net" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
+          support@creatoroutreach.net
         </a>
         .
       </p>
@@ -86,7 +86,7 @@ export default function SecurityPage() {
       <h2>Access controls</h2>
       <ul>
         <li>
-          Single administrative account (<code>dmeehanj@gmail.com</code>)
+          Single administrative account (<code>support@creatoroutreach.net</code>)
           with elevated permissions; all other users see only their own
           data.
         </li>

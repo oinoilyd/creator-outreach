@@ -117,7 +117,7 @@ const doc: LegalDoc = {
     },
     {
       type: 'p',
-      md: 'To exercise any of these rights, email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com). We will respond within 30 days. Many of these are also self-serve via your account settings.',
+      md: 'To exercise any of these rights, email [support@creatoroutreach.net](mailto:support@creatoroutreach.net). We will respond within 30 days. Many of these are also self-serve via your account settings.',
     },
 
     { type: 'h2', text: '6. Your US State Privacy Rights' },
@@ -150,7 +150,7 @@ const doc: LegalDoc = {
     },
     {
       type: 'p',
-      md: 'To exercise any of these rights, email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com) with "US State Privacy Request" and your state of residence in the subject line. We will respond within 30 days (or the timeframe your state\'s law requires, whichever is shorter). We may need to verify your identity before fulfilling the request.',
+      md: 'To exercise any of these rights, email [support@creatoroutreach.net](mailto:support@creatoroutreach.net) with "US State Privacy Request" and your state of residence in the subject line. We will respond within 30 days (or the timeframe your state\'s law requires, whichever is shorter). We may need to verify your identity before fulfilling the request.',
     },
     {
       type: 'p',
@@ -160,7 +160,7 @@ const doc: LegalDoc = {
     { type: 'h3', text: 'Illinois residents' },
     {
       type: 'p',
-      md: 'While Illinois has not enacted a comprehensive consumer privacy law, our Privacy Policy practices apply to all U.S. users. Under the **Illinois Personal Information Protection Act (PIPA, 815 ILCS 530)**, we commit to notify affected Illinois residents — and the **Illinois Attorney General** (if 500 or more Illinois residents are affected by a single incident) — without unreasonable delay following a confirmed breach of unencrypted Personal Information. Notification will occur within 45 days of breach discovery, or sooner if directed by the Illinois Attorney General\'s office. To contact us about an Illinois privacy concern, email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com) or [security@creatoroutreach.net](mailto:security@creatoroutreach.net) and reference "Illinois privacy" in the subject line.',
+      md: 'While Illinois has not enacted a comprehensive consumer privacy law, our Privacy Policy practices apply to all U.S. users. Under the **Illinois Personal Information Protection Act (PIPA, 815 ILCS 530)**, we commit to notify affected Illinois residents — and the **Illinois Attorney General** (if 500 or more Illinois residents are affected by a single incident) — without unreasonable delay following a confirmed breach of unencrypted Personal Information. Notification will occur within 45 days of breach discovery, or sooner if directed by the Illinois Attorney General\'s office. To contact us about an Illinois privacy concern, email [support@creatoroutreach.net](mailto:support@creatoroutreach.net) or [security@creatoroutreach.net](mailto:security@creatoroutreach.net) and reference "Illinois privacy" in the subject line.',
     },
 
     { type: 'h2', text: '7. International Data Transfers' },
@@ -190,7 +190,7 @@ const doc: LegalDoc = {
     { type: 'h2', text: '11. Contact Us' },
     {
       type: 'p',
-      md: 'Privacy questions or data requests? Email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com).',
+      md: 'Privacy questions or data requests? Email [support@creatoroutreach.net](mailto:support@creatoroutreach.net).',
     },
     {
       type: 'p',

@@ -13,7 +13,7 @@ const FROM_ADDRESS = 'Creator Outreach <noreply@creatoroutreach.net>'
 // Stray email replies land here (a monitored inbox), so a habitual
 // "reply by email" isn't lost. Override via INBOX_REPLY_TO when a
 // support@ alias is set up (e.g. INBOX_REPLY_TO=support@creatoroutreach.net).
-const REPLY_TO = process.env.INBOX_REPLY_TO || 'dmeehanj@gmail.com'
+const REPLY_TO = process.env.INBOX_REPLY_TO || 'support@creatoroutreach.net'
 
 function escapeHtml(s: string): string {
   return s

@@ -106,7 +106,7 @@ const doc: LegalDoc = {
     { type: 'h2', text: 'Contact' },
     {
       type: 'p',
-      md: 'Questions about cookies? Email [dmeehanj@gmail.com](mailto:dmeehanj@gmail.com).',
+      md: 'Questions about cookies? Email [support@creatoroutreach.net](mailto:support@creatoroutreach.net).',
     },
   ],
 }
