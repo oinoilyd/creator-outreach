@@ -16,7 +16,16 @@ function SignInForm() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => {
+    // Surface auth-callback failures (e.g. an expired magic link) that
+    // redirect here with ?error=… instead of dropping the user on a blank
+    // form with no explanation. (Audit P1.)
+    const e = searchParams.get('error')
+    if (!e) return ''
+    return e === 'callback_failed'
+      ? 'Your sign-in link failed or expired — please try again.'
+      : 'Something went wrong — please sign in again.'
+  })
   const [loading, setLoading] = useState(false)
 
   async function signInWithPassword(e: React.FormEvent) {
