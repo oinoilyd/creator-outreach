@@ -35,6 +35,25 @@ function getClient(): Redis | null {
   return _client
 }
 
+// Bound every Redis op so a throttled/stalled Upstash can't BLOCK a request.
+// On timeout we reject → the caller's existing try/catch treats it as a cache
+// miss / no-op (identical to an error) and the route falls through to the live
+// pipeline. Normal Upstash REST is well under 250ms, so this only trips when
+// Redis is genuinely stalled. (2026-06-22: added after a load-related slowdown
+// where a slow SHARED Redis was serializing every search behind it.)
+const REDIS_TIMEOUT_MS = 800
+function withRedisTimeout<T>(op: Promise<T>, label: string): Promise<T> {
+  return Promise.race([
+    op,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`[cache TIMEOUT] ${label} >${REDIS_TIMEOUT_MS}ms`)),
+        REDIS_TIMEOUT_MS,
+      ),
+    ),
+  ])
+}
+
 /** TTL constants (seconds). */
 export const CACHE_TTL = {
   /** Search-result cache — 10 minutes. Was 24h but that locked
@@ -67,7 +86,7 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
   const client = getClient()
   if (!client) return null
   try {
-    const raw = await client.get<T>(key)
+    const raw = await withRedisTimeout(client.get<T>(key), `get ${key}`)
     if (raw === null || raw === undefined) {
       console.log(`[cache MISS] ${key}`)
       return null
@@ -88,7 +107,7 @@ export async function cacheSet<T>(key: string, value: T, ttlSeconds: number): Pr
   const client = getClient()
   if (!client) return
   try {
-    await client.set(key, value, { ex: ttlSeconds })
+    await withRedisTimeout(client.set(key, value, { ex: ttlSeconds }), `set ${key}`)
   } catch (e) {
     console.warn(`[cache SET error] ${key}:`, e)
   }

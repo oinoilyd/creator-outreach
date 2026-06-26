@@ -95,10 +95,18 @@ export async function rateLimitRedis(
   if (userEmail && RATE_LIMIT_BYPASS_EMAILS.has(userEmail)) {
     return null // owner bypass — no count, no 429
   }
-  const count = await cacheIncrWindow(`rl:${userId}:${endpoint}`, WINDOW_MS / 1000)
+  // Bound the wait on Redis: if Upstash is slow/throttled under load, don't
+  // serialize every request behind it — fall through to the in-memory limiter
+  // after a short timeout. cacheIncrWindow keeps running in the background, so
+  // the shared counter + its TTL still settle; we just don't BLOCK on it.
+  // (2026-06-22 — a stalled shared Redis was a global slowdown vector.)
+  const count = await Promise.race<number | null>([
+    cacheIncrWindow(`rl:${userId}:${endpoint}`, WINDOW_MS / 1000),
+    new Promise<null>(resolve => setTimeout(() => resolve(null), 800)),
+  ])
   if (count == null) {
-    // Redis unavailable → fall back to the per-instance limiter (no worse
-    // than before; there's still SOME cap).
+    // Redis unavailable OR too slow → fall back to the per-instance limiter
+    // (no worse than before; there's still SOME cap).
     return rateLimit(userId, endpoint, limitPerHour, userEmail)
   }
   if (count > limitPerHour) {
