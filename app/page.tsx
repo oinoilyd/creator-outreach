@@ -3172,7 +3172,10 @@ export default function Home() {
   // SOFT filters — avg views / subs / freshness / has-email. These are
   // what the "Filtered ⇄ All" toggle bypasses.
   const applySoftFilters = (list: Creator[]) => list
-    .filter(c => c.avgViews >= minViews && c.avgViews <= maxViews)
+    // maxViews === 0 is the "no upper bound" sentinel — the "Any" and "10M+"
+    // presets both set max=0. Treat it as unbounded; else they'd filter to
+    // `avgViews <= 0` and hide every creator with views.
+    .filter(c => c.avgViews >= minViews && (maxViews === 0 || c.avgViews <= maxViews))
     .filter(c => {
       if (minSubs === 0 && maxSubs === 0) return true
       const n = parseSubscriberCount(c.subscribers)
@@ -3208,7 +3211,7 @@ export default function Home() {
     !dismissedIds.has(c.channelId) &&
     !outreachIds.has(c.channelId) &&
     (bypassFilters || (
-      c.avgViews >= minViews && c.avgViews <= maxViews &&
+      c.avgViews >= minViews && (maxViews === 0 || c.avgViews <= maxViews) &&
       (maxAgeDays === Infinity || !c.videoDates?.[0] || parseRelativeDays(c.videoDates[0]) <= maxAgeDays) &&
       (!emailOnly || !!c.email)
     )) &&

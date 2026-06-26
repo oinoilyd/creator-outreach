@@ -1326,7 +1326,10 @@ export async function GET(req: NextRequest) {
         : sortedViews.length % 2 === 0
           ? Math.round((sortedViews[midIdx - 1] + sortedViews[midIdx]) / 2)
           : sortedViews[midIdx]
-      if (avgViews < minViews || avgViews > maxViews) continue
+      // maxViews === 0 is the "no upper bound" sentinel — the "Any" and
+      // "10M+" presets both send max=0. Only enforce a ceiling when > 0,
+      // else those presets exclude every creator with views.
+      if (avgViews < minViews || (maxViews > 0 && avgViews > maxViews)) continue
 
       const channelName = data.name || 'Unknown'
       const nameScore = scoreBio(channelName.toLowerCase(), terms)
@@ -1756,7 +1759,8 @@ function streamingSearchResponse(opts: StreamingOpts): Response {
               : sortedViews.length % 2 === 0
                 ? Math.round((sortedViews[midIdx - 1] + sortedViews[midIdx]) / 2)
                 : sortedViews[midIdx]
-            if (avgViews < minViews || avgViews > maxViews) continue
+            // maxViews === 0 = "no upper bound" sentinel ("Any"/"10M+" presets).
+            if (avgViews < minViews || (maxViews > 0 && avgViews > maxViews)) continue
 
             const channelName = data.name || 'Unknown'
             // Media blocklist — drop news/broadcaster channels at the
