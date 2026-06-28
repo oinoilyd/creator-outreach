@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { BulkJobProvider } from "@/components/BulkJobProvider";
 import { BulkJobBar } from "@/components/BulkJobBar";
 import { CookieConsent } from "@/components/CookieConsent";
+import { HelpChatMount } from "@/components/help/HelpChatMount";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -133,6 +134,7 @@ export default function RootLayout({
               in localStorage. Renders fixed-bottom-right so it doesn't
               block scroll or hide critical UI. */}
           <CookieConsent />
+          <HelpChatMount />
         </ThemeProvider>
       </body>
     </html>
