@@ -140,6 +140,24 @@ export function HelpChat({ mode }: { mode: Mode }) {
     setEscalateState('sent'); setNote("Thanks — we'll be in touch by email.")
   }
 
+  /** Turn an `action:` link from the bot into the matching in-app event,
+   *  then close the panel so the user sees what happened (tour starts /
+   *  tab switches). Mirrors the CustomEvents TourContext + app/page.tsx
+   *  already listen for. */
+  function handleAction(href: string) {
+    const [kind, query] = href.slice('action:'.length).split('?')
+    const params = new URLSearchParams(query || '')
+    if (kind === 'tour') {
+      window.dispatchEvent(new CustomEvent('tour-start', { detail: { tier: params.get('tier') || 'short' } }))
+      setOpen(false)
+    } else if (kind === 'goto') {
+      window.dispatchEvent(
+        new CustomEvent('tour-navigate', { detail: { tab: params.get('tab'), sub: params.get('sub') || undefined } }),
+      )
+      setOpen(false)
+    }
+  }
+
   return (
     <div className="fixed bottom-5 right-5 z-[60] flex flex-col items-end" data-help-chat={mode}>
       {open && (
@@ -155,8 +173,8 @@ export function HelpChat({ mode }: { mode: Mode }) {
 
           {/* messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 text-[13.5px]">
-            <Bubble role="assistant">{GREETING[mode]}</Bubble>
-            {msgs.map((m, i) => <Bubble key={i} role={m.role}>{m.content}</Bubble>)}
+            <Bubble role="assistant" onAction={handleAction}>{GREETING[mode]}</Bubble>
+            {msgs.map((m, i) => <Bubble key={i} role={m.role} onAction={handleAction}>{m.content}</Bubble>)}
             {loading && (
               <div className="flex gap-1 px-3 py-2 w-fit rounded-2xl bg-muted">
                 <Dot /><Dot d={150} /><Dot d={300} />
@@ -216,14 +234,63 @@ export function HelpChat({ mode }: { mode: Mode }) {
   )
 }
 
-function Bubble({ role, children }: { role: 'user' | 'assistant'; children: React.ReactNode }) {
+/** Only allow links the bot is supposed to emit: in-app actions, app-
+ *  relative paths, or our own domain. Anything else renders as plain text
+ *  — defense-in-depth against the model ever producing a stray URL. */
+function isSafeHref(href: string): boolean {
+  return (
+    href.startsWith('action:') ||
+    href.startsWith('/') ||
+    /^https:\/\/(www\.)?creatoroutreach\.net/i.test(href)
+  )
+}
+
+/** Minimal, safe markdown renderer for assistant bubbles: [label](href)
+ *  links and **bold**. Newlines are preserved by the bubble's pre-wrap.
+ *  action: links become buttons that fire in-app events; everything else
+ *  is a normal anchor. */
+function parseRich(text: string, onAction: (href: string) => void): React.ReactNode[] {
+  const nodes: React.ReactNode[] = []
+  const re = /\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*/g
+  const linkCls = 'text-brand underline underline-offset-2 hover:opacity-80 font-medium'
+  let last = 0
+  let key = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index))
+    if (m[1] !== undefined && m[2] !== undefined) {
+      const label = m[1]
+      const href = m[2]
+      if (!isSafeHref(href)) {
+        nodes.push(label)
+      } else if (href.startsWith('action:')) {
+        nodes.push(
+          <button key={key++} type="button" onClick={() => onAction(href)} className={linkCls}>{label}</button>,
+        )
+      } else {
+        const external = href.startsWith('http')
+        nodes.push(
+          <a key={key++} href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined} className={linkCls}>{label}</a>,
+        )
+      }
+    } else if (m[3] !== undefined) {
+      nodes.push(<strong key={key++}>{m[3]}</strong>)
+    }
+    last = re.lastIndex
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes
+}
+
+function Bubble({ role, children, onAction }: { role: 'user' | 'assistant'; children: React.ReactNode; onAction?: (href: string) => void }) {
   const mine = role === 'user'
+  const content = !mine && onAction && typeof children === 'string' ? parseRich(children, onAction) : children
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] px-3 py-2 rounded-2xl whitespace-pre-wrap leading-relaxed ${
         mine ? 'bg-gradient-to-br from-brand to-brand-2 text-white rounded-br-sm'
              : 'bg-muted text-foreground rounded-bl-sm'}`}>
-        {children}
+        {content}
       </div>
     </div>
   )

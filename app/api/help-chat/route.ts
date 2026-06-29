@@ -92,7 +92,11 @@ export async function POST(req: NextRequest) {
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: 700,
-      system: buildSystemPrompt(mode),
+      // Prompt-cache the system block. It's large (product facts + the full
+      // feature catalog + link map) and identical across every message in a
+      // mode, so caching it cuts both latency and input-token cost on the
+      // 2nd+ turn of a conversation (5-min cache window).
+      system: [{ type: 'text', text: buildSystemPrompt(mode), cache_control: { type: 'ephemeral' } }],
       messages,
     })
     const reply = msg.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim()
