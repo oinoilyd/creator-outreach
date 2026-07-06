@@ -6,6 +6,7 @@ import { BulkJobProvider } from "@/components/BulkJobProvider";
 import { BulkJobBar } from "@/components/BulkJobBar";
 import { CookieConsent } from "@/components/CookieConsent";
 import { HelpChatMount } from "@/components/help/HelpChatMount";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -136,6 +137,7 @@ export default function RootLayout({
           <CookieConsent />
           <HelpChatMount />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
