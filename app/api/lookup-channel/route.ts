@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
-import { requireUser, rateLimit } from '@/lib/api-auth'
+import { requireUser, rateLimitRedis } from '@/lib/api-auth'
 import { clampString } from '@/lib/security'
 
 /**
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
 
-  const limited = rateLimit(auth.id, 'lookup-channel', 200)
+  const limited = await rateLimitRedis(auth.id, 'lookup-channel', 200, auth.email)
   if (limited) return limited
 
   const { searchParams } = new URL(req.url)

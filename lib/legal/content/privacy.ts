@@ -76,7 +76,7 @@ const doc: LegalDoc = {
       items: [
         '**Supabase** — hosts our database and handles authentication. Data stored in the US.',
         '**Vercel** — hosts our application. Data processed in the US.',
-        '**Anthropic** — provides the AI models that score creators and classify replies. Only the relevant text (search queries, reply content) is sent; we never send your email/password or payment info to AI providers.',
+        '**Anthropic** — provides the AI models that score creators, classify replies, power the in-app help assistant, and enrich search results. The relevant text (search queries, creator descriptions, reply content, and your help-chat messages) is sent; we never send your password or payment info to AI providers.',
         '**Unipile** — provides the unified email and messaging API. They handle OAuth tokens and message delivery.',
         '**Stripe** — processes payments. They receive your name, email, and payment details directly through their hosted checkout.',
         '**Service providers** — analytics, error monitoring, customer support tools.',

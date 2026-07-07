@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
         //   3. append classification reasoning (existing notes)
         const { data, error } = await sb
           .from('outreach_entries')
-          .select('id, status, channel_name, notes')
+          .select('id, status, channel_name, notes, user_id, email')
           .eq('tracking_id', trackingId)
           .maybeSingle()
         if (error) {
@@ -224,6 +224,23 @@ export async function POST(req: NextRequest) {
         } else if (data) {
           matched = true
           matchedEntryId = data.id
+
+          // ── Honor opt-out (CAN-SPAM §5(a)(4)) ──────────────────
+          // If the reply explicitly asks to unsubscribe, add the contact
+          // to suppression_list so no future send (any path) reaches them.
+          // Keyed on explicit opt-out language — NOT the broader 'negative'
+          // classification, which can just mean "not right now".
+          // (Security/compliance audit 2026-07-07.)
+          if (/\b(unsubscribe|opt[\s-]?out|remove me|stop emailing|take me off|do not (?:email|contact) me)\b/i.test(text)) {
+            const recip = ((data.email as string | null) ?? from).trim().toLowerCase()
+            if (recip && data.user_id) {
+              await sb.from('suppression_list').upsert(
+                { user_id: data.user_id as string, recipient_email: recip, reason: 'unsubscribe' },
+                { onConflict: 'user_id,recipient_email' },
+              )
+              console.log('[inbound-email] opt-out honored -> suppression_list', recip.slice(0, 40))
+            }
+          }
 
           // ── Classify the reply ────────────────────────────────
           // AI call against Claude Haiku — see lib/inbound-classify.ts

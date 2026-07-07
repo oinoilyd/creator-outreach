@@ -53,7 +53,7 @@ const doc: LegalDoc = {
     { type: 'h3', text: 'Analytics (optional)' },
     {
       type: 'p',
-      md: 'If enabled, these help us understand which features are used and where errors occur, so we can improve the Service. We currently do not run third-party analytics on the application; if we add them in the future, this policy will be updated and the cookie banner will give you the option to opt in.',
+      md: 'If enabled, these help us understand which pages are visited and where errors occur, so we can improve the Service. We use Vercel Web Analytics — a privacy-friendly, cookieless analytics tool that does not set cookies and does not collect personally identifying information. You can decline it at any time via the cookie banner ("Reject non-essential"), and we will not load it.',
     },
 
     { type: 'h3', text: 'Marketing' },

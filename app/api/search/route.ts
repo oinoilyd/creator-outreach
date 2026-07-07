@@ -1567,8 +1567,10 @@ export async function GET(req: NextRequest) {
     void bulkSaveSearchResults(channels, keyword || keywordsList.join(', '))
 
     return NextResponse.json(payload)
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    // Don't leak internal error / SQL detail to the client. (Security audit 2026-07-07.)
+    console.error('[search] non-streaming error:', (err as Error)?.message)
+    return NextResponse.json({ error: 'Search failed. Please try again.' }, { status: 500 })
   }
 }
 
@@ -1851,8 +1853,9 @@ function streamingSearchResponse(opts: StreamingOpts): Response {
           cached: false,
         })
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        send('error', { message })
+        // Log server-side; send a generic message so internals don't leak. (Security audit 2026-07-07.)
+        console.error('[search] streaming error:', err instanceof Error ? err.message : String(err))
+        send('error', { message: 'Search encountered an error. Please try again.' })
       } finally {
         try {
           controller.close()

@@ -12,10 +12,11 @@
  *   - Pure client component; rendered from app/layout.tsx so it
  *     appears on every page.
  *   - SSR-safe: reads localStorage only after mount (useEffect).
- *   - Doesn't actually fire any analytics yet — we don't run third-
- *     party analytics. Banner exists so consent is captured for when
- *     we do, and so we satisfy GDPR's "ask first" requirement up
- *     front.
+ *   - Consent is ENFORCED: ConsentedAnalytics reads this choice and skips
+ *     loading Vercel Web Analytics when the user has rejected. Vercel
+ *     Analytics is cookieless (no PII), so the model is opt-out — a reject
+ *     genuinely stops it, satisfying GDPR's "honor the choice" requirement,
+ *     not just "ask first". (Compliance audit 2026-07-07.)
  */
 
 import { useEffect, useState } from 'react'
@@ -44,6 +45,9 @@ export function CookieConsent() {
     setChoice(value)
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(STORAGE_KEY, value)
+      // Let ConsentedAnalytics react immediately (mount/unmount) without a
+      // page reload — `storage` events don't fire in the same tab.
+      window.dispatchEvent(new Event('cookie-consent-changed'))
     }
   }
 
