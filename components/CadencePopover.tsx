@@ -1,15 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-
-// Helper used by all cadence popovers — kept inline so we don't pull
-// a date library. Returns the next interval based on touches.
-export function nextFollowUpDays(touchpoints: number): number {
-  if (touchpoints <= 1) return 3
-  if (touchpoints === 2) return 7
-  if (touchpoints === 3) return 14
-  return 21
-}
+// Cadence lives in one place. It used to be duplicated here and drifted
+// out of sync (first follow-up stayed 3 days while lib/outreach moved to
+// 5), so both popovers showed a stale interval. Import the canonical one.
+import { nextFollowUpDays } from '@/lib/outreach'
 
 function isoDaysFromNow(days: number): string {
   const d = new Date(); d.setDate(d.getDate() + days)
