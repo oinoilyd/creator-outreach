@@ -13,6 +13,7 @@ import {
   isoDaysFromNow,
   daysAgo,
   daysFromNow,
+  calendarDaysSince,
 } from '@/lib/dates'
 import {
   nextFollowUpDays,
@@ -231,8 +232,12 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             const autoFuTs = e.lastAutoFollowupAt ?? 0
             const lastTouchTs = Math.max(reachedTs, autoFuTs)
             if (!lastTouchTs) return null
-            const daysSince = Math.round((Date.now() - lastTouchTs) / 86_400_000)
-            const label = tps >= 1 ? `Last followed up ${daysSince}d ago` : `Reached ${daysSince}d ago`
+            // Whole calendar days, floored to local midnight — a touch
+            // earlier *today* reads "today", not "1d ago". tps<=1 is only
+            // the initial outreach (no follow-up sent yet) → "Reached".
+            const daysSince = calendarDaysSince(lastTouchTs)
+            const when = daysSince === 0 ? 'today' : `${daysSince}d ago`
+            const label = tps >= 2 ? `Last followed up ${when}` : `Reached ${when}`
             return (
               <span className="inline-block mt-1 text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground">
                 {label}

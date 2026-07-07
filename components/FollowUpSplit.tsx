@@ -137,7 +137,7 @@ export function FollowUpSplit({ entries, onOpenEntry }: Props) {
                       </div>
                       {lt && (
                         <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {lt.isFollowUp ? `Last followed up ${lt.days}d ago` : `Reached ${lt.days}d ago`}
+                          {lt.label}
                           {e.medium && ` · via ${e.medium}`}
                         </div>
                       )}

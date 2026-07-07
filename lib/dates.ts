@@ -37,6 +37,35 @@ export function isoDaysFromNow(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** N *business* days from today (Sat/Sun skipped) as YYYY-MM-DD in
+ *  *local* time. Used for the first follow-up, which should land 5
+ *  business days out rather than a raw +5 calendar that can fall on a
+ *  weekend. Counts only Mon–Fri: from a Thursday, +1 → Friday, +2 →
+ *  Monday. days<=0 returns today. */
+export function isoBusinessDaysFromNow(days: number): string {
+  const d = new Date()
+  let added = 0
+  while (added < days) {
+    d.setDate(d.getDate() + 1)
+    const dow = d.getDay() // 0 Sun … 6 Sat
+    if (dow !== 0 && dow !== 6) added++
+  }
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Whole *calendar* days between a past timestamp (ms) and today, in
+ *  local time — both ends floored to local midnight so an event earlier
+ *  *today* reads as 0, not 1. Plain `(Date.now() - ts) / DAY` rounds a
+ *  ~15-hour-old same-day touch up to "1d ago", which is wrong. Accepts
+ *  either a local-midnight date (parsed YYYY-MM-DD) or a full datetime
+ *  timestamp. Negative clamps to 0. */
+export function calendarDaysSince(ts: number): number {
+  if (!ts) return 0
+  const then = new Date(ts); then.setHours(0, 0, 0, 0)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.round((today.getTime() - then.getTime()) / 86_400_000))
+}
+
 /** Human-readable "X days ago" (or "today") from a YYYY-MM-DD string.
  *  Returns "?" when the input is empty or unparseable so the UI shows
  *  a stable placeholder rather than an exception. */

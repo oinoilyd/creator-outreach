@@ -6,7 +6,7 @@
  */
 
 import type { OutreachEntry } from '@/lib/types'
-import { parseLocalDate, daysAgo, daysFromNow } from '@/lib/dates'
+import { parseLocalDate, daysAgo, daysFromNow, calendarDaysSince } from '@/lib/dates'
 
 export const GHOSTED_THRESHOLD_DAYS = 30
 export const DAY_MS = 86_400_000
@@ -78,14 +78,21 @@ export function toIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function lastTouchedDaysAgo(e: OutreachEntry): { days: number; isFollowUp: boolean } | null {
+export function lastTouchedDaysAgo(e: OutreachEntry): { days: number; isFollowUp: boolean; label: string } | null {
   const reachedTs = e.dateReachedOut ? parseLocalDate(e.dateReachedOut)?.getTime() ?? 0 : 0
   const autoTs = e.lastAutoFollowupAt ?? 0
   const lastTs = Math.max(reachedTs, autoTs)
   if (!lastTs) return null
-  const days = Math.round((Date.now() - lastTs) / DAY_MS)
+  // Whole calendar days floored to local midnight — a touch earlier
+  // *today* reads "today", not "1d ago" (a raw Date.now() diff rounds a
+  // ~15-hour-old same-day touch up to 1). tps<=1 is only the initial
+  // outreach (no follow-up sent yet) → "Reached", not "Last followed up".
+  const days = calendarDaysSince(lastTs)
   const tps = parseInt(e.touchpoints || '0', 10) || 0
-  return { days, isFollowUp: tps >= 1 }
+  const isFollowUp = tps >= 2
+  const when = days === 0 ? 'today' : `${days}d ago`
+  const label = isFollowUp ? `Last followed up ${when}` : `Reached ${when}`
+  return { days, isFollowUp, label }
 }
 
 export { daysAgo, daysFromNow, parseLocalDate }

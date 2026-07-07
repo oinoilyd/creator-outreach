@@ -13,6 +13,7 @@
 
 import { toast } from 'sonner'
 import type { OutreachEntry } from './types'
+import { isoDaysFromNow, isoBusinessDaysFromNow } from './dates'
 
 // ── Filtering ──────────────────────────────────────────────────────
 
@@ -45,16 +46,33 @@ export function filterOutreachByKeyword(list: OutreachEntry[], rawKeyword: strin
  * Progressive follow-up cadence — most replies come from touch 2 / 3,
  * not touch 5+. Tighter intervals early, looser later.
  *
- * Touch 0/1 → 3 days  (initial bump)
+ * Touch 0/1 → 5 days  (first follow-up — business days, see nextFollowUpIso)
  * Touch 2   → 7 days  (week-out check)
  * Touch 3   → 14 days (two-week)
  * Touch 4+  → 21 days (final attempt rhythm)
+ *
+ * NOTE: this returns a raw day count used for snooze steps and popover
+ * quick-picks. The *initial* follow-up date is set via nextFollowUpIso,
+ * which interprets the first touch's count as **business** days.
  */
 export function nextFollowUpDays(touchpoints: number): number {
-  if (touchpoints <= 1) return 3
+  if (touchpoints <= 1) return 5
   if (touchpoints === 2) return 7
   if (touchpoints === 3) return 14
   return 21
+}
+
+/**
+ * ISO date (YYYY-MM-DD, local) for the next follow-up given the current
+ * touchpoint count. The first follow-up lands 5 **business** days after
+ * initial outreach (weekends skipped) per Dylan 2026-07-07 — a Friday
+ * outreach shouldn't nag you the next Wednesday off a raw +5 calendar.
+ * Later touches keep their calendar cadence (7 / 14 / 21).
+ */
+export function nextFollowUpIso(touchpoints: number): string {
+  const days = nextFollowUpDays(touchpoints)
+  if (touchpoints <= 1) return isoBusinessDaysFromNow(days)
+  return isoDaysFromNow(days)
 }
 
 /** Human label paired with nextFollowUpDays — used in tooltips and

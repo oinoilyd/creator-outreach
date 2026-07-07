@@ -151,11 +151,10 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import {
   parseLocalDate,
   todayIso,
-  isoDaysFromNow,
 } from '@/lib/dates'
 import {
   filterOutreachByKeyword,
-  nextFollowUpDays,
+  nextFollowUpIso,
 } from '@/lib/outreach'
 
 /**
@@ -1930,6 +1929,8 @@ export default function Home() {
           }
 
           // Apply follow-up cadence: shorter early, longer later.
+          // First follow-up lands 5 *business* days out (weekends skipped);
+          // later touches keep their calendar cadence — see nextFollowUpIso.
           // Only auto-fills when the user hasn't set a date — manual dates win.
           // Re-engagement of an overdue No-Response lead also gets a fresh date.
           const existing = parseLocalDate(e.followUpDate)
@@ -1937,7 +1938,7 @@ export default function Home() {
           const isPastDue = existing && existing.getTime() < today.getTime()
           if (!e.followUpDate || isPastDue) {
             const tps = parseInt(updated.touchpoints || e.touchpoints || '0', 10) || 1
-            updated.followUpDate = isoDaysFromNow(nextFollowUpDays(tps))
+            updated.followUpDate = nextFollowUpIso(tps)
           }
         }
 

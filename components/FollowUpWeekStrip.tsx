@@ -133,7 +133,7 @@ export function FollowUpWeekStrip({ entries, onOpenEntry }: Props) {
                   {dealValueNum(e) > 0 && <span className="text-sm font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">{moneyShort(e.dealValue)}</span>}
                   {lt && (
                     <span className="text-[10px] text-muted-foreground">
-                      {lt.isFollowUp ? `Last followed up ${lt.days}d ago` : `Reached ${lt.days}d ago`}
+                      {lt.label}
                     </span>
                   )}
                 </li>
