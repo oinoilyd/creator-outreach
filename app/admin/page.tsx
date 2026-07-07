@@ -177,6 +177,14 @@ export default async function AdminPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Growth dashboard — signups over time, trial/paid + MRR,
+                and the outreach-lead conversion cross-reference. */}
+            <Link
+              href="/admin/analytics"
+              className="text-sm rounded-lg px-4 py-2 transition-colors flex items-center gap-2 border border-border text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <span aria-hidden>📈</span>Analytics
+            </Link>
             {/* Renamed from "Contacts" → "Database" 2026-05-12. The
                 route still lives at /admin/contacts; only the label
                 changed so it reads as the canonical creator database
