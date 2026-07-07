@@ -1789,7 +1789,10 @@ export default function Home() {
       channelUrl: c.channelUrl,
       description: c.description || '',
       email: c.email || '',
-      product: '',
+      // Carry the detected product (Results "Product" column) into the
+      // outreach entry so it doesn't read blank after adding. Editable
+      // afterwards — the user can replace it with their own pitch.
+      product: c.productSummary || '',
       favorite: false,
       reachedOut: false,
       medium: '',
@@ -1826,6 +1829,31 @@ export default function Home() {
     // OutreachTab component will mount fresh when they switch over.
     setRecentlyAddedIds(prev => new Set([...prev, entry.id]))
   }
+
+  // Backfill the outreach "Product" from the Results "Product"
+  // (productSummary) for leads added before the carry-over existed, or
+  // added before their product finished enriching. Fill-ONLY: never
+  // overwrites a product the user typed. Matched by channelId, so it
+  // only touches leads that came from a loaded Result. Self-limiting —
+  // once filled, entries stop matching, so it settles after one pass.
+  useEffect(() => {
+    if (creators.length === 0 || outreach.length === 0) return
+    const productById = new Map<string, string>()
+    for (const c of creators) {
+      if (c.productSummary) productById.set(c.channelId, c.productSummary)
+    }
+    if (productById.size === 0) return
+    let changed = false
+    const updated = outreach.map(e => {
+      if (!e.product && productById.has(e.channelId)) {
+        changed = true
+        return { ...e, product: productById.get(e.channelId) as string }
+      }
+      return e
+    })
+    if (changed) saveOutreach(updated)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creators, outreach])
 
   // Results reorder is safe to memoize — only stable setters + a
   // module-level import; nothing else captured.
