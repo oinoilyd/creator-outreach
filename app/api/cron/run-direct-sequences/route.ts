@@ -117,7 +117,40 @@ export async function GET(req: NextRequest) {
         continue
       }
 
+      // ── Suppression gate (CAN-SPAM §5(a)(4)) ──
+      // Never send to a contact the user suppressed (unsubscribed / bounced).
+      // Mirrors the send-followups cron's suppression skip so EVERY send path
+      // honors opt-outs, not just the Unipile one. (Security audit 2026-06-30.)
+      const { data: suppressed } = await supabase
+        .from('suppression_list')
+        .select('recipient_email')
+        .eq('user_id', enr.user_id)
+        .in('recipient_email', contacts)
+        .limit(1)
+      if (suppressed && suppressed.length > 0) {
+        await supabase
+          .from('direct_email_enrollments')
+          .update({ status: 'stopped', stop_reason: 'unsubscribed', updated_at: nowIso })
+          .eq('id', enr.id)
+        stopped += 1
+        continue
+      }
+
       const seq = seqById.get(enr.sequence_id)
+      // Tenant guard: this cron runs as service_role and bypasses RLS, so
+      // verify the sequence is owned by the SAME user as the enrollment.
+      // RLS only gates the enrollment row by its own user_id — without this
+      // check, a user who wrote an enrollment referencing another user's
+      // sequence_id would get that user's private template sent from their
+      // own mailbox. (Security audit 2026-06-30.)
+      if (seq && seq.user_id !== enr.user_id) {
+        await supabase
+          .from('direct_email_enrollments')
+          .update({ status: 'stopped', stop_reason: 'manual', updated_at: nowIso })
+          .eq('id', enr.id)
+        console.warn('[cron/run-direct-sequences] cross-tenant enrollment blocked', enr.id)
+        continue
+      }
       const steps = (seq?.steps ?? []) as SequenceStep[]
       if (!seq || !seq.is_active || enr.current_step >= steps.length) {
         await supabase

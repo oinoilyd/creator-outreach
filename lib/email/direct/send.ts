@@ -43,14 +43,23 @@ export async function getFreshAccessToken(
     !account.token_expires_at || new Date(account.token_expires_at).getTime() - Date.now() < 60_000
 
   if (!expiresSoon && account.access_token_enc) {
-    return decryptToken(account.access_token_enc)
+    // Corrupt/undecryptable token (e.g. EMAIL_TOKEN_ENC_KEY rotated) falls
+    // through to a refresh rather than throwing. (Security audit 2026-06-30.)
+    try { return decryptToken(account.access_token_enc) } catch { /* fall through to refresh */ }
   }
 
   if (!account.refresh_token_enc) {
     throw new Error(`Account ${account.id} has no refresh token — user must reconnect.`)
   }
 
-  const refreshToken = decryptToken(account.refresh_token_enc)
+  let refreshToken: string
+  try {
+    refreshToken = decryptToken(account.refresh_token_enc)
+  } catch {
+    // Undecryptable refresh token — flag for reconnect; don't leak crypto detail.
+    await supabase.from(ACCOUNTS).update({ status: 'needs_reconnect', updated_at: new Date().toISOString() }).eq('id', account.id)
+    throw new Error(`Account ${account.id} token could not be decrypted — flagged for reconnect.`)
+  }
   let tokens: OAuthTokens
   try {
     tokens = await PROVIDERS[account.provider].refresh(refreshToken)

@@ -155,10 +155,25 @@ function encodeHeader(value: string): string {
   return `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`
 }
 
+/** Reject CR/LF in any value interpolated into a header line. Without this,
+ *  an all-ASCII subject/recipient like "hi\r\nBcc: evil@x.com" would smuggle
+ *  extra MIME headers (Bcc, extra recipients) into the raw message. Fail
+ *  closed so a bad value surfaces rather than being silently stripped.
+ *  (Security audit 2026-06-30.) */
+function assertNoHeaderInjection(value: string, field: string): void {
+  if (/[\r\n]/.test(value)) {
+    throw new Error(`Direct email ${field} contains illegal CR/LF — refusing to send (header injection).`)
+  }
+}
+
 /** Build a minimal RFC 2822 message and return it base64url-encoded for
  *  the Gmail send endpoint. Sets In-Reply-To / References when replying
  *  so the message threads correctly in the recipient's client. */
 function buildRawMessage(input: SendInput): string {
+  assertNoHeaderInjection(input.to, 'recipient')
+  if (input.toDisplayName) assertNoHeaderInjection(input.toDisplayName, 'recipient name')
+  assertNoHeaderInjection(input.subject, 'subject')
+  if (input.inReplyToMessageId) assertNoHeaderInjection(input.inReplyToMessageId, 'in-reply-to')
   const contentType = input.bodyType === 'html' ? 'text/html' : 'text/plain'
   const headers = [
     `To: ${input.toDisplayName ? `${encodeHeader(input.toDisplayName)} <${input.to}>` : input.to}`,
