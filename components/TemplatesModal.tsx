@@ -24,6 +24,7 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import {
   type Platform,
   type TemplateVars,
+  type FollowUpConfig,
   TEMPLATE_VARS,
   DEFAULT_TEMPLATES,
   DEFAULT_EMAIL_SUBJECT,
@@ -32,8 +33,11 @@ import {
   renderTemplatePreview,
   SAMPLE_RECIPIENT,
   applyTemplate,
+  resolveFollowUpConfig,
+  followUpConfigIsDefault,
 } from '@/lib/templates'
 import type { UserProfile } from '@/lib/types'
+import { FollowUpTemplatesEditor } from '@/components/FollowUpTemplatesEditor'
 import { X, RotateCcw, Info, Check } from 'lucide-react'
 
 const PLATFORMS: Platform[] = ['email', 'ig_dm', 'linkedin_dm', 'x_dm', 'tiktok_dm']
@@ -77,6 +81,14 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
     x_dm: profile?.xDmTemplate ?? DEFAULT_TEMPLATES.x_dm,
     tiktok_dm: profile?.tiktokDmTemplate ?? DEFAULT_TEMPLATES.tiktok_dm,
   }))
+
+  // Follow-up template library (email-only, staged sets). Shown under
+  // the Follow-ups tab; persisted alongside the platform templates via
+  // the same Save button. Seeded from the profile → bundled default.
+  const [showFollowUps, setShowFollowUps] = useState(false)
+  const [followUpConfig, setFollowUpConfig] = useState<FollowUpConfig>(
+    () => resolveFollowUpConfig(profile?.followUpConfig),
+  )
 
   // CAN-SPAM footer toggle local state. Defaults true (the migration
   // default) but reflects whatever the user has saved.
@@ -195,7 +207,7 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
       // Build the update payload — for each platform, store NULL when
       // the draft equals the bundled default so we don't accumulate
       // useless overrides in the DB.
-      const update: Record<string, string | boolean | null> = {
+      const update: Record<string, string | boolean | null | FollowUpConfig> = {
         email_template: drafts.email === DEFAULT_TEMPLATES.email ? null : drafts.email,
         ig_dm_template: drafts.ig_dm === DEFAULT_TEMPLATES.ig_dm ? null : drafts.ig_dm,
         linkedin_dm_template: drafts.linkedin_dm === DEFAULT_TEMPLATES.linkedin_dm ? null : drafts.linkedin_dm,
@@ -205,6 +217,9 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
         // NULL when matching the default keeps the row uncluttered.
         subject_template: subjectDraft.trim() === DEFAULT_EMAIL_SUBJECT ? null : subjectDraft.trim() || null,
         include_can_spam_footer: includeCanSpamFooter,
+        // Follow-up library — NULL when it's the untouched bundled default
+        // so the user keeps inheriting future default-copy improvements.
+        followup_config: followUpConfigIsDefault(followUpConfig) ? null : followUpConfig,
       }
       // Stamp the acknowledgment if the user just disabled it AND
       // wasn't already disabled before (i.e., this save is the moment
@@ -233,6 +248,7 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
           (update.footer_disabled_acknowledged_at as string | undefined) ??
           profile?.footerDisabledAcknowledgedAt ??
           null,
+        followUpConfig: (update.followup_config as FollowUpConfig | null),
       })
 
       setSavedAt(Date.now())
@@ -317,9 +333,9 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
             {PLATFORMS.map(p => (
               <button
                 key={p}
-                onClick={() => setActivePlatform(p)}
+                onClick={() => { setActivePlatform(p); setShowFollowUps(false) }}
                 className={`px-3 py-2 text-[13px] font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                  activePlatform === p
+                  activePlatform === p && !showFollowUps
                     ? 'bg-muted text-foreground border-b-2 border-purple-500 -mb-px'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
@@ -327,11 +343,29 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
                 {PLATFORM_LABELS[p]}
               </button>
             ))}
+            <button
+              onClick={() => setShowFollowUps(true)}
+              className={`px-3 py-2 text-[13px] font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                showFollowUps
+                  ? 'bg-muted text-foreground border-b-2 border-purple-500 -mb-px'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Follow-ups
+            </button>
           </div>
         </div>
 
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
+          {showFollowUps ? (
+            <FollowUpTemplatesEditor
+              config={followUpConfig}
+              onChange={setFollowUpConfig}
+              previewVars={previewVars}
+            />
+          ) : (
+          <>
           <div className="grid md:grid-cols-2 gap-5">
             {/* Editor column */}
             <div className="flex flex-col">
@@ -544,6 +578,8 @@ export function TemplatesModal({ profile, onClose, onSaved }: TemplatesModalProp
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* Footer */}

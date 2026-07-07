@@ -1315,8 +1315,14 @@ export default function Home() {
         // custom templates appeared blank. Now a missing 0039 only
         // costs target_audience; templates survive.
         const TARGET_AUDIENCE_COL = 'target_audience'
-        const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}, ${TARGET_AUDIENCE_COL}`
-        const MID_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}` // everything except 0039
+        // followup_config (migration 0053) gets its OWN tier for the same
+        // reason as target_audience — a missing 0053 must NOT blank out the
+        // 0026 templates. It rides FULL only; MID/BASE omit it, so an
+        // unapplied 0053 costs only followup_config (falls back to the
+        // bundled default set), templates survive.
+        const FOLLOWUP_COL = 'followup_config'
+        const FULL_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}, ${TARGET_AUDIENCE_COL}, ${FOLLOWUP_COL}`
+        const MID_COLS = `${BASE_COLS}, ${TEMPLATE_COLS}, ${CONSENT_COLS}` // everything except 0039 + 0053
 
         let { data: profileRow, error: profileErr } = await supabase
           .from('user_profile')
@@ -1505,6 +1511,7 @@ export default function Home() {
                 footer_disabled_acknowledged_at?: string | null
                 terms_privacy_agreed_at?: string | null
                 terms_privacy_version?: string | null
+                followup_config?: UserProfile['followUpConfig']
               }
               return {
                 emailTemplate: tplRow.email_template ?? null,
@@ -1517,6 +1524,7 @@ export default function Home() {
                   tplRow.footer_disabled_acknowledged_at ?? null,
                 termsPrivacyAgreedAt: tplRow.terms_privacy_agreed_at ?? null,
                 termsPrivacyVersion: tplRow.terms_privacy_version ?? null,
+                followUpConfig: tplRow.followup_config ?? null,
               }
             })(),
           })

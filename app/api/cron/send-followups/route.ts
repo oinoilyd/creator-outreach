@@ -30,7 +30,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { sendEmail, UnipileError } from '@/lib/unipile'
-import { buildOutreachContent, recipientIssue } from '@/lib/format'
+import { buildFollowUpContent, recipientIssue } from '@/lib/format'
 import type { Creator, UserProfile } from '@/lib/types'
 
 export const runtime = 'nodejs'
@@ -87,6 +87,7 @@ interface CronOutreachRow {
   unipile_thread_id: string | null
   unipile_provider_id: string | null
   last_auto_followup_at: string | null
+  followup_set_id: string | null
 }
 
 interface CronProfileRow {
@@ -96,6 +97,7 @@ interface CronProfileRow {
   pitch_line: string | null
   subject_template: string | null
   email: string | null
+  followup_config: UserProfile['followUpConfig']
   unipile_account_id: string | null
   /** 2026-05-10 audit (H-recipient): the Unipile-connected Gmail address
    *  is the actual sender — recipientIssue() must compare against this,
@@ -189,7 +191,7 @@ export async function GET(req: NextRequest) {
     .in('id', candidateIds)
     .or(`last_auto_followup_at.is.null,last_auto_followup_at.lt.${cooldownCutoff}`)
     .select(
-      'id, user_id, channel_id, channel_name, channel_url, description, email, status, notes, follow_up_date, touchpoints, unipile_thread_id, unipile_provider_id, last_auto_followup_at',
+      'id, user_id, channel_id, channel_name, channel_url, description, email, status, notes, follow_up_date, touchpoints, unipile_thread_id, unipile_provider_id, last_auto_followup_at, followup_set_id',
     )
 
   if (claimErr) {
@@ -207,7 +209,7 @@ export async function GET(req: NextRequest) {
   const userIds = Array.from(new Set(candidates.map(c => c.user_id)))
   const { data: profileRows } = await supabase
     .from('user_profile')
-    .select('user_id, full_name, linkedin_url, pitch_line, subject_template, email, unipile_account_id, unipile_account_email, physical_address')
+    .select('user_id, full_name, linkedin_url, pitch_line, subject_template, followup_config, email, unipile_account_id, unipile_account_email, physical_address')
     .in('user_id', userIds)
   const profileByUser = new Map<string, CronProfileRow>()
   for (const p of (profileRows ?? []) as CronProfileRow[]) {
@@ -272,6 +274,7 @@ export async function GET(req: NextRequest) {
       linkedinUrl: profileRow.linkedin_url ?? '',
       pitchLine: profileRow.pitch_line ?? '',
       subjectTemplate: profileRow.subject_template ?? undefined,
+      followUpConfig: profileRow.followup_config ?? null,
       userEmail: profileRow.email ?? undefined,
       physicalAddress: profileRow.physical_address ?? null,
     }
@@ -305,24 +308,20 @@ export async function GET(req: NextRequest) {
       description: entry.description ?? '',
       videoTitles: [],
     }
-    const content = buildOutreachContent(creator as Creator, userProfile)
 
-    // Build a follow-up subject — keep the original subject + Re: prefix
-    // so Gmail threads it correctly on the recipient side.
-    const followUpSubject = content.subject.startsWith('Re:')
-      ? content.subject
-      : `Re: ${content.subject}`
-
-    // Follow-up body — short, present-tense, references the original.
-    const followUpBody = [
-      `Hey ${content.recipientFirst},`,
-      ``,
-      `Following up on my note from a few days ago — didn't want it to get buried.`,
-      ``,
-      `Still keen to chat if you've got a quick window this week.`,
-      ``,
-      (profileRow.full_name?.split(/\s+/)[0]) || 'me',
-    ].join('\n')
+    // Build the follow-up from the lead's resolved template set at the
+    // stage matching its touch count (its assigned set, else the user's
+    // default). Subject threads on the original (Re: …) and the body
+    // carries the CAN-SPAM footer — both handled by buildFollowUpContent.
+    const touchCount = parseInt(entry.touchpoints ?? '0', 10) || 0
+    const content = buildFollowUpContent(
+      creator as Creator,
+      userProfile,
+      touchCount,
+      entry.followup_set_id,
+    )
+    const followUpSubject = content.subject
+    const followUpBody = content.body
 
     try {
       const sentResp = await sendEmail({

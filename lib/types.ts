@@ -1,3 +1,5 @@
+import type { FollowUpConfig } from './templates'
+
 export interface Creator {
   channelId: string
   channelName: string
@@ -184,6 +186,11 @@ export interface OutreachEntry {
   autoFollowup?: boolean
   /** Epoch ms of the last auto-follow-up send (prevents re-firing). */
   lastAutoFollowupAt?: number | null
+  /** Which follow-up template set (by id) to use for this lead's
+   *  follow-ups. NULL/undefined → the user's default set. Set when the
+   *  user picks a set on a manual follow-up send; the auto-sender reads
+   *  it too so a lead's cadence copy stays consistent. Migration 0053. */
+  followUpSetId?: string | null
   // ── Active-client fields (migration 0028) ──────────────────────────
   // Surface when status='Successful' — the engagement now has its own
   // metadata distinct from the pre-deal sourcing/outreach context.
@@ -401,6 +408,11 @@ export interface UserProfile {
   linkedinDmTemplate?: string | null
   xDmTemplate?: string | null
   tiktokDmTemplate?: string | null
+  /** Follow-up template library — named sets (each with the four stage
+   *  bodies) + which one is the default. NULL/undefined → the bundled
+   *  starter set. Stored as one jsonb column (user_profile.followup_config,
+   *  migration 0053) so the whole library loads with the profile. */
+  followUpConfig?: FollowUpConfig | null
   /** CAN-SPAM footer toggle. Defaults TRUE (compliant). When FALSE, the
    *  email footer is suppressed AND footerDisabledAcknowledgedAt must
    *  be set — that timestamp is the user's audit-trail acknowledgment

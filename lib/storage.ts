@@ -86,6 +86,7 @@ function rowToOutreach(r: any): OutreachEntry {
     lastOpenedAt: r.last_opened_at ? new Date(r.last_opened_at).getTime() : null,
     autoFollowup: !!r.auto_followup,
     lastAutoFollowupAt: r.last_auto_followup_at ? new Date(r.last_auto_followup_at).getTime() : null,
+    followUpSetId: r.followup_set_id ?? null,
     // Active-client fields (migration 0028) — surface in the Active
     // Clients sub-tab when status='Successful'.
     clientBudgetAmount: r.client_budget_amount ?? null,
@@ -187,6 +188,10 @@ function outreachToRow(
     last_opened_at: e.lastOpenedAt ? new Date(e.lastOpenedAt).toISOString() : null,
     auto_followup: !!e.autoFollowup,
     last_auto_followup_at: e.lastAutoFollowupAt ? new Date(e.lastAutoFollowupAt).toISOString() : null,
+    // followup_set_id (migration 0053) — which follow-up template set this
+    // lead uses. NULL = the user's default set. Written here like
+    // engagement_status below; needs 0053 applied.
+    followup_set_id: e.followUpSetId ?? null,
     // engagement_status (migration 0030) IS written here so the
     // pending-confirmation pill's Confirm/Deny actions persist through
     // the normal outreach save path. NULL is the default for every

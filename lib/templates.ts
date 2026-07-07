@@ -130,6 +130,158 @@ Worth a quick chat this week?`,
  */
 export const DEFAULT_EMAIL_SUBJECT = `Quick thought on {channel}`
 
+// ── Follow-up templates (email) ─────────────────────────────────────
+//
+// Follow-ups are STAGED: the message escalates across touches (gentle
+// nudge → reframe → short ask → break-up). Users can keep a LIBRARY of
+// named sets and choose one per lead; one set is the default the auto-
+// sender falls back to. Everything below is email-only for now.
+
+/** Human labels for the four follow-up stages, index-aligned with a
+ *  set's `stages` array. Shown as the editor tabs in the modal. */
+export const FOLLOWUP_STAGE_LABELS = [
+  'First follow-up',
+  'Second follow-up',
+  'Third follow-up',
+  'Final attempt',
+] as const
+
+export const FOLLOWUP_STAGE_COUNT = FOLLOWUP_STAGE_LABELS.length
+
+/** Bundled default copy for each stage. Same {variable} syntax as the
+ *  cold-email template; subjects thread on the original (Re:) so no
+ *  per-stage subject is needed. */
+export const DEFAULT_FOLLOWUP_STAGES: string[] = [
+  `Hey {name},
+
+Quick nudge on my last note — didn't want it to slip by. Still think there's something worth exploring with {channel}, and I'll keep it short.
+
+Open to a quick chat this week?
+
+{sender_first}`,
+
+  `Hey {name},
+
+Following up once more — I'll be brief. {pitch}
+
+If the timing's off, just say the word and I'll circle back later.
+
+{sender_first}`,
+
+  `Hey {name},
+
+Still worth a conversation? A quick yes or no is all I need — I don't want to clutter your inbox.
+
+{sender_first}`,
+
+  `Hey {name},
+
+I'll close the loop here so I'm not a pest. If working together ever makes sense down the road, my door's open — just reply anytime.
+
+All the best,
+{sender_first}`,
+]
+
+/** One named follow-up set = the four stage bodies + a display name.
+ *  `stages` is always length FOLLOWUP_STAGE_COUNT; a blank entry falls
+ *  back to the bundled default for that stage at send time. */
+export interface FollowUpSet {
+  id: string
+  name: string
+  stages: string[]
+}
+
+/** The whole library: the user's sets + which one is the default. */
+export interface FollowUpConfig {
+  sets: FollowUpSet[]
+  defaultId: string
+}
+
+/** Stable id for the bundled starter set so a fresh user always has a
+ *  valid default without writing anything to their profile. */
+export const BUNDLED_FOLLOWUP_SET_ID = 'default'
+
+export function bundledFollowUpSet(): FollowUpSet {
+  return {
+    id: BUNDLED_FOLLOWUP_SET_ID,
+    name: 'Default',
+    stages: [...DEFAULT_FOLLOWUP_STAGES],
+  }
+}
+
+/** Normalize any stored config into a guaranteed-valid one: at least one
+ *  set, every set padded to FOLLOWUP_STAGE_COUNT stages, and a defaultId
+ *  that actually points at a set. Callers can trust the result. */
+export function resolveFollowUpConfig(cfg: FollowUpConfig | null | undefined): FollowUpConfig {
+  const sets = (cfg?.sets ?? []).filter(s => s && typeof s.id === 'string')
+  if (sets.length === 0) {
+    const bundled = bundledFollowUpSet()
+    return { sets: [bundled], defaultId: bundled.id }
+  }
+  const normalized = sets.map(s => ({
+    id: s.id,
+    name: (s.name || 'Untitled').trim() || 'Untitled',
+    stages: Array.from({ length: FOLLOWUP_STAGE_COUNT }, (_, i) => s.stages?.[i] ?? ''),
+  }))
+  const defaultId = normalized.some(s => s.id === cfg?.defaultId)
+    ? (cfg as FollowUpConfig).defaultId
+    : normalized[0].id
+  return { sets: normalized, defaultId }
+}
+
+/** Which stage template applies given how many touches have happened.
+ *  touchpoints ≤1 → first follow-up … ≥4 → final attempt. Mirrors
+ *  followUpStageLabel in lib/outreach.ts. */
+export function followUpStageIndex(touchpoints: number): number {
+  if (touchpoints <= 1) return 0
+  if (touchpoints === 2) return 1
+  if (touchpoints === 3) return 2
+  return FOLLOWUP_STAGE_COUNT - 1
+}
+
+/** Resolve the set to use for a lead: its assigned set if the id still
+ *  exists, else the configured default, else the first set. Never null. */
+export function pickFollowUpSet(
+  cfg: FollowUpConfig | null | undefined,
+  setId: string | null | undefined,
+): FollowUpSet {
+  const resolved = resolveFollowUpConfig(cfg)
+  return (
+    resolved.sets.find(s => s.id === setId) ||
+    resolved.sets.find(s => s.id === resolved.defaultId) ||
+    resolved.sets[0]
+  )
+}
+
+/** The stage body to send for a given set + touch count, falling back to
+ *  the bundled default when the user left that stage blank. */
+export function followUpStageBody(set: FollowUpSet, touchpoints: number): string {
+  const idx = followUpStageIndex(touchpoints)
+  const own = (set.stages?.[idx] ?? '').trim()
+  return own || DEFAULT_FOLLOWUP_STAGES[idx]
+}
+
+/** True when a config is just the untouched bundled default. Callers
+ *  store NULL in that case so the user keeps inheriting future default-
+ *  copy improvements instead of a frozen snapshot. */
+export function followUpConfigIsDefault(cfg: FollowUpConfig): boolean {
+  if (cfg.sets.length !== 1) return false
+  const s = cfg.sets[0]
+  return (
+    s.id === BUNDLED_FOLLOWUP_SET_ID &&
+    cfg.defaultId === BUNDLED_FOLLOWUP_SET_ID &&
+    s.name === 'Default' &&
+    s.stages.length === DEFAULT_FOLLOWUP_STAGES.length &&
+    s.stages.every((st, i) => st === DEFAULT_FOLLOWUP_STAGES[i])
+  )
+}
+
+/** Generate a short, url-safe id for a new set. Index-seeded (not random)
+ *  so it stays deterministic — callers pass the current set count. */
+export function newFollowUpSetId(seed: number): string {
+  return `set-${seed}-${(seed * 2654435761 % 100000).toString(36)}`
+}
+
 /**
  * Pick the template to use for a given platform — user override if
  * set, otherwise bundled default.

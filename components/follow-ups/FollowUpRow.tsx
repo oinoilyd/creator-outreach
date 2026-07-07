@@ -4,10 +4,11 @@ import React, { memo, useRef, useState } from 'react'
 import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { Star, Mail } from 'lucide-react'
 import {
-  buildOutreachEmail,
-  buildOutreachContent,
+  buildFollowUpEmail,
+  buildFollowUpContent,
   formatAddedAtRelative,
 } from '@/lib/format'
+import { resolveFollowUpConfig } from '@/lib/templates'
 import {
   parseLocalDate,
   isoDaysFromNow,
@@ -164,7 +165,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             )}
             {e.email && (
               <a
-                href={buildOutreachEmail(
+                href={buildFollowUpEmail(
                   {
                     channelName: e.channelName,
                     email: e.email,
@@ -172,17 +173,19 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                     description: e.description,
                   } as unknown as Creator,
                   profile,
-                  e.trackingId,
+                  tps,
+                  e.followUpSetId,
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(ev) => {
                   ev.stopPropagation()
                   if (!guardOutreachClick(ev, e.email, profile?.userEmail)) return
-                  const content = buildOutreachContent(
+                  const content = buildFollowUpContent(
                     { channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator,
                     profile,
-                    undefined,
+                    tps,
+                    e.followUpSetId,
                   )
                   maybeOpenUnipileSend(ev, profile, {
                     entryId: e.id,
@@ -221,6 +224,30 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             {e.medium && <span> · via {e.medium}</span>}
             {e.addedAt && <span> · Added {formatAddedAtRelative(e.addedAt)}</span>}
           </button>
+          {/* Per-lead follow-up template set — only shown when the user
+              keeps more than one set, so default-only users see no
+              clutter. Drives which set this lead's follow-ups use
+              (manual button + auto-sender both read followUpSetId). */}
+          {(() => {
+            const cfg = resolveFollowUpConfig(profile?.followUpConfig)
+            if (cfg.sets.length <= 1) return null
+            const current = cfg.sets.find(s => s.id === e.followUpSetId)?.id ?? cfg.defaultId
+            return (
+              <select
+                value={current}
+                onClick={ev => ev.stopPropagation()}
+                onChange={ev => onUpdate(e.id, 'followUpSetId', ev.target.value)}
+                title="Which follow-up template set this lead uses"
+                className="mt-1 max-w-[170px] text-[10px] bg-muted/40 border border-border rounded px-1.5 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-purple-500/40 cursor-pointer"
+              >
+                {cfg.sets.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.id === cfg.defaultId ? ' · default' : ''}
+                  </option>
+                ))}
+              </select>
+            )
+          })()}
           {/* "Last followed up" chip — added per Dylan 2026-05-10 as a
               distinct visual element. markFollowedUp() updates
               dateReachedOut on every manual follow-up; the cron stamps

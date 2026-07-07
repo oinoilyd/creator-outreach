@@ -1,6 +1,12 @@
 import type { Creator, UserProfile } from './types'
 import { encodeUnsubscribeToken } from './unsubscribe'
-import { applyTemplate, resolveTemplate } from './templates'
+import {
+  applyTemplate,
+  resolveTemplate,
+  pickFollowUpSet,
+  followUpStageBody,
+  type TemplateVars,
+} from './templates'
 
 export const ALL_OCCUPATIONS = [
   'fitness coach', 'personal trainer', 'nutritionist', 'life coach', 'business coach',
@@ -389,21 +395,22 @@ export interface OutreachContent {
 }
 
 /**
- * Pure builder for the outreach subject + body. Extracted from
- * buildOutreachEmail so the SendPreviewModal (Phase 2) can render the
- * exact same content the compose-URL path produced, without needing
- * to parse it back out of a URL. buildOutreachEmail now wraps this.
- *
- * trackingId — when set, appends [CO-#xxxx] to the subject so legacy
- * SendGrid-Inbound-Parse reply matching keeps working. New sends via
- * Unipile don't need this (they match via In-Reply-To headers) and
- * can pass undefined to keep subjects clean.
+ * Shared recipient + sender variable prep used by BOTH the cold-email
+ * builder and the follow-up builder, so a follow-up personalizes with
+ * the exact same {name}/{channel}/{content}/{pitch}/{sender_*} values
+ * the first email did. Pure — no I/O, no side effects.
  */
-export function buildOutreachContent(
+export function emailTemplateVars(
   c: Creator,
   profile?: UserProfile | null,
-  trackingId?: string,
-): OutreachContent {
+): {
+  recipientFirst: string
+  contentRef: string
+  senderFull: string
+  senderFirst: string
+  linkedin: string
+  vars: TemplateVars
+} {
   const recipientFirst = c.channelName.split(/[\s,|–-]/)[0]
 
   // Build a clean "content reference" for use in the template body.
@@ -448,6 +455,48 @@ export function buildOutreachContent(
   const pitch = (profile?.pitchLine || '').trim()
   const linkedin = (profile?.linkedinUrl || '').trim()
 
+  const trimmedPitch = pitch.replace(/[.!?]+\s*$/, '').trim()
+  const pitchLine = trimmedPitch
+    ? `${trimmedPitch}.`
+    : `I think I can support what you're building.`
+
+  return {
+    recipientFirst,
+    contentRef,
+    senderFull,
+    senderFirst,
+    linkedin,
+    vars: {
+      name: recipientFirst,
+      channel: c.channelName,
+      content: contentRef,
+      pitch: pitchLine,
+      sender_first: senderFirst,
+      sender_full: senderFull,
+      linkedin,
+    },
+  }
+}
+
+/**
+ * Pure builder for the outreach subject + body. Extracted from
+ * buildOutreachEmail so the SendPreviewModal (Phase 2) can render the
+ * exact same content the compose-URL path produced, without needing
+ * to parse it back out of a URL. buildOutreachEmail now wraps this.
+ *
+ * trackingId — when set, appends [CO-#xxxx] to the subject so legacy
+ * SendGrid-Inbound-Parse reply matching keeps working. New sends via
+ * Unipile don't need this (they match via In-Reply-To headers) and
+ * can pass undefined to keep subjects clean.
+ */
+export function buildOutreachContent(
+  c: Creator,
+  profile?: UserProfile | null,
+  trackingId?: string,
+): OutreachContent {
+  const { recipientFirst, contentRef, senderFull, senderFirst, linkedin, vars } =
+    emailTemplateVars(c, profile)
+
   const subjectTemplate = (profile?.subjectTemplate || '').trim()
   const userSubject = subjectTemplate
     ? applySubjectPlaceholders(subjectTemplate, {
@@ -467,26 +516,10 @@ export function buildOutreachContent(
 
   // Body — built from the user's saved email template if they have one
   // (set via the Templates modal in the hamburger menu), otherwise the
-  // bundled default. `contentRef` already includes the "your X content"
-  // framing for niche fallback and the quoted video title for video
-  // fallback, so the template just needs to substitute it directly.
-  const trimmedPitch = pitch.replace(/[.!?]+\s*$/, '').trim()
-  const pitchLine = trimmedPitch
-    ? `${trimmedPitch}.`
-    : `I think I can support what you're building.`
-
+  // bundled default. `vars` already carries the resolved {name}/{channel}/
+  // {content}/{pitch}/{sender_*}/{linkedin} values from emailTemplateVars.
   const templateText = resolveTemplate('email', profile?.emailTemplate)
-  const renderedBody = applyTemplate(templateText, {
-    name: recipientFirst,
-    channel: c.channelName,
-    // For video titles we keep the leading "Love" pattern reading well:
-    // `contentRef` is `"video title"` (quoted) or `your X content`.
-    content: contentRef,
-    pitch: pitchLine,
-    sender_first: senderFirst,
-    sender_full: senderFull,
-    linkedin,
-  })
+  const renderedBody = applyTemplate(templateText, vars)
 
   // Optional "Also on LinkedIn:" line — preserves prior behavior so an
   // existing user's email shape doesn't change just because the template
@@ -523,6 +556,73 @@ export function buildOutreachContent(
     recipient: c.email,
     recipientFirst,
   }
+}
+
+/**
+ * Follow-up email content for a lead at a given touch count. Renders the
+ * lead's resolved follow-up SET (its assigned set, else the user's
+ * default) at the stage matching `touchpoints`, personalized with the
+ * same variables as the cold email. The subject threads on the original
+ * (`Re: …`) so the recipient sees one conversation, and the CAN-SPAM
+ * footer is appended just like the first send (closing the gap where the
+ * old auto-follow-up body shipped without one).
+ */
+export function buildFollowUpContent(
+  c: Creator,
+  profile: UserProfile | null | undefined,
+  touchpoints: number,
+  setId?: string | null,
+): OutreachContent {
+  const { recipientFirst, senderFull, senderFirst, vars } = emailTemplateVars(c, profile)
+
+  const set = pickFollowUpSet(profile?.followUpConfig, setId)
+  const stageTemplate = followUpStageBody(set, touchpoints)
+  const renderedBody = applyTemplate(stageTemplate, vars)
+
+  // Thread on the original subject so Gmail groups the conversation.
+  const base = buildOutreachContent(c, profile).subject
+  const subject = base.startsWith('Re:') ? base : `Re: ${base}`
+
+  const lines: string[] = [renderedBody]
+  const includeFooter = profile?.includeCanSpamFooter !== false
+  if (includeFooter) {
+    const footer = buildCanSpamFooter({
+      senderName: senderFull || profile?.userEmail || senderFirst,
+      physicalAddress: (profile?.physicalAddress ?? '').trim(),
+      userId: (profile?.userEmail ?? '').trim(),
+      recipientEmail: c.email,
+    })
+    lines.push(``)
+    lines.push(...footer)
+  }
+
+  return {
+    subject,
+    body: lines.join('\n'),
+    recipient: c.email,
+    recipientFirst,
+  }
+}
+
+/**
+ * Compose-URL wrapper for a follow-up — the non-Unipile path opens the
+ * user's mail client pre-filled with the stage template. Mirrors
+ * buildOutreachEmail.
+ */
+export function buildFollowUpEmail(
+  c: Creator,
+  profile: UserProfile | null | undefined,
+  touchpoints: number,
+  setId?: string | null,
+): string {
+  const content = buildFollowUpContent(c, profile, touchpoints, setId)
+  return composeUrl(
+    profile?.mailClient ?? 'default',
+    c.email,
+    content.subject,
+    content.body,
+    profile?.userEmail,
+  )
 }
 
 /**
