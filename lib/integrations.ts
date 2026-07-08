@@ -103,6 +103,9 @@ const COMPUTED_FIELD_TYPES = new Set([
   'formula', 'rollup', 'count', 'lookup', 'multipleLookupValues',
   'autoNumber', 'createdTime', 'lastModifiedTime', 'createdBy',
   'lastModifiedBy', 'button', 'aiText',
+  // Writable, but only accepts file objects — our text values can never
+  // satisfy it ("Invalid attachment object" caught in live testing).
+  'multipleAttachments',
 ])
 
 export async function airtableListTables(
