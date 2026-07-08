@@ -262,7 +262,7 @@ export function IntegrationsModal({ onClose }: { onClose: () => void }) {
           {/* ── Airtable ── */}
           <section className="border border-border rounded-xl p-4">
             <div className="flex items-center justify-between gap-2 mb-1">
-              <div className="text-[14px] font-semibold text-foreground">Airtable sync</div>
+              <div className="text-[14px] font-semibold text-foreground">Native sync · Airtable <span className="font-normal text-muted-foreground text-[11px]">(more platforms on request)</span></div>
               {at?.connected && !editing && (
                 <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">Connected</span>
               )}
