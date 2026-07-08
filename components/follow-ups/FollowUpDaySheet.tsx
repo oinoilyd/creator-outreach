@@ -144,7 +144,7 @@ export function FollowUpDaySheet({
                 : null
               const ghosted =
                 e.status === 'No Response' && (reachedDays === null || reachedDays >= 30)
-              let label = 'No follow-up set'
+              let label = 'No date'
               let tone = 'border-border text-muted-foreground bg-muted/40'
               if (ghosted) {
                 label = 'Ghosted'
@@ -161,10 +161,10 @@ export function FollowUpDaySheet({
                     label = 'Due today'
                     tone = 'border-red-500/40 text-red-700 dark:text-red-300 bg-red-500/10'
                   } else if (diffDays <= 7) {
-                    label = `Follow up in ${diffDays}d`
+                    label = `Due in ${diffDays}d`
                     tone = 'border-amber-500/40 text-amber-700 dark:text-yellow-300 bg-amber-500/10'
                   } else {
-                    label = `Follow up in ${diffDays}d`
+                    label = `Due in ${diffDays}d`
                     tone = 'border-blue-500/40 text-blue-700 dark:text-blue-300 bg-blue-500/10'
                   }
                 }

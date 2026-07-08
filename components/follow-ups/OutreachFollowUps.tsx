@@ -198,11 +198,6 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
     </div>
   )
 
-  function snooze(e: OutreachEntry, days: number) {
-    const base = parseLocalDate(e.followUpDate) ?? new Date()
-    base.setDate(base.getDate() + days)
-    onUpdate(e.id, 'followUpDate', `${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`)
-  }
   function markFollowedUp(e: OutreachEntry, opts?: { date?: string; status?: string }) {
     // ONE atomic update: touchpoints + last-touch date + next follow-up
     // (+ optional status) land together. nextFollowUpIso keeps the
@@ -474,7 +469,6 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
                   entry={e}
                   bucket={bucketOf(e)}
                   onUpdate={onUpdate}
-                  onSnooze={snooze}
                   onMarkFollowedUp={markFollowedUp}
                   onOpen={onOpenEntry}
                   profile={profile}
@@ -505,7 +499,6 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
                 entry={e}
                 bucket="high"
                 onUpdate={onUpdate}
-                onSnooze={snooze}
                 onMarkFollowedUp={markFollowedUp}
                 onOpen={onOpenEntry}
                 profile={profile}
@@ -546,7 +539,6 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
               entry={e}
               bucket="medium"
               onUpdate={onUpdate}
-              onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
               profile={profile}
@@ -570,7 +562,6 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
               entry={e}
               bucket="low"
               onUpdate={onUpdate}
-              onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
               profile={profile}
@@ -594,7 +585,6 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
               entry={e}
               bucket="unset"
               onUpdate={onUpdate}
-              onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
               profile={profile}
@@ -618,7 +608,6 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
               entry={e}
               bucket="ghosted"
               onUpdate={onUpdate}
-              onSnooze={snooze}
               onMarkFollowedUp={markFollowedUp}
               onOpen={onOpenEntry}
               profile={profile}

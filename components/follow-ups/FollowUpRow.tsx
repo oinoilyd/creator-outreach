@@ -20,7 +20,6 @@ import {
   calendarDaysSince,
 } from '@/lib/dates'
 import {
-  nextFollowUpDays,
   nextFollowUpIso,
   followUpStageLabel,
 } from '@/lib/outreach'
@@ -60,11 +59,10 @@ function maybeOpenUnipileSend(
 // list and re-renders on every parent state change (typing in search,
 // hovering, theme tick) unless memoized. Parent must useCallback the
 // handler props for memo to be effective.
-export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdate, onSnooze, onMarkFollowedUp, onOpen, profile }: {
+export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdate, onMarkFollowedUp, onOpen, profile }: {
   entry: OutreachEntry
   bucket: FUBucket
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
-  onSnooze: (e: OutreachEntry, days: number) => void
   onMarkFollowedUp: (e: OutreachEntry, opts?: { date?: string; status?: string }) => void
   onOpen: (id: string) => void
   /** Profile drives the compose URL (mailClient + authuser hint). */
@@ -99,14 +97,14 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
     gray: 'bg-muted/30 text-muted-foreground border-border',
   }[accent]
 
-  // Smart date label per bucket. Self-explanatory wording per Dylan's
-  // 2026-05-10 feedback ("'15d' alone doesn't tell you whether it's till
-  // next follow-up or since last contact"). Every label now includes the
-  // semantic — "Follow up in Xd" / "Overdue by Xd" / "Due today" — so the
-  // pill stands alone.
+  // Smart date label per bucket. Reworded 2026-07-07: "Follow up in Xd"
+  // read as an ACTION and collided with the "Log follow-up" button next
+  // to it (Dylan couldn't tell them apart). "Due in Xd" is unambiguous
+  // schedule STATUS — the pill shows when it's due; the button logs a
+  // send. Every label keeps its semantic so the pill stands alone.
   const dateLabel = (() => {
     if (bucket === 'ghosted') return 'Ghosted'
-    if (bucket === 'unset') return 'No follow-up set'
+    if (bucket === 'unset') return 'No date'
     const days = daysFromNow(e.followUpDate)
     if (bucket === 'high') {
       // Either overdue or due today — daysFromNow returns 0 for both, so we
@@ -119,7 +117,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
       }
       return 'Due today'
     }
-    return `Follow up in ${days}d`
+    return `Due in ${days}d`
   })()
 
   // What action does this row prompt? "Next:" makes it explicit that the
@@ -132,9 +130,6 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
       : `Next: ${stage} · ${tps} touch${tps === 1 ? '' : 'es'} so far`
 
   const dealValue = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
-
-  // Suggested snooze days = next cadence step (so "Snooze" matches the cadence)
-  const snoozeDays = nextFollowUpDays(tps)
 
   return (
     <div className="group/row bg-card/40 border border-border hover:border-border/80 hover:bg-card/60 rounded-lg transition-all hover:shadow-md hover:shadow-black/5">
@@ -295,11 +290,14 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
           onChange={v => onUpdate(e.id, 'dealValue', v)}
         />
 
-        {/* Date pill — clickable to open cadence popover */}
+        {/* Due-date STATUS pill — shows when the next follow-up is due;
+            click to reschedule (moves the date only, never logs a touch).
+            The action next to it — "Log follow-up" — is what records a
+            send. Distinct jobs, distinct wording. */}
         <div className="relative shrink-0">
           <button
             onClick={() => setDatePopoverOpen(v => !v)}
-            title="Click to change follow-up date"
+            title={`Scheduled${e.followUpDate ? ` for ${e.followUpDate}` : ''} — click to reschedule. Moves the date only; use "Log follow-up" after you actually send one.`}
             className={`text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shadow-sm transition-all hover:scale-105 ${datePillClass}`}
           >
             {dateLabel}
@@ -318,12 +316,12 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
         {/* Actions — both ghosted and active variants use the same slot
             structure so total width matches and right edges align.
             Slot layout (left → right):
-              [text button] [icon button] [{ icon, icon }]
-            Active:  Followed up | Snooze | { ✓ (hover), 👻 (hover) }
-            Ghosted: Re-engage   | ✕      | { spacer, spacer }
-            Visible content stays tight together; the hover-slot is
-            filled with spacers on ghosted so the cluster reserves
-            the same total width. */}
+              [text button] [{ icon, icon }]
+            Active:  Log follow-up | { ✓ (hover), 👻 (hover) }
+            Ghosted: Re-engage · ✕ | { spacer, spacer }
+            2026-07-07: the standalone Snooze icon was removed — the
+            due-date pill's reschedule popover covers deferring, so the
+            row is down to ONE schedule control + ONE log action. */}
         <div className="flex items-center gap-1 shrink-0">
           {bucket === 'ghosted' ? (
             <>
@@ -388,10 +386,10 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                       setFollowedUpOpen(v => !v)
                     }, 250)
                   }}
-                  title="Single click: log this follow-up — pick status, then click a date to commit. Double click: instantly log with your last-used cadence (defaults to the smart cadence the first time)."
-                  className="text-[10px] font-medium text-purple-800 dark:text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
+                  title={`Sent the ${stage.toLowerCase()}? Log it — advances to touch ${tps + 1} and schedules the next one. Single click: pick status + date. Double click: instant with your last-used cadence.`}
+                  className="text-[10px] font-semibold text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 rounded px-2 py-0.5 shadow-sm transition-colors"
                 >
-                  Followed up
+                  Log follow-up
                 </button>
                 {followedUpOpen && (
                   <FollowedUpPopover
@@ -422,15 +420,6 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                   />
                 )}
               </div>
-              {/* Snooze — always visible, icon only */}
-              <button
-                onClick={() => onSnooze(e, snoozeDays)}
-                title={`Snooze ${snoozeDays}d (next cadence step)`}
-                className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground border border-white/10 hover:border-white/30 rounded transition-colors"
-                aria-label="Snooze"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </button>
               {/* Secondary actions — hover-revealed for cleaner default look */}
               <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
                 <button
