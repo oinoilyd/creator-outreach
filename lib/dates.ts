@@ -66,6 +66,14 @@ export function calendarDaysSince(ts: number): number {
   return Math.max(0, Math.round((today.getTime() - then.getTime()) / 86_400_000))
 }
 
+/** Short human date — "Tue, Jul 14" — from a YYYY-MM-DD string (local).
+ *  Used in confirmation toasts. Empty/unparseable → ''. */
+export function formatDueDate(iso: string): string {
+  const d = parseLocalDate(iso)
+  if (!d) return ''
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 /** Human-readable "X days ago" (or "today") from a YYYY-MM-DD string.
  *  Returns "?" when the input is empty or unparseable so the UI shows
  *  a stable placeholder rather than an exception. */

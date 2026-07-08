@@ -9,8 +9,10 @@ import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import {
   parseLocalDate,
   todayIso,
+  formatDueDate,
 } from '@/lib/dates'
-import { nextFollowUpIso } from '@/lib/outreach'
+import { nextFollowUpIso, followUpStageLabel } from '@/lib/outreach'
+import { toast } from 'sonner'
 import { FollowUpsViewToggle, type FUView } from '@/components/follow-ups/FollowUpsViewToggle'
 import { FollowUpCalendar } from '@/components/follow-ups/FollowUpCalendar'
 import { FUStat } from '@/components/follow-ups/FUStat'
@@ -203,14 +205,21 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
     // (+ optional status) land together. nextFollowUpIso keeps the
     // cadence consistent with the auto path (business days for the
     // first follow-up, calendar 7/14/21 after).
-    const next = (parseInt(e.touchpoints || '0', 10) || 0) + 1
+    const cur = parseInt(e.touchpoints || '0', 10) || 0
+    const next = cur + 1
+    const nextDate = opts?.date ?? nextFollowUpIso(next)
     onUpdateFields(e.id, {
       touchpoints: String(next),
       dateReachedOut: todayIso(),
-      followUpDate: opts?.date ?? nextFollowUpIso(next),
+      followUpDate: nextDate,
       ...(opts?.status && opts.status !== e.status
         ? { status: opts.status as OutreachEntry['status'] }
         : {}),
+    })
+    // Visible receipt — the row may re-sort or change buckets after the
+    // update, so confirm what happened where the eye already is.
+    toast.success(`Logged ${followUpStageLabel(cur).toLowerCase()} for ${e.channelName || 'lead'} — now touch ${next}`, {
+      description: nextDate ? `Next follow-up due ${formatDueDate(nextDate)}` : undefined,
     })
   }
 

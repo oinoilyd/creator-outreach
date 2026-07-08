@@ -18,7 +18,9 @@ import {
   daysAgo,
   daysFromNow,
   calendarDaysSince,
+  formatDueDate,
 } from '@/lib/dates'
+import { toast } from 'sonner'
 import {
   nextFollowUpIso,
   followUpStageLabel,
@@ -306,7 +308,13 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             <CadencePopover
               currentDate={e.followUpDate || ''}
               touchpoints={tps}
-              onPick={(iso) => { onUpdate(e.id, 'followUpDate', iso); setDatePopoverOpen(false) }}
+              onPick={(iso) => {
+                onUpdate(e.id, 'followUpDate', iso)
+                setDatePopoverOpen(false)
+                // Visible receipt — the row may re-sort after the change.
+                if (iso) toast.success(`Rescheduled ${e.channelName || 'lead'} — due ${formatDueDate(iso)}`)
+                else toast(`Follow-up date cleared for ${e.channelName || 'lead'}`)
+              }}
               onClose={() => setDatePopoverOpen(false)}
               align="right"
             />

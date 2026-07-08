@@ -151,10 +151,12 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import {
   parseLocalDate,
   todayIso,
+  formatDueDate,
 } from '@/lib/dates'
 import {
   filterOutreachByKeyword,
   nextFollowUpIso,
+  followUpStageLabel,
 } from '@/lib/outreach'
 
 /**
@@ -1869,17 +1871,25 @@ export default function Home() {
   // the first, calendar 7/14/21 after). Mirrors the "Followed up"
   // button in OutreachFollowUps so both paths stay in lock-step.
   function logFollowUpTouch(id: string) {
+    const target = outreach.find(e => e.id === id)
+    const cur = parseInt(target?.touchpoints || '0', 10) || 0
+    const next = cur + 1
+    const nextDate = nextFollowUpIso(next)
     saveOutreach(outreach.map(e => {
       if (e.id !== id) return e
-      const next = (parseInt(e.touchpoints || '0', 10) || 0) + 1
       return {
         ...e,
         touchpoints: String(next),
         dateReachedOut: todayIso(),
-        followUpDate: nextFollowUpIso(next),
+        followUpDate: nextDate,
         status: (e.status === 'Not Outreached' || !e.status) ? 'No Response' : e.status,
       }
     }))
+    // Visible receipt — mirrors markFollowedUp's toast so both logging
+    // paths (return-prompt + button) confirm identically.
+    toast.success(`Logged ${followUpStageLabel(cur).toLowerCase()} for ${target?.channelName || 'lead'} — now touch ${next}`, {
+      description: `Next follow-up due ${formatDueDate(nextDate)}`,
+    })
   }
 
   // Results reorder is safe to memoize — only stable setters + a

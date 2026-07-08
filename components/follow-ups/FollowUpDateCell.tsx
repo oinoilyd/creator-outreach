@@ -7,8 +7,10 @@ import {
   isoDaysFromNow,
   daysAgo,
   daysFromNow,
+  formatDueDate,
 } from '@/lib/dates'
 import { nextFollowUpDays, nextFollowUpIso, followUpStageLabel } from '@/lib/outreach'
+import { toast } from 'sonner'
 
 // Follow-up date cell — shows a colored urgency pill and opens a popover
 // with a manual date picker plus quick cadence buttons (Tomorrow / +3d /
@@ -60,6 +62,9 @@ export function FollowUpDateCell({ entry, onUpdate }: {
   function setDate(iso: string) {
     onUpdate(entry.id, 'followUpDate', iso)
     setOpen(false)
+    // Visible receipt — mirrors the follow-up row's reschedule toast.
+    if (iso) toast.success(`Rescheduled ${entry.channelName || 'lead'} — due ${formatDueDate(iso)}`)
+    else toast(`Follow-up date cleared for ${entry.channelName || 'lead'}`)
   }
 
   function setRelative(days: number) {
