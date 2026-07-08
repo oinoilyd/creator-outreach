@@ -495,6 +495,7 @@ export default async function LandingPage() {
                 'Templated outreach per channel + Instagram DM auto-composer',
                 'Customizable analytics — 7 default KPIs, 30+ custom metrics',
                 'Live in-app support — message the team without leaving the app',
+                'Integrations: native Airtable sync + open API (Zapier-ready)',
                 'CSV / Excel export — your data, anytime',
               ]}
               cta={isAuthed ? 'Open the app' : 'Start 7-day free trial'}

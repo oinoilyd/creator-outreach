@@ -16,6 +16,7 @@ const PRODUCT_FACTS = `
 Creator Outreach (creatoroutreach.net) finds creators across YouTube, Instagram, TikTok, X, and LinkedIn, scores every result against criteria you write in plain English, and runs outreach + active-client tracking from one board.
 Pricing: a 7-day free trial, then $50/month or $500/year (save ~2 months). No charge until the trial ends; cancel anytime in two clicks from the customer portal.
 Core loop: search a niche/keyword/@handle → results stream in ranked by fit score → add the good ones to Outreach with the + button → work them by status → a won lead auto-becomes an Active Client.
+Integrations (hamburger menu → "Integrations"): native Airtable sync pushes your leads + statuses into your Airtable base automatically as you work (upserts on a merge field — rows update, never duplicate; "Sync now" for instant). Platform API keys let external tools (Zapier, Airtable automations, custom dashboards) create and read leads via our API — usage examples are in the panel. Existing data comes in via CSV import with fuzzy column matching.
 `.trim()
 
 /** Compile the catalog into a feature reference, skipping pure filler steps. */

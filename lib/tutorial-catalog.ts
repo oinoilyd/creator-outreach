@@ -336,7 +336,7 @@ export const CATALOG_STEPS: CatalogStep[] = [
     tiers: ['pro', 'granular'],
     target: '[data-tour-id="templates-modal"]',
     title: 'Per-platform message templates',
-    body: 'Switch between Email / LinkedIn DM / Instagram DM tabs to write a template per channel. Variables like {name}, {channel}, {product} auto-fill when you compose. Toggle the CAN-SPAM footer on/off — required for unsolicited email outreach in the US.',
+    body: 'Switch between Email / LinkedIn DM / Instagram DM tabs to write a template per channel. Variables like {name}, {channel}, {product} auto-fill when you compose. The Follow-ups tab holds staged follow-up sets (1st nudge → final attempt) — the email button composes the right stage automatically. Toggle the CAN-SPAM footer on/off — required for unsolicited email outreach in the US.',
     placement: 'right',
     onEnter: ({ openTemplates }) => openTemplates(),
     onExit: ({ closeTemplates }) => closeTemplates(),
@@ -347,7 +347,7 @@ export const CATALOG_STEPS: CatalogStep[] = [
     tiers: ['pro', 'granular'],
     target: '[data-tour-id="outreach-subtabs"]',
     title: 'Follow-ups — what\'s due today',
-    body: 'Auto-cadence (3 → 7 → 14 → 30 days) kicks in when you mark a row Open. The Follow-ups sub-tab surfaces only what\'s due today or overdue. Click "Mark followed up" to reset the cadence.',
+    body: 'Auto-cadence kicks in when you mark a row Open or Pending Response: first follow-up lands 5 business days out, then 7 / 14 / 21 days. The DUE pill shows when the next one is due (click it to log a sent follow-up or reschedule), and the email icon composes the right follow-up template for that stage.',
     placement: 'bottom',
     onEnter: ({ navigate }) => navigate('outreach', 'followups'),
   },
@@ -460,11 +460,22 @@ export const CATALOG_STEPS: CatalogStep[] = [
     tiers: ['pro', 'granular'],
     target: '[data-tour-id="hamburger-menu-open"]',
     title: 'The hamburger menu',
-    body: 'Every settings + workspace surface lives here. Profile, Lead Criteria, Templates, Tutorials, Roadmap, Subscription, and Appearance (themes + win celebration). Many of these you reached for in the steps above — this is where you find them later.',
+    body: 'Every settings + workspace surface lives here. Profile, Lead Criteria, Templates, Integrations, Tutorials, Roadmap, Subscription, and Appearance (themes + win celebration). Many of these you reached for in the steps above — this is where you find them later.',
     placement: 'left',
     onEnter: ({ openHamburger }) => openHamburger(),
     // Keep the hamburger open for the next step (Themes). Closing
     // happens after the last hamburger-anchored step.
+  },
+
+  // Hamburger still open from the previous step — anchor Integrations
+  // on the same trigger.
+  {
+    id: 'integrations',
+    tiers: ['pro', 'granular'],
+    target: '[data-tour-id="hamburger-menu-open"]',
+    title: 'Integrations — sync your stack',
+    body: 'The "Integrations" menu item connects Creator Outreach to the rest of your tools. Native Airtable sync pushes your leads + statuses into your base automatically as you work (rows update, never duplicate). Platform API keys let Zapier, Airtable automations, or your own dashboard create and read leads — copy-paste examples included.',
+    placement: 'left',
   },
 
   // Both tiers — open hamburger + expand Appearance, anchor on Themes.
