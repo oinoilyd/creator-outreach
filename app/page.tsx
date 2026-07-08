@@ -1942,16 +1942,25 @@ export default function Home() {
   // (Dylan 2026-06-08). Other status flips proceed without prompting.
   const [pendingRevert, setPendingRevert] = useState<PendingRevert | null>(null)
 
-  // Internal: apply the update without running any guards. Both the
-  // normal updateOutreachEntry path and the modal-confirm path call
+  // Internal: apply ONE atomic multi-field update without running any
+  // guards. Both the normal update paths and the modal-confirm path call
   // this. Extracted so the confirm callback can persist without
   // re-entering the guard (which would create an infinite loop).
-  function applyOutreachUpdate(id: string, field: keyof OutreachEntry, value: any) {
+  //
+  // 2026-07-07 — multi-field by design. The old single-field version made
+  // sequential callers (markFollowedUp fired FOUR back-to-back updates)
+  // each map over the SAME stale `outreach` snapshot, so React kept only
+  // the last one: "Followed up" saved the date but silently dropped the
+  // touchpoint increment — which is why follow-up stages never advanced.
+  // One call, one snapshot, all fields. Explicit fields always win over
+  // the status side-effects below.
+  function applyOutreachUpdates(id: string, fields: Partial<OutreachEntry>) {
     saveOutreach(outreach.map(e => {
       if (e.id !== id) return e
-      const updated = { ...e, [field]: value }
+      const updated = { ...e, ...fields }
 
-      if (field === 'status') {
+      if (fields.status !== undefined) {
+        const value = fields.status
         // No toasts on status changes (Successful / Rejected / No
         // Response / Not Outreached / Open) — every transition was
         // popping a notification in the bottom-right which felt
@@ -1970,7 +1979,9 @@ export default function Home() {
         }
 
         // Status drives reachedOut: anything past "Not Outreached" / "" counts.
-        updated.reachedOut = value !== 'Not Outreached' && value !== ''
+        if (fields.reachedOut === undefined) {
+          updated.reachedOut = value !== 'Not Outreached' && value !== ''
+        }
 
         const isActive = value === 'Open' || value === 'No Response'
         const isTerminal = value === 'Successful' || value === 'Rejected' || value === 'Not Outreached'
@@ -1978,31 +1989,33 @@ export default function Home() {
         if (isActive) {
           // First time the user actually reaches out → log the date + 1st touchpoint
           if (e.status === 'Not Outreached' || e.status === '') {
-            if (!e.dateReachedOut) updated.dateReachedOut = todayIso()
+            if (!e.dateReachedOut && fields.dateReachedOut === undefined) updated.dateReachedOut = todayIso()
             const tps = parseInt(e.touchpoints || '0', 10) || 0
-            if (tps === 0) updated.touchpoints = '1'
+            if (tps === 0 && fields.touchpoints === undefined) updated.touchpoints = '1'
           }
 
           // Apply follow-up cadence: shorter early, longer later.
           // First follow-up lands 5 *business* days out (weekends skipped);
           // later touches keep their calendar cadence — see nextFollowUpIso.
-          // Only auto-fills when the user hasn't set a date — manual dates win.
+          // Only auto-fills when the caller didn't provide a date AND the
+          // user hasn't set one — manual dates win.
           // Re-engagement of an overdue No-Response lead also gets a fresh date.
           const existing = parseLocalDate(e.followUpDate)
           const today = new Date(); today.setHours(0, 0, 0, 0)
           const isPastDue = existing && existing.getTime() < today.getTime()
-          if (!e.followUpDate || isPastDue) {
+          if (fields.followUpDate === undefined && (!e.followUpDate || isPastDue)) {
             const tps = parseInt(updated.touchpoints || e.touchpoints || '0', 10) || 1
             updated.followUpDate = nextFollowUpIso(tps)
           }
         }
 
         if (isTerminal) {
-          // Done with this lead — drop them out of the follow-up queue.
-          updated.followUpDate = ''
+          // Done with this lead — drop them out of the follow-up queue
+          // (unless the caller explicitly set a date in the same update).
+          if (fields.followUpDate === undefined) updated.followUpDate = ''
           if (value === 'Successful' || value === 'Rejected') {
             // Stamp response date when there isn't one already.
-            if (!e.responseDate) updated.responseDate = todayIso()
+            if (!e.responseDate && fields.responseDate === undefined) updated.responseDate = todayIso()
           }
         }
       }
@@ -2011,22 +2024,37 @@ export default function Home() {
     }))
   }
 
-  // Public entry point — runs the Active-Clients revert guard, then
-  // delegates to applyOutreachUpdate. Anything calling this gets the
-  // confirmation modal automatically when flipping a Successful entry
-  // away from Successful.
-  function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
-    if (field === 'status' && value !== 'Successful') {
+  // Back-compat single-field shim — the confirm-modal path and a few
+  // direct callers use this signature.
+  function applyOutreachUpdate(id: string, field: keyof OutreachEntry, value: any) {
+    applyOutreachUpdates(id, { [field]: value } as Partial<OutreachEntry>)
+  }
+
+  // Public multi-field entry point — runs the Active-Clients revert
+  // guard, then applies everything in ONE atomic save. When the guard
+  // trips (leaving Successful), the non-status fields still apply
+  // immediately; only the status flip waits for the user's confirm.
+  function updateOutreachFields(id: string, fields: Partial<OutreachEntry>) {
+    const status = fields.status
+    if (status !== undefined && status !== 'Successful') {
       const target = outreach.find(e => e.id === id)
       if (target && target.status === 'Successful') {
+        const { status: _pending, ...rest } = fields
+        if (Object.keys(rest).length > 0) applyOutreachUpdates(id, rest)
         setPendingRevert({
           entry: target,
-          newStatus: value as NonNullable<OutreachEntry['status']>,
+          newStatus: status as NonNullable<OutreachEntry['status']>,
         })
         return // wait for user — applyOutreachUpdate fires on confirm
       }
     }
-    applyOutreachUpdate(id, field, value)
+    applyOutreachUpdates(id, fields)
+  }
+
+  // Public single-field entry point — same guard, one field. Kept as the
+  // signature the whole app already passes around.
+  function updateOutreachEntry(id: string, field: keyof OutreachEntry, value: any) {
+    updateOutreachFields(id, { [field]: value } as Partial<OutreachEntry>)
   }
 
   const [searchingContactIds, setSearchingContactIds] = useState<Set<string>>(new Set())
@@ -4539,6 +4567,7 @@ export default function Home() {
               <OutreachFollowUps
                 entries={outreach}
                 onUpdate={updateOutreachEntry}
+                onUpdateFields={updateOutreachFields}
                 onOpenEntry={openLeadDetail}
                 profile={profile}
               />

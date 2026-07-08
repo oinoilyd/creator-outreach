@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 // Cadence lives in one place. It used to be duplicated here and drifted
 // out of sync (first follow-up stayed 3 days while lib/outreach moved to
 // 5), so both popovers showed a stale interval. Import the canonical one.
-import { nextFollowUpDays } from '@/lib/outreach'
+// nextFollowUpIso applies the business-day rule for the first follow-up;
+// followUpStageLabel names the stage so the popovers say WHICH follow-up
+// they're scheduling/logging.
+import { nextFollowUpDays, nextFollowUpIso, followUpStageLabel } from '@/lib/outreach'
 
 function isoDaysFromNow(days: number): string {
   const d = new Date(); d.setDate(d.getDate() + days)
@@ -40,7 +43,13 @@ export function CadencePopover({
     return () => document.removeEventListener('mousedown', onClick)
   }, [onClose])
 
-  const cadenceDays = nextFollowUpDays(touchpoints + 1)
+  // Cadence interval keyed on the CURRENT touch count — same convention
+  // as the auto path (after touch N, wait nextFollowUpDays(N)). The old
+  // `touchpoints + 1` here made a lead awaiting its first follow-up show
+  // +7d while the auto path scheduled 5 business days.
+  const cadenceDays = nextFollowUpDays(touchpoints)
+  const cadenceIso = nextFollowUpIso(touchpoints)
+  const stage = followUpStageLabel(touchpoints)
   const setRel = (d: number) => onPick(isoDaysFromNow(d))
 
   return (
@@ -49,12 +58,12 @@ export function CadencePopover({
       className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1 z-30 w-64 rounded-lg border border-border bg-card shadow-2xl shadow-black/40 p-3 text-xs normal-case font-normal`}
     >
       <button
-        onClick={() => setRel(cadenceDays)}
-        title="Set the next follow-up to today + the smart cadence step"
+        onClick={() => onPick(cadenceIso)}
+        title={`Schedules the ${stage.toLowerCase()} on the smart cadence (business days for the first follow-up, calendar after)`}
         className="w-full mb-2 px-3 py-1.5 text-[11px] font-medium text-purple-100 bg-purple-600/40 hover:bg-purple-600/60 border border-purple-500/50 rounded-md transition-colors flex items-center justify-between"
       >
         <span>Use cadence</span>
-        <span className="text-[10px] text-purple-300/80">+{cadenceDays}d (touch {touchpoints + 1})</span>
+        <span className="text-[10px] text-purple-300/80">+{cadenceDays}d · {stage}</span>
       </button>
 
       <div className="grid grid-cols-2 gap-1 mb-2">
@@ -115,8 +124,14 @@ export function FollowedUpPopover({
   align?: 'left' | 'right'
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const cadenceDays = nextFollowUpDays(touchpoints + 1)
-  const [date, setDate] = useState<string>(isoDaysFromNow(cadenceDays))
+  // This popover LOGS a touch — after it, the lead is at touchpoints + 1,
+  // so the next follow-up schedules off the NEW count (same math as
+  // markFollowedUp). The stage label names the send being logged.
+  const nextCount = touchpoints + 1
+  const cadenceDays = nextFollowUpDays(nextCount)
+  const cadenceIso = nextFollowUpIso(nextCount)
+  const stageBeingLogged = followUpStageLabel(touchpoints)
+  const [date, setDate] = useState<string>(cadenceIso)
   const [status, setStatus] = useState<string>(currentStatus || 'Open')
 
   useEffect(() => {
@@ -133,8 +148,8 @@ export function FollowedUpPopover({
       className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1 z-30 w-72 rounded-lg border border-border bg-card shadow-2xl shadow-black/40 p-3 text-xs normal-case font-normal`}
     >
       <div className="text-[11px] font-semibold text-foreground mb-2 flex items-center gap-2">
-        <span>📨 Followed up</span>
-        <span className="text-[10px] text-muted-foreground">→ touch {touchpoints + 1}</span>
+        <span>📨 Log follow-up</span>
+        <span className="text-[10px] text-muted-foreground">{stageBeingLogged} → touch {nextCount}</span>
       </div>
 
       <div className="space-y-2.5">
@@ -157,16 +172,16 @@ export function FollowedUpPopover({
           <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Next follow-up</label>
           <div className="grid grid-cols-2 gap-1 mb-1">
             {[
-              { label: `Cadence (+${cadenceDays}d)`, days: cadenceDays, primary: true },
-              { label: '+1 week', days: 7 },
-              { label: '+2 weeks', days: 14 },
-              { label: '+1 month', days: 30 },
+              { label: `Cadence (+${cadenceDays}d)`, iso: cadenceIso, primary: true },
+              { label: '+1 week', iso: isoDaysFromNow(7) },
+              { label: '+2 weeks', iso: isoDaysFromNow(14) },
+              { label: '+1 month', iso: isoDaysFromNow(30) },
             ].map(p => (
               <button
                 key={p.label}
-                onClick={() => setDate(isoDaysFromNow(p.days))}
+                onClick={() => setDate(p.iso)}
                 className={`px-2 py-1 text-[10px] rounded border transition-colors ${
-                  date === isoDaysFromNow(p.days)
+                  date === p.iso
                     ? 'bg-purple-600/40 border-purple-500/60 text-foreground'
                     : p.primary
                       ? 'bg-purple-500/15 border-purple-500/30 text-purple-200 hover:bg-purple-500/25'
@@ -194,7 +209,7 @@ export function FollowedUpPopover({
           onClick={() => onConfirm({ date, status })}
           className="flex-1 px-3 py-1.5 text-[11px] font-semibold text-white bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded shadow-md shadow-purple-500/20 transition-all"
         >
-          Confirm
+          Log follow-up
         </button>
       </div>
     </div>

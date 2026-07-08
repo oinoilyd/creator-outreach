@@ -8,7 +8,7 @@ import {
   daysAgo,
   daysFromNow,
 } from '@/lib/dates'
-import { nextFollowUpDays } from '@/lib/outreach'
+import { nextFollowUpDays, nextFollowUpIso, followUpStageLabel } from '@/lib/outreach'
 
 // Follow-up date cell — shows a colored urgency pill and opens a popover
 // with a manual date picker plus quick cadence buttons (Tomorrow / +3d /
@@ -30,7 +30,11 @@ export function FollowUpDateCell({ entry, onUpdate }: {
   }, [open])
 
   const tps = parseInt(entry.touchpoints || '0', 10) || 0
-  const cadenceDays = nextFollowUpDays(tps + 1)
+  // Keyed on the CURRENT touch count — same convention as the auto path
+  // (after touch N, wait nextFollowUpDays(N)); the old +1 skipped a step.
+  const cadenceDays = nextFollowUpDays(tps)
+  const cadenceIso = nextFollowUpIso(tps)
+  const stage = followUpStageLabel(tps)
   const isUnset = !entry.followUpDate
   const dateObj = parseLocalDate(entry.followUpDate)
   const todayMs = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })()
@@ -75,12 +79,12 @@ export function FollowUpDateCell({ entry, onUpdate }: {
         <div className="absolute left-0 top-full mt-1 z-30 w-64 rounded-lg border border-border bg-card shadow-2xl p-3 text-xs normal-case font-normal">
           {/* Smart "Use cadence" — top action */}
           <button
-            onClick={() => setRelative(cadenceDays)}
+            onClick={() => setDate(cadenceIso)}
             className="w-full mb-2 px-3 py-1.5 text-[11px] font-medium text-purple-100 bg-purple-600/40 hover:bg-purple-600/60 border border-purple-500/50 rounded-md transition-colors flex items-center justify-between"
-            title="Set to today + the smart cadence step based on this lead's current touch count"
+            title={`Schedules the ${stage.toLowerCase()} on the smart cadence (business days for the first follow-up, calendar after)`}
           >
             <span>Use cadence</span>
-            <span className="text-[10px] text-purple-700 dark:text-purple-300/80">+{cadenceDays}d (touch {tps + 1})</span>
+            <span className="text-[10px] text-purple-700 dark:text-purple-300/80">+{cadenceDays}d · {stage}</span>
           </button>
 
           {/* Quick presets */}

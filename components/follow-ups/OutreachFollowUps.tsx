@@ -38,9 +38,14 @@ const FollowUpSplit = dynamic(
 // `unset` and `ghosted` are special states, not priorities.
 type FUBucket = 'high' | 'medium' | 'low' | 'unset' | 'ghosted'
 
-export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
+export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEntry, profile }: {
   entries: OutreachEntry[]
   onUpdate: (id: string, field: keyof OutreachEntry, value: any) => void
+  /** Atomic multi-field update — REQUIRED for markFollowedUp. Sequential
+   *  single-field onUpdate calls in one handler map over the same stale
+   *  snapshot and clobber each other (the old bug that silently dropped
+   *  the touchpoint increment on "Followed up"). */
+  onUpdateFields: (id: string, fields: Partial<OutreachEntry>) => void
   onOpenEntry: (id: string) => void
   profile: UserProfile | null
 }) {
@@ -199,18 +204,19 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
     onUpdate(e.id, 'followUpDate', `${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,'0')}-${String(base.getDate()).padStart(2,'0')}`)
   }
   function markFollowedUp(e: OutreachEntry, opts?: { date?: string; status?: string }) {
-    // Increment touchpoints, push date (use override if provided), update status.
+    // ONE atomic update: touchpoints + last-touch date + next follow-up
+    // (+ optional status) land together. nextFollowUpIso keeps the
+    // cadence consistent with the auto path (business days for the
+    // first follow-up, calendar 7/14/21 after).
     const next = (parseInt(e.touchpoints || '0', 10) || 0) + 1
-    onUpdate(e.id, 'touchpoints', String(next))
-    onUpdate(e.id, 'dateReachedOut', todayIso())
-    if (opts?.status && opts.status !== e.status) {
-      onUpdate(e.id, 'status', opts.status)
-    }
-    // followUpDate last so it doesn't get clobbered by status auto-set rules.
-    // nextFollowUpIso keeps the cadence consistent with the auto path
-    // (business days for the first follow-up, calendar 7/14/21 after).
-    const newDate = opts?.date ?? nextFollowUpIso(next)
-    onUpdate(e.id, 'followUpDate', newDate)
+    onUpdateFields(e.id, {
+      touchpoints: String(next),
+      dateReachedOut: todayIso(),
+      followUpDate: opts?.date ?? nextFollowUpIso(next),
+      ...(opts?.status && opts.status !== e.status
+        ? { status: opts.status as OutreachEntry['status'] }
+        : {}),
+    })
   }
 
   // Shared "+ Add follow-up" button + modal — rendered in every view

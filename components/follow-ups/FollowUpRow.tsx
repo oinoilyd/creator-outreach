@@ -21,6 +21,7 @@ import {
 } from '@/lib/dates'
 import {
   nextFollowUpDays,
+  nextFollowUpIso,
   followUpStageLabel,
 } from '@/lib/outreach'
 import { guardOutreachClick } from '@/components/creators/renderCell'
@@ -121,12 +122,14 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
     return `Follow up in ${days}d`
   })()
 
-  // What action does this row prompt?
+  // What action does this row prompt? "Next:" makes it explicit that the
+  // stage names the UPCOMING send — which is also the template the email
+  // button will compose.
   const stageHint = bucket === 'ghosted'
     ? `Marked No Response · ${tps} touch${tps === 1 ? '' : 'es'}`
     : tps >= 4
-      ? `Final attempt · ${tps} touch${tps === 1 ? '' : 'es'} so far`
-      : `${stage} · ${tps} touch${tps === 1 ? '' : 'es'} so far`
+      ? `Next: Final attempt · ${tps} touch${tps === 1 ? '' : 'es'} so far`
+      : `Next: ${stage} · ${tps} touch${tps === 1 ? '' : 'es'} so far`
 
   const dealValue = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
 
@@ -207,7 +210,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                     })
                   }
                 }}
-                title={`Send follow-up to ${e.email}. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose.`}
+                title={`Composes the ${stage.toLowerCase()} template to ${e.email}. Opens your Gmail compose (or the preview modal if Gmail is connected). After you send and return, a prompt offers to log the touch.`}
                 aria-label={`Email ${e.email}`}
                 className="inline-flex items-center text-emerald-700 dark:text-emerald-400/80 hover:text-emerald-500 transition-colors shrink-0"
               >
@@ -368,10 +371,12 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                       const savedStatus = typeof window !== 'undefined'
                         ? localStorage.getItem('followedUp:lastStatus') || ''
                         : ''
-                      const days = savedDays ?? nextFollowUpDays(tps + 1)
+                      // Saved manual cadence wins verbatim; the smart
+                      // fallback goes through nextFollowUpIso so it keeps
+                      // the business-day rule + matches markFollowedUp.
                       const status = savedStatus || e.status || 'Open'
                       onMarkFollowedUp(e, {
-                        date: isoDaysFromNow(days),
+                        date: savedDays != null ? isoDaysFromNow(savedDays) : nextFollowUpIso(tps + 1),
                         status,
                       })
                       return
