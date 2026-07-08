@@ -77,6 +77,12 @@ export function FollowUpDateCell({ entry, onUpdate }: {
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-1 z-30 w-64 rounded-lg border border-border bg-card shadow-2xl p-3 text-xs normal-case font-normal">
+          {/* Header — scheduling only; logging a sent touch lives on the
+              "Followed up" control in the Follow-ups tab. */}
+          <div className="mb-2">
+            <div className="text-[11px] font-semibold text-foreground">Reschedule next follow-up</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Moves the date only — doesn&apos;t log a touch.</div>
+          </div>
           {/* Smart "Use cadence" — top action */}
           <button
             onClick={() => setDate(cadenceIso)}

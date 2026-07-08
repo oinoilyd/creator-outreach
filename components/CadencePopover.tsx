@@ -57,6 +57,15 @@ export function CadencePopover({
       ref={ref}
       className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1 z-30 w-64 rounded-lg border border-border bg-card shadow-2xl shadow-black/40 p-3 text-xs normal-case font-normal`}
     >
+      {/* Header — this popover RESCHEDULES only. The sibling "Followed
+          up" control is the one that logs a sent touch. Labeling both
+          jobs is what keeps the two from reading as duplicates. */}
+      <div className="mb-2">
+        <div className="text-[11px] font-semibold text-foreground">Reschedule next follow-up</div>
+        <div className="text-[10px] text-muted-foreground mt-0.5">
+          Moves the date only. Sent one? Use <span className="font-medium text-foreground/80">Followed up</span> to log it.
+        </div>
+      </div>
       <button
         onClick={() => onPick(cadenceIso)}
         title={`Schedules the ${stage.toLowerCase()} on the smart cadence (business days for the first follow-up, calendar after)`}
@@ -106,10 +115,13 @@ export function CadencePopover({
   )
 }
 
-// Alternative: a "Followed up" confirmation popover that asks for the
-// next follow-up date AND a status update before committing. Used from
-// the Follow-ups row so a single click confirms the touch + tweaks
-// state if needed.
+// Alternative: a "Followed up" logging popover. INSTANT-APPLY (2026-07-07):
+// picking a date option logs the touch + schedules the next follow-up in
+// one click — same click-to-apply behavior as the reschedule popover
+// above, so the two feel like one system. The old separate Confirm step
+// silently discarded picks when the popover closed unconfirmed, which
+// read as "pressing +1 week doesn't work." Status is a modifier: set it
+// first (or leave it), then one date click commits both.
 export function FollowedUpPopover({
   touchpoints,
   currentStatus,
@@ -131,7 +143,6 @@ export function FollowedUpPopover({
   const cadenceDays = nextFollowUpDays(nextCount)
   const cadenceIso = nextFollowUpIso(nextCount)
   const stageBeingLogged = followUpStageLabel(touchpoints)
-  const [date, setDate] = useState<string>(cadenceIso)
   const [status, setStatus] = useState<string>(currentStatus || 'Open')
 
   useEffect(() => {
@@ -142,14 +153,21 @@ export function FollowedUpPopover({
     return () => document.removeEventListener('mousedown', onClick)
   }, [onClose])
 
+  const log = (iso: string) => onConfirm({ date: iso, status })
+
   return (
     <div
       ref={ref}
       className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1 z-30 w-72 rounded-lg border border-border bg-card shadow-2xl shadow-black/40 p-3 text-xs normal-case font-normal`}
     >
-      <div className="text-[11px] font-semibold text-foreground mb-2 flex items-center gap-2">
-        <span>📨 Log follow-up</span>
-        <span className="text-[10px] text-muted-foreground">{stageBeingLogged} → touch {nextCount}</span>
+      <div className="mb-2">
+        <div className="text-[11px] font-semibold text-foreground flex items-center gap-2">
+          <span>📨 Log follow-up</span>
+          <span className="text-[10px] font-normal text-muted-foreground">{stageBeingLogged} → touch {nextCount}</span>
+        </div>
+        <div className="text-[10px] text-muted-foreground mt-0.5">
+          Picking a date logs the touch + schedules the next one.
+        </div>
       </div>
 
       <div className="space-y-2.5">
@@ -169,7 +187,7 @@ export function FollowedUpPopover({
         </div>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Next follow-up</label>
+          <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Next follow-up · click to log</label>
           <div className="grid grid-cols-2 gap-1 mb-1">
             {[
               { label: `Cadence (+${cadenceDays}d)`, iso: cadenceIso, primary: true },
@@ -179,13 +197,11 @@ export function FollowedUpPopover({
             ].map(p => (
               <button
                 key={p.label}
-                onClick={() => setDate(p.iso)}
+                onClick={() => log(p.iso)}
                 className={`px-2 py-1 text-[10px] rounded border transition-colors ${
-                  date === p.iso
-                    ? 'bg-purple-600/40 border-purple-500/60 text-foreground'
-                    : p.primary
-                      ? 'bg-purple-500/15 border-purple-500/30 text-purple-200 hover:bg-purple-500/25'
-                      : 'bg-muted/60 border-border text-muted-foreground hover:text-foreground'
+                  p.primary
+                    ? 'bg-purple-500/15 border-purple-500/30 text-purple-800 dark:text-purple-200 hover:bg-purple-500/30'
+                    : 'bg-muted/60 border-border text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
                 {p.label}
@@ -194,22 +210,16 @@ export function FollowedUpPopover({
           </div>
           <input
             type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
+            defaultValue={cadenceIso}
+            onChange={e => { if (e.target.value) log(e.target.value) }}
             className="w-full bg-muted border border-border rounded px-2 py-1 text-[11px] text-foreground focus:outline-none focus:border-purple-500"
           />
         </div>
       </div>
 
-      <div className="flex gap-2 mt-3 pt-2 border-t border-border">
-        <button onClick={onClose} className="flex-1 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground border border-border hover:border-border/80 rounded transition-colors">
+      <div className="mt-3 pt-2 border-t border-border">
+        <button onClick={onClose} className="w-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground border border-border hover:border-border/80 rounded transition-colors">
           Cancel
-        </button>
-        <button
-          onClick={() => onConfirm({ date, status })}
-          className="flex-1 px-3 py-1.5 text-[11px] font-semibold text-white bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded shadow-md shadow-purple-500/20 transition-all"
-        >
-          Log follow-up
         </button>
       </div>
     </div>

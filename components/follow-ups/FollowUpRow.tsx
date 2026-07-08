@@ -388,7 +388,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                       setFollowedUpOpen(v => !v)
                     }, 250)
                   }}
-                  title="Single click: pick next date + status manually. Double click: apply your last-used cadence (defaults to the smart cadence the first time)."
+                  title="Single click: log this follow-up — pick status, then click a date to commit. Double click: instantly log with your last-used cadence (defaults to the smart cadence the first time)."
                   className="text-[10px] font-medium text-purple-800 dark:text-purple-200 hover:text-foreground bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 rounded px-2 py-0.5 transition-colors"
                 >
                   Followed up
