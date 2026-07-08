@@ -96,15 +96,26 @@ export async function airtableListBases(token: string): Promise<{ id: string; na
   return (body.bases ?? []).map((b: { id: string; name: string }) => ({ id: b.id, name: b.name }))
 }
 
+/** Field types Airtable computes itself — writes to these are rejected
+ *  by their API (for every integration, not just ours), so we hide them
+ *  from the mapping dropdowns entirely. */
+const COMPUTED_FIELD_TYPES = new Set([
+  'formula', 'rollup', 'count', 'lookup', 'multipleLookupValues',
+  'autoNumber', 'createdTime', 'lastModifiedTime', 'createdBy',
+  'lastModifiedBy', 'button', 'aiText',
+])
+
 export async function airtableListTables(
   token: string,
   baseId: string,
 ): Promise<{ id: string; name: string; fields: string[] }[]> {
   const body = await airtableFetch(token, `/meta/bases/${encodeURIComponent(baseId)}/tables`)
-  return (body.tables ?? []).map((t: { id: string; name: string; fields?: { name: string }[] }) => ({
+  return (body.tables ?? []).map((t: { id: string; name: string; fields?: { name: string; type?: string }[] }) => ({
     id: t.id,
     name: t.name,
-    fields: (t.fields ?? []).map(f => f.name),
+    fields: (t.fields ?? [])
+      .filter(f => !COMPUTED_FIELD_TYPES.has(f.type ?? ''))
+      .map(f => f.name),
   }))
 }
 
