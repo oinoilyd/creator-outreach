@@ -281,14 +281,13 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
           onChange={v => onUpdate(e.id, 'dealValue', v)}
         />
 
-        {/* Due-date STATUS pill — shows when the next follow-up is due;
-            click to reschedule (moves the date only, never logs a touch).
-            The action next to it — "Log follow-up" — is what records a
-            send. Distinct jobs, distinct wording. */}
+        {/* Due-date pill — THE follow-up control. Shows when the next
+            one is due; clicking opens the popover with both verbs:
+            "Log follow-up sent" (top) and reschedule options below. */}
         <div className="relative shrink-0">
           <button
             onClick={() => setDatePopoverOpen(v => !v)}
-            title={`Scheduled${e.followUpDate ? ` for ${e.followUpDate}` : ''} — click to reschedule. Moves the date only; use "Log follow-up" after you actually send one.`}
+            title={`${e.followUpDate ? `Scheduled for ${e.followUpDate}` : 'No date set'} — click to log a sent follow-up or reschedule.`}
             className={`text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shadow-sm transition-all hover:scale-105 ${datePillClass}`}
           >
             {dateLabel}
@@ -304,6 +303,10 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                 if (iso) toast.success(`Rescheduled ${e.channelName || 'lead'} — due ${formatDueDate(iso)}`)
                 else toast(`Follow-up date cleared for ${e.channelName || 'lead'}`)
               }}
+              onLogFollowUp={() => {
+                onMarkFollowedUp(e) // logs the touch + auto-schedules + toasts
+                setDatePopoverOpen(false)
+              }}
               onClose={() => setDatePopoverOpen(false)}
               align="right"
             />
@@ -312,13 +315,12 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
 
         {/* Actions — both ghosted and active variants use the same slot
             structure so total width matches and right edges align.
-            Slot layout (left → right):
-              [text button] [{ icon, icon }]
-            Active:  Log follow-up | { ✓ (hover), 👻 (hover) }
-            Ghosted: Re-engage · ✕ | { spacer, spacer }
-            2026-07-07: the standalone Snooze icon was removed — the
-            due-date pill's reschedule popover covers deferring, so the
-            row is down to ONE schedule control + ONE log action. */}
+            Active:  { ✓ (hover), 👻 (hover) }
+            Ghosted: Re-engage · ✕ · { spacer, spacer }
+            2026-07-07: Snooze icon AND the standalone Log button were
+            removed — the due pill's popover carries both verbs (log +
+            reschedule), and the after-email prompt logs automatically,
+            so the row keeps only outcome actions here. */}
         <div className="flex items-center gap-1 shrink-0">
           {bucket === 'ghosted' ? (
             <>
@@ -343,22 +345,10 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             </>
           ) : (
             <>
-              {/* Primary action — ONE CLICK, no popover (2026-07-07).
-                  The old popover asked for a next date ("+1 week?") at
-                  log time, which read as untethered — the cadence
-                  system already knows when the next follow-up should
-                  be. Click → touch logged, next date auto-scheduled,
-                  toast receipt. Disagree with the auto date? The DUE
-                  pill reschedules. Status changes live on the ✓/👻
-                  hover actions + the outreach table. */}
-              <button
-                onClick={() => onMarkFollowedUp(e)}
-                title={`Sent the ${stage.toLowerCase()}? One click logs it — touch ${tps + 1} — and auto-schedules the next follow-up on your cadence. Use the due pill to adjust the date.`}
-                className="text-[10px] font-semibold text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 rounded px-2 py-0.5 shadow-sm transition-colors"
-              >
-                Log follow-up
-              </button>
-              {/* Secondary actions — hover-revealed for cleaner default look */}
+              {/* Secondary actions — hover-revealed for cleaner default look.
+                  Logging a sent follow-up lives inside the DUE pill's
+                  popover (top action) + the after-email return prompt —
+                  the standalone button was one control too many. */}
               <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
                 <button
                   onClick={() => onUpdate(e.id, 'status', 'Successful')}

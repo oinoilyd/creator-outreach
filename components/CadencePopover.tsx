@@ -26,12 +26,17 @@ export function CadencePopover({
   touchpoints,
   onPick,
   onClose,
+  onLogFollowUp,
   align = 'left',
 }: {
   currentDate: string
   touchpoints: number
   onPick: (iso: string) => void
   onClose: () => void
+  /** When provided, the popover leads with a "Log follow-up sent"
+   *  action — logging + rescheduling live in ONE control (the due
+   *  pill), instead of two competing row buttons. 2026-07-07. */
+  onLogFollowUp?: () => void
   align?: 'left' | 'right'
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -57,16 +62,28 @@ export function CadencePopover({
       ref={ref}
       className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1 z-30 w-64 rounded-lg border border-border bg-card shadow-2xl shadow-black/40 p-3 text-xs normal-case font-normal`}
     >
-      {/* Header — this popover RESCHEDULES only. The sibling "Log
-          follow-up" button records a sent touch (one click, cadence
-          auto-schedules). Labeling both jobs keeps the two from
-          reading as duplicates. */}
-      <div className="mb-2">
-        <div className="text-[11px] font-semibold text-foreground">Reschedule next follow-up</div>
-        <div className="text-[10px] text-muted-foreground mt-0.5">
-          Moves the date only. Sent one? Use <span className="font-medium text-foreground/80">Log follow-up</span> instead.
-        </div>
-      </div>
+      {/* Log-first: the common case is "I just sent it" — one click
+          records the touch and auto-schedules the next on the cadence.
+          Rescheduling (the less common case) lives below the divider.
+          Both verbs in ONE control (the due pill) instead of two
+          competing row buttons. */}
+      {onLogFollowUp && (
+        <>
+          <button
+            onClick={onLogFollowUp}
+            title="Records the send — touch count goes up, next follow-up auto-schedules on your cadence."
+            className="w-full px-3 py-2 text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 rounded-md shadow-sm transition-colors flex items-center justify-between"
+          >
+            <span>✓ Log follow-up sent</span>
+            <span className="text-[10px] font-normal text-purple-200/90">{stage} → touch {touchpoints + 1}</span>
+          </button>
+          <div className="flex items-center gap-2 my-2.5">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">or reschedule</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+        </>
+      )}
       <button
         onClick={() => onPick(cadenceIso)}
         title={`Schedules the ${stage.toLowerCase()} on the smart cadence (business days for the first follow-up, calendar after)`}
