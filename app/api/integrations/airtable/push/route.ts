@@ -15,7 +15,10 @@ import { decryptToken } from '@/lib/email/direct/crypto'
 export async function POST() {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
-  const limited = await rateLimitRedis(auth.id, 'integrations-airtable-push', 20, auth.email)
+  // 60/window — the client auto-pushes (debounced 20s) on outreach
+  // changes, so active sessions call this more often than a manual
+  // button would.
+  const limited = await rateLimitRedis(auth.id, 'integrations-airtable-push', 60, auth.email)
   if (limited) return limited
   const sb = serviceClient()
   if (!sb) return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })

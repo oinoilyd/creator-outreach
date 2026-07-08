@@ -1051,6 +1051,31 @@ export default function Home() {
   const [showProfile, setShowProfile] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [showIntegrations, setShowIntegrations] = useState(false)
+  // Airtable auto-push: connected = keep their base in sync. Status is
+  // fetched on login and re-checked whenever the Integrations modal
+  // closes (connect/disconnect happens in there).
+  const [airtableConnected, setAirtableConnected] = useState(false)
+  useEffect(() => {
+    if (!profile || showIntegrations) return
+    let alive = true
+    fetch('/api/integrations/airtable')
+      .then(r => r.json())
+      .then(b => { if (alive) setAirtableConnected(!!b?.connected) })
+      .catch(() => {})
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile === null, showIntegrations])
+  // Debounced push — 20s after the LAST outreach change (each change
+  // resets the timer via the cleanup), so bursts of edits become one
+  // upsert batch. Fire-and-forget; failures surface in the panel's
+  // last_error, not as toasts.
+  useEffect(() => {
+    if (!airtableConnected || outreach.length === 0) return
+    const t = setTimeout(() => {
+      void fetch('/api/integrations/airtable/push', { method: 'POST' }).catch(() => {})
+    }, 20_000)
+    return () => clearTimeout(t)
+  }, [outreach, airtableConnected])
   const [hasBackup, setHasBackup] = useState(false)
   // Phase 2: Send-via-Unipile preview modal. Triggered by a CustomEvent
   // dispatched from the existing email-link click handlers when the

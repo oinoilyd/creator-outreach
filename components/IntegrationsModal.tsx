@@ -268,7 +268,7 @@ export function IntegrationsModal({ onClose }: { onClose: () => void }) {
               )}
             </div>
             <p className="text-[12px] text-muted-foreground mb-3">
-              Pushes your leads into an Airtable table you choose, keyed on a merge field so rows update instead of duplicating. One-way: Creator Outreach → Airtable.
+              Pushes your leads into an Airtable table you choose, keyed on a merge field so rows update instead of duplicating. One-way: Creator Outreach → Airtable. While connected, changes auto-sync ~20 seconds after you stop editing; Sync now pushes instantly.
             </p>
 
             {at === null ? (
