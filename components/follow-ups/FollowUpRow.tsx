@@ -296,6 +296,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             <CadencePopover
               currentDate={e.followUpDate || ''}
               touchpoints={tps}
+              currentStatus={e.status}
               onPick={(iso) => {
                 onUpdate(e.id, 'followUpDate', iso)
                 setDatePopoverOpen(false)
@@ -303,8 +304,8 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                 if (iso) toast.success(`Rescheduled ${e.channelName || 'lead'} — due ${formatDueDate(iso)}`)
                 else toast(`Follow-up date cleared for ${e.channelName || 'lead'}`)
               }}
-              onLogFollowUp={() => {
-                onMarkFollowedUp(e) // logs the touch + auto-schedules + toasts
+              onLogFollowUp={(details) => {
+                onMarkFollowedUp(e, details) // atomic: touch + status + next date + toast
                 setDatePopoverOpen(false)
               }}
               onClose={() => setDatePopoverOpen(false)}
