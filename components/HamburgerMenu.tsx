@@ -41,6 +41,7 @@ export function HamburgerMenu({
   onOpenScoreSettings,
   onOpenProfile,
   onOpenTemplates,
+  onOpenIntegrations,
   onImportOutreach,
   onImportDismissed,
   showRetryMigration,
@@ -66,6 +67,8 @@ export function HamburgerMenu({
    *  Lets users tailor email + DM templates per platform, and toggle the
    *  CAN-SPAM footer on/off (with acknowledgment when disabling). */
   onOpenTemplates?: () => void
+  /** Opens the Integrations panel (Airtable push + platform API keys). */
+  onOpenIntegrations?: () => void
   onImportOutreach?: () => void
   onImportDismissed?: () => void
   showRetryMigration?: boolean
@@ -373,6 +376,25 @@ export function HamburgerMenu({
               </span>
               <div className="min-w-0">
                 <div className="text-[12.5px] text-foreground font-medium leading-tight">Templates</div>
+              </div>
+              <ChevronRight />
+            </button>
+          )}
+
+          {/* Integrations — Airtable push + platform API keys. Sits under
+              Templates; hidden when no handler is passed. */}
+          {onOpenIntegrations && (
+            <button
+              onClick={() => { onOpenIntegrations(); setOpen(false) }}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-muted transition-colors group"
+            >
+              <span className="text-muted-foreground group-hover:text-foreground shrink-0 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <div className="text-[12.5px] text-foreground font-medium leading-tight">Integrations</div>
               </div>
               <ChevronRight />
             </button>

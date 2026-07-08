@@ -91,6 +91,10 @@ const TemplatesModal = dynamic(
   () => import('@/components/TemplatesModal').then(m => m.TemplatesModal),
   { ssr: false },
 )
+const IntegrationsModal = dynamic(
+  () => import('@/components/IntegrationsModal').then(m => m.IntegrationsModal),
+  { ssr: false },
+)
 const SendPreviewModal = dynamic(
   () => import('@/components/SendPreviewModal').then(m => m.SendPreviewModal),
   { ssr: false },
@@ -1046,6 +1050,7 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showIntegrations, setShowIntegrations] = useState(false)
   const [hasBackup, setHasBackup] = useState(false)
   // Phase 2: Send-via-Unipile preview modal. Triggered by a CustomEvent
   // dispatched from the existing email-link click handlers when the
@@ -3453,6 +3458,7 @@ export default function Home() {
                 onOpenScoreSettings={() => setShowScoreSettings(true)}
                 onOpenProfile={() => setShowProfile(true)}
                 onOpenTemplates={() => setShowTemplates(true)}
+                onOpenIntegrations={() => setShowIntegrations(true)}
                 onImportOutreach={() => setShowImport(true)}
                 onImportDismissed={() => setShowImportDismissed(true)}
                 showRetryMigration={hasBackup}
@@ -4760,6 +4766,10 @@ export default function Home() {
             setProfile(prev => (prev ? { ...prev, ...updated } : prev))
           }}
         />
+      )}
+
+      {showIntegrations && (
+        <IntegrationsModal onClose={() => setShowIntegrations(false)} />
       )}
 
       {/* Keyboard-shortcut cheat sheet — opened by `?` (Shift+/) */}
