@@ -38,6 +38,68 @@ interface KeyMeta {
   last_used_at: string | null
 }
 
+/** Ready-to-paste Airtable "Run a script" automation that PULLS leads
+ *  from our /api/v1/leads into their base on a schedule. Requires
+ *  Airtable's Team plan (scripting) + an API key from the card below.
+ *  Kept as a plain string so backticks inside stay literal. */
+const AIRTABLE_PULL_SCRIPT = `// Creator Outreach → Airtable pull (scheduled automation)
+// Add a secret named CREATOR_OUTREACH_KEY = your co_live_... API key
+const token = input.secret.CREATOR_OUTREACH_KEY
+const table = base.getTable('Leads')
+
+let offset = 0
+const all = []
+while (true) {
+  const res = await fetch(
+    \`https://creatoroutreach.net/api/v1/leads?limit=100&offset=\${offset}\`,
+    { headers: { Authorization: \`Bearer \${token}\` } },
+  )
+  if (!res.ok) throw new Error(\`Creator Outreach API error \${res.status}\`)
+  const data = await res.json()
+  const leads = data.leads || []
+  all.push(...leads)
+  if (leads.length < 100 || offset >= 4800) break
+  offset += 100
+}
+
+const existing = await table.selectRecordsAsync({ fields: ['Channel URL'] })
+const byUrl = new Map()
+for (const r of existing.records) {
+  const u = r.getCellValueAsString('Channel URL')
+  if (u) byUrl.set(u, r.id)
+}
+
+const F = (l) => ({
+  'Channel Name': l.channelName || '',
+  'Channel URL': l.channelUrl || '',
+  'Email': l.email || '',
+  'Status': l.status || '',
+  'Product': l.product || '',
+  'Notes': l.notes || '',
+  'Follow-up Date': l.followUpDate || null,
+  'Last Contacted': l.dateReachedOut || null,
+  'Touchpoints': l.touchpoints || '',
+  'Deal Value': l.dealValue || '',
+  'Instagram': l.instagram || '',
+  'Website': l.website || '',
+  'Subscribers': l.subscribers || '',
+})
+const creates = []
+const updates = []
+for (const l of all) {
+  const id = l.channelUrl ? byUrl.get(l.channelUrl) : null
+  if (id) updates.push({ id, fields: F(l) })
+  else creates.push({ fields: F(l) })
+}
+
+for (let i = 0; i < updates.length; i += 50)
+  await table.updateRecordsAsync(updates.slice(i, i + 50))
+for (let i = 0; i < creates.length; i += 50)
+  await table.createRecordsAsync(creates.slice(i, i + 50))
+
+console.log(\`Synced \${all.length} — \${updates.length} updated, \${creates.length} created\`)
+`
+
 async function jfetch(url: string, init?: RequestInit) {
   const res = await fetch(url, {
     ...init,
@@ -308,6 +370,27 @@ export function IntegrationsModal({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             )}
+            <details className="mt-3 text-[11px] text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground transition-colors">
+                Prefer Airtable to pull from us instead? Copy this automation script
+              </summary>
+              <div className="mt-2 space-y-1.5">
+                <p>
+                  Runs inside Airtable (Automations → At a scheduled time → Run a script — needs
+                  Airtable&apos;s Team plan). Generate an API key in the Platform API card below,
+                  add it as a script secret named <code className="font-mono">CREATOR_OUTREACH_KEY</code>,
+                  and name your table <span className="font-medium">Leads</span> with the columns in the
+                  script (or edit the mapping). Make Status a text column, not a select.
+                </p>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(AIRTABLE_PULL_SCRIPT).then(() => toast.success('Script copied')) }}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  <Copy className="w-3 h-3" /> Copy script
+                </button>
+                <pre className="p-3 rounded-lg bg-muted/50 border border-border overflow-x-auto text-[10px] leading-relaxed max-h-48 overflow-y-auto">{AIRTABLE_PULL_SCRIPT}</pre>
+              </div>
+            </details>
           </section>
 
           {/* ── Platform API ── */}
