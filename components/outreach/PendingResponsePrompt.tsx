@@ -37,16 +37,28 @@ const MIN_AWAY_MS = 1500               // <1.5s = misclick, not a real send
 export type PendingResponseEventDetail = {
   rowId: string
   channelName: string
+  /** 'initial' (default) — first cold email; confirm flips the row to
+   *  Pending Response. 'followup' — a follow-up send on an already-
+   *  reached lead; confirm LOGS THE TOUCH (touchpoints+1, next
+   *  follow-up date) so the stage advances without a separate
+   *  "Followed up" click. */
+  kind?: 'initial' | 'followup'
+  /** For 'followup': the touch number this send becomes (tps + 1).
+   *  Display-only — the parent recomputes from live state on confirm. */
+  nextTouch?: number
 }
 
 interface PendingResponsePromptProps {
-  /** Called when the user clicks "Yes" — parent flips the row status. */
-  onConfirm: (rowId: string) => void
+  /** Called when the user clicks "Yes" — parent flips the row status
+   *  ('initial') or logs the follow-up touch ('followup'). */
+  onConfirm: (rowId: string, kind: 'initial' | 'followup') => void
 }
 
 interface Pending {
   rowId: string
   channelName: string
+  kind: 'initial' | 'followup'
+  nextTouch: number | null
   clickedAt: number
   /** Set when the tab goes hidden after the click. Cleared on return. */
   hiddenAt: number | null
@@ -69,6 +81,8 @@ export function PendingResponsePrompt({ onConfirm }: PendingResponsePromptProps)
       pendingRef.current = {
         rowId: detail.rowId,
         channelName: detail.channelName || 'this creator',
+        kind: detail.kind === 'followup' ? 'followup' : 'initial',
+        nextTouch: detail.nextTouch ?? null,
         clickedAt: Date.now(),
         hiddenAt: null,
       }
@@ -116,9 +130,11 @@ export function PendingResponsePrompt({ onConfirm }: PendingResponsePromptProps)
   }
   const confirm = () => {
     if (!visible) return
-    onConfirm(visible.rowId)
+    onConfirm(visible.rowId, visible.kind)
     setVisible(null)
   }
+
+  const isFollowUp = visible.kind === 'followup'
 
   return (
     <div
@@ -135,10 +151,15 @@ export function PendingResponsePrompt({ onConfirm }: PendingResponsePromptProps)
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium text-yellow-900 dark:text-yellow-100 leading-snug">
-            Did you email <span className="font-semibold">{visible.channelName}</span>?
+            {isFollowUp ? 'Did you send the follow-up to ' : 'Did you email '}
+            <span className="font-semibold">{visible.channelName}</span>?
           </p>
           <p className="text-[11.5px] text-yellow-800/80 dark:text-yellow-200/75 mt-0.5 leading-snug">
-            Mark this row as <span className="font-medium">Pending Response</span> so you know to follow up.
+            {isFollowUp ? (
+              <>Log it as <span className="font-medium">touch {visible.nextTouch ?? 'n'}</span> and schedule the next follow-up automatically.</>
+            ) : (
+              <>Mark this row as <span className="font-medium">Pending Response</span> so you know to follow up.</>
+            )}
           </p>
           <div className="mt-3 flex items-center gap-2">
             <button
@@ -146,7 +167,7 @@ export function PendingResponsePrompt({ onConfirm }: PendingResponsePromptProps)
               onClick={confirm}
               className="text-[11.5px] font-semibold px-3 py-1.5 rounded-md bg-yellow-500 text-yellow-950 hover:bg-yellow-400 transition-colors"
             >
-              Yes, mark Pending
+              {isFollowUp ? 'Yes, log follow-up' : 'Yes, mark Pending'}
             </button>
             <button
               type="button"

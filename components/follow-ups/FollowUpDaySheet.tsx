@@ -3,16 +3,20 @@
 import React from 'react'
 import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import {
-  buildOutreachEmail,
-  buildOutreachContent,
+  buildEntryEmailHref,
+  buildEntryEmailContent,
+  isFollowUpCompose,
+  entryTouchCount,
   formatAddedAtRelative,
 } from '@/lib/format'
 import { parseLocalDate, calendarDaysSince } from '@/lib/dates'
 import {
   copyInstagramDm,
   copyLinkedInMessage,
+  followUpStageLabel,
 } from '@/lib/outreach'
 import { guardOutreachClick } from '@/components/creators/renderCell'
+import { emitEmailClick } from '@/components/outreach/PendingResponsePrompt'
 
 /**
  * Phase 2 click interceptor — when the user has a Unipile-connected
@@ -79,7 +83,7 @@ export function FollowUpDaySheet({
     const igHandle = e.instagram?.replace('@', '').trim()
     const igUrl = igHandle ? `https://instagram.com/${igHandle}` : null
     const emailHref = e.email
-      ? buildOutreachEmail(
+      ? buildEntryEmailHref(
           {
             channelName: e.channelName,
             email: e.email,
@@ -87,7 +91,7 @@ export function FollowUpDaySheet({
             description: e.description,
           } as unknown as Creator,
           profile,
-          e.trackingId,
+          e,
         )
       : null
     return (
@@ -185,9 +189,19 @@ export function FollowUpDaySheet({
             const daysSince = calendarDaysSince(lastTouchTs)
             const when = daysSince === 0 ? 'today' : `${daysSince}d ago`
             const label = tps >= 2 ? `Last followed up ${when}` : `Reached ${when}`
+            // Which follow-up the NEXT send will be — makes the stage
+            // visible at a glance ("First follow-up" … "Final attempt").
+            const showStage = isFollowUpCompose(e)
             return (
-              <span className="inline-block mt-1.5 text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground">
-                {label}
+              <span className="inline-flex flex-wrap gap-1 mt-1.5">
+                <span className="text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground">
+                  {label}
+                </span>
+                {showStage && (
+                  <span className="text-[10px] uppercase tracking-[0.14em] font-bold px-1.5 py-0.5 rounded border border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                    Next: {followUpStageLabel(tps)}
+                  </span>
+                )}
               </span>
             )
           })()}
@@ -209,18 +223,28 @@ export function FollowUpDaySheet({
               rel="noopener noreferrer"
               onClick={ev => {
                 if (!guardOutreachClick(ev, e.email, profile?.userEmail)) return
-                const content = buildOutreachContent(
+                const content = buildEntryEmailContent(
                   { channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator,
                   profile,
-                  undefined,
+                  { ...e, trackingId: undefined },
                 )
-                maybeOpenUnipileSend(ev, profile, {
+                if (maybeOpenUnipileSend(ev, profile, {
                   entryId: e.id,
                   to: e.email,
                   subject: content.subject,
                   body: content.body,
                   recipientLabel: e.channelName,
-                })
+                })) return
+                // Compose-URL path — after the user returns from Gmail,
+                // the PendingResponsePrompt asks to log the touch.
+                if (isFollowUpCompose(e)) {
+                  emitEmailClick({
+                    rowId: e.id,
+                    channelName: e.channelName,
+                    kind: 'followup',
+                    nextTouch: entryTouchCount(e) + 1,
+                  })
+                }
               }}
               title="Send follow-up. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose."
               className="text-[11px] font-medium px-2.5 py-1 rounded border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"

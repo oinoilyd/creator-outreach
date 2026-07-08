@@ -1863,6 +1863,25 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creators, outreach])
 
+  // Log a manual follow-up send confirmed via the PendingResponsePrompt
+  // ('followup' kind): bump touchpoints, stamp today as the last touch,
+  // and schedule the next follow-up on the cadence (business days for
+  // the first, calendar 7/14/21 after). Mirrors the "Followed up"
+  // button in OutreachFollowUps so both paths stay in lock-step.
+  function logFollowUpTouch(id: string) {
+    saveOutreach(outreach.map(e => {
+      if (e.id !== id) return e
+      const next = (parseInt(e.touchpoints || '0', 10) || 0) + 1
+      return {
+        ...e,
+        touchpoints: String(next),
+        dateReachedOut: todayIso(),
+        followUpDate: nextFollowUpIso(next),
+        status: (e.status === 'Not Outreached' || !e.status) ? 'No Response' : e.status,
+      }
+    }))
+  }
+
   // Results reorder is safe to memoize — only stable setters + a
   // module-level import; nothing else captured.
   const reorderResultCols = useCallback((newConfig: ColConfig[]) => {
@@ -4892,9 +4911,19 @@ export default function Home() {
     {/* Pending-Response prompt — surfaces after the user clicks an
         email link and returns from their mail client. Replaces the
         old silent auto-flip with an explicit confirmation. Dylan
-        2026-05-31. */}
+        2026-05-31. Extended 2026-07-07: a 'followup' click on an
+        already-reached lead confirms as "log the touch" instead —
+        touchpoints+1, fresh last-touch date, next follow-up on the
+        cadence — so firing a follow-up email advances the stage
+        without a separate "Followed up" click. */}
     <PendingResponsePrompt
-      onConfirm={(rowId) => updateOutreachEntry(rowId, 'status', 'No Response')}
+      onConfirm={(rowId, kind) => {
+        if (kind === 'followup') {
+          logFollowUpTouch(rowId)
+        } else {
+          updateOutreachEntry(rowId, 'status', 'No Response')
+        }
+      }}
     />
     {/* Revert-Successful confirm — fires when the user changes status
         from 'Successful' to anything else (which would silently hide

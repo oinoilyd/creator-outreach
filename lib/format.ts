@@ -625,6 +625,59 @@ export function buildFollowUpEmail(
   )
 }
 
+// ── Stage-aware compose for outreach entries ─────────────────────────
+//
+// Every email button that fires from an OutreachEntry (outreach table
+// cell, lead detail modal, follow-up row, calendar day sheet) routes
+// through these so a lead you've already contacted composes the RIGHT
+// follow-up stage instead of re-sending the cold email. One decision
+// rule, one place.
+
+/** The OutreachEntry fields the stage decision + compose need. */
+export interface EntryEmailFields {
+  touchpoints?: string | null
+  status?: string | null
+  followUpSetId?: string | null
+  trackingId?: string
+}
+
+export function entryTouchCount(e: { touchpoints?: string | null }): number {
+  return parseInt(e.touchpoints || '0', 10) || 0
+}
+
+/** A compose from this entry should use the follow-up stage template
+ *  (not the cold email) once initial outreach is logged. Terminal
+ *  statuses opt out — emailing a Successful/Rejected lead is
+ *  conversational, not a templated nudge. */
+export function isFollowUpCompose(e: EntryEmailFields): boolean {
+  return entryTouchCount(e) >= 1 && e.status !== 'Successful' && e.status !== 'Rejected'
+}
+
+export function buildEntryEmailContent(
+  c: Creator,
+  profile: UserProfile | null | undefined,
+  e: EntryEmailFields,
+): OutreachContent {
+  return isFollowUpCompose(e)
+    ? buildFollowUpContent(c, profile, entryTouchCount(e), e.followUpSetId)
+    : buildOutreachContent(c, profile, e.trackingId)
+}
+
+export function buildEntryEmailHref(
+  c: Creator,
+  profile: UserProfile | null | undefined,
+  e: EntryEmailFields,
+): string {
+  const content = buildEntryEmailContent(c, profile, e)
+  return composeUrl(
+    profile?.mailClient ?? 'default',
+    c.email,
+    content.subject,
+    content.body,
+    profile?.userEmail,
+  )
+}
+
 /**
  * Build the minimal CAN-SPAM footer appended to every outreach email.
  *

@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { useEffect, useId, useRef } from 'react'
 import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import { buildOutreachEmail, buildOutreachContent, recipientIssue } from '@/lib/format'
+import { buildEntryEmailHref, buildEntryEmailContent, isFollowUpCompose, entryTouchCount, recipientIssue } from '@/lib/format'
 import { copyInstagramDm, copyLinkedInMessage } from '@/lib/outreach'
 import { emitEmailClick } from '@/components/outreach/PendingResponsePrompt'
 import { statusBadgeClasses, statusLabel } from '@/lib/outreach-status'
@@ -65,10 +65,12 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
       // Match the row-click flow: if Unipile is connected, dispatch the
       // event that Home() listens for and opens the SendPreviewModal.
       // Otherwise open the compose-URL (mailto / Gmail web compose).
-      const content = buildOutreachContent(
+      // Stage-aware: a reached lead composes its follow-up stage
+      // template instead of the cold email.
+      const content = buildEntryEmailContent(
         { channelName: entry.channelName, email: entry.email, videoTitles: [], description: entry.description } as unknown as Creator,
         profile,
-        undefined,
+        { ...entry, trackingId: undefined },
       )
       if (profile?.unipileAccountId && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('open-send-modal', {
@@ -84,18 +86,25 @@ export function LeadDetailModal({ entry, onUpdate, onClose, profile }: {
         onClose()  // close the detail modal so the send preview is unobstructed
         return
       }
-      const href = buildOutreachEmail(
+      const href = buildEntryEmailHref(
         { channelName: entry.channelName, email: entry.email, videoTitles: [], description: entry.description } as unknown as Creator,
         profile,
-        entry.trackingId,
+        entry,
       )
       if (href) window.open(href, '_blank', 'noopener,noreferrer')
       // 2026-05-31: replaced silent auto-flip with the deferred
-      // PendingResponsePrompt. Only emit for rows still at the
-      // 'Not Outreached' starting state; the prompt asks the user
-      // after they return from their mail client.
+      // PendingResponsePrompt. Fresh rows confirm as "mark Pending
+      // Response"; already-reached rows confirm as "log the follow-up
+      // touch" so the stage advances.
       if (entry.status === 'Not Outreached' || !entry.status) {
         emitEmailClick({ rowId: entry.id, channelName: entry.channelName })
+      } else if (isFollowUpCompose(entry)) {
+        emitEmailClick({
+          rowId: entry.id,
+          channelName: entry.channelName,
+          kind: 'followup',
+          nextTouch: entryTouchCount(entry) + 1,
+        })
       }
     } else if (modality === 'instagram') {
       window.open(igUrl, '_blank', 'noopener,noreferrer')

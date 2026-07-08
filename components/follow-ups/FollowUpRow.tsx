@@ -4,11 +4,14 @@ import React, { memo, useRef, useState } from 'react'
 import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { Star, Mail } from 'lucide-react'
 import {
-  buildFollowUpEmail,
-  buildFollowUpContent,
+  buildEntryEmailHref,
+  buildEntryEmailContent,
+  isFollowUpCompose,
+  entryTouchCount,
   formatAddedAtRelative,
 } from '@/lib/format'
 import { resolveFollowUpConfig } from '@/lib/templates'
+import { emitEmailClick } from '@/components/outreach/PendingResponsePrompt'
 import {
   parseLocalDate,
   isoDaysFromNow,
@@ -165,7 +168,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             )}
             {e.email && (
               <a
-                href={buildFollowUpEmail(
+                href={buildEntryEmailHref(
                   {
                     channelName: e.channelName,
                     email: e.email,
@@ -173,27 +176,36 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                     description: e.description,
                   } as unknown as Creator,
                   profile,
-                  tps,
-                  e.followUpSetId,
+                  e,
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(ev) => {
                   ev.stopPropagation()
                   if (!guardOutreachClick(ev, e.email, profile?.userEmail)) return
-                  const content = buildFollowUpContent(
+                  const content = buildEntryEmailContent(
                     { channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator,
                     profile,
-                    tps,
-                    e.followUpSetId,
+                    { ...e, trackingId: undefined },
                   )
-                  maybeOpenUnipileSend(ev, profile, {
+                  if (maybeOpenUnipileSend(ev, profile, {
                     entryId: e.id,
                     to: e.email,
                     subject: content.subject,
                     body: content.body,
                     recipientLabel: e.channelName,
-                  })
+                  })) return
+                  // Compose-URL path — when the user returns from Gmail,
+                  // the PendingResponsePrompt offers to log the touch so
+                  // the stage advances without a separate "Followed up".
+                  if (isFollowUpCompose(e)) {
+                    emitEmailClick({
+                      rowId: e.id,
+                      channelName: e.channelName,
+                      kind: 'followup',
+                      nextTouch: entryTouchCount(e) + 1,
+                    })
+                  }
                 }}
                 title={`Send follow-up to ${e.email}. If Gmail is connected via Unipile, opens preview modal; otherwise opens your Gmail compose.`}
                 aria-label={`Email ${e.email}`}

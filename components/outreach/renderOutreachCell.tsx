@@ -4,8 +4,10 @@ import React from 'react'
 import type { Creator, OutreachEntry, OutreachColConfig, UserProfile } from '@/lib/types'
 import {
   formatSubscribers,
-  buildOutreachEmail,
-  buildOutreachContent,
+  buildEntryEmailHref,
+  buildEntryEmailContent,
+  isFollowUpCompose,
+  entryTouchCount,
   formatAddedAtRelative,
 } from '@/lib/format'
 import { fitScoreMeta } from '@/lib/scoring'
@@ -103,7 +105,7 @@ export function renderOutreachCell(
           {e.email && (
             <div className="flex items-start gap-1.5">
               <a
-                href={buildOutreachEmail({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile, e.trackingId)}
+                href={buildEntryEmailHref({ channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator, profile, e)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={ev => {
@@ -118,10 +120,12 @@ export function renderOutreachCell(
                   // SendPreviewModal instead of navigating to a
                   // compose URL. Sends programmatically with reply
                   // tracking, eliminating the multi-account bugs.
-                  const content = buildOutreachContent(
+                  // Stage-aware: a reached lead composes its follow-up
+                  // stage template, not the cold email.
+                  const content = buildEntryEmailContent(
                     { channelName: e.channelName, email: e.email, videoTitles: [], description: e.description } as unknown as Creator,
                     profile,
-                    undefined, // No [CO-#xxx] tag — Unipile uses real threading
+                    { ...e, trackingId: undefined }, // No [CO-#xxx] tag — Unipile uses real threading
                   )
                   if (maybeOpenUnipileSend(ev, profile, {
                     entryId: e.id,
@@ -132,13 +136,18 @@ export function renderOutreachCell(
                   })) return
                   // Phase 1 — click-to-track (legacy compose-URL path).
                   // 2026-05-31: silent auto-flip replaced by a deferred
-                  // confirmation prompt. We only emit the event for
-                  // rows still at 'Not Outreached' (or empty); the
-                  // PendingResponsePrompt component listens for
-                  // visibilitychange and asks the user after they
-                  // return from their mail client.
+                  // confirmation prompt. Fresh rows confirm as "mark
+                  // Pending Response"; already-reached rows confirm as
+                  // "log the follow-up touch" so the stage advances.
                   if (e.status === 'Not Outreached' || e.status === '') {
                     emitEmailClick({ rowId: e.id, channelName: e.channelName })
+                  } else if (isFollowUpCompose(e)) {
+                    emitEmailClick({
+                      rowId: e.id,
+                      channelName: e.channelName,
+                      kind: 'followup',
+                      nextTouch: entryTouchCount(e) + 1,
+                    })
                   }
                 }}
                 className="text-emerald-700 dark:text-green-400 hover:underline text-xs break-all flex-1"

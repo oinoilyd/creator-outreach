@@ -9,9 +9,8 @@ import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import {
   parseLocalDate,
   todayIso,
-  isoDaysFromNow,
 } from '@/lib/dates'
-import { nextFollowUpDays } from '@/lib/outreach'
+import { nextFollowUpIso } from '@/lib/outreach'
 import { FollowUpsViewToggle, type FUView } from '@/components/follow-ups/FollowUpsViewToggle'
 import { FollowUpCalendar } from '@/components/follow-ups/FollowUpCalendar'
 import { FUStat } from '@/components/follow-ups/FUStat'
@@ -208,7 +207,9 @@ export function OutreachFollowUps({ entries, onUpdate, onOpenEntry, profile }: {
       onUpdate(e.id, 'status', opts.status)
     }
     // followUpDate last so it doesn't get clobbered by status auto-set rules.
-    const newDate = opts?.date ?? isoDaysFromNow(nextFollowUpDays(next))
+    // nextFollowUpIso keeps the cadence consistent with the auto path
+    // (business days for the first follow-up, calendar 7/14/21 after).
+    const newDate = opts?.date ?? nextFollowUpIso(next)
     onUpdate(e.id, 'followUpDate', newDate)
   }
 
