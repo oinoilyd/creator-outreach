@@ -1,6 +1,6 @@
 'use client'
 
-import React, { memo, useRef, useState } from 'react'
+import React, { memo, useState } from 'react'
 import type { Creator, OutreachEntry, UserProfile } from '@/lib/types'
 import { Star, Mail } from 'lucide-react'
 import {
@@ -14,19 +14,15 @@ import { resolveFollowUpConfig } from '@/lib/templates'
 import { emitEmailClick } from '@/components/outreach/PendingResponsePrompt'
 import {
   parseLocalDate,
-  isoDaysFromNow,
   daysAgo,
   daysFromNow,
   calendarDaysSince,
   formatDueDate,
 } from '@/lib/dates'
 import { toast } from 'sonner'
-import {
-  nextFollowUpIso,
-  followUpStageLabel,
-} from '@/lib/outreach'
+import { followUpStageLabel } from '@/lib/outreach'
 import { guardOutreachClick } from '@/components/creators/renderCell'
-import { CadencePopover, FollowedUpPopover } from '@/components/CadencePopover'
+import { CadencePopover } from '@/components/CadencePopover'
 import { PipelineChip } from '@/components/outreach/PipelineChip'
 
 // Priority bucketing — derived from how close the follow-up date is.
@@ -71,13 +67,6 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
   profile: UserProfile | null
 }) {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false)
-  const [followedUpOpen, setFollowedUpOpen] = useState(false)
-  // Single vs double-click detector for the "Followed up" button.
-  // Single click → opens the popover (manual cadence + status pick).
-  // Double click → applies the user's last-saved cadence + status
-  // immediately, no popover. First-time double-click before any
-  // manual choice falls back to the default cadence.
-  const followedUpClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initials = (e.channelName || '?')
     .trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() ?? '').join('') || '?'
 
@@ -354,80 +343,21 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
             </>
           ) : (
             <>
-              {/* Primary action — single click opens manual popover,
-                  double click applies the last-saved cadence + status
-                  immediately. The setTimeout-based detector defers
-                  the single-click action by 250ms so a fast second
-                  click can pre-empt it cleanly. */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    if (followedUpClickTimerRef.current) {
-                      // Second click within the 250ms window → double click
-                      clearTimeout(followedUpClickTimerRef.current)
-                      followedUpClickTimerRef.current = null
-                      // Read last-saved cadence + status from localStorage.
-                      // Fallback to the smart cadence + current status when
-                      // the user hasn't manually confirmed any follow-up yet.
-                      const savedDays = (() => {
-                        if (typeof window === 'undefined') return null
-                        const v = parseInt(localStorage.getItem('followedUp:lastCadenceDays') || '', 10)
-                        return Number.isFinite(v) && v > 0 && v < 365 ? v : null
-                      })()
-                      const savedStatus = typeof window !== 'undefined'
-                        ? localStorage.getItem('followedUp:lastStatus') || ''
-                        : ''
-                      // Saved manual cadence wins verbatim; the smart
-                      // fallback goes through nextFollowUpIso so it keeps
-                      // the business-day rule + matches markFollowedUp.
-                      const status = savedStatus || e.status || 'Open'
-                      onMarkFollowedUp(e, {
-                        date: savedDays != null ? isoDaysFromNow(savedDays) : nextFollowUpIso(tps + 1),
-                        status,
-                      })
-                      return
-                    }
-                    // First click — defer the popover open in case a
-                    // second click follows.
-                    followedUpClickTimerRef.current = setTimeout(() => {
-                      followedUpClickTimerRef.current = null
-                      setFollowedUpOpen(v => !v)
-                    }, 250)
-                  }}
-                  title={`Sent the ${stage.toLowerCase()}? Log it — advances to touch ${tps + 1} and schedules the next one. Single click: pick status + date. Double click: instant with your last-used cadence.`}
-                  className="text-[10px] font-semibold text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 rounded px-2 py-0.5 shadow-sm transition-colors"
-                >
-                  Log follow-up
-                </button>
-                {followedUpOpen && (
-                  <FollowedUpPopover
-                    touchpoints={tps}
-                    currentStatus={e.status}
-                    onConfirm={({ date, status }) => {
-                      // Persist the user's manual choice so the next
-                      // double-click on any row in this browser uses
-                      // these values. Days is computed from today —
-                      // local-time, not UTC, to match the date input.
-                      if (typeof window !== 'undefined' && date) {
-                        const today = new Date(); today.setHours(0, 0, 0, 0)
-                        const picked = parseLocalDate(date)
-                        if (picked) {
-                          picked.setHours(0, 0, 0, 0)
-                          const days = Math.round((picked.getTime() - today.getTime()) / 86_400_000)
-                          if (days > 0 && days < 365) {
-                            localStorage.setItem('followedUp:lastCadenceDays', String(days))
-                          }
-                        }
-                        if (status) localStorage.setItem('followedUp:lastStatus', status)
-                      }
-                      onMarkFollowedUp(e, { date, status })
-                      setFollowedUpOpen(false)
-                    }}
-                    onClose={() => setFollowedUpOpen(false)}
-                    align="right"
-                  />
-                )}
-              </div>
+              {/* Primary action — ONE CLICK, no popover (2026-07-07).
+                  The old popover asked for a next date ("+1 week?") at
+                  log time, which read as untethered — the cadence
+                  system already knows when the next follow-up should
+                  be. Click → touch logged, next date auto-scheduled,
+                  toast receipt. Disagree with the auto date? The DUE
+                  pill reschedules. Status changes live on the ✓/👻
+                  hover actions + the outreach table. */}
+              <button
+                onClick={() => onMarkFollowedUp(e)}
+                title={`Sent the ${stage.toLowerCase()}? One click logs it — touch ${tps + 1} — and auto-schedules the next follow-up on your cadence. Use the due pill to adjust the date.`}
+                className="text-[10px] font-semibold text-white bg-purple-600 hover:bg-purple-500 border border-purple-500 rounded px-2 py-0.5 shadow-sm transition-colors"
+              >
+                Log follow-up
+              </button>
               {/* Secondary actions — hover-revealed for cleaner default look */}
               <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
                 <button
