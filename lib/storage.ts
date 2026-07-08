@@ -1058,13 +1058,26 @@ export async function getDismissed(): Promise<Creator[]> {
     return []
   }
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('dismissed_creators')
-    .select('data, dismissed_at')
-    .order('dismissed_at', { ascending: false })
-  if (error) console.error('[getDismissed] read failed:', error.message)
-  console.log(`[getDismissed] returned ${data?.length ?? 0} rows`)
-  return (data ?? []).map(r => r.data as Creator)
+  // Supabase caps any single select at 1,000 rows server-side, which
+  // silently truncated large dismissed lists. Page through in 1,000-row
+  // batches until a short page — no ceiling.
+  const PAGE = 1000
+  const all: Creator[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('dismissed_creators')
+      .select('data, dismissed_at')
+      .order('dismissed_at', { ascending: false })
+      .range(from, from + PAGE - 1)
+    if (error) {
+      console.error('[getDismissed] read failed:', error.message)
+      break
+    }
+    all.push(...(data ?? []).map(r => r.data as Creator))
+    if (!data || data.length < PAGE) break
+  }
+  console.log(`[getDismissed] returned ${all.length} rows`)
+  return all
 }
 
 export async function saveDismissed(items: Creator[]): Promise<void> {
@@ -1073,11 +1086,19 @@ export async function saveDismissed(items: Creator[]): Promise<void> {
   const supabase = createClient()
   const newIds = new Set(items.map(c => c.channelId))
 
-  const { data: existing } = await supabase
-    .from('dismissed_creators')
-    .select('channel_id')
-    .eq('user_id', uid)
-  const toDelete = (existing ?? []).filter(r => !newIds.has(r.channel_id)).map(r => r.channel_id)
+  // Page past Supabase's 1,000-row select cap — otherwise rows beyond
+  // the first page are invisible to the diff below.
+  const existing: { channel_id: string }[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabase
+      .from('dismissed_creators')
+      .select('channel_id')
+      .eq('user_id', uid)
+      .range(from, from + 999)
+    existing.push(...(data ?? []))
+    if (!data || data.length < 1000) break
+  }
+  const toDelete = existing.filter(r => !newIds.has(r.channel_id)).map(r => r.channel_id)
   if (toDelete.length > 0) {
     const { error: delErr } = await supabase
       .from('dismissed_creators')
@@ -1094,12 +1115,17 @@ export async function saveDismissed(items: Creator[]): Promise<void> {
   }
 
   if (items.length > 0) {
-    const { error: upErr } = await supabase
-      .from('dismissed_creators')
-      .upsert(
-        items.map(c => ({ user_id: uid, channel_id: c.channelId, data: c })),
-        { onConflict: 'user_id,channel_id' },
-      )
+    // Batch writes at 500 rows so large lists don't hit payload limits.
+    let upErr: { message: string } | null = null
+    for (let i = 0; i < items.length && !upErr; i += 500) {
+      const { error } = await supabase
+        .from('dismissed_creators')
+        .upsert(
+          items.slice(i, i + 500).map(c => ({ user_id: uid, channel_id: c.channelId, data: c })),
+          { onConflict: 'user_id,channel_id' },
+        )
+      upErr = error
+    }
     if (upErr) {
       console.error('[saveDismissed] upsert failed:', upErr.message, upErr)
       void reportSaveFailure({
