@@ -36,6 +36,12 @@ export interface ClientErrorContext {
   /** Keys of the payload being saved at the time. Helps spot which
    *  column the schema-cache error refers to. Optional. */
   payloadKeys?: string[]
+  /** Which rows the failed write was carrying (channel names or ids).
+   *  Added 2026-07-09 with the delta-write refactor: a scoped write
+   *  failure concerns specific rows, and knowing WHICH row failed is
+   *  what makes the error inbox actionable. Folded into error_details
+   *  so no schema change is needed. Optional. */
+  rowIds?: string[]
 }
 
 /**
@@ -54,7 +60,10 @@ export async function logClientError(ctx: ClientErrorContext): Promise<void> {
       function_name: ctx.functionName,
       error_code: ctx.error.code ?? null,
       error_message: ctx.error.message,
-      error_details: ctx.error.details ?? null,
+      error_details: [
+        ctx.error.details,
+        ctx.rowIds?.length ? `rows: ${ctx.rowIds.join(', ')}` : null,
+      ].filter(Boolean).join(' | ') || null,
       error_hint: ctx.error.hint ?? null,
       payload_keys: ctx.payloadKeys ?? null,
     })
@@ -112,6 +121,7 @@ export async function reportSaveFailure(ctx: ClientErrorContext): Promise<void> 
     const details = ctx.error.details ?? ''
     const hint = ctx.error.hint ?? ''
     const keys = (ctx.payloadKeys ?? []).join(', ') || '(none captured)'
+    const rows = (ctx.rowIds ?? []).join(', ')
     window.alert(
       `❌ SAVE FAILED (admin alert)\n\n` +
       `Function: ${ctx.functionName}\n` +
@@ -119,6 +129,7 @@ export async function reportSaveFailure(ctx: ClientErrorContext): Promise<void> 
       `Code: ${code}\n` +
       `Details: ${details}\n` +
       `Hint: ${hint}\n\n` +
+      (rows ? `Rows: ${rows}\n` : '') +
       `Payload keys: ${keys}\n\n` +
       `Logged to client_error_log. Check /admin → Error Inbox.`,
     )

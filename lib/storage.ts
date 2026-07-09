@@ -1049,6 +1049,123 @@ export async function saveOutreach(entries: OutreachEntry[]): Promise<void> {
   }
 }
 
+/**
+ * Run a Supabase write, retrying transient failures (2 retries with a
+ * short backoff) before reporting the last error. Added 2026-07-09 with
+ * the delta-write refactor: the old full-snapshot saves got incidental
+ * crash-recovery for free — ANY later save re-uploaded the whole list,
+ * sweeping a previously-failed row's change to the DB. Delta writes only
+ * ever re-send a row when THAT row changes again, so a failed write must
+ * retry itself instead of waiting to be rescued. The callback builds a
+ * fresh request each attempt (a Supabase builder is single-use).
+ */
+async function withWriteRetry<E extends { message: string }>(
+  write: () => PromiseLike<{ error: E | null }>,
+): Promise<{ error: E | null }> {
+  let last: E | null = null
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    if (attempt > 0) await new Promise(res => setTimeout(res, 400 * attempt))
+    const { error } = await write()
+    last = error
+    if (!last) break
+  }
+  return { error: last }
+}
+
+/**
+ * Delta-persist: upsert EXACTLY these rows — nothing else is read,
+ * written, or deleted. Added 2026-07-09 because every single-row change
+ * (status flip, follow-up log, one add) went through the full-snapshot
+ * saveOutreach() above, re-uploading the user's entire board — the main
+ * source of click lag on large lists.
+ *
+ * Write semantics match saveOutreach() for the touched rows:
+ *   • Ids missing from the DB are stamped with org/audit fields exactly
+ *     like saveOutreach's isNew branch; ids that exist keep their audit
+ *     fields untouched (outreachToRow omits them, and PostgREST upserts
+ *     only the columns present). New-shape and existing-shape rows are
+ *     upserted in SEPARATE calls so a batch never mixes key sets —
+ *     PostgREST derives the column list per request, and a mixed batch
+ *     could null the org fields on the existing rows.
+ *   • The existence check is scoped `.in('id', ids)` with NO user_id
+ *     filter — deliberately wider than saveOutreach's `.eq('user_id')`
+ *     read: a teammate-owned row an org admin edits is correctly seen
+ *     as existing (not re-stamped with the admin's audit fields).
+ *   • If the existence read fails, all touched rows are treated as new
+ *     — the same fallback saveOutreach has always had (its ignored read
+ *     error yields an empty existing-set).
+ *   • Failures retry (withWriteRetry) then log via reportSaveFailure
+ *     with the affected row names so the error inbox is actionable.
+ *
+ * Inherently safer than the snapshot path: no diff, so no delete arm —
+ * a stale or empty local state can never translate into row deletion.
+ */
+export async function upsertOutreachRows(entries: OutreachEntry[]): Promise<void> {
+  if (entries.length === 0) return
+  const uid = await userId()
+  if (!uid) {
+    console.warn('[upsertOutreachRows] no user; skipping')
+    return
+  }
+  const supabase = createClient()
+  const { data: existing } = await supabase
+    .from('outreach_entries')
+    .select('id')
+    .in('id', entries.map(e => e.id))
+  const existingIds = new Set((existing ?? []).map(r => r.id))
+  const newEntries = entries.filter(e => !existingIds.has(e.id))
+  const existingEntries = entries.filter(e => existingIds.has(e.id))
+  const orgCtx = newEntries.length > 0 ? await getOwnOrgMembership(uid) : null
+  const groups = [
+    existingEntries.map(e => ({ row: outreachToRow(e, uid, null), name: e.channelName || e.id })),
+    newEntries.map(e => ({ row: outreachToRow(e, uid, { organizationId: orgCtx?.organizationId ?? null }), name: e.channelName || e.id })),
+  ]
+  for (const group of groups) {
+    if (group.length === 0) continue
+    const rows = group.map(g => g.row)
+    const { error: upErr } = await withWriteRetry(() =>
+      supabase.from('outreach_entries').upsert(rows, { onConflict: 'id' }),
+    )
+    if (upErr) {
+      console.error('[upsertOutreachRows] upsert failed:', upErr.message, upErr)
+      void reportSaveFailure({
+        functionName: 'upsertOutreachRows',
+        error: upErr,
+        payloadKeys: rows[0] ? Object.keys(rows[0]) : [],
+        rowIds: group.map(g => g.name),
+      })
+    }
+  }
+}
+
+/**
+ * Delta-delete: remove EXACTLY these row ids. Callers must pass ids the
+ * user explicitly acted on (clicked remove) — NEVER a diff against local
+ * state. That's the whole safety model: saveOutreach's mass-delete guard
+ * exists because its deletes are diff-derived and a failed load could
+ * fabricate a wipe; explicit ids can't fabricate anything.
+ *
+ * Same predicate as saveOutreach's delete arm (id only, no user_id
+ * filter): ids are globally unique, RLS scopes reachability, and org
+ * admins must stay able to delete teammates' rows.
+ */
+export async function deleteOutreachRows(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const uid = await userId()
+  if (!uid) {
+    console.warn('[deleteOutreachRows] no user; skipping')
+    return
+  }
+  const supabase = createClient()
+  const { error } = await withWriteRetry(() =>
+    supabase.from('outreach_entries').delete().in('id', ids),
+  )
+  if (error) {
+    console.error('[deleteOutreachRows] delete failed:', error.message)
+    void reportSaveFailure({ functionName: 'deleteOutreachRows', error, payloadKeys: ['id'], rowIds: ids })
+  }
+}
+
 // ── Dismissed creators ──────────────────────────────────────────────────────
 
 export async function getDismissed(): Promise<Creator[]> {
@@ -1172,6 +1289,77 @@ export async function saveDismissedRow(c: Creator): Promise<void> {
     // emails not persisting; the old version logged to console only,
     // so we never knew if the save was actually failing.
     throw new Error(`Save failed: ${error.message}`)
+  }
+}
+
+/**
+ * Delta-persist: upsert EXACTLY these dismissed rows. Added 2026-07-09 —
+ * dismissing one creator ran the full-snapshot saveDismissed() (paginated
+ * read of every existing id + re-upload of the whole list), which dragged
+ * once the list grew past a few hundred. Same write shape as
+ * saveDismissed's upsert arm (500-row batches, onConflict user_id +
+ * channel_id, reportSaveFailure), no read, no delete. Unlike
+ * saveDismissedRow above this doesn't throw — it's for fire-and-forget
+ * dismiss clicks, which follow the same silent-success/reported-failure
+ * contract as every other save path.
+ */
+export async function upsertDismissedRows(items: Creator[]): Promise<void> {
+  if (items.length === 0) return
+  const uid = await userId()
+  if (!uid) {
+    console.warn('[upsertDismissedRows] no user; skipping')
+    return
+  }
+  const supabase = createClient()
+  let upErr: { message: string } | null = null
+  for (let i = 0; i < items.length && !upErr; i += 500) {
+    const batch = items.slice(i, i + 500)
+    const { error } = await withWriteRetry(() =>
+      supabase
+        .from('dismissed_creators')
+        .upsert(
+          batch.map(c => ({ user_id: uid, channel_id: c.channelId, data: c })),
+          { onConflict: 'user_id,channel_id' },
+        ),
+    )
+    upErr = error
+  }
+  if (upErr) {
+    console.error('[upsertDismissedRows] upsert failed:', upErr.message, upErr)
+    void reportSaveFailure({
+      functionName: 'upsertDismissedRows',
+      error: upErr,
+      payloadKeys: ['user_id', 'channel_id', 'data'],
+      rowIds: items.map(c => c.channelName || c.channelId),
+    })
+  }
+}
+
+/**
+ * Delta-delete dismissed rows by channel id — the un-dismiss (restore)
+ * action. Callers pass channel ids the user explicitly clicked, never a
+ * diff (see deleteOutreachRows for the safety rationale). Predicate
+ * matches saveDismissed's delete arm exactly: user_id + channel_id,
+ * because channel ids are NOT globally unique across users.
+ */
+export async function deleteDismissedRows(channelIds: string[]): Promise<void> {
+  if (channelIds.length === 0) return
+  const uid = await userId()
+  if (!uid) {
+    console.warn('[deleteDismissedRows] no user; skipping')
+    return
+  }
+  const supabase = createClient()
+  const { error } = await withWriteRetry(() =>
+    supabase
+      .from('dismissed_creators')
+      .delete()
+      .eq('user_id', uid)
+      .in('channel_id', channelIds),
+  )
+  if (error) {
+    console.error('[deleteDismissedRows] delete failed:', error.message)
+    void reportSaveFailure({ functionName: 'deleteDismissedRows', error, payloadKeys: ['user_id', 'channel_id'], rowIds: channelIds })
   }
 }
 

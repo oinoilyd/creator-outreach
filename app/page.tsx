@@ -137,7 +137,9 @@ const LeadDetailModal = dynamic(
 )
 import {
   getOutreach, saveOutreach as persistOutreach,
+  upsertOutreachRows, deleteOutreachRows,
   getDismissed, saveDismissed as persistDismissed, saveDismissedRow,
+  upsertDismissedRows, deleteDismissedRows,
   saveColConfig,
   getOutreachColConfig, saveOutreachColConfig,
   getCustomMetrics, saveCustomMetrics,
@@ -449,8 +451,8 @@ export default function Home() {
   // don't get lost in a notes paragraph they never re-read.
   //
   // Single batched event (not one-per-referral) so multiple
-  // referrals all land in a single saveOutreach() call — firing N
-  // events would race against React batching and only the last
+  // referrals all land in a single upsertOutreachRows() call — firing
+  // N events would race against React batching and only the last
   // would persist.
   //
   // Contact field is freetext; we best-effort parse it:
@@ -532,7 +534,9 @@ export default function Home() {
       setOutreach(prev => {
         const next = [...newEntries, ...prev]
         setOutreachIds(new Set(next.map(e => e.channelId)))
-        void persistOutreach(next)
+        // Delta write — only the referral rows themselves hit the DB
+        // (2026-07-09 perf; previously re-uploaded the whole board).
+        void upsertOutreachRows(newEntries)
         return next
       })
       // Pin the new entries to the top of the Outreach tab so the
@@ -1782,10 +1786,29 @@ export default function Home() {
     })
   }, [])
 
-  function saveOutreach(updated: OutreachEntry[]) {
+  // ── Delta saves (2026-07-09 perf) ────────────────────────────────────
+  // The old shared saveOutreach(updated) wrapper persisted the ENTIRE
+  // list through the full-snapshot storage path on every single-row
+  // change — a 1-row status flip on a 500-lead board re-uploaded 500
+  // rows (plus a full-table id read). These two commit helpers keep the
+  // exact same state updates but persist only what actually changed.
+  // Full-snapshot persistOutreach() remains in use where a whole list is
+  // genuinely the payload (CSV import, localStorage migration).
+
+  /** Commit new state + upsert ONLY the changed/added rows. `changed`
+   *  must be the same objects placed into `updated`. */
+  function saveOutreachDelta(updated: OutreachEntry[], changed: OutreachEntry[]) {
     setOutreach(updated)
     setOutreachIds(new Set(updated.map(e => e.channelId)))
-    void persistOutreach(updated)
+    if (changed.length > 0) void upsertOutreachRows(changed)
+  }
+
+  /** Commit new state + delete ONLY the explicitly removed row ids.
+   *  Pass ids from the user's action, never a diff (see storage.ts). */
+  function saveOutreachRemoval(updated: OutreachEntry[], removedIds: string[]) {
+    setOutreach(updated)
+    setOutreachIds(new Set(updated.map(e => e.channelId)))
+    if (removedIds.length > 0) void deleteOutreachRows(removedIds)
   }
 
   function addGuidanceEntry(entry: GuidanceEntry) {
@@ -1863,7 +1886,7 @@ export default function Home() {
       contractSent: false,
       meetingScheduled: '',
     }
-    saveOutreach([...outreach, entry])
+    saveOutreachDelta([...outreach, entry], [entry])
     // Pin the newly-added id so it shows at the top of the Outreach
     // tab, even if the user is currently on Results and the
     // OutreachTab component will mount fresh when they switch over.
@@ -1883,15 +1906,16 @@ export default function Home() {
       if (c.productSummary) productById.set(c.channelId, c.productSummary)
     }
     if (productById.size === 0) return
-    let changed = false
+    const changedRows: OutreachEntry[] = []
     const updated = outreach.map(e => {
       if (!e.product && productById.has(e.channelId)) {
-        changed = true
-        return { ...e, product: productById.get(e.channelId) as string }
+        const filled = { ...e, product: productById.get(e.channelId) as string }
+        changedRows.push(filled)
+        return filled
       }
       return e
     })
-    if (changed) saveOutreach(updated)
+    if (changedRows.length > 0) saveOutreachDelta(updated, changedRows)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creators, outreach])
 
@@ -1905,16 +1929,17 @@ export default function Home() {
     const cur = parseInt(target?.touchpoints || '0', 10) || 0
     const next = cur + 1
     const nextDate = nextFollowUpIso(next)
-    saveOutreach(outreach.map(e => {
-      if (e.id !== id) return e
-      return {
-        ...e,
-        touchpoints: String(next),
-        dateReachedOut: todayIso(),
-        followUpDate: nextDate,
-        status: (e.status === 'Not Outreached' || !e.status) ? 'No Response' : e.status,
-      }
-    }))
+    const changedRow: OutreachEntry | null = target ? {
+      ...target,
+      touchpoints: String(next),
+      dateReachedOut: todayIso(),
+      followUpDate: nextDate,
+      status: (target.status === 'Not Outreached' || !target.status) ? 'No Response' : target.status,
+    } : null
+    saveOutreachDelta(
+      changedRow ? outreach.map(e => (e.id === id ? changedRow : e)) : outreach,
+      changedRow ? [changedRow] : [],
+    )
     // Visible receipt — mirrors markFollowedUp's toast so both logging
     // paths (return-prompt + button) confirm identically.
     toast.success(`Logged ${followUpStageLabel(cur).toLowerCase()} for ${target?.channelName || 'lead'} — now touch ${next}`, {
@@ -1995,73 +2020,77 @@ export default function Home() {
   // One call, one snapshot, all fields. Explicit fields always win over
   // the status side-effects below.
   function applyOutreachUpdates(id: string, fields: Partial<OutreachEntry>) {
-    saveOutreach(outreach.map(e => {
-      if (e.id !== id) return e
-      const updated = { ...e, ...fields }
+    const target = outreach.find(x => x.id === id)
+    if (!target) return
+    // Kept as `e` so the status side-effect body below reads identically
+    // to its long-standing map-callback form (same names, same logic) —
+    // restructured 2026-07-09 so the updated row is computed once up
+    // front and the DB write can be a single-row delta.
+    const e = target
+    const updated = { ...e, ...fields }
 
-      if (fields.status !== undefined) {
-        const value = fields.status
-        // No toasts on status changes (Successful / Rejected / No
-        // Response / Not Outreached / Open) — every transition was
-        // popping a notification in the bottom-right which felt
-        // noisy for routine triage. The confetti animation still
-        // fires on first-time Successful so the dopamine moment
-        // isn't lost.
-        if (value === 'Successful' && e.status !== 'Successful') {
-          celebrateSuccess()
-          // 2026-05-23: pair the confetti with a subtle CTA toast
-          // that lets the user jump straight to the new Active
-          // Client engagement card.
-          setSuccessToast({
-            entryId: e.id,
-            channelName: e.channelName || 'Engagement',
-          })
+    if (fields.status !== undefined) {
+      const value = fields.status
+      // No toasts on status changes (Successful / Rejected / No
+      // Response / Not Outreached / Open) — every transition was
+      // popping a notification in the bottom-right which felt
+      // noisy for routine triage. The confetti animation still
+      // fires on first-time Successful so the dopamine moment
+      // isn't lost.
+      if (value === 'Successful' && e.status !== 'Successful') {
+        celebrateSuccess()
+        // 2026-05-23: pair the confetti with a subtle CTA toast
+        // that lets the user jump straight to the new Active
+        // Client engagement card.
+        setSuccessToast({
+          entryId: e.id,
+          channelName: e.channelName || 'Engagement',
+        })
+      }
+
+      // Status drives reachedOut: anything past "Not Outreached" / "" counts.
+      if (fields.reachedOut === undefined) {
+        updated.reachedOut = value !== 'Not Outreached' && value !== ''
+      }
+
+      const isActive = value === 'Open' || value === 'No Response'
+      const isTerminal = value === 'Successful' || value === 'Rejected' || value === 'Not Outreached'
+
+      if (isActive) {
+        // First time the user actually reaches out → log the date + 1st touchpoint
+        if (e.status === 'Not Outreached' || e.status === '') {
+          if (!e.dateReachedOut && fields.dateReachedOut === undefined) updated.dateReachedOut = todayIso()
+          const tps = parseInt(e.touchpoints || '0', 10) || 0
+          if (tps === 0 && fields.touchpoints === undefined) updated.touchpoints = '1'
         }
 
-        // Status drives reachedOut: anything past "Not Outreached" / "" counts.
-        if (fields.reachedOut === undefined) {
-          updated.reachedOut = value !== 'Not Outreached' && value !== ''
-        }
-
-        const isActive = value === 'Open' || value === 'No Response'
-        const isTerminal = value === 'Successful' || value === 'Rejected' || value === 'Not Outreached'
-
-        if (isActive) {
-          // First time the user actually reaches out → log the date + 1st touchpoint
-          if (e.status === 'Not Outreached' || e.status === '') {
-            if (!e.dateReachedOut && fields.dateReachedOut === undefined) updated.dateReachedOut = todayIso()
-            const tps = parseInt(e.touchpoints || '0', 10) || 0
-            if (tps === 0 && fields.touchpoints === undefined) updated.touchpoints = '1'
-          }
-
-          // Apply follow-up cadence: shorter early, longer later.
-          // First follow-up lands 5 *business* days out (weekends skipped);
-          // later touches keep their calendar cadence — see nextFollowUpIso.
-          // Only auto-fills when the caller didn't provide a date AND the
-          // user hasn't set one — manual dates win.
-          // Re-engagement of an overdue No-Response lead also gets a fresh date.
-          const existing = parseLocalDate(e.followUpDate)
-          const today = new Date(); today.setHours(0, 0, 0, 0)
-          const isPastDue = existing && existing.getTime() < today.getTime()
-          if (fields.followUpDate === undefined && (!e.followUpDate || isPastDue)) {
-            const tps = parseInt(updated.touchpoints || e.touchpoints || '0', 10) || 1
-            updated.followUpDate = nextFollowUpIso(tps)
-          }
-        }
-
-        if (isTerminal) {
-          // Done with this lead — drop them out of the follow-up queue
-          // (unless the caller explicitly set a date in the same update).
-          if (fields.followUpDate === undefined) updated.followUpDate = ''
-          if (value === 'Successful' || value === 'Rejected') {
-            // Stamp response date when there isn't one already.
-            if (!e.responseDate && fields.responseDate === undefined) updated.responseDate = todayIso()
-          }
+        // Apply follow-up cadence: shorter early, longer later.
+        // First follow-up lands 5 *business* days out (weekends skipped);
+        // later touches keep their calendar cadence — see nextFollowUpIso.
+        // Only auto-fills when the caller didn't provide a date AND the
+        // user hasn't set one — manual dates win.
+        // Re-engagement of an overdue No-Response lead also gets a fresh date.
+        const existing = parseLocalDate(e.followUpDate)
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        const isPastDue = existing && existing.getTime() < today.getTime()
+        if (fields.followUpDate === undefined && (!e.followUpDate || isPastDue)) {
+          const tps = parseInt(updated.touchpoints || e.touchpoints || '0', 10) || 1
+          updated.followUpDate = nextFollowUpIso(tps)
         }
       }
 
-      return updated
-    }))
+      if (isTerminal) {
+        // Done with this lead — drop them out of the follow-up queue
+        // (unless the caller explicitly set a date in the same update).
+        if (fields.followUpDate === undefined) updated.followUpDate = ''
+        if (value === 'Successful' || value === 'Rejected') {
+          // Stamp response date when there isn't one already.
+          if (!e.responseDate && fields.responseDate === undefined) updated.responseDate = todayIso()
+        }
+      }
+    }
+
+    saveOutreachDelta(outreach.map(x => (x.id === id ? updated : x)), [updated])
   }
 
   // Back-compat single-field shim — the confirm-modal path and a few
@@ -2327,18 +2356,23 @@ export default function Home() {
         toast.error(`Search failed: ${extra.error || 'unknown'}`)
         return
       }
-      saveOutreach(outreach.map(e => {
-        if (e.id !== id) return e
+      const cur = outreach.find(e => e.id === id)
+      if (cur) {
         // Only fill in fields that are currently empty so we don't overwrite
         // anything the user has manually entered.
-        return {
-          ...e,
-          email: e.email || extra.email || '',
-          linkedin: e.linkedin || extra.linkedin || '',
-          subscribers: e.subscribers || extra.subscribers || '',
-          avgViews: e.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
+        const filled: OutreachEntry = {
+          ...cur,
+          email: cur.email || extra.email || '',
+          linkedin: cur.linkedin || extra.linkedin || '',
+          subscribers: cur.subscribers || extra.subscribers || '',
+          avgViews: cur.avgViews || (extra.avgViews && !isNaN(extra.avgViews) ? extra.avgViews : 0),
         }
-      }))
+        // Single-row delta — also fixes the bulk-enrich race the old
+        // whole-list save had here: 3 concurrent enrich resolutions each
+        // persisted a full stale snapshot (slowest writer clobbered the
+        // other two's emails in the DB). Row-scoped writes can't compete.
+        saveOutreachDelta(outreach.map(e => (e.id === id ? filled : e)), [filled])
+      }
       // (No email found is non-blocking — UI updates via setOutreach above.)
     } catch (err: any) {
       toast.error(`Search failed: ${err?.message || err}`)
@@ -2358,7 +2392,7 @@ export default function Home() {
   // both the no-guard path (non-Successful rows) and the modal
   // confirm callback for Successful rows.
   function applyRemoveOutreach(id: string) {
-    saveOutreach(outreach.filter(e => e.id !== id))
+    saveOutreachRemoval(outreach.filter(e => e.id !== id), [id])
   }
 
   function removeOutreachEntry(id: string) {
@@ -2374,21 +2408,29 @@ export default function Home() {
     applyRemoveOutreach(id)
   }
 
-  function saveDismissed(updated: Creator[]) {
-    setDismissed(updated)
-    setDismissedIds(new Set(updated.map(c => c.channelId)))
-    void persistDismissed(updated)
-  }
+  // Dismissed writes are deltas too (2026-07-09 perf) — the old shared
+  // saveDismissed(updated) wrapper ran the full-snapshot storage path
+  // (paginated read of every existing id + whole-list re-upload) for a
+  // single dismiss click. Full-snapshot persistDismissed() remains for
+  // the CSV-import path only.
 
   function dismissCreator(c: Creator) {
-    if (!dismissedIds.has(c.channelId)) saveDismissed([...dismissed, c])
+    if (!dismissedIds.has(c.channelId)) {
+      const updated = [...dismissed, c]
+      setDismissed(updated)
+      setDismissedIds(new Set(updated.map(x => x.channelId)))
+      void upsertDismissedRows([c])
+    }
     // also remove from load-more batch so it disappears immediately
     setLoadMoreCreators(prev => prev.filter(p => p.channelId !== c.channelId))
     setCreators(prev => prev.filter(p => p.channelId !== c.channelId))
   }
 
   function undismissCreator(id: string) {
-    saveDismissed(dismissed.filter(c => c.channelId !== id))
+    const updated = dismissed.filter(c => c.channelId !== id)
+    setDismissed(updated)
+    setDismissedIds(new Set(updated.map(x => x.channelId)))
+    void deleteDismissedRows([id])
   }
 
   const runSearch = useCallback(async (
@@ -3354,6 +3396,17 @@ export default function Home() {
     const seen = new Set(currentList.map(c => c.channelId))
     return [...currentList, ...loadMoreFiltered.filter(c => !seen.has(c.channelId))]
   }, [isExplicitResultsSort, currentList, loadMoreFiltered])
+
+  // Outreach-tab keyword filter, memoized (2026-07-09 perf): this was
+  // computed inline in JSX, so EVERY re-render of this (large) component
+  // re-scanned the whole board — even renders triggered by unrelated
+  // state like toasts or theme ticks — and handed OutreachTab a fresh
+  // array identity each time. Recomputes only when the data or the
+  // keyword actually changes.
+  const filteredOutreach = useMemo(
+    () => filterOutreachByKeyword(outreach, keyword),
+    [outreach, keyword],
+  )
 
   return (
     <GuidanceContext.Provider value={{ entries: effectiveGuidanceEntries, addEntry: addGuidanceEntry, removeEntry: removeGuidanceEntry, updateEntryWeight: updateGuidanceEntryWeight, resetAll: resetAllGuidance }}>
@@ -4615,7 +4668,7 @@ export default function Home() {
             ) : (
               <div data-tour-id="outreach-table">
               <OutreachTab
-                entries={filterOutreachByKeyword(outreach, keyword)}
+                entries={filteredOutreach}
                 colConfig={outreachColConfig}
                 onUpdate={updateOutreachEntry}
                 onRemove={removeOutreachEntry}
@@ -4928,8 +4981,9 @@ export default function Home() {
         <ManualAddOutreachModal
           existingChannelIds={outreachIds}
           onAdd={async (entry) => {
-            const next = [entry, ...outreach]
-            await persistOutreach(next)
+            // Delta write (2026-07-09 perf): only the new row goes to the
+            // DB; the refetch below still rebuilds full state as before.
+            await upsertOutreachRows([entry])
             const fresh = await getOutreach()
             setOutreach(fresh)
             setOutreachIds(new Set(fresh.map(e => e.channelId)))
