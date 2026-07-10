@@ -111,10 +111,21 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
     return daysSince >= GHOSTED_THRESHOLD_DAYS
   }
 
-  // Active queue = Open OR recently-sent (status=No Response, <14d).
-  // Truly ghosted = No Response AND >= 14 days since outreach. Treated
+  // Active queue = Open OR recently-sent (status=No Response, <30d) OR
+  // a not-yet-contacted lead with a manually-scheduled date. That last
+  // clause is the "+ Add follow-up" fix (Dylan 2026-07-10): the modal
+  // sets only followUpDate, so a 'Not Outreached' lead you scheduled
+  // never passed the status gate — the add looked like it did nothing
+  // in every view. A scheduled first outreach IS tracker work; it
+  // buckets by its date like any other row and drops back out if the
+  // date is cleared.
+  // Truly ghosted = No Response AND >= 30 days since outreach. Treated
   // as a separate bucket below the main priority queue.
-  const open = entries.filter(e => e.status === 'Open' || (e.status === 'No Response' && !isTrulyGhosted(e)))
+  const open = entries.filter(e =>
+    e.status === 'Open'
+    || (e.status === 'No Response' && !isTrulyGhosted(e))
+    || ((e.status === 'Not Outreached' || !e.status) && !!e.followUpDate),
+  )
   const ghosted = entries.filter(e => isTrulyGhosted(e))
 
   function bucketOf(e: OutreachEntry): FUBucket {
@@ -208,13 +219,23 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
     const cur = parseInt(e.touchpoints || '0', 10) || 0
     const next = cur + 1
     const nextDate = opts?.date ?? nextFollowUpIso(next)
+    // A logged touch means the lead HAS been contacted — if the status
+    // would remain ''/'Not Outreached' (manually-scheduled first
+    // outreach), land it as 'No Response', exactly like the sibling
+    // logFollowUpTouch path in page.tsx. An explicit different pick in
+    // the popover still wins.
+    const resolvedStatus = opts?.status || e.status
+    const statusFields =
+      !resolvedStatus || resolvedStatus === 'Not Outreached'
+        ? { status: 'No Response' as OutreachEntry['status'] }
+        : opts?.status && opts.status !== e.status
+          ? { status: opts.status as OutreachEntry['status'] }
+          : {}
     onUpdateFields(e.id, {
       touchpoints: String(next),
       dateReachedOut: todayIso(),
       followUpDate: nextDate,
-      ...(opts?.status && opts.status !== e.status
-        ? { status: opts.status as OutreachEntry['status'] }
-        : {}),
+      ...statusFields,
     })
     // Visible receipt — the row may re-sort or change buckets after the
     // update, so confirm what happened where the eye already is.
@@ -237,7 +258,16 @@ export function OutreachFollowUps({ entries, onUpdate, onUpdateFields, onOpenEnt
   const addFollowUpModalEl = showAddFollowUp ? (
     <AddFollowUpModal
       entries={entries}
-      onAdd={(id, date) => onUpdate(id, 'followUpDate', date)}
+      onAdd={(id, date) => {
+        onUpdate(id, 'followUpDate', date)
+        // Visible receipt (Dylan 2026-07-10: "hard to follow what that
+        // button does") — name + date confirm the add landed, even when
+        // the date sits outside the calendar week/month currently shown.
+        const target = entries.find(e => e.id === id)
+        toast.success(`Follow-up scheduled for ${target?.channelName || 'lead'}`, {
+          description: `Due ${formatDueDate(date)} — it's on your tracker and calendars.`,
+        })
+      }}
       onClose={() => setShowAddFollowUp(false)}
     />
   ) : null

@@ -41,10 +41,15 @@ export function AddFollowUpModal({ entries, onAdd, onClose }: AddFollowUpModalPr
   }, [onClose])
 
   // Filter by name/email; entries WITHOUT a follow-up date float up
-  // (they're the usual reason you'd open this).
+  // (they're the usual reason you'd open this). Won/rejected leads are
+  // excluded (2026-07-10): the tracker never shows terminal statuses,
+  // so scheduling one silently vanished — the exact "button does
+  // nothing" trap this modal had. Reopen the lead from the Outreach
+  // tab first if it genuinely needs another ping.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     const matches = entries.filter(e => {
+      if (e.status === 'Successful' || e.status === 'Rejected') return false
       if (!q) return true
       return (
         (e.channelName ?? '').toLowerCase().includes(q) ||
@@ -82,7 +87,7 @@ export function AddFollowUpModal({ entries, onAdd, onClose }: AddFollowUpModalPr
             <h2 className="text-base font-semibold text-foreground">Add a follow-up</h2>
             <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground text-lg leading-none w-7 h-7 inline-flex items-center justify-center rounded hover:bg-muted/40 transition-colors">✕</button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Pick a creator from your outreach and schedule when to ping them.</p>
+          <p className="text-xs text-muted-foreground mt-1">Pick a creator from your outreach and schedule when to ping them — they&apos;ll show on the tracker and calendars for that date. Won/rejected leads aren&apos;t listed.</p>
         </div>
 
         <div className="px-5 py-3 border-b border-border/60">

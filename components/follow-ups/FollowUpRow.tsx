@@ -113,12 +113,17 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
 
   // What action does this row prompt? "Next:" makes it explicit that the
   // stage names the UPCOMING send — which is also the template the email
-  // button will compose.
+  // button will compose. tps=0 means never contacted (a manually-
+  // scheduled first outreach, or a legacy zero-touch row): the compose
+  // path sends the INITIAL template there (isFollowUpCompose is false),
+  // so say "First outreach", not "1st follow-up".
   const stageHint = bucket === 'ghosted'
     ? `Marked No Response · ${tps} touch${tps === 1 ? '' : 'es'}`
-    : tps >= 4
-      ? `Next: Final attempt · ${tps} touch${tps === 1 ? '' : 'es'} so far`
-      : `Next: ${stage} · ${tps} touch${tps === 1 ? '' : 'es'} so far`
+    : tps === 0
+      ? 'Next: First outreach · not contacted yet'
+      : tps >= 4
+        ? `Next: Final attempt · ${tps} touch${tps === 1 ? '' : 'es'} so far`
+        : `Next: ${stage} · ${tps} touch${tps === 1 ? '' : 'es'} so far`
 
   const dealValue = parseFloat(String(e.dealValue || '').replace(/[^0-9.]/g, '')) || 0
 
@@ -196,7 +201,7 @@ export const FollowUpRow = memo(function FollowUpRow({ entry: e, bucket, onUpdat
                     })
                   }
                 }}
-                title={`Composes the ${stage.toLowerCase()} template to ${e.email}. Opens your Gmail compose (or the preview modal if Gmail is connected). After you send and return, a prompt offers to log the touch.`}
+                title={`Composes the ${tps === 0 ? 'initial outreach' : stage.toLowerCase()} template to ${e.email}. Opens your Gmail compose (or the preview modal if Gmail is connected). After you send and return, a prompt offers to log the touch.`}
                 aria-label={`Email ${e.email}`}
                 className="inline-flex items-center text-emerald-700 dark:text-emerald-400/80 hover:text-emerald-500 transition-colors shrink-0"
               >

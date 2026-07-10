@@ -70,7 +70,15 @@ export function CadencePopover({
   const logCadenceDays = nextFollowUpDays(touchpoints + 1)
   const logCadenceIso = nextFollowUpIso(touchpoints + 1)
   const [logDate, setLogDate] = useState<string>(logCadenceIso)
-  const [logStatus, setLogStatus] = useState<string>(currentStatus || 'No Response')
+  // Seed the outcome select. 'Not Outreached' (a manually-scheduled
+  // first outreach) isn't an option here — logging a send means the
+  // lead has BEEN contacted, so it seeds as 'No Response' like an
+  // empty status does. Leaving the raw value would render the select
+  // blank (no matching <option>) and silently keep the contradictory
+  // "never contacted, 1 touch" state.
+  const [logStatus, setLogStatus] = useState<string>(
+    currentStatus && currentStatus !== 'Not Outreached' ? currentStatus : 'No Response',
+  )
 
   return (
     <div

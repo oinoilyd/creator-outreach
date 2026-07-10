@@ -16,10 +16,8 @@
 
 import { useState } from 'react'
 import type { OutreachEntry, UserProfile } from '@/lib/types'
-import {
-  priColor, fmtFollow, moneyShort, dealValueNum,
-  toIso, parseLocalDate, daysFromNow, lastTouchedDaysAgo,
-} from './follow-up-shared'
+import { priColor, toIso, parseLocalDate } from './follow-up-shared'
+import { FollowUpDayRow } from '@/components/follow-ups/FollowUpDayRow'
 
 interface Props {
   entries: OutreachEntry[]
@@ -27,7 +25,7 @@ interface Props {
   profile: UserProfile | null
 }
 
-export function FollowUpWeekStrip({ entries, onOpenEntry }: Props) {
+export function FollowUpWeekStrip({ entries, onOpenEntry, profile }: Props) {
   const [weekOffset, setWeekOffset] = useState(0)
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const sunday = new Date(today)
@@ -117,28 +115,14 @@ export function FollowUpWeekStrip({ entries, onOpenEntry }: Props) {
         {selEntries.length === 0 ? (
           <div className="text-xs text-muted-foreground italic">Nothing scheduled — quiet day.</div>
         ) : (
+          // Shared day row (2026-07-10) — same component the month
+          // view's day sheet renders, so the two calendars' day lists
+          // stay identical by construction. Adds the quick actions
+          // (email / IG / LinkedIn / details) this panel used to lack.
           <ul className="space-y-2">
-            {selEntries.map(e => {
-              const p = priColor(e)
-              const lt = lastTouchedDaysAgo(e)
-              return (
-                <li
-                  key={e.id}
-                  onClick={() => onOpenEntry(e.id)}
-                  className={`rounded-lg border ${p.tint} p-3 flex items-center gap-3 flex-wrap cursor-pointer hover:bg-card/50 transition-colors`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${p.dot}`} />
-                  <span className="text-sm font-medium flex-1 truncate">{e.channelName}</span>
-                  <span className={`text-[10px] uppercase tracking-wider font-bold ${p.text}`}>{fmtFollow(e)}</span>
-                  {dealValueNum(e) > 0 && <span className="text-sm font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">{moneyShort(e.dealValue)}</span>}
-                  {lt && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {lt.label}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
+            {selEntries.map(e => (
+              <FollowUpDayRow key={e.id} entry={e} profile={profile} onOpenEntry={onOpenEntry} />
+            ))}
           </ul>
         )}
       </section>

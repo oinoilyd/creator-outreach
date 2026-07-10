@@ -4595,10 +4595,13 @@ export default function Home() {
             )}
             {(() => {
               const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime() })()
-              // Sub-tab badge = action-needed count (Open + overdue/today only).
+              // Sub-tab badge = action-needed count (overdue/today only), for
+              // Open leads plus manually-scheduled first outreaches (a dated
+              // 'Not Outreached' lead — the "+ Add follow-up" path, 2026-07-10).
               // No Response leads aren't counted; they're the "ghosted" bucket.
               const dueCount = outreach.filter(e => {
-                if (e.status !== 'Open') return false
+                const scheduledFirstTouch = (e.status === 'Not Outreached' || !e.status) && !!e.followUpDate
+                if (e.status !== 'Open' && !scheduledFirstTouch) return false
                 const d = parseLocalDate(e.followUpDate)
                 if (!d) return false
                 d.setHours(0, 0, 0, 0)
