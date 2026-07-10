@@ -14,10 +14,8 @@
 
 import { useState } from 'react'
 import type { OutreachEntry, UserProfile } from '@/lib/types'
-import {
-  priColor, fmtFollow, moneyShort, dealValueNum,
-  toIso, parseLocalDate, lastTouchedDaysAgo,
-} from './follow-up-shared'
+import { toIso, parseLocalDate } from './follow-up-shared'
+import { FollowUpDayRow } from '@/components/follow-ups/FollowUpDayRow'
 
 interface Props {
   entries: OutreachEntry[]
@@ -25,7 +23,7 @@ interface Props {
   profile: UserProfile | null
 }
 
-export function FollowUpSplit({ entries, onOpenEntry }: Props) {
+export function FollowUpSplit({ entries, onOpenEntry, profile }: Props) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const [viewMonth, setViewMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
   const [selIso, setSelIso] = useState(toIso(today))
@@ -119,39 +117,14 @@ export function FollowUpSplit({ entries, onOpenEntry }: Props) {
             Nothing scheduled for this day.
           </div>
         ) : (
+          // Shared day row (2026-07-10) — same component as the week
+          // strip's day panel and the month view's day sheet, so all
+          // three calendars' day lists stay identical by construction
+          // (and this agenda gains the quick actions it lacked).
           <ul className="space-y-2">
-            {selEntries.map(e => {
-              const p = priColor(e)
-              const lt = lastTouchedDaysAgo(e)
-              return (
-                <li
-                  key={e.id}
-                  onClick={() => onOpenEntry(e.id)}
-                  className={`rounded-xl border ${p.tint} p-4 cursor-pointer hover:bg-card/50 transition-colors`}
-                >
-                  <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-base font-semibold">{e.channelName}</span>
-                        <span className={`text-[10px] uppercase tracking-wider font-bold ${p.text}`}>{fmtFollow(e)}</span>
-                      </div>
-                      {lt && (
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {lt.label}
-                          {e.medium && ` · via ${e.medium}`}
-                        </div>
-                      )}
-                      {e.notes && (
-                        <div className="text-[11px] text-foreground/70 mt-1 line-clamp-2">{e.notes}</div>
-                      )}
-                    </div>
-                    {dealValueNum(e) > 0 && (
-                      <span className="text-base font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">{moneyShort(e.dealValue)}</span>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
+            {selEntries.map(e => (
+              <FollowUpDayRow key={e.id} entry={e} profile={profile} onOpenEntry={onOpenEntry} />
+            ))}
           </ul>
         )}
       </section>
