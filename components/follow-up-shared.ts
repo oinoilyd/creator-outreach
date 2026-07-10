@@ -55,12 +55,17 @@ export function isTrulyGhosted(e: OutreachEntry): boolean {
   return days >= GHOSTED_THRESHOLD_DAYS
 }
 
+// Due-state label for calendar day rows. Same vocabulary as the list
+// view's due pill in FollowUpRow ("Due in Xd" / "Due today" / "Overdue
+// by Xd") — the old "+4d" shorthand read as cryptic out of context
+// (Dylan 2026-07-10), and one wording app-wide beats two.
 export function fmtFollow(e: OutreachEntry): string {
   if (isTrulyGhosted(e)) return 'Ghosted'
+  if (!e.followUpDate) return 'No date'
   const d = daysFromNow(e.followUpDate)
-  if (d < 0) return `Overdue ${Math.abs(d)}d`
-  if (d === 0) return 'Today'
-  return `+${d}d`
+  if (d < 0) return `Overdue by ${Math.abs(d)}d`
+  if (d === 0) return 'Due today'
+  return `Due in ${d}d`
 }
 
 export function moneyShort(val: string | number | undefined): string {
