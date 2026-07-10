@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import type { OutreachEntry, UserProfile } from '@/lib/types'
 import { parseLocalDate } from '@/lib/dates'
+import { nextScheduledIsoAfter } from '@/components/follow-up-shared'
 import { FollowUpDaySheet } from '@/components/follow-ups/FollowUpDaySheet'
 
 /**
@@ -261,6 +262,17 @@ export function FollowUpCalendar({
           onClose={() => setSelectedIso(null)}
           onOpenEntry={onOpenEntry}
           profile={profile}
+          // Quiet-day pointer (2026-07-10) — when the selected day is
+          // empty, the sheet names the nearest upcoming follow-up and a
+          // click jumps the grid + selection to that day (crossing into
+          // the right month if needed).
+          nextScheduledIso={nextScheduledIsoAfter(entries, selectedIso)}
+          onJumpToDate={(iso) => {
+            const d = parseLocalDate(iso)
+            if (!d) return
+            setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1))
+            setSelectedIso(iso)
+          }}
         />
       )}
 

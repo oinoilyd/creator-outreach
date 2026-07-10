@@ -2,7 +2,7 @@
 
 import React from 'react'
 import type { OutreachEntry, UserProfile } from '@/lib/types'
-import { parseLocalDate } from '@/lib/dates'
+import { parseLocalDate, formatDueDate } from '@/lib/dates'
 import { FollowUpDayRow } from '@/components/follow-ups/FollowUpDayRow'
 
 /**
@@ -23,6 +23,8 @@ export function FollowUpDaySheet({
   onClose,
   onOpenEntry,
   profile,
+  nextScheduledIso,
+  onJumpToDate,
 }: {
   dateIso: string
   entries: OutreachEntry[]
@@ -34,6 +36,11 @@ export function FollowUpDaySheet({
   onClose: () => void
   onOpenEntry: (id: string) => void
   profile: UserProfile | null
+  /** Quiet-day pointer (2026-07-10): nearest scheduled follow-up AFTER
+   *  this day. When the day is empty, the sheet names it and a click
+   *  fires onJumpToDate so the calendar navigates there. */
+  nextScheduledIso?: string | null
+  onJumpToDate?: (iso: string) => void
 }) {
   const dateLabel = (() => {
     const d = parseLocalDate(dateIso)
@@ -92,6 +99,15 @@ export function FollowUpDaySheet({
           {overdueEntries.length > 0
             ? 'No follow-ups scheduled for today (overdue items above need attention).'
             : 'No follow-ups scheduled for this day.'}
+          {nextScheduledIso && onJumpToDate && (
+            <button
+              type="button"
+              onClick={() => onJumpToDate(nextScheduledIso)}
+              className="not-italic ml-2 text-purple-700 dark:text-purple-300 hover:underline underline-offset-2"
+            >
+              Next follow-up: {formatDueDate(nextScheduledIso)} →
+            </button>
+          )}
         </div>
       ) : (
         <ul className="space-y-2">

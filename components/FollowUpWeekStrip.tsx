@@ -16,7 +16,8 @@
 
 import { useState } from 'react'
 import type { OutreachEntry, UserProfile } from '@/lib/types'
-import { priColor, toIso, parseLocalDate } from './follow-up-shared'
+import { priColor, toIso, parseLocalDate, nextScheduledIsoAfter } from './follow-up-shared'
+import { formatDueDate } from '@/lib/dates'
 import { FollowUpDayRow } from '@/components/follow-ups/FollowUpDayRow'
 
 interface Props {
@@ -37,6 +38,19 @@ export function FollowUpWeekStrip({ entries, onOpenEntry, profile }: Props) {
   const [selIso, setSelIso] = useState<string>(toIso(today))
 
   const selEntries = entries.filter(e => e.followUpDate === selIso)
+
+  // Quiet-day pointer (2026-07-10): when the selected day is empty,
+  // surface the nearest upcoming follow-up and let a click jump the
+  // strip straight to its week + day.
+  function jumpToIso(iso: string) {
+    const d = parseLocalDate(iso)
+    if (!d) return
+    d.setHours(0, 0, 0, 0)
+    const targetSunday = new Date(d); targetSunday.setDate(d.getDate() - d.getDay())
+    const todaySunday = new Date(today); todaySunday.setDate(today.getDate() - today.getDay())
+    setWeekOffset(Math.round((targetSunday.getTime() - todaySunday.getTime()) / (7 * 86_400_000)))
+    setSelIso(iso)
+  }
   const weekTotal = entries.filter(e => {
     const d = parseLocalDate(e.followUpDate)
     if (!d) return false
@@ -113,7 +127,22 @@ export function FollowUpWeekStrip({ entries, onOpenEntry, profile }: Props) {
           <span className="ml-2 text-muted-foreground font-normal">· {selEntries.length} follow-up{selEntries.length === 1 ? '' : 's'}</span>
         </h3>
         {selEntries.length === 0 ? (
-          <div className="text-xs text-muted-foreground italic">Nothing scheduled — quiet day.</div>
+          <div className="text-xs text-muted-foreground italic">
+            Nothing scheduled — quiet day.
+            {(() => {
+              const nextIso = nextScheduledIsoAfter(entries, selIso)
+              if (!nextIso) return null
+              return (
+                <button
+                  type="button"
+                  onClick={() => jumpToIso(nextIso)}
+                  className="not-italic ml-2 text-purple-700 dark:text-purple-300 hover:underline underline-offset-2"
+                >
+                  Next follow-up: {formatDueDate(nextIso)} →
+                </button>
+              )
+            })()}
+          </div>
         ) : (
           // Shared day row (2026-07-10) — same component the month
           // view's day sheet renders, so the two calendars' day lists

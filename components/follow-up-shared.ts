@@ -68,6 +68,23 @@ export function fmtFollow(e: OutreachEntry): string {
   return `Due in ${d}d`
 }
 
+/**
+ * ISO of the nearest scheduled followUpDate strictly AFTER the given
+ * day, or null when nothing is scheduled beyond it. ISO yyyy-mm-dd
+ * strings compare lexicographically, so plain string comparison is
+ * date-safe. Powers the calendar views' quiet-day pointer ("Next
+ * follow-up: Tue, Jul 15 →", Dylan 2026-07-10).
+ */
+export function nextScheduledIsoAfter(entries: OutreachEntry[], afterIso: string): string | null {
+  let best: string | null = null
+  for (const e of entries) {
+    const d = e.followUpDate
+    if (!d || d <= afterIso) continue
+    if (!best || d < best) best = d
+  }
+  return best
+}
+
 export function moneyShort(val: string | number | undefined): string {
   const n = typeof val === 'number' ? val : parseFloat(String(val || '').replace(/[^0-9.]/g, ''))
   if (!n) return ''

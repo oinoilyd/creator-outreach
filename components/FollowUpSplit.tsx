@@ -14,7 +14,8 @@
 
 import { useState } from 'react'
 import type { OutreachEntry, UserProfile } from '@/lib/types'
-import { toIso, parseLocalDate } from './follow-up-shared'
+import { toIso, parseLocalDate, nextScheduledIsoAfter } from './follow-up-shared'
+import { formatDueDate } from '@/lib/dates'
 import { FollowUpDayRow } from '@/components/follow-ups/FollowUpDayRow'
 
 interface Props {
@@ -115,6 +116,27 @@ export function FollowUpSplit({ entries, onOpenEntry, profile }: Props) {
         {selEntries.length === 0 ? (
           <div className="border border-dashed border-border rounded-xl py-12 px-6 text-center text-sm text-muted-foreground italic">
             Nothing scheduled for this day.
+            {(() => {
+              // Quiet-day pointer (2026-07-10) — same affordance as the
+              // week strip: name the nearest upcoming follow-up, click
+              // jumps the mini-cal + agenda to that day.
+              const nextIso = nextScheduledIsoAfter(entries, selIso)
+              if (!nextIso) return null
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = parseLocalDate(nextIso)
+                    if (!d) return
+                    setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1))
+                    setSelIso(nextIso)
+                  }}
+                  className="not-italic ml-2 text-xs text-purple-700 dark:text-purple-300 hover:underline underline-offset-2"
+                >
+                  Next follow-up: {formatDueDate(nextIso)} →
+                </button>
+              )
+            })()}
           </div>
         ) : (
           // Shared day row (2026-07-10) — same component as the week
