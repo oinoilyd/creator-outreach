@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      width: 320px; margin: 0; padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #14111c; color: #f4f2fa; font-size: 13px;
+    }
+    h1 { font-size: 14px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #3b82f6); }
+    p.sub { color: #9d96b3; margin: 0 0 14px; line-height: 1.45; }
+    label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #9d96b3; margin-bottom: 5px; }
+    input {
+      width: 100%; box-sizing: border-box; background: #201b2e; color: #f4f2fa;
+      border: 1px solid #383050; border-radius: 8px; padding: 8px 10px; font-size: 13px;
+    }
+    input:focus { outline: none; border-color: #7c3aed; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    button {
+      all: unset; cursor: pointer; text-align: center; font-weight: 600; font-size: 13px;
+      border-radius: 8px; padding: 8px 12px;
+    }
+    #save { flex: 1; background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; }
+    #save:hover { filter: brightness(1.12); }
+    #test { border: 1px solid #383050; color: #cfc9e2; }
+    #test:hover { border-color: #7c3aed; color: #fff; }
+    #status { margin-top: 12px; min-height: 18px; line-height: 1.4; }
+    #status.ok { color: #6ee7b7; }
+    #status.err { color: #fda4af; }
+    a { color: #b7a5f7; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .hint { margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a2440; color: #9d96b3; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1><span class="dot"></span>Creator Outreach</h1>
+  <p class="sub">Paste a platform API key to add creators straight from YouTube.</p>
+
+  <label for="key">API key</label>
+  <input id="key" type="password" placeholder="co_live_…" autocomplete="off" />
+
+  <div class="row">
+    <button id="save">Save</button>
+    <button id="test">Test connection</button>
+  </div>
+  <div id="status"></div>
+
+  <div class="hint">
+    Create a key in the app: hamburger menu → <b>Integrations</b> →
+    <b>Platform API keys</b>. <a href="https://creatoroutreach.net" target="_blank" rel="noreferrer">Open Creator Outreach →</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

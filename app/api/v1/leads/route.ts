@@ -37,6 +37,38 @@ export async function GET(req: NextRequest) {
   const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0)
 
   const cols = ['id', 'added_at', ...LEAD_FIELDS.map(f => f.col)].join(', ')
+  const toLead = (r: unknown) => {
+    const row = r as Record<string, unknown>
+    const out: Record<string, unknown> = { id: row.id, addedAt: row.added_at }
+    for (const f of LEAD_FIELDS) out[f.key] = row[f.col] ?? ''
+    return out
+  }
+
+  // Point lookup (2026-07-11, for the browser extension): pass
+  // ?channelId= (the platform's real id, e.g. a YouTube UC…) and/or
+  // ?channelUrl= to ask "is this creator already in my outreach?".
+  // channel_id is the stronger key (search-added leads carry the real
+  // platform id; URL formats vary), so it's checked first. Response
+  // shape matches the list — just filtered — so nothing else changes.
+  const qChannelId = clampString(searchParams.get('channelId') || '', 128)
+  const qChannelUrl = clampString(searchParams.get('channelUrl') || '', 2000)
+  if (qChannelId || qChannelUrl) {
+    let rows: unknown[] = []
+    if (qChannelId) {
+      const { data, error } = await sb.from('outreach_entries').select(cols)
+        .eq('user_id', key.userId).eq('channel_id', qChannelId).limit(limit)
+      if (error) return NextResponse.json({ error: 'Failed to load leads' }, { status: 500 })
+      rows = data ?? []
+    }
+    if (rows.length === 0 && qChannelUrl) {
+      const { data, error } = await sb.from('outreach_entries').select(cols)
+        .eq('user_id', key.userId).eq('channel_url', qChannelUrl).limit(limit)
+      if (error) return NextResponse.json({ error: 'Failed to load leads' }, { status: 500 })
+      rows = data ?? []
+    }
+    return NextResponse.json({ leads: rows.map(toLead), limit, offset: 0 })
+  }
+
   const { data, error } = await sb
     .from('outreach_entries')
     .select(cols)
@@ -45,13 +77,7 @@ export async function GET(req: NextRequest) {
     .range(offset, offset + limit - 1)
   if (error) return NextResponse.json({ error: 'Failed to load leads' }, { status: 500 })
 
-  const leads = (data ?? []).map((r) => {
-    const row = r as unknown as Record<string, unknown>
-    const out: Record<string, unknown> = { id: row.id, addedAt: row.added_at }
-    for (const f of LEAD_FIELDS) out[f.key] = row[f.col] ?? ''
-    return out
-  })
-  return NextResponse.json({ leads, limit, offset })
+  return NextResponse.json({ leads: (data ?? []).map(toLead), limit, offset })
 }
 
 export async function POST(req: NextRequest) {
@@ -85,9 +111,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'channelName is required.' }, { status: 400 })
   }
 
-  // Upsert match: channelUrl → email → exact channelName.
+  // Optional real platform channel id (2026-07-11, for the browser
+  // extension — e.g. a YouTube "UC…" id). When provided it becomes the
+  // strongest upsert-match key AND the stored channel_id on insert, so
+  // a lead added from the extension dedupes against the same channel
+  // added later from Search (the whole app keys on channelId). Shape-
+  // validated; anything odd is ignored rather than rejected.
+  const rawChannelId = (body as Record<string, unknown>).channelId
+  const providedChannelId =
+    typeof rawChannelId === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(rawChannelId)
+      ? rawChannelId
+      : null
+
+  // Upsert match: channelId → channelUrl → email → exact channelName.
   let existingId: string | null = null
-  if (fields.channel_url) {
+  if (providedChannelId) {
+    const { data } = await sb.from('outreach_entries').select('id')
+      .eq('user_id', key.userId).eq('channel_id', providedChannelId).limit(1).maybeSingle()
+    existingId = data?.id ?? null
+  }
+  if (!existingId && fields.channel_url) {
     const { data } = await sb.from('outreach_entries').select('id')
       .eq('user_id', key.userId).eq('channel_url', fields.channel_url).limit(1).maybeSingle()
     existingId = data?.id ?? null
@@ -111,7 +154,7 @@ export async function POST(req: NextRequest) {
   }
 
   const rand = Math.random().toString(36).slice(2, 10)
-  const channelId = `api-${Date.now()}-${rand}`
+  const channelId = providedChannelId ?? `api-${Date.now()}-${rand}`
   const row = {
     id: `${channelId}-${Date.now()}`,
     user_id: key.userId,
